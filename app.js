@@ -95,4 +95,77 @@ function card(title, subtitle, body, action=""){
 
 function renderNav(){
   document.getElementById("main-nav").innerHTML = views.map(v=>`<button class="nav-button ${v.id===currentView?"active":""}" data-view="${v.id}"><span class="nav-icon">${v.icon}</span><span>${v.label}</span></button>`).join("");
-  document
+  document.querySelectorAll("[data-view]").forEach(btn=>btn.addEventListener("click",()=>{currentView=btn.dataset.view; render();}));
+}
+function render(){
+  renderNav();
+  const meta = views.find(v=>v.id===currentView);
+  document.getElementById("page-title").textContent = meta.label;
+  document.getElementById("page-eyebrow").textContent = meta.eyebrow;
+  const banner = document.getElementById("mode-banner");
+  banner.className = `mode-banner ${state.isDemo ? "demo" : "live"}`;
+  banner.innerHTML = state.isDemo
+    ? `<strong>Demoläge</strong><span>Importera en LEB-fil med flikarna SF och EXT för att ersätta demoobjekten.</span>`
+    : `<strong>LEB-data aktiv</strong><span>${esc(state.sourceName || "Importerad fil")} · ${state.properties.length} fastigheter · ${state.contracts.length} avtal. Kompletteringar sparas lokalt i webbläsaren.</span>`;
+  const content = document.getElementById("content");
+  content.innerHTML = currentView === "dashboard" ? renderDashboard()
+    : currentView === "properties" ? renderProperties()
+    : currentView === "contracts" ? renderContracts()
+    : currentView === "portfolio" ? renderPortfolio()
+    : renderOrganisation();
+  bindViewEvents();
+}
+
+function renderDashboard(){
+  const totalArea = state.contracts.reduce((s,c)=>s+(Number(c.area)||0),0);
+  const projectBudget = state.projects.reduce((s,p)=>s+(Number(p.budget)||0),0);
+  const maintenanceCost = state.maintenance.reduce((s,u)=>s+(Number(u.cost)||0),0);
+  const people = state.people.map(p=>({ ...p, load: personLoad(p.id) })).sort((a,b)=>b.load-a.load);
+  const topProperties = state.properties.map(p=>({ ...p, area: state.contracts.filter(c=>c.propertyId===p.id).reduce((s,c)=>s+(Number(c.area)||0),0) })).sort((a,b)=>b.area-a.area).slice(0,8);
+  const maxArea = Math.max(1, ...topProperties.map(p=>p.area));
+  const barPeople = people.length ? people.map(p=>`<div class="bar-row"><div class="bar-label" title="${esc(p.name)}">${esc(p.name)}</div><div class="bar-track"><div class="bar-fill ${p.load>100?"over":""}" style="width:${Math.min(p.load,130)/1.3}%"></div></div><div class="bar-value">${p.load}%</div></div>`).join("") : `<div class="empty">Lägg till personer och tilldelningar.</div>`;
+  const areaCols = topProperties.length ? `<div class="column-chart">${topProperties.map(p=>`<div class="column" title="${esc(propertyName(p.id))}: ${num(p.area)} kvm"><div class="column-fill" style="height:${Math.max(3,p.area/maxArea*175)}px"></div><div class="column-label">${esc(p.id)}</div></div>`).join("")}</div>` : `<div class="empty">Ingen area att visa.</div>`;
+  const alerts = [
+    ...people.filter(p=>p.load>100).map(p=>`${p.name} har ${p.load}% planerad belastning.`),
+    ...state.projects.filter(p=>!state.assignments.some(a=>a.targetType==="project"&&a.targetId===p.id)).map(p=>`${p.name} saknar tilldelad person.`),
+    ...state.maintenance.filter(u=>u.priority==="Hög").map(u=>`Högt UH-behov: ${u.title} på ${propertyName(u.propertyId)}.`)
+  ];
+  return `
+    <div class="grid kpi-grid">
+      ${kpi("Fastigheter", num(state.properties.length), "unika LEB-objekt")}
+      ${kpi("Avtal", num(state.contracts.length), `${num(totalArea)} kvm avtalsarea`)}
+      ${kpi("Aktiva projekt", num(state.projects.length), `${money(projectBudget)} budget`)}
+      ${kpi("UH-behov", num(state.maintenance.length), `${money(maintenanceCost)} identifierat`)}
+    </div>
+    <div class="grid two-col" style="margin-top:16px">
+      ${card("Arbetsfördelning", "Summerad tilldelning per person", `<div class="bar-list">${barPeople}</div>`, `<button class="button secondary" data-goto="organisation">Öppna organisation</button>`)}
+      ${card("Att uppmärksamma", "Automatiska kontroller i aktuell data", alerts.length ? `<div class="section-stack">${alerts.map(a=>`<div class="notice">${esc(a)}</div>`).join("")}</div>` : `<div class="notice">Inga tydliga varningar i aktuell data.</div>`)}
+    </div>
+    <div style="margin-top:16px">${card("Största objekt efter avtalsarea", "Summerad area för alla avtal på respektive fastighet", areaCols)}</div>`;
+}
+
+function renderProperties(){
+  const rows = state.properties.map(p=>{
+    const cs = state.contracts.filter(c=>c.propertyId===p.id);
+    const area = cs.reduce((s,c)=>s+(Number(c.area)||0),0);
+    const projects = state.projects.filter(x=>x.propertyId===p.id).length;
+    const uh = state.maintenance.filter(x=>x.propertyId===p.id).reduce((s,x)=>s+(Number(x.cost)||0),0);
+    const assigned = state.assignments.filter(a=>a.targetType==="property"&&a.targetId===p.id).map(a=>state.people.find(x=>x.id===a.personId)?.name).filter(Boolean);
+    return `<tr><td class="mono">${esc(p.id)}</td><td><strong>${esc(p.address||"Adress saknas")}</strong><div class="muted">${esc(p.designation||"")}</div></td><td>${statusBadge(p.type)}</td><td>${esc(p.owner||"–")}</td><td>${cs.length}</td><td>${num(area)} kvm</td><td>${projects}</td><td>${money(uh)}</td><td>${esc(assigned.join(", ")||"–")}</td></tr>`;
+  });
+  return card("Fastigheter", "En rad per LEB-objekt. Flera avtal summeras på samma fastighet.", `
+    <div class="toolbar"><input class="search" id="property-search" placeholder="Sök objektsnummer, adress, ägare…"><select class="select" id="property-type"><option value="">Alla</option><option>Intern</option><option>Extern</option></select></div>
+    <div id="property-table">${table(["Objekt","Adress / fastighetsbeteckning","Typ","Fastighetsägare","Avtal","Area","Projekt","UH","Ansvarig"], rows)}</div>`);
+}
+
+function renderContracts(){
+  const rows = state.contracts.map(c=>`<tr><td class="mono">${esc(c.number||c.id)}</td><td class="mono">${esc(c.propertyId)}</td><td>${esc(propertyName(c.propertyId).split(" · ").slice(1).join(" · "))}</td><td>${statusBadge(c.source)}</td><td>${num(c.area)} kvm</td><td>${esc(c.category||"–")}</td><td>${esc(c.use||"–")}</td><td>${esc(c.notice||"–")}</td><td>${esc(c.end||"–")}</td></tr>`);
+  return card("Avtal", "Ekonomisk ryggrad från SF och EXT.", `<div class="toolbar"><input class="search" id="contract-search" placeholder="Sök avtal, objekt, kategori…"></div><div id="contract-table">${table(["Avtalsnummer","Objekt","Adress","Källa","Area","Lokalkategori","Användning","Säg upp senast","Tom"],rows)}</div>`);
+}
+
+function renderPortfolio(){
+  const projectRows = state.projects.map(p=>{
+    const people = state.assignments.filter(a=>a.targetType==="project"&&a.targetId===p.id).map(a=>{const person=state.people.find(x=>x.id===a.personId);return person?`${person.name} (${a.role})`:""}).filter(Boolean).join(", ");
+    return `<tr><td><strong>${esc(p.name)}</strong><div class="muted mono">${esc(p.id)}</div></td><td>${esc(propertyName(p.propertyId))}</td><td>${statusBadge(p.status)}</td><td>${esc(p.phase||"–")}</td><td>${money(p.budget)}</td><td>${esc(people||"Ej tilldelad")}</td></tr>`;
+  });
+  const uhRows = state.maintenance.map(u=>`<tr><td><strong>${esc(u.title)}</strong><div class="muted mono">${esc(u.id)}</div></td><td>${esc(propertyName(u.propertyId))}</td><td>${u.year||"–"}</td><t
