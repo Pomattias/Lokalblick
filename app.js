@@ -168,4 +168,83 @@ function renderPortfolio(){
     const people = state.assignments.filter(a=>a.targetType==="project"&&a.targetId===p.id).map(a=>{const person=state.people.find(x=>x.id===a.personId);return person?`${person.name} (${a.role})`:""}).filter(Boolean).join(", ");
     return `<tr><td><strong>${esc(p.name)}</strong><div class="muted mono">${esc(p.id)}</div></td><td>${esc(propertyName(p.propertyId))}</td><td>${statusBadge(p.status)}</td><td>${esc(p.phase||"–")}</td><td>${money(p.budget)}</td><td>${esc(people||"Ej tilldelad")}</td></tr>`;
   });
-  const uhRows = state.maintenance.map(u=>`<tr><td><strong>${esc(u.title)}</strong><div class="muted mono">${esc(u.id)}</div></td><td>${esc(propertyName(u.propertyId))}</td><td>${u.year||"–"}</td><t
+  const uhRows = state.maintenance.map(u=>`<tr><td><strong>${esc(u.title)}</strong><div class="muted mono">${esc(u.id)}</div></td><td>${esc(propertyName(u.propertyId))}</td><td>${u.year||"–"}</td><td>${statusBadge(u.priority)}</td><td>${statusBadge(u.status)}</td><td>${money(u.cost)}</td></tr>`);
+  const driftRows = state.operations.map(o=>`<tr><td>${esc(propertyName(o.propertyId))}</td><td>${esc(o.period)}</td><td>${esc(o.category)}</td><td>${money(o.cost)}</td></tr>`);
+  return `<div class="section-stack">
+    ${card("Projekt", "En fastighet kan ha flera projekt och varje projekt kan ha flera personer.", table(["Projekt","Fastighet","Status","Skede","Budget","Personer"],projectRows), `<button class="button primary" data-add="project">+ Projekt</button>`)}
+    ${card("Underhåll", "Identifierade UH-behov som egna poster – inte kolumner på fastigheten.", table(["Åtgärd","Fastighet","Planår","Prioritet","Status","Kostnad"],uhRows), `<button class="button primary" data-add="maintenance">+ UH-behov</button>`)}
+    ${card("Drift", "Periodiserade driftposter; skiljs från driftstillägg i avtalet.", table(["Fastighet","Period","Kostnadsslag","Kostnad"],driftRows), `<button class="button primary" data-add="operation">+ Driftpost</button>`)}
+  </div>`;
+}
+
+function renderOrganisation(){
+  const peopleRows = state.people.map(p=>{
+    const ass = state.assignments.filter(a=>a.personId===p.id);
+    const props = ass.filter(a=>a.targetType==="property").map(a=>propertyName(a.targetId));
+    const projs = ass.filter(a=>a.targetType==="project").map(a=>projectName(a.targetId));
+    const load = personLoad(p.id);
+    return `<tr><td><strong>${esc(p.name)}</strong><div class="muted">${esc(p.role||"")}</div></td><td>${esc(p.team||"–")}</td><td>${esc(props.join(", ")||"–")}</td><td>${esc(projs.join(", ")||"–")}</td><td><div class="bar-track" style="min-width:120px"><div class="bar-fill ${load>100?"over":""}" style="width:${Math.min(load,130)/1.3}%"></div></div><div class="muted" style="margin-top:4px">${load}%</div></td></tr>`;
+  });
+  const assignmentRows = state.assignments.map(a=>{
+    const p = state.people.find(x=>x.id===a.personId);
+    const target = a.targetType==="project" ? projectName(a.targetId) : propertyName(a.targetId);
+    return `<tr><td>${esc(p?.name||a.personId)}</td><td>${statusBadge(a.targetType==="project"?"Projekt":"Fastighet")}</td><td>${esc(target)}</td><td>${esc(a.role)}</td><td>${a.allocation}%</td></tr>`;
+  });
+  const barPeople = state.people.map(p=>({name:p.name,load:personLoad(p.id)})).sort((a,b)=>b.load-a.load).map(p=>`<div class="bar-row"><div class="bar-label">${esc(p.name)}</div><div class="bar-track"><div class="bar-fill ${p.load>100?"over":""}" style="width:${Math.min(p.load,130)/1.3}%"></div></div><div class="bar-value">${p.load}%</div></div>`).join("");
+  return `<div class="section-stack">
+    <div class="grid two-col">
+      ${card("Arbetsbelastning", "Tilldelad kapacitet. Över 100 % markeras som överbelastning.", `<div class="bar-list">${barPeople || '<div class="empty">Ingen persondata.</div>'}</div>`)}
+      ${card("Resursbild", "Snabb kontroll av fördelningen", `<div class="split-stats"><div class="mini-stat"><strong>${state.people.length}</strong><span>personer</span></div><div class="mini-stat"><strong>${state.assignments.length}</strong><span>tilldelningar</span></div><div class="mini-stat"><strong>${state.people.filter(p=>personLoad(p.id)>100).length}</strong><span>över 100 %</span></div></div><div class="notice" style="margin-top:14px">Kapacitetsprocenten är planerad fördelning, inte tidrapportering.</div>`)}
+    </div>
+    ${card("Personer", "Samma person kan vara kopplad till flera fastigheter och projekt.", table(["Person","Team","Fastigheter","Projekt","Belastning"],peopleRows), `<button class="button primary" data-add="person">+ Person</button>`)}
+    ${card("Tilldelningar", "Roll och omfattning kopplas till fastighet eller projekt.", table(["Person","Typ","Objekt / projekt","Roll","Omfattning"],assignmentRows), `<button class="button primary" data-add="assignment">+ Tilldelning</button>`)}
+  </div>`;
+}
+
+function bindViewEvents(){
+  document.querySelectorAll("[data-goto]").forEach(b=>b.addEventListener("click",()=>{currentView=b.dataset.goto;render();}));
+  document.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click",()=>openEditor(b.dataset.add)));
+  const pSearch = document.getElementById("property-search");
+  const pType = document.getElementById("property-type");
+  if (pSearch) [pSearch,pType].forEach(el=>el.addEventListener("input",filterProperties));
+  const cSearch = document.getElementById("contract-search");
+  if (cSearch) cSearch.addEventListener("input",filterContracts);
+}
+function filterProperties(){
+  const q=(document.getElementById("property-search")?.value||"").toLowerCase();
+  const type=document.getElementById("property-type")?.value||"";
+  document.querySelectorAll("#property-table tbody tr").forEach(tr=>{
+    const match=tr.textContent.toLowerCase().includes(q) && (!type||tr.textContent.includes(type));
+    tr.style.display=match?"":"none";
+  });
+}
+function filterContracts(){
+  const q=(document.getElementById("contract-search")?.value||"").toLowerCase();
+  document.querySelectorAll("#contract-table tbody tr").forEach(tr=>tr.style.display=tr.textContent.toLowerCase().includes(q)?"":"none");
+}
+
+const fieldTemplates = {
+  person: [
+    ["name","Namn","text","",true],["team","Team","text","Lokaler",true],["role","Grundroll","text","",true]
+  ],
+  project: [
+    ["name","Projektnamn","text","",true],["propertyId","Fastighet","property","",true],["status","Status","select","Planerad|Pågår|Pausad|Klar",true],["phase","Skede","text","Förstudie",false],["budget","Budget","number","",false]
+  ],
+  maintenance: [
+    ["title","Åtgärd","text","",true],["propertyId","Fastighet","property","",true],["year","Planår","number",new Date().getFullYear()+1,true],["priority","Prioritet","select","Låg|Medel|Hög",true],["status","Status","select","Identifierad|Planerad|Pågår|Klar",true],["cost","Bedömd kostnad","number","",false]
+  ],
+  operation: [
+    ["propertyId","Fastighet","property","",true],["period","Period","text",String(new Date().getFullYear()),true],["category","Kostnadsslag","text","Energi",true],["cost","Kostnad","number","",true]
+  ],
+  assignment: [
+    ["personId","Person","person","",true],["targetType","Typ","select","property|project",true],["targetId","Objekt / projekt-ID","target","",true],["role","Roll i uppdraget","text","",true],["allocation","Omfattning %","number","",true]
+  ]
+};
+let editorType = null;
+function options(items, valueKey, labelFn){ return items.map(x=>`<option value="${esc(x[valueKey])}">${esc(labelFn(x))}</option>`).join(""); }
+function openEditor(type){
+  editorType=type;
+  const dialog=document.getElementById("editor-dialog");
+  document.getElementById("dialog-title").textContent = ({person:"Lägg till person",project:"Lägg till projekt",maintenance:"Lägg till UH-behov",operation:"Lägg till driftpost",assignment:"Lägg till tilldelning"})[type];
+  document.getElementById("dialog-eyebrow").textContent = "NY POST";
+  document.getElementById("dialog-fields").innerHTML = fiel
