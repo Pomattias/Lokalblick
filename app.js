@@ -247,4 +247,73 @@ function openEditor(type){
   const dialog=document.getElementById("editor-dialog");
   document.getElementById("dialog-title").textContent = ({person:"Lägg till person",project:"Lägg till projekt",maintenance:"Lägg till UH-behov",operation:"Lägg till driftpost",assignment:"Lägg till tilldelning"})[type];
   document.getElementById("dialog-eyebrow").textContent = "NY POST";
-  document.getElementById("dialog-fields").innerHTML = fiel
+  document.getElementById("dialog-fields").innerHTML = fieldTemplates[type].map(([name,label,kind,preset,required])=>{
+    let control;
+    if(kind==="select") control=`<select name="${name}" ${required?"required":""}>${String(preset).split("|").map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("")}</select>`;
+    else if(kind==="property") control=`<select name="${name}" required>${options(state.properties,"id",p=>`${p.id} · ${p.address||"Adress saknas"}`)}</select>`;
+    else if(kind==="person") control=`<select name="${name}" required>${options(state.people,"id",p=>p.name)}</select>`;
+    else if(kind==="target") control=`<input name="${name}" placeholder="Objektsnummer eller ProjektID" required />`;
+    else control=`<input name="${name}" type="${kind}" value="${esc(preset)}" ${required?"required":""} />`;
+    return `<div class="field"><label>${label}</label>${control}</div>`;
+  }).join("");
+  dialog.showModal();
+}
+function nextId(prefix, list){ return prefix + (Math.max(0,...list.map(x=>Number(String(x.id).replace(/\D/g,""))||0))+1); }
+function saveEditor(form){
+  const data=Object.fromEntries(new FormData(form).entries());
+  if(editorType==="person"){ data.id=nextId("P",state.people); state.people.push(data); }
+  if(editorType==="project"){ data.id=nextId("PR",state.projects); data.budget=Number(data.budget)||0; state.projects.push(data); }
+  if(editorType==="maintenance"){ data.id=nextId("UH",state.maintenance); data.year=Number(data.year)||null; data.cost=Number(data.cost)||0; state.maintenance.push(data); }
+  if(editorType==="operation"){ data.id=nextId("D",state.operations); data.cost=Number(data.cost)||0; state.operations.push(data); }
+  if(editorType==="assignment"){
+    const targetExists = data.targetType==="project" ? state.projects.some(x=>x.id===data.targetId) : state.properties.some(x=>x.id===data.targetId);
+    if(!targetExists){ alert("Kontrollera mål-ID. Det måste vara ett befintligt objektsnummer eller ProjektID."); return false; }
+    data.id=nextId("A",state.assignments); data.allocation=Number(data.allocation)||0; state.assignments.push(data);
+  }
+  saveState(); render(); return true;
+}
+
+function excelDate(value){
+  if(!value) return "";
+  if(value instanceof Date && !Number.isNaN(value.valueOf())) return value.toISOString().slice(0,10);
+  if(typeof value === "number" && window.XLSX?.SSF?.parse_date_code){ const d=XLSX.SSF.parse_date_code(value); if(d) return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`; }
+  const d = new Date(value); return Number.isNaN(d.valueOf()) ? String(value) : d.toISOString().slice(0,10);
+}
+function normalizeWorkbook(workbook, fileName){
+  const sfSheet=workbook.Sheets["SF"];
+  const extSheet=workbook.Sheets["EXT"];
+  if(!sfSheet || !extSheet) throw new Error("Filen måste innehålla flikarna SF och EXT.");
+  const sf=XLSX.utils.sheet_to_json(sfSheet,{defval:null,raw:true});
+  const ext=XLSX.utils.sheet_to_json(extSheet,{defval:null,raw:true});
+  const properties=new Map(); const contracts=[];
+  sf.forEach((r,i)=>{
+    const id=String(r["Förvaltningsobjekt"]??"").trim(); if(!id) return;
+    if(!properties.has(id)) properties.set(id,{id,type:"Intern",address:r["Gatuadress"]||"",designation:"",owner:"",manager:r["Fastighetsförvaltare"]||""});
+    const number=String(r["Avtalsnummer"]??"").trim();
+    contracts.push({id:`SF|${number||id+"-"+i}`,propertyId:id,number,source:"SF",area:Number(r["Area"])||0,category:r["Lokalkategori"]||"",use:r["Användning"]||"",end:excelDate(r["Aktuellt giltigt t.o.m."]),notice:excelDate(r["Säg upp senast"])});
+  });
+  ext.forEach((r,i)=>{
+    const id=String(r["Förvaltningsobjekt"]??"").trim(); if(!id) return;
+    if(!properties.has(id)) properties.set(id,{id,type:"Extern",address:r["Adress"]||"",designation:r["Fast.bet."]||"",owner:r["Lev.namn"]||"",manager:r["Handläggare (id)"]||""});
+    const number=String(r["Avtalsnummer"]??"").trim();
+    contracts.push({id:`EXT|${number||id+"-"+i}`,propertyId:id,number,source:"EXT",area:Number(r["Area"])||0,category:r["Lokalkategori"]||"",use:r["Användning"]||"",end:excelDate(r["Aktuellt giltigt t.o.m."]),notice:excelDate(r["Säg upp senast"])});
+  });
+  return {isDemo:false,sourceName:fileName,properties:[...properties.values()],contracts,people:[],projects:[],maintenance:[],operations:[],assignments:[]};
+}
+
+async function importLeb(file){
+  if(!window.XLSX){ alert("Excelbiblioteket kunde inte laddas. Kontrollera internetanslutningen och försök igen."); return; }
+  try{
+    const data=await file.arrayBuffer();
+    const workbook=XLSX.read(data,{type:"array",cellDates:true});
+    state=normalizeWorkbook(workbook,file.name);
+    saveState(); currentView="dashboard"; render();
+  } catch(err){ alert(`Kunde inte importera LEB-filen: ${err.message}`); }
+}
+
+document.getElementById("leb-file").addEventListener("change",e=>{ const file=e.target.files?.[0]; if(file) importLeb(file); e.target.value=""; });
+document.getElementById("clear-data").addEventListener("click",()=>{ if(confirm("Rensa importerad och kompletterande lokal data i denna webbläsare och återgå till demo?")){localStorage.removeItem(STORAGE_KEY);state=clone(demo);currentView="dashboard";render();} });
+document.getElementById("dialog-cancel").addEventListener("click",()=>document.getElementById("editor-dialog").close());
+document.getElementById("editor-form").addEventListener("submit",e=>{ e.preventDefault(); if(saveEditor(e.currentTarget)){document.getElementById("editor-dialog").close();e.currentTarget.reset();} });
+
+render();
