@@ -34,7 +34,6 @@ let state = clone(demo);
 let currentView = "dashboard";
 let selectedBudgetYear = new Date().getFullYear() + 1;
 let editorType = null;
-let propertyMap = null;
 
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function ensureShape(data) {
@@ -253,6 +252,9 @@ function renderNav() {
   });
 }
 function render() {
+  if (currentView !== "map" && window.LokalblickMapService) {
+    window.LokalblickMapService.destroy();
+  }
   renderNav();
   const meta = views.find(function(v) { return v.id === currentView; });
   document.getElementById("page-title").textContent = meta.label;
@@ -390,64 +392,49 @@ function mapPopupHtml(p) {
 }
 
 function initPropertyMap() {
-  const el = document.getElementById("property-map");
-  if (!el || !window.L) return;
-  if (propertyMap) {
-    propertyMap.remove();
-    propertyMap = null;
-  }
+  const mapService = window.LokalblickMapService;
+  if (!mapService) return;
 
-  propertyMap = L.map(el, { zoomControl: true, scrollWheelZoom: true });
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap"
-  }).addTo(propertyMap);
-
-  function draw() {
-    propertyMap.eachLayer(function(layer) {
-      if (layer instanceof L.CircleMarker) propertyMap.removeLayer(layer);
-    });
-
+  function buildPoints() {
     const type = document.getElementById("map-type") ? document.getElementById("map-type").value : "";
     const unit = document.getElementById("map-unit") ? document.getElementById("map-unit").value : "";
-    const points = state.properties.filter(function(p) {
+
+    return state.properties.filter(function(p) {
       if (!Number.isFinite(Number(p.latitude)) || !Number.isFinite(Number(p.longitude))) return false;
       if (type && p.type !== type) return false;
       if (unit) {
-        const hasUnit = state.contracts.some(function(c) { return c.propertyId === p.id && c.unitId === unit; });
+        const hasUnit = state.contracts.some(function(c) {
+          return c.propertyId === p.id && c.unitId === unit;
+        });
         if (!hasUnit) return false;
       }
       return true;
+    }).map(function(p) {
+      return {
+        id: p.id,
+        latitude: Number(p.latitude),
+        longitude: Number(p.longitude),
+        popupHtml: mapPopupHtml(p),
+        category: p.type || "Fastighet"
+      };
     });
-
-    const bounds = [];
-    points.forEach(function(p) {
-      const marker = L.circleMarker([Number(p.latitude), Number(p.longitude)], {
-        radius: 9,
-        weight: 3,
-        opacity: 1,
-        fillOpacity: 0.82
-      }).addTo(propertyMap);
-      marker.bindPopup(mapPopupHtml(p), { closeButton: false, autoPanPadding: [24, 24] });
-      marker.on("mouseover", function() { this.openPopup(); });
-      marker.on("mouseout", function() { this.closePopup(); });
-      marker.on("click", function() { this.openPopup(); });
-      bounds.push([Number(p.latitude), Number(p.longitude)]);
-    });
-
-    if (bounds.length === 1) propertyMap.setView(bounds[0], 15);
-    else if (bounds.length > 1) propertyMap.fitBounds(bounds, { padding: [36, 36] });
-    else propertyMap.setView([55.6050, 13.0038], 12);
   }
 
-  draw();
+  mapService.render({
+    elementId: "property-map",
+    points: buildPoints(),
+    fallbackCenter: { latitude: 55.6050, longitude: 13.0038, zoom: 12 }
+  });
+
+  function redraw() {
+    mapService.update(buildPoints());
+  }
+
   const type = document.getElementById("map-type");
   const unit = document.getElementById("map-unit");
-  if (type) type.addEventListener("change", draw);
-  if (unit) unit.addEventListener("change", draw);
-  setTimeout(function() { if (propertyMap) propertyMap.invalidateSize(); }, 0);
+  if (type) type.addEventListener("change", redraw);
+  if (unit) unit.addEventListener("change", redraw);
 }
-
 
 function renderContracts() {
   const rows = state.contracts.map(function(c) {
