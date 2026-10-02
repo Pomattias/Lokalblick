@@ -22,9 +22,8 @@ const demo = window.LokalblickDemoData;
 
 const views = [
   { id: "dashboard", label: "Översikt", icon: "◫", eyebrow: "PORTFÖLJ" },
-  { id: "properties", label: "Fastigheter", icon: "▦", eyebrow: "LEB · FASTIGHET" },
+  { id: "properties", label: "Fastigheter & avtal", icon: "▦", eyebrow: "LEB · FASTIGHET · AVTAL" },
   { id: "map", label: "Karta", icon: "⌖", eyebrow: "GEOGRAFI" },
-  { id: "contracts", label: "Objekt / avtal", icon: "≣", eyebrow: "LEB · OBJEKT = AVTAL" },
   { id: "budget", label: "Årsbudget", icon: "¤", eyebrow: "EKONOMI" },
   { id: "portfolio", label: "Projekt & behov", icon: "◇", eyebrow: "ÅTGÄRDER" },
   { id: "organisation", label: "Organisation", icon: "◎", eyebrow: "PERSONER & ANSVAR" },
@@ -268,7 +267,6 @@ function render() {
   let html = "";
   if (currentView === "dashboard") html = renderDashboard();
   else if (currentView === "properties") html = renderProperties();
-  else if (currentView === "contracts") html = renderContracts();
   else if (currentView === "map") html = renderMap();
   else if (currentView === "budget") html = renderBudget();
   else if (currentView === "portfolio") html = renderPortfolio();
@@ -306,7 +304,7 @@ function renderDashboard() {
   const openWishes = state.wishes.filter(function(x) { return x.status !== "Klart" && x.status !== "Avslaget"; }).length;
   const maintenanceNeeds = state.maintenanceStatus.filter(function(x) { return x.status === "Åtgärdsbehov" || x.status === "Akut"; }).length;
   return '<div class="grid kpi-grid">' +
-    kpi("Objekt / avtal", num(state.contracts.length), num(totalArea) + " kvm") +
+    kpi("Avtal", num(state.contracts.length), num(totalArea) + " kvm") +
     kpi("Budget " + selectedBudgetYear, money(totalBudget), "automatiskt från källor") +
     kpi("Öppna driftärenden", num(openIssues), "aktiva ärenden") +
     kpi("Önskemål / UH-behov", num(openWishes + maintenanceNeeds), openWishes + " önskemål · " + maintenanceNeeds + " statusbehov") +
@@ -317,21 +315,179 @@ function renderDashboard() {
     '<div style="margin-top:16px">' + card("Geografi", "Se fastigheter och objekt på karta.", '<div class="map-dashboard-copy">Hover på dator eller tryck på en markör på mobil för snabbfakta.</div>', '<button class="button secondary" data-goto="map">Öppna karta</button>') + '</div>';
 }
 
-function renderProperties() {
-  const rows = state.properties.map(function(p) {
-    const cs = state.contracts.filter(function(c) { return c.propertyId === p.id; });
-    const area = cs.reduce(function(s, c) { return s + (Number(c.area) || 0); }, 0);
-    const cost = cs.reduce(function(s, c) { return s + totalContractCost(c); }, 0);
-    const units = Array.from(new Set(cs.map(function(c) { return unitName(c.unitId); }))).join(", ");
-    return '<tr><td class="mono">' + esc(p.id) + "</td><td><strong>" + esc(p.address || "Adress saknas") + '</strong><div class="muted">' +
-      esc(p.designation || "") + "</div></td><td>" + statusBadge(p.type) + "</td><td>" + esc(p.owner || "–") + "</td><td>" + cs.length +
-      "</td><td>" + num(area) + " kvm</td><td>" + money(cost) + "</td><td>" + esc(units || "–") + "</td></tr>";
+function uniqueById(items) {
+  const seen = new Set();
+  return items.filter(function(item) {
+    if (!item || !item.id || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
   });
-  return card("Fastigheter", "Fysisk nivå. Ett objekt/avtal hör till en fastighet.",
-    '<div class="toolbar"><input class="search" id="property-search" placeholder="Sök objektsnummer, adress, ägare…"><select class="select" id="property-type"><option value="">Alla</option><option>Intern</option><option>Extern</option></select></div>' +
-    '<div id="property-table">' + table(["Fastighet", "Adress", "Typ", "Fastighetsägare", "Objekt/avtal", "Area", "Hyra + drift", "Organisation"], rows) + "</div>");
 }
+function contractPartyPeople(c, type) {
+  const assignments = state.assignments.filter(function(a) {
+    return (a.targetType === "object" && a.targetId === c.id) ||
+      (a.targetType === "property" && a.targetId === c.propertyId);
+  });
+  return uniqueById(assignments.map(function(a) {
+    return state.people.find(function(p) { return p.id === a.personId; });
+  }).filter(function(p) {
+    if (!p) return false;
+    const organization = state.organizations.find(function(o) { return o.id === p.organizationId; });
+    return organization && organization.type === type;
+  }));
+}
+function contractCustomer(c) {
+  if (c.tenantOrgId) return orgName(c.tenantOrgId);
+  return c.customer || c.customerName || "Ej satt";
+}
+function contractOwner(c, property) {
+  if (c.ownerOrgId) return orgName(c.ownerOrgId);
+  return property && property.owner ? property.owner : "Ej satt";
+}
+function contractOwnerKey(c, property) {
+  return c.ownerOrgId || contractOwner(c, property);
+}
+function contractCustomerKey(c) {
+  return c.tenantOrgId || contractCustomer(c);
+}
+function peopleText(c, type) {
+  return contractPartyPeople(c, type).map(function(p) { return p.name; }).join(", ") || "–";
+}
+function selectOptions(items, placeholder) {
+  return '<option value="">' + esc(placeholder) + '</option>' + items.map(function(item) {
+    return '<option value="' + esc(item.value) + '">' + esc(item.label) + '</option>';
+  }).join("");
+}
+function dedupeOptions(items) {
+  const map = new Map();
+  items.forEach(function(item) {
+    if (item && item.value && !map.has(item.value)) map.set(item.value, item);
+  });
+  return Array.from(map.values()).sort(function(a, b) { return a.label.localeCompare(b.label, "sv"); });
+}
+function portfolioFilterOptions() {
+  const customer = [];
+  const unit = [];
+  const owner = [];
+  let ourPeople = [];
+  let tenantPeople = [];
+  let ownerPeople = [];
+  state.contracts.forEach(function(c) {
+    const property = state.properties.find(function(p) { return p.id === c.propertyId; });
+    const customerKey = contractCustomerKey(c);
+    if (customerKey) customer.push({ value: customerKey, label: contractCustomer(c) });
+    if (c.unitId) unit.push({ value: c.unitId, label: unitName(c.unitId) });
+    const ownerKey = contractOwnerKey(c, property);
+    if (ownerKey) owner.push({ value: ownerKey, label: contractOwner(c, property) });
+    ourPeople = ourPeople.concat(contractPartyPeople(c, "our").map(function(p) { return { value: p.id, label: p.name }; }));
+    tenantPeople = tenantPeople.concat(contractPartyPeople(c, "tenant").map(function(p) { return { value: p.id, label: p.name }; }));
+    ownerPeople = ownerPeople.concat(contractPartyPeople(c, "owner").map(function(p) { return { value: p.id, label: p.name }; }));
+  });
+  return {
+    customer: dedupeOptions(customer),
+    unit: dedupeOptions(unit),
+    owner: dedupeOptions(owner),
+    ourPeople: dedupeOptions(ourPeople),
+    tenantPeople: dedupeOptions(tenantPeople),
+    ownerPeople: dedupeOptions(ownerPeople)
+  };
+}
+function contractSummaryRow(c, property) {
+  const total = totalContractCost(c);
+  return '<tr data-contract-id="' + esc(c.id) + '">' +
+    '<td><strong>' + esc(c.number || c.id) + '</strong><div class="muted mono">' + esc(c.id) + '</div></td>' +
+    '<td>' + esc(contractCustomer(c)) + '</td>' +
+    '<td>' + esc(unitName(c.unitId)) + '</td>' +
+    '<td>' + esc(contractOwner(c, property)) + '</td>' +
+    '<td>' + num(c.area) + ' kvm</td>' +
+    '<td>' + money(total) + '</td>' +
+    '<td>' + esc(peopleText(c, "our")) + '</td>' +
+    '<td>' + esc(peopleText(c, "tenant")) + '</td>' +
+    '<td>' + esc(peopleText(c, "owner")) + '</td>' +
+  '</tr>';
+}
+function detailedContractRow(c) {
+  const property = state.properties.find(function(p) { return p.id === c.propertyId; });
+  const total = totalContractCost(c);
+  const commonPct = c.area ? Number(c.commonArea || 0) / Number(c.area) * 100 : 0;
+  const aptPct = c.area ? Number(c.apartmentArea || 0) / Number(c.area) * 100 : 0;
+  return '<tr data-contract-id="' + esc(c.id) + '">' +
+    '<td><strong>' + esc(c.number || c.id) + '</strong><div class="muted mono">' + esc(c.id) + '</div></td>' +
+    '<td>' + esc(propertyName(c.propertyId)) + '</td>' +
+    '<td>' + esc(contractCustomer(c)) + '</td>' +
+    '<td>' + esc(unitName(c.unitId)) + '</td>' +
+    '<td>' + esc(contractOwner(c, property)) + '</td>' +
+    '<td>' + num(c.area) + ' kvm</td>' +
+    '<td>' + esc(c.start || "–") + ' → ' + esc(c.end || "–") + '<div class="muted">Säg upp ' + esc(c.notice || "–") + '</div></td>' +
+    '<td>' + money(c.annualRent) + '</td>' +
+    '<td>' + money(c.annualContractDrift) + '</td>' +
+    '<td>' + money(total) + '<div class="muted">' + (c.area && total ? num(total / c.area) + ' kr/kvm' : '–') + '</div></td>' +
+    '<td>' + (c.employees || "–") + ' / ' + (c.users || "–") + ' / ' + (c.rooms || "–") + '</td>' +
+    '<td>' + num(c.commonArea) + ' kvm (' + percent(commonPct) + ')<div class="muted">Lägenhet ' + num(c.apartmentArea) + ' kvm (' + percent(aptPct) + ')</div></td>' +
+    '<td><div><strong>Hos oss:</strong> ' + esc(peopleText(c, "our")) + '</div>' +
+      '<div><strong>Kund:</strong> ' + esc(peopleText(c, "tenant")) + '</div>' +
+      '<div><strong>Ägare:</strong> ' + esc(peopleText(c, "owner")) + '</div></td>' +
+  '</tr>';
+}
+function renderProperties() {
+  const filters = portfolioFilterOptions();
+  const propertyGroups = state.properties.map(function(p) {
+    const contracts = state.contracts.filter(function(c) { return c.propertyId === p.id; });
+    const area = contracts.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0);
+    const cost = contracts.reduce(function(sum, c) { return sum + totalContractCost(c); }, 0);
+    const owners = Array.from(new Set(contracts.map(function(c) { return contractOwner(c, p); }).filter(Boolean)));
+    const units = Array.from(new Set(contracts.map(function(c) { return unitName(c.unitId); }).filter(Boolean)));
+    const customers = Array.from(new Set(contracts.map(contractCustomer).filter(Boolean)));
+    const contractRows = contracts.map(function(c) { return contractSummaryRow(c, p); });
+    return '<details class="property-group" data-property-id="' + esc(p.id) + '">' +
+      '<summary class="property-summary">' +
+        '<span class="property-summary-main"><strong>' + esc(p.address || "Adress saknas") + '</strong>' +
+          '<span class="muted mono">' + esc(p.id) + (p.designation ? ' · ' + esc(p.designation) : '') + '</span></span>' +
+        '<span><small>Typ</small>' + statusBadge(p.type) + '</span>' +
+        '<span><small>Kund</small><strong>' + esc(customers.join(", ") || "–") + '</strong></span>' +
+        '<span><small>Fastighetsägare</small><strong>' + esc(owners.join(", ") || p.owner || "–") + '</strong></span>' +
+        '<span><small>Avtal</small><strong>' + contracts.length + '</strong></span>' +
+        '<span><small>Area</small><strong>' + num(area) + ' kvm</strong></span>' +
+        '<span><small>Hyra + drift</small><strong>' + money(cost) + '</strong></span>' +
+        '<span class="property-chevron" aria-hidden="true">⌄</span>' +
+      '</summary>' +
+      '<div class="property-body">' +
+        '<div class="property-meta"><span><strong>Organisation</strong> ' + esc(units.join(", ") || "–") + '</span>' +
+        '<span><strong>Fastighetsbeteckning</strong> ' + esc(p.designation || "–") + '</span>' +
+        '<span><strong>Förvaltare</strong> ' + esc(p.manager || "–") + '</span></div>' +
+        table(["Avtal", "Kund", "Organisation", "Fastighetsägare", "Area", "Hyra + drift", "Ansvarig hos oss", "Kundansvarig", "Ägaransvarig"], contractRows) +
+      '</div>' +
+    '</details>';
+  }).join("") || '<div class="empty">Ingen fastighetsdata.</div>';
 
+  const contractRows = state.contracts.map(detailedContractRow);
+  const filterBar =
+    '<div class="portfolio-filters">' +
+      '<input class="search portfolio-search" id="portfolio-search" placeholder="Sök fastighet, adress, avtal, kund, person…">' +
+      '<select class="select" id="filter-customer">' + selectOptions(filters.customer, "Alla kunder") + '</select>' +
+      '<select class="select" id="filter-unit">' + selectOptions(filters.unit, "Alla organisationer") + '</select>' +
+      '<select class="select" id="filter-owner">' + selectOptions(filters.owner, "Alla fastighetsägare") + '</select>' +
+      '<select class="select" id="filter-our-person">' + selectOptions(filters.ourPeople, "Ansvarig hos oss") + '</select>' +
+      '<select class="select" id="filter-tenant-person">' + selectOptions(filters.tenantPeople, "Kundansvarig") + '</select>' +
+      '<select class="select" id="filter-owner-person">' + selectOptions(filters.ownerPeople, "Ägaransvarig") + '</select>' +
+      '<button class="button secondary filter-reset" id="portfolio-filter-reset">Rensa</button>' +
+    '</div>' +
+    '<div class="filter-result" id="portfolio-filter-result">' + state.properties.length + ' fastigheter · ' + state.contracts.length + ' avtal</div>';
+
+  return '<div class="section-stack">' +
+    '<div class="view-tabs" role="tablist" aria-label="Fastigheter och avtal">' +
+      '<button class="view-tab active" type="button" data-property-tab="properties" role="tab" aria-selected="true">Fastigheter <span>' + state.properties.length + '</span></button>' +
+      '<button class="view-tab" type="button" data-property-tab="contracts" role="tab" aria-selected="false">Avtal <span>' + state.contracts.length + '</span></button>' +
+    '</div>' +
+    card("Fastigheter & avtal", "Fastigheten är samlingsnivån. Öppna en fastighet för att se dess avtal eller växla till Avtal för hela avtalslistan.",
+      filterBar +
+      '<div class="property-tab-panel" id="properties-panel">' + propertyGroups + '</div>' +
+      '<div class="property-tab-panel" id="contracts-panel" hidden>' +
+        table(["Avtal", "Fastighet", "Kund", "Organisation", "Fastighetsägare", "Area", "Avtalsperiod", "Årshyra", "Avtalsdrift", "Summa", "Anst./brukare/rum", "Ytor", "Ansvariga"], contractRows) +
+      '</div>',
+      '<button class="button primary" data-add="object">Komplettera avtal</button>') +
+  '</div>';
+}
 function renderMap() {
   const mapped = state.properties.filter(function(p) {
     return Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude));
@@ -436,28 +592,6 @@ function initPropertyMap() {
   const unit = document.getElementById("map-unit");
   if (type) type.addEventListener("change", redraw);
   if (unit) unit.addEventListener("change", redraw);
-}
-
-function renderContracts() {
-  const rows = state.contracts.map(function(c) {
-    const total = totalContractCost(c);
-    const commonPct = c.area ? Number(c.commonArea || 0) / Number(c.area) * 100 : 0;
-    const aptPct = c.area ? Number(c.apartmentArea || 0) / Number(c.area) * 100 : 0;
-    const contacts = state.assignments.filter(function(a) { return a.targetType === "object" && a.targetId === c.id; }).map(function(a) {
-      const p = state.people.find(function(x) { return x.id === a.personId; });
-      return p ? p.name + " · " + a.role : "";
-    }).filter(Boolean).join(", ");
-    return "<tr><td><strong>" + esc(c.number || c.id) + '</strong><div class="muted mono">' + esc(c.id) + "</div></td><td>" +
-      esc(propertyName(c.propertyId)) + "</td><td>" + esc(unitName(c.unitId)) + "</td><td>" + num(c.area) + " kvm</td><td>" +
-      money(c.annualRent) + "</td><td>" + money(c.annualContractDrift) + "</td><td>" + money(total) + "</td><td>" +
-      (c.area && total ? num(total / c.area) + " kr/kvm" : "–") + "</td><td>" + (c.employees || "–") + " / " + (c.users || "–") + " / " + (c.rooms || "–") +
-      "</td><td>" + num(c.commonArea) + " kvm (" + percent(commonPct) + ")</td><td>" + num(c.apartmentArea) + " kvm (" + percent(aptPct) +
-      ")</td><td>" + esc(contacts || "–") + "</td></tr>";
-  });
-  return card("Objekt / avtal", "Operativ nivå: ett objekt motsvarar ett avtal. Här kompletteras LEB med ekonomi, verksamhet och ytor.",
-    '<div class="toolbar"><input class="search" id="contract-search" placeholder="Sök avtal, fastighet, organisation…"></div><div id="contract-table">' +
-    table(["Objekt / avtal", "Fastighet", "Organisation", "Area", "Årshyra", "Avtalsdrift", "Summa", "Kr/kvm", "Anst./brukare/rum", "Allmän yta", "Lägenhetsyta", "Personer"], rows) + "</div>",
-    '<button class="button primary" data-add="object">Komplettera objekt</button>');
 }
 
 function renderBudget() {
@@ -696,32 +830,99 @@ function bindViewEvents() {
   document.querySelectorAll("[data-add]").forEach(function(b) {
     b.addEventListener("click", function() { openEditor(b.dataset.add); });
   });
-  const pSearch = document.getElementById("property-search");
-  const pType = document.getElementById("property-type");
-  if (pSearch) {
-    pSearch.addEventListener("input", filterProperties);
-    pType.addEventListener("input", filterProperties);
-  }
-  const cSearch = document.getElementById("contract-search");
-  if (cSearch) cSearch.addEventListener("input", filterContracts);
+  document.querySelectorAll("[data-property-tab]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      const target = button.dataset.propertyTab;
+      document.querySelectorAll("[data-property-tab]").forEach(function(tab) {
+        const active = tab.dataset.propertyTab === target;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      const propertiesPanel = document.getElementById("properties-panel");
+      const contractsPanel = document.getElementById("contracts-panel");
+      if (propertiesPanel) propertiesPanel.hidden = target !== "properties";
+      if (contractsPanel) contractsPanel.hidden = target !== "contracts";
+    });
+  });
+  ["portfolio-search", "filter-customer", "filter-unit", "filter-owner", "filter-our-person", "filter-tenant-person", "filter-owner-person"].forEach(function(id) {
+    const control = document.getElementById(id);
+    if (control) control.addEventListener(id === "portfolio-search" ? "input" : "change", filterPropertyPortfolio);
+  });
+  const reset = document.getElementById("portfolio-filter-reset");
+  if (reset) reset.addEventListener("click", function() {
+    ["portfolio-search", "filter-customer", "filter-unit", "filter-owner", "filter-our-person", "filter-tenant-person", "filter-owner-person"].forEach(function(id) {
+      const control = document.getElementById(id);
+      if (control) control.value = "";
+    });
+    filterPropertyPortfolio();
+  });
   const by = document.getElementById("budget-year");
   if (by) by.addEventListener("change", function() { selectedBudgetYear = Number(by.value); render(); });
 }
-function filterProperties() {
-  const q = (document.getElementById("property-search") ? document.getElementById("property-search").value : "").toLowerCase();
-  const type = document.getElementById("property-type") ? document.getElementById("property-type").value : "";
-  document.querySelectorAll("#property-table tbody tr").forEach(function(tr) {
-    const match = tr.textContent.toLowerCase().includes(q) && (!type || tr.textContent.includes(type));
-    tr.style.display = match ? "" : "none";
-  });
+function portfolioFilterValues() {
+  function value(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : "";
+  }
+  return {
+    q: value("portfolio-search").trim().toLowerCase(),
+    customer: value("filter-customer"),
+    unit: value("filter-unit"),
+    owner: value("filter-owner"),
+    ourPerson: value("filter-our-person"),
+    tenantPerson: value("filter-tenant-person"),
+    ownerPerson: value("filter-owner-person")
+  };
 }
-function filterContracts() {
-  const q = (document.getElementById("contract-search") ? document.getElementById("contract-search").value : "").toLowerCase();
-  document.querySelectorAll("#contract-table tbody tr").forEach(function(tr) {
-    tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
-  });
+function contractMatchesPortfolio(c, filters) {
+  const property = state.properties.find(function(p) { return p.id === c.propertyId; });
+  if (filters.customer && contractCustomerKey(c) !== filters.customer) return false;
+  if (filters.unit && c.unitId !== filters.unit) return false;
+  if (filters.owner && contractOwnerKey(c, property) !== filters.owner) return false;
+  if (filters.ourPerson && !contractPartyPeople(c, "our").some(function(p) { return p.id === filters.ourPerson; })) return false;
+  if (filters.tenantPerson && !contractPartyPeople(c, "tenant").some(function(p) { return p.id === filters.tenantPerson; })) return false;
+  if (filters.ownerPerson && !contractPartyPeople(c, "owner").some(function(p) { return p.id === filters.ownerPerson; })) return false;
+  if (filters.q) {
+    const searchable = [
+      c.id, c.number, c.category, c.use, contractCustomer(c), unitName(c.unitId), contractOwner(c, property),
+      property && property.id, property && property.address, property && property.designation,
+      peopleText(c, "our"), peopleText(c, "tenant"), peopleText(c, "owner")
+    ].filter(Boolean).join(" ").toLowerCase();
+    if (!searchable.includes(filters.q)) return false;
+  }
+  return true;
 }
-
+function filterPropertyPortfolio() {
+  const filters = portfolioFilterValues();
+  let visibleProperties = 0;
+  let visibleContracts = 0;
+  document.querySelectorAll(".property-group[data-property-id]").forEach(function(group) {
+    const property = state.properties.find(function(p) { return p.id === group.dataset.propertyId; });
+    const contracts = state.contracts.filter(function(c) { return c.propertyId === group.dataset.propertyId; });
+    const matchedContracts = contracts.filter(function(c) { return contractMatchesPortfolio(c, filters); });
+    let propertyMatches = matchedContracts.length > 0;
+    if (!contracts.length && !filters.customer && !filters.unit && !filters.owner && !filters.ourPerson && !filters.tenantPerson && !filters.ownerPerson) {
+      const propertyText = [property && property.id, property && property.address, property && property.designation, property && property.owner].filter(Boolean).join(" ").toLowerCase();
+      propertyMatches = !filters.q || propertyText.includes(filters.q);
+    }
+    group.hidden = !propertyMatches;
+    if (propertyMatches) {
+      visibleProperties += 1;
+      group.querySelectorAll("tbody tr[data-contract-id]").forEach(function(row) {
+        const contract = state.contracts.find(function(c) { return c.id === row.dataset.contractId; });
+        row.hidden = !contract || !contractMatchesPortfolio(contract, filters);
+      });
+    }
+  });
+  document.querySelectorAll("#contracts-panel tbody tr[data-contract-id]").forEach(function(row) {
+    const contract = state.contracts.find(function(c) { return c.id === row.dataset.contractId; });
+    const match = contract && contractMatchesPortfolio(contract, filters);
+    row.hidden = !match;
+    if (match) visibleContracts += 1;
+  });
+  const result = document.getElementById("portfolio-filter-result");
+  if (result) result.textContent = visibleProperties + " fastigheter · " + visibleContracts + " avtal";
+}
 const fieldTemplates = {
   object: [
     ["contractId", "Objekt / avtal", "contract", "", true],
