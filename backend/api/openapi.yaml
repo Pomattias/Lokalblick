@@ -1,0 +1,96 @@
+openapi: 3.0.3
+info:
+  title: Lokalblick API
+  version: 0.1.0
+  description: >
+    Contract between the Lokalblick frontend and the future authenticated
+    Microsoft 365 backend. No production secrets or data belong in GitHub.
+servers:
+  - url: /api
+security:
+  - entraBearer: []
+paths:
+  /bootstrap:
+    get:
+      summary: Load the current user's permitted Lokalblick workspace
+      responses:
+        "200":
+          description: Bootstrap payload
+  /budget/{year}:
+    get:
+      summary: Build annual budget from contracts and timed needs
+      parameters:
+        - in: path
+          name: year
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Budget rows and summaries
+  /leb/refresh:
+    post:
+      summary: Refresh LEB from the approved SharePoint workbook
+      description: >
+        Server-side operation. The browser never uploads the LEB workbook
+        to the public frontend.
+      responses:
+        "202":
+          description: Refresh accepted
+  /{entity}:
+    get:
+      summary: List permitted records
+      parameters:
+        - in: path
+          name: entity
+          required: true
+          schema:
+            type: string
+            enum: [properties, objects, people, assignments, projects, maintenance-status, maintenance, drift-costs, drift-issues, wishes, investigations]
+      responses:
+        "200":
+          description: Records
+    post:
+      summary: Create a record
+      parameters:
+        - in: path
+          name: entity
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Created
+  /{entity}/{id}:
+    get:
+      summary: Get one permitted record
+      parameters:
+        - in: path
+          name: entity
+          required: true
+          schema: { type: string }
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Record
+    patch:
+      summary: Update a record
+      parameters:
+        - in: path
+          name: entity
+          required: true
+          schema: { type: string }
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated
+components:
+  securitySchemes:
+    entraBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
