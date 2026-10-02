@@ -200,7 +200,10 @@ function targetName(type, id) {
   return id;
 }
 function personLoad(personId) {
-  return state.assignments.filter(function(a) { return a.personId === personId; }).reduce(function(sum, a) {
+  const today = new Date().toISOString().slice(0, 10);
+  return state.assignments.filter(function(a) {
+    return a.personId === personId && (!a.toDate || a.toDate >= today);
+  }).reduce(function(sum, a) {
     return sum + (Number(a.allocation) || 0);
   }, 0);
 }
@@ -213,9 +216,21 @@ function projectBudgetTotal(p) {
 function activeInYear(c, year) {
   const start = c.start ? new Date(c.start) : null;
   const end = c.end ? new Date(c.end) : null;
-  const from = new Date(String(year) + "-01-01");
-  const to = new Date(String(year) + "-12-31");
+  const from = new Date(String(year) + "-01-01T00:00:00");
+  const to = new Date(String(year) + "-12-31T23:59:59");
   return (!start || start <= to) && (!end || end >= from);
+}
+function contractYearFactor(c, year) {
+  if (!activeInYear(c, year)) return 0;
+  const yearStart = new Date(String(year) + "-01-01T00:00:00");
+  const nextYear = new Date(String(Number(year) + 1) + "-01-01T00:00:00");
+  const contractStart = c.start ? new Date(c.start + "T00:00:00") : yearStart;
+  const contractEndExclusive = c.end ? new Date(new Date(c.end + "T00:00:00").getTime() + 86400000) : nextYear;
+  const start = contractStart > yearStart ? contractStart : yearStart;
+  const end = contractEndExclusive < nextYear ? contractEndExclusive : nextYear;
+  const covered = Math.max(0, end - start);
+  const yearMs = nextYear - yearStart;
+  return yearMs ? covered / yearMs : 0;
 }
 function statusBadge(status) {
   const s = String(status || "");
@@ -243,8 +258,15 @@ function card(title, subtitle, body, action) {
 function budgetRows(year) {
   const rows = [];
   state.contracts.filter(function(c) { return activeInYear(c, year); }).forEach(function(c) {
-    const amount = totalContractCost(c);
-    if (amount > 0) rows.push({ category: "Hyra + drift", sub: "Avtal", source: c.number || c.id, contractId: c.id, amount: amount });
+    const factor = contractYearFactor(c, year);
+    const amount = totalContractCost(c) * factor;
+    if (amount > 0) rows.push({
+      category: "Hyra + drift",
+      sub: factor < 0.999 ? "Avtal · periodiserat " + percent(factor * 100) : "Avtal",
+      source: c.number || c.id,
+      contractId: c.id,
+      amount: amount
+    });
   });
   state.projects.filter(function(p) { return Number(p.budgetYear) === Number(year); }).forEach(function(p) {
     const investigation = Number(p.budgetInvestigation) || 0;
