@@ -18,10 +18,10 @@ const DRIFT_ISSUE_CATEGORIES = [
   "Skada", "Städ", "Service", "Övrigt"
 ];
 
-const demo = {
-  isDemo: true,
-  sourcconst demo = window.LokalblickDemoData;
-abel: "Översikt", icon: "◫", eyebrow: "PORTFÖLJ" },
+const demo = window.LokalblickDemoData;
+
+const views = [
+  { id: "dashboard", label: "Översikt", icon: "◫", eyebrow: "PORTFÖLJ" },
   { id: "properties", label: "Fastigheter", icon: "▦", eyebrow: "LEB · FASTIGHET" },
   { id: "contracts", label: "Objekt / avtal", icon: "≣", eyebrow: "LEB · OBJEKT = AVTAL" },
   { id: "budget", label: "Årsbudget", icon: "¤", eyebrow: "EKONOMI" },
