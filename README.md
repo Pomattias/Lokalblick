@@ -64,3 +64,12 @@ Se även `ARCHITECTURE.md` och `backend/README.md`.
 ## Om-flik och säkerhetsgräns
 
 Appens **Om**-flik visar användaren vad som kan vara publikt och vad som ska stanna i kundens skyddade hemmamiljö. Lokalblicks frontend kan vara internetåtkomlig, medan masterdata, råfiler, API-nycklar och systemhemligheter hålls bakom ett autentiserat API/connector-lager.
+
+
+## Persistensprincip
+
+**Backend äger all beständig data.**
+
+I riktig drift används frontend bara för visning och redigering. När användaren sparar går ändringen via Lokalblick API och lagras på backend. Frontend får endast hålla tillfälligt, osparat UI-state.
+
+Browserlagring får endast användas i den publika syntetiska demon.
