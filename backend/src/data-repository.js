@@ -1,19 +1,26 @@
 // Backend repository contract.
-// This file is documentation-by-code for the future M365 implementation.
-// It is deliberately provider-neutral so SharePoint/Lists can later be
-// replaced without changing the frontend API.
+// Provider-neutral boundary between Lokalblick API and customer data sources.
 export class LokalblickRepository {
-  async bootstrap(userContext) { throw new Error("Not implemented"); }
+  constructor(sourceAdapter) {
+    this.sourceAdapter = sourceAdapter;
+  }
+
+  async bootstrap(userContext) {
+    if (!this.sourceAdapter) throw new Error("No source adapter configured");
+    const core = await this.sourceAdapter.loadCore(userContext);
+    const complements = await this.sourceAdapter.loadComplements(userContext);
+    return Object.assign({}, core, complements);
+  }
 
   async list(entity, query, userContext) { throw new Error("Not implemented"); }
   async get(entity, id, userContext) { throw new Error("Not implemented"); }
   async create(entity, payload, userContext) { throw new Error("Not implemented"); }
   async update(entity, id, payload, userContext) { throw new Error("Not implemented"); }
 
-  // Server-side only. Fetches the approved LEB workbook from SharePoint,
-  // reads SF + EXT, normalizes Fastighet and Objekt/Avtal and preserves
-  // organization-owned complements.
-  async refreshLeb(userContext) { throw new Error("Not implemented"); }
+  async refreshSource(userContext) {
+    if (!this.sourceAdapter) throw new Error("No source adapter configured");
+    return this.sourceAdapter.refresh(userContext);
+  }
 
   async getAnnualBudget(year, filters, userContext) { throw new Error("Not implemented"); }
 }
