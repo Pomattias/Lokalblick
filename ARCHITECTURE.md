@@ -38,3 +38,8 @@ demo dataService  ->  m365 API dataService
 demo auth         ->  Entra ID
 GitHub Pages      ->  company-hosted web app / Teams tab
 ```
+
+
+## Map boundary
+
+The public demo may use public map tiles with synthetic coordinates only. Production property addresses are not geocoded from the browser. Coordinates are supplied by the authenticated backend using an organization-approved map/geocoding provider.
