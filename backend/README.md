@@ -50,3 +50,15 @@ Den publika GitHub Pages-versionen använder aldrig denna backend och innehålle
 Fastighet kan ha `latitude` och `longitude`. I produktion ska adressgeokodning ske server-side eller via en av organisationen godkänd karttjänst. Företagsadresser ska inte skickas från den publika GitHub-klienten till en extern geokodningstjänst.
 
 Frontend ska endast få tillbaka de koordinater och fastighetsuppgifter den inloggade användaren har rätt att se.
+
+
+## Datakällor som adapters
+
+Backend är leverantörsoberoende. `LokalblickRepository` använder en `LokalblickSourceAdapter`.
+
+Första adapterfamiljer:
+- M365 / SharePoint / Microsoft Lists
+- extern fastighets- eller verksamhets-API
+- senare SQL / Dataverse / andra kundsystem
+
+Alla normaliserar till samma Lokalblick-modell. Frontend behöver därför inte veta var kundens data faktiskt ligger.
