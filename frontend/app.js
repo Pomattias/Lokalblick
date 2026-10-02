@@ -29,7 +29,7 @@ const views = [
   { id: "organisation", label: "Organisation", icon: "◎", eyebrow: "PERSONER & ANSVAR" }
 ];
 
-let state = loadState();
+let state = clone(demo);
 let currentView = "dashboard";
 let selectedBudgetYear = new Date().getFullYear() + 1;
 let editorType = null;
@@ -52,11 +52,13 @@ function ensureShape(data) {
     wishes: (data && data.wishes) || []
   });
 }
-function loadState() {
-  return ensureShape(window.LokalblickDataService.load());
+async function loadState() {
+  state = ensureShape(await window.LokalblickDataService.load());
+  return state;
 }
-function saveState() {
-  state = ensureShape(window.LokalblickDataService.save(state));
+async function saveState() {
+  state = ensureShape(await window.LokalblickDataService.save(state));
+  return state;
 }
 function money(n) { return new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 0 }).format(Number(n) || 0) + " kr"; }
 function num(n) { return new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 0 }).format(Number(n) || 0); }
@@ -694,7 +696,7 @@ function nextId(prefix, list) {
   const max = Math.max.apply(null, [0].concat(list.map(function(x) { return Number(String(x.id).replace(/\D/g, "")) || 0; })));
   return prefix + (max + 1);
 }
-function saveEditor(form) {
+async function saveEditor(form) {
   const data = Object.fromEntries(new FormData(form).entries());
   if (editorType === "object") {
     const c = state.contracts.find(function(x) { return x.id === data.contractId; });
@@ -763,7 +765,7 @@ function saveEditor(form) {
     state.wishes.push(data);
     if (data.responsiblePersonId) state.assignments.push({ id:nextId("A",state.assignments), personId:data.responsiblePersonId, targetType:"wish", targetId:data.id, role:"Ansvarig", fromDate:data.createdDate||"", toDate:"", allocation:0 });
   }
-  saveState();
+  await saveState();
   render();
   return true;
 }
@@ -771,9 +773,9 @@ function saveEditor(form) {
 // Real LEB import belongs to the authenticated backend.
 // The public GitHub Pages frontend contains no Excel/LEB import path.
 
-document.getElementById("clear-data").addEventListener("click", function() {
+document.getElementById("clear-data").addEventListener("click", async function() {
   if (confirm("Återställ publik demodata i denna webbläsare?")) {
-    state = ensureShape(window.LokalblickDataService.reset());
+    state = ensureShape(await window.LokalblickDataService.reset());
     currentView = "dashboard";
     render();
   }
@@ -781,12 +783,17 @@ document.getElementById("clear-data").addEventListener("click", function() {
 document.getElementById("dialog-cancel").addEventListener("click", function() {
   document.getElementById("editor-dialog").close();
 });
-document.getElementById("editor-form").addEventListener("submit", function(e) {
+document.getElementById("editor-form").addEventListener("submit", async function(e) {
   e.preventDefault();
-  if (saveEditor(e.currentTarget)) {
+  if (await saveEditor(e.currentTarget)) {
     document.getElementById("editor-dialog").close();
     e.currentTarget.reset();
   }
 });
 
-render();
+async function init() {
+  await loadState();
+  render();
+}
+
+init();
