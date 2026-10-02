@@ -7,6 +7,19 @@ const ORG_UNITS = [
   { id: "HOF", name: "Hälsa & Förebyggande" }
 ];
 
+const MAINTENANCE_STATUS_CATEGORIES = [
+  "Ytskick", "Utrustning", "Möbler", "Passage", "Inbrottslarm",
+  "Brandlarm", "Brandskydd", "Utrymning", "Kök", "Installationer", "Övrigt"
+];
+const WISH_CATEGORIES = [
+  "Lokal", "Arbetsmiljö", "Verksamhetsanpassning", "Utrustning", "Möbler",
+  "Passage / säkerhet", "Brand / utrymning", "Teknik", "Tillgänglighet", "Övrigt"
+];
+const DRIFT_ISSUE_CATEGORIES = [
+  "El", "Värme", "Ventilation", "Vatten", "Larm", "Passage", "Brand",
+  "Skada", "Städ", "Service", "Övrigt"
+];
+
 const demo = {
   isDemo: true,
   sourceName: "Demodata",
@@ -74,6 +87,17 @@ const demo = {
   ],
   investigations: [
     { id: "U1", propertyId: "DEMO-201", contractId: "EXT|DEMO-201-1", title: "Kapacitetsutredning", year: 2027, cost: 280000, status: "Planerad" }
+  ],
+  maintenanceStatus: [
+    { id:"MS1", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Ytskick", assessedDate:"2026-09-15", status:"Åtgärdsbehov", priority:"Medel", comment:"Slitage i gemensamma ytor.", actionNeed:"Målning och mindre lagningar", budgetYear:2027, estimatedCost:180000, includeInBudget:"Ja", responsiblePersonId:"P2" },
+    { id:"MS2", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Brand / utrymning", assessedDate:"2026-09-15", status:"Bra", priority:"Låg", comment:"Kontrollerat.", actionNeed:"", budgetYear:null, estimatedCost:0, includeInBudget:"Nej", responsiblePersonId:"" },
+    { id:"MS3", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Passage", assessedDate:"2026-09-20", status:"Acceptabel", priority:"Medel", comment:"Äldre läsare på plan 2.", actionNeed:"Utred byte", budgetYear:2027, estimatedCost:90000, includeInBudget:"Ja", responsiblePersonId:"P2" }
+  ],
+  driftIssues: [
+    { id:"DI1", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Ventilation", title:"Ojämn temperatur plan 3", description:"Återkommande felanmälningar från verksamheten.", createdDate:"2026-09-25", targetDate:"2026-11-15", decisionDate:"", completedDate:"", status:"Pågår", priority:"Hög", responsiblePersonId:"P2", budgetYear:2027, estimatedCost:120000, finalCost:0, includeInBudget:"Ja" }
+  ],
+  wishes: [
+    { id:"W1", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Verksamhetsanpassning", title:"Lugnare mötesrum", description:"Önskemål om bättre akustik och avskärmning.", createdDate:"2026-09-10", targetDate:"2027-02-01", decisionDate:"2026-10-20", completedDate:"", status:"Beslutat", responsiblePersonId:"P1", budgetYear:2027, budgetCategory:"Projekt", estimatedCost:240000, finalCost:0, includeInBudget:"Ja" }
   ]
 };
 
@@ -103,7 +127,10 @@ function ensureShape(data) {
     projects: (data && data.projects) || [],
     maintenance: (data && data.maintenance) || [],
     operations: (data && data.operations) || [],
-    investigations: (data && data.investigations) || []
+    investigations: (data && data.investigations) || [],
+    maintenanceStatus: (data && data.maintenanceStatus) || [],
+    driftIssues: (data && data.driftIssues) || [],
+    wishes: (data && data.wishes) || []
   });
 }
 function loadState() {
@@ -150,6 +177,27 @@ function contractName(id) {
 function projectName(id) {
   const p = state.projects.find(function(x) { return x.id === id; });
   return p ? p.name : id;
+}
+function personName(id) {
+  const p = state.people.find(function(x) { return x.id === id; });
+  return p ? p.name : "Ej tilldelad";
+}
+function targetName(type, id) {
+  if (type === "object") return contractName(id);
+  if (type === "project") return projectName(id);
+  if (type === "driftIssue") {
+    const x = state.driftIssues.find(function(r) { return r.id === id; });
+    return x ? x.title : id;
+  }
+  if (type === "wish") {
+    const x = state.wishes.find(function(r) { return r.id === id; });
+    return x ? x.title : id;
+  }
+  if (type === "maintenanceStatus") {
+    const x = state.maintenanceStatus.find(function(r) { return r.id === id; });
+    return x ? x.category + " · " + contractName(x.contractId) : id;
+  }
+  return id;
 }
 function personLoad(personId) {
   return state.assignments.filter(function(a) { return a.personId === personId; }).reduce(function(sum, a) {
@@ -213,6 +261,22 @@ function budgetRows(year) {
   state.investigations.filter(function(u) { return Number(u.year) === Number(year) && Number(u.cost) > 0; }).forEach(function(u) {
     rows.push({ category: "Utredningar", sub: u.title, source: u.title, contractId: u.contractId, amount: Number(u.cost) });
   });
+  state.maintenanceStatus.filter(function(x) {
+    return x.includeInBudget === "Ja" && Number(x.budgetYear) === Number(year) && Number(x.estimatedCost) > 0;
+  }).forEach(function(x) {
+    rows.push({ category: "Underhåll", sub: x.category, source: "Status: " + x.category, contractId: x.contractId, amount: Number(x.estimatedCost) });
+  });
+  state.driftIssues.filter(function(x) {
+    return x.includeInBudget === "Ja" && Number(x.budgetYear) === Number(year) && Number(x.estimatedCost) > 0 && x.status !== "Klar";
+  }).forEach(function(x) {
+    rows.push({ category: "Driftkostnader", sub: x.category, source: "Ärende: " + x.title, contractId: x.contractId, amount: Number(x.estimatedCost) });
+  });
+  state.wishes.filter(function(x) {
+    return x.includeInBudget === "Ja" && x.budgetCategory && x.budgetCategory !== "Ej budget" &&
+      Number(x.budgetYear) === Number(year) && Number(x.estimatedCost) > 0 && x.status !== "Avslaget";
+  }).forEach(function(x) {
+    rows.push({ category: x.budgetCategory, sub: x.category, source: "Önskemål: " + x.title, contractId: x.contractId, amount: Number(x.estimatedCost) });
+  });
   return rows;
 }
 function budgetSummary(year) {
@@ -231,6 +295,9 @@ function budgetYears() {
   state.maintenance.forEach(function(x) { if (x.year) years.add(Number(x.year)); });
   state.operations.forEach(function(x) { if (x.period) years.add(Number(x.period)); });
   state.investigations.forEach(function(x) { if (x.year) years.add(Number(x.year)); });
+  state.maintenanceStatus.forEach(function(x) { if (x.budgetYear) years.add(Number(x.budgetYear)); });
+  state.driftIssues.forEach(function(x) { if (x.budgetYear) years.add(Number(x.budgetYear)); });
+  state.wishes.forEach(function(x) { if (x.budgetYear) years.add(Number(x.budgetYear)); });
   return Array.from(years).filter(Boolean).sort(function(a, b) { return a - b; });
 }
 
@@ -371,8 +438,7 @@ function renderBudget() {
 function renderPortfolio() {
   const projectRows = state.projects.map(function(p) {
     const people = state.assignments.filter(function(a) { return a.targetType === "project" && a.targetId === p.id; }).map(function(a) {
-      const person = state.people.find(function(x) { return x.id === a.personId; });
-      return person ? person.name : "";
+      return personName(a.personId);
     }).filter(Boolean).join(", ");
     return "<tr><td><strong>" + esc(p.name) + '</strong><div class="muted">' + esc(p.description || "") + "</div></td><td>" +
       esc(contractName(p.contractId)) + "</td><td>" + statusBadge(p.status) + "</td><td>" + esc(p.phase || "–") + "</td><td>" +
@@ -384,6 +450,25 @@ function renderPortfolio() {
     return "<tr><td><strong>" + esc(u.title) + "</strong></td><td>" + esc(u.contractId ? contractName(u.contractId) : propertyName(u.propertyId)) +
       "</td><td>" + (u.year || "–") + "</td><td>" + statusBadge(u.priority) + "</td><td>" + statusBadge(u.status) + "</td><td>" + money(u.cost) + "</td></tr>";
   });
+  const statusRows = state.maintenanceStatus.map(function(x) {
+    return "<tr><td>" + esc(contractName(x.contractId)) + "</td><td><strong>" + esc(x.category) + "</strong></td><td>" +
+      esc(x.assessedDate || "–") + "</td><td>" + statusBadge(x.status) + "</td><td>" + statusBadge(x.priority) + "</td><td>" +
+      esc(x.actionNeed || "–") + "</td><td>" + (x.budgetYear || "–") + "</td><td>" + money(x.estimatedCost) + "</td><td>" +
+      esc(personName(x.responsiblePersonId)) + "</td><td>" + esc(x.comment || "") + "</td></tr>";
+  });
+  const issueRows = state.driftIssues.map(function(x) {
+    return "<tr><td><strong>" + esc(x.title) + '</strong><div class="muted">' + esc(x.description || "") + "</div></td><td>" +
+      esc(contractName(x.contractId)) + "</td><td>" + esc(x.category) + "</td><td>" + statusBadge(x.status) + "</td><td>" +
+      statusBadge(x.priority) + "</td><td>" + esc(x.createdDate || "–") + "</td><td>" + esc(x.targetDate || "–") + "</td><td>" +
+      esc(personName(x.responsiblePersonId)) + "</td><td>" + money(x.estimatedCost) + "</td><td>" + money(x.finalCost) + "</td></tr>";
+  });
+  const wishRows = state.wishes.map(function(x) {
+    return "<tr><td><strong>" + esc(x.title) + '</strong><div class="muted">' + esc(x.description || "") + "</div></td><td>" +
+      esc(contractName(x.contractId)) + "</td><td>" + esc(x.category) + "</td><td>" + statusBadge(x.status) + "</td><td>" +
+      esc(x.createdDate || "–") + "</td><td>" + esc(x.targetDate || "–") + "</td><td>" + esc(x.decisionDate || "–") + "</td><td>" +
+      esc(x.completedDate || "–") + "</td><td>" + esc(x.budgetCategory || "–") + "</td><td>" + money(x.estimatedCost) + "</td><td>" +
+      money(x.finalCost) + "</td><td>" + esc(personName(x.responsiblePersonId)) + "</td></tr>";
+  });
   const opRows = state.operations.map(function(o) {
     return "<tr><td>" + esc(o.contractId ? contractName(o.contractId) : propertyName(o.propertyId)) + "</td><td>" + esc(o.period) + "</td><td>" +
       esc(o.category) + "</td><td>" + money(o.budget) + "</td><td>" + money(o.actual) + "</td></tr>";
@@ -394,7 +479,10 @@ function renderPortfolio() {
   });
   return '<div class="section-stack">' +
     card("Projekt", "Text, tidplan, inflyttning och budgetdelar per projekt.", table(["Projekt", "Objekt / avtal", "Status", "Skede", "Start → slut", "Inflyttning", "Utredning", "Genomförande", "Inredning", "Prel kostnad", "Personer"], projectRows), '<button class="button primary" data-add="project">+ Projekt</button>') +
-    card("Underhåll", "Tidsatta behov går automatiskt in i årsbudgeten.", table(["Åtgärd", "Fastighet / objekt", "Planår", "Prioritet", "Status", "Kostnad"], uhRows), '<button class="button primary" data-add="maintenance">+ UH-behov</button>') +
+    card("Underhållsstatus", "Status per objekt och kategori. Tidsatt kostnadsbehov kan föras till årsbudgeten.", table(["Objekt / avtal", "Kategori", "Bedömd", "Status", "Prioritet", "Åtgärdsbehov", "Budgetår", "Kostnad", "Ansvarig", "Kommentar"], statusRows), '<button class="button primary" data-add="maintenanceStatus">+ Status</button>') +
+    card("Underhållsåtgärder", "Tidsatta behov går automatiskt in i årsbudgeten.", table(["Åtgärd", "Fastighet / objekt", "Planår", "Prioritet", "Status", "Kostnad"], uhRows), '<button class="button primary" data-add="maintenance">+ UH-behov</button>') +
+    card("Driftärenden", "Operativa ärenden med datum, ansvarig, kostnad och slutkostnad.", table(["Ärende", "Objekt / avtal", "Kategori", "Status", "Prioritet", "Upplagt", "Tidplan", "Ansvarig", "Bedömd kostnad", "Slutkostnad"], issueRows), '<button class="button primary" data-add="driftIssue">+ Driftärende</button>') +
+    card("Önskemål", "Önskemål följs från upplagt till tidplan, beslut och klart. Tidsatta kostnader kan mata vald budgetkategori.", table(["Önskemål", "Objekt / avtal", "Kategori", "Status", "Upplagt", "Tidplan", "Beslutat", "Klart", "Budgetkategori", "Bedömd kostnad", "Slutkostnad", "Ansvarig"], wishRows), '<button class="button primary" data-add="wish">+ Önskemål</button>') +
     card("Driftkostnader", "Budget och utfall per år och kostnadsslag.", table(["Fastighet / objekt", "År", "Kostnadsslag", "Budget", "Utfall"], opRows), '<button class="button primary" data-add="operation">+ Driftpost</button>') +
     card("Utredningar", "Tidsatta utredningar går automatiskt in i årsbudgeten.", table(["Utredning", "Objekt / avtal", "År", "Status", "Kostnad"], invRows), '<button class="button primary" data-add="investigation">+ Utredning</button>') +
     "</div>";
@@ -499,9 +587,11 @@ const fieldTemplates = {
   ],
   assignment: [
     ["personId", "Person", "person", "", true],
-    ["targetType", "Typ", "select", "object|project", true],
-    ["targetId", "Objekt-/projekt-ID", "target", "", true],
+    ["targetType", "Typ", "select", "object|project|driftIssue|wish|maintenanceStatus", true],
+    ["targetId", "Mål-ID", "target", "", true],
     ["role", "Roll i uppdraget", "text", "", true],
+    ["fromDate", "Från", "date", "", false],
+    ["toDate", "Till", "date", "", false],
     ["allocation", "Omfattning %", "number", "0", false]
   ],
   project: [
@@ -540,6 +630,53 @@ const fieldTemplates = {
     ["year", "Budgetår", "number", String(new Date().getFullYear() + 1), true],
     ["status", "Status", "select", "Planerad|Pågår|Klar", true],
     ["cost", "Kostnad", "number", "0", true]
+  ],
+  maintenanceStatus: [
+    ["contractId", "Objekt / avtal", "contract", "", true],
+    ["category", "Kategori", "maintenanceCategory", "", true],
+    ["assessedDate", "Bedömningsdatum", "date", "", true],
+    ["status", "Status", "select", "Bra|Acceptabel|Åtgärdsbehov|Akut", true],
+    ["priority", "Prioritet", "select", "Låg|Medel|Hög|Akut", true],
+    ["comment", "Kommentar", "textarea", "", false],
+    ["actionNeed", "Åtgärdsbehov", "textarea", "", false],
+    ["budgetYear", "Budgetår", "number", "", false],
+    ["estimatedCost", "Bedömd kostnad", "number", "0", false],
+    ["includeInBudget", "Till årsbudget", "select", "Nej|Ja", true],
+    ["responsiblePersonId", "Ansvarig hos oss", "internalperson", "", false]
+  ],
+  driftIssue: [
+    ["contractId", "Objekt / avtal", "contract", "", true],
+    ["category", "Kategori", "issueCategory", "", true],
+    ["title", "Ärende", "text", "", true],
+    ["description", "Beskrivning", "textarea", "", false],
+    ["createdDate", "Upplagt", "date", "", true],
+    ["targetDate", "Tidplan", "date", "", false],
+    ["decisionDate", "Beslutat", "date", "", false],
+    ["completedDate", "Klart", "date", "", false],
+    ["status", "Status", "select", "Nytt|Utreds|Beslutat|Pågår|Klar", true],
+    ["priority", "Prioritet", "select", "Låg|Medel|Hög|Akut", true],
+    ["responsiblePersonId", "Ansvarig hos oss", "internalperson", "", false],
+    ["budgetYear", "Budgetår", "number", "", false],
+    ["estimatedCost", "Bedömd kostnad", "number", "0", false],
+    ["finalCost", "Slutkostnad", "number", "0", false],
+    ["includeInBudget", "Till årsbudget", "select", "Nej|Ja", true]
+  ],
+  wish: [
+    ["contractId", "Objekt / avtal", "contract", "", true],
+    ["category", "Kategori", "wishCategory", "", true],
+    ["title", "Önskemål", "text", "", true],
+    ["description", "Fritext", "textarea", "", false],
+    ["createdDate", "Upplagt", "date", "", true],
+    ["targetDate", "Tidplan", "date", "", false],
+    ["decisionDate", "Beslutat", "date", "", false],
+    ["completedDate", "Klart", "date", "", false],
+    ["status", "Status", "select", "Nytt|Utreds|Tidplanerat|Beslutat|Pågår|Klart|Avslaget", true],
+    ["responsiblePersonId", "Ansvarig hos oss", "internalperson", "", false],
+    ["budgetYear", "Budgetår", "number", "", false],
+    ["budgetCategory", "Budgetkategori", "select", "Ej budget|Projekt|Underhåll|Driftkostnader|Utredningar", true],
+    ["estimatedCost", "Bedömd kostnad", "number", "0", false],
+    ["finalCost", "Slutkostnad", "number", "0", false],
+    ["includeInBudget", "Till årsbudget", "select", "Nej|Ja", true]
   ]
 };
 
@@ -555,7 +692,10 @@ function openEditor(type) {
     project: "Lägg till projekt",
     maintenance: "Lägg till UH-behov",
     operation: "Lägg till driftpost",
-    investigation: "Lägg till utredning"
+    investigation: "Lägg till utredning",
+    maintenanceStatus: "Lägg till underhållsstatus",
+    driftIssue: "Lägg till driftärende",
+    wish: "Lägg till önskemål"
   };
   document.getElementById("dialog-title").textContent = titles[type] || "Lägg till";
   document.getElementById("dialog-eyebrow").textContent = "NY / ÄNDRA";
@@ -575,6 +715,18 @@ function openEditor(type) {
     } else if (kind === "unit") {
       control = '<select name="' + name + '"' + (required ? " required" : "") + '><option value="">–</option>' +
         options(ORG_UNITS, "id", function(u) { return u.name; }) + "</select>";
+    } else if (kind === "internalperson") {
+      const internalPeople = state.people.filter(function(p) {
+        const org = state.organizations.find(function(o) { return o.id === p.organizationId; });
+        return org && org.type === "our";
+      });
+      control = '<select name="' + name + '"><option value="">–</option>' + options(internalPeople, "id", function(p) { return p.name; }) + "</select>";
+    } else if (kind === "maintenanceCategory") {
+      control = '<select name="' + name + '" required>' + MAINTENANCE_STATUS_CATEGORIES.map(function(v) { return '<option value="' + esc(v) + '">' + esc(v) + "</option>"; }).join("") + "</select>";
+    } else if (kind === "issueCategory") {
+      control = '<select name="' + name + '" required>' + DRIFT_ISSUE_CATEGORIES.map(function(v) { return '<option value="' + esc(v) + '">' + esc(v) + "</option>"; }).join("") + "</select>";
+    } else if (kind === "wishCategory") {
+      control = '<select name="' + name + '" required>' + WISH_CATEGORIES.map(function(v) { return '<option value="' + esc(v) + '">' + esc(v) + "</option>"; }).join("") + "</select>";
     } else if (kind === "target") {
       control = '<input name="' + name + '" placeholder="Objekt-ID eller ProjektID" required>';
     } else if (kind === "textarea") {
@@ -632,6 +784,32 @@ function saveEditor(form) {
     data.year = Number(data.year) || null;
     data.cost = Number(data.cost) || 0;
     state.investigations.push(data);
+  } else if (editorType === "maintenanceStatus") {
+    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
+    data.id = nextId("MS", state.maintenanceStatus);
+    data.propertyId = c ? c.propertyId : "";
+    data.budgetYear = Number(data.budgetYear) || null;
+    data.estimatedCost = Number(data.estimatedCost) || 0;
+    state.maintenanceStatus.push(data);
+    if (data.responsiblePersonId) state.assignments.push({ id:nextId("A",state.assignments), personId:data.responsiblePersonId, targetType:"maintenanceStatus", targetId:data.id, role:"Ansvarig", fromDate:data.assessedDate||"", toDate:"", allocation:0 });
+  } else if (editorType === "driftIssue") {
+    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
+    data.id = nextId("DI", state.driftIssues);
+    data.propertyId = c ? c.propertyId : "";
+    data.budgetYear = Number(data.budgetYear) || null;
+    data.estimatedCost = Number(data.estimatedCost) || 0;
+    data.finalCost = Number(data.finalCost) || 0;
+    state.driftIssues.push(data);
+    if (data.responsiblePersonId) state.assignments.push({ id:nextId("A",state.assignments), personId:data.responsiblePersonId, targetType:"driftIssue", targetId:data.id, role:"Ansvarig", fromDate:data.createdDate||"", toDate:"", allocation:0 });
+  } else if (editorType === "wish") {
+    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
+    data.id = nextId("W", state.wishes);
+    data.propertyId = c ? c.propertyId : "";
+    data.budgetYear = Number(data.budgetYear) || null;
+    data.estimatedCost = Number(data.estimatedCost) || 0;
+    data.finalCost = Number(data.finalCost) || 0;
+    state.wishes.push(data);
+    if (data.responsiblePersonId) state.assignments.push({ id:nextId("A",state.assignments), personId:data.responsiblePersonId, targetType:"wish", targetId:data.id, role:"Ansvarig", fromDate:data.createdDate||"", toDate:"", allocation:0 });
   }
   saveState();
   render();
@@ -753,8 +931,8 @@ function mergeLeb(base) {
     });
   });
   const supplements = state.isDemo
-    ? { people: [], assignments: [], projects: [], maintenance: [], operations: [], investigations: [] }
-    : { people: state.people, assignments: state.assignments, projects: state.projects, maintenance: state.maintenance, operations: state.operations, investigations: state.investigations };
+    ? { people: [], assignments: [], projects: [], maintenance: [], operations: [], investigations: [], maintenanceStatus: [], driftIssues: [], wishes: [] }
+    : { people: state.people, assignments: state.assignments, projects: state.projects, maintenance: state.maintenance, operations: state.operations, investigations: state.investigations, maintenanceStatus: state.maintenanceStatus, driftIssues: state.driftIssues, wishes: state.wishes };
   const orgMap = new Map();
   if (!state.isDemo) state.organizations.forEach(function(o) { orgMap.set(o.id, o); });
   base.organizations.forEach(function(o) { orgMap.set(o.id, o); });
