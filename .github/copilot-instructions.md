@@ -1,15 +1,43 @@
 # Lokalblick – Copilot repository instructions
 
+## Work split
+
+Lokalblick development is intentionally split between two work streams:
+
+- ChatGPT/main product development works on branch `utveckling`.
+- Copilot backend work works on branch `copilot-backend`.
+- `main` must never be modified by Copilot.
+
+Copilot owns backend implementation only unless the user explicitly says otherwise.
+
+Copilot may normally edit:
+- `backend/**`
+- backend-focused tests/fixtures using synthetic data
+- `docs/**` when documenting backend setup
+- `package.json` and `scripts/**` only when required to run/test the backend
+- API contracts that are part of the backend boundary
+
+Copilot must NOT edit:
+- `frontend/**`
+- public demo UI/UX
+- map UI
+- product navigation/layout
+- `main`
+
+If backend changes require a frontend contract change, document the required contract/API change in the handoff instead of modifying `frontend/**`.
+
 ## Branch and Git safety
 
-- Work only on branch `utveckling`.
+- Work only on branch `copilot-backend`.
 - Never commit, merge, push, rebase, reset or otherwise modify `main`.
+- Never commit backend work directly to `utveckling`.
 - At the start of every task run:
   - `git status`
   - `git branch --show-current`
   - `git rev-parse HEAD`
-- If the current branch is not `utveckling`, stop and switch to `utveckling` before editing.
-- Make small, descriptive commits on `utveckling`.
+- If the current branch is not `copilot-backend`, stop and switch to `copilot-backend` before editing.
+- Pull/fetch before starting new work so the backend branch can be refreshed from `utveckling` when requested.
+- Make small, descriptive commits.
 
 ## Read before changing code
 
@@ -17,8 +45,9 @@ Read these files first:
 1. `README.md`
 2. `ARCHITECTURE.md`
 3. `backend/README.md`
+4. `COPILOT_HANDOFF.md`
 
-Then inspect the relevant frontend/backend code.
+Then inspect the relevant backend code.
 
 ## Security
 
@@ -45,7 +74,18 @@ Keep Lokalblick provider-neutral:
 - repository -> source adapters
 - customer master data stays in the customer-controlled environment
 
-Do not couple the UI directly to M365, Excel, SQL, a specific property system or a map vendor when an adapter boundary exists.
+Do not couple the backend directly to one customer-specific environment when an adapter boundary can be used.
+
+## Integration back to utveckling
+
+Do not merge to `utveckling` yourself unless the user explicitly asks.
+
+When backend work is complete:
+- run `npm test`
+- provide commit SHA(s)
+- summarize files changed
+- state any API/frontend contract impact
+- leave integration/cherry-pick/merge back to `utveckling` for the ChatGPT/product-development stream
 
 ## Verification
 
@@ -53,4 +93,5 @@ Before committing:
 - run `npm test`
 - review `git status`
 - confirm no real data, local paths or secrets were added
+- confirm no files under `frontend/**` were modified
 - summarize changed files and commits
