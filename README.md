@@ -1,60 +1,61 @@
-# Lokalblick — MVP
+# Lokalblick
 
-Lokalblick är en första styrningsapp för att samla LEB-baserad fastighets- och avtalsdata med projekt, underhåll, drift, personer och arbetsfördelning.
+Lokalblick är en styrningsapp för LEB-baserad fastighets- och avtalsdata med årsbudget, projekt, underhåll, drift, önskemål, personer och ansvar.
 
-## V1 prioriterar
+## Arkitektur
 
-1. Dashboard med nyckeltal och diagram
-2. Fastighetstabell — en rad per LEB-objekt
-3. Avtalstabell — SF + EXT
-4. Projekt, underhåll och drift som 1:N-poster
-5. Personer och tilldelningar till fastigheter/projekt
-6. Arbetsfördelning och belastningsdiagram
+Projektet är nu delat i två tydliga lager:
 
-Karta är medvetet uppskjuten till nästa steg.
+```
+frontend/
+  index.html
+  app.js
+  styles.css
+  data/demo-data.js
+  services/data-service.js
+  services/m365-api-service.js
 
-## LEB-import
-
-Appen läser en Excel-fil lokalt i webbläsaren och förväntar sig två flikar:
-
-- `SF`
-- `EXT`
-
-Excel-filen eller dess rådata skickas inte till GitHub av appen. Importen görs klient-side via SheetJS och normaliseras till två kärnobjekt:
-
-- `Fastighet` — unikt förvaltningsobjekt
-- `Avtal` — ett eller flera avtal per fastighet
-
-## Datamodell
-
-```text
-Fastighet
-├── Avtal                 1:N
-├── Projekt               1:N
-├── Underhållsbehov       1:N
-├── Drift                 1:N
-└── Tilldelning           1:N
-      └── Person
-
-Projekt
-└── Tilldelning           1:N
-      └── Person
+backend/
+  README.md
+  api/openapi.yaml
+  src/data-repository.js
 ```
 
-En person kan vara kopplad till flera fastigheter och projekt. En fastighet eller ett projekt kan ha flera personer med olika roller och procentuell omfattning.
+### Frontend
 
-## Lagring i denna MVP
+Frontend innehåller UI, tabeller, diagram, formulär och verksamhetslogik.
 
-Kompletteringar sparas i `localStorage` i den aktuella webbläsaren. Det är avsiktligt i prototypen för att kunna testa informationsmodellen innan Microsoft Lists/SharePoint/Graph kopplas in.
+Den publika GitHub Pages-versionen använder **endast syntetisk demodata**. Den har ingen Excel-/LEB-import och får inte användas med verklig företagsdata.
 
-Nästa backendsteg är ett adapterlager mot Microsoft 365, utan att UI eller datamodellen behöver göras om.
+### Backend
 
-## Köra lokalt
+Backend är säkerhets- och datagränsen för den framtida företagsversionen. Den ska:
 
-Detta är en statisk app utan byggsteg. Servera katalogen med valfri lokal webbserver, till exempel:
+- autentisera användaren med Microsoft Entra ID
+- kontrollera behörighet
+- läsa och skriva SharePoint / Microsoft Lists / Dataverse
+- hämta aktuell LEB-fil från företagets SharePoint server-side
+- normalisera SF + EXT utan att råfilen går genom den publika klienten
+- bevara kompletteringar och ansvarshistorik
+- bygga årsbudget från avtal och tidsatta behov
 
-```bash
-python3 -m http.server 8080
-```
+## Nuvarande funktioner
 
-Öppna sedan `http://localhost:8080`.
+- Fastighet och Objekt/Avtal
+- VÅRDBO, ORDBO, Myndighet/Stab och Hälsa & Förebyggande
+- tre personnivåer: vår organisation, hyresgästen och fastighetsägaren
+- ansvar på fastighet, objekt, projekt, driftärende, önskemål och UH-status
+- årsbudget för hyra + drift, projekt, underhåll, driftkostnader och utredningar
+- projekt med tidplan, inflyttning och budgetdelar
+- underhållsstatus
+- driftärenden
+- önskemålslista
+- budgetkoppling från tidsatta behov
+
+## Miljöer
+
+**Publik demo:** GitHub Pages, endast demodata.
+
+**Företagsversion / Teams:** samma frontend, men med `m365-api-service`, Entra ID och företagets backend/M365-lagring.
+
+Se även `ARCHITECTURE.md` och `backend/README.md`.
