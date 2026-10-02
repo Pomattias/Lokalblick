@@ -34,6 +34,7 @@ let state = clone(demo);
 let currentView = "dashboard";
 let selectedBudgetYear = new Date().getFullYear() + 1;
 let editorType = null;
+let portfolioExplorer = { propertyId: "", contractId: "", activity: "all" };
 
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function ensureShape(data) {
@@ -395,7 +396,7 @@ function portfolioFilterOptions() {
 function contractSummaryRow(c, property) {
   const total = totalContractCost(c);
   return '<tr data-contract-id="' + esc(c.id) + '">' +
-    '<td><strong>' + esc(c.number || c.id) + '</strong><div class="muted mono">' + esc(c.id) + '</div></td>' +
+    '<td><button type="button" class="table-link" data-explorer-contract="' + esc(c.id) + '"><strong>' + esc(c.number || c.id) + '</strong></button><div class="muted mono">' + esc(c.id) + '</div></td>' +
     '<td>' + esc(contractCustomer(c)) + '</td>' +
     '<td>' + esc(unitName(c.unitId)) + '</td>' +
     '<td>' + esc(contractOwner(c, property)) + '</td>' +
@@ -412,7 +413,7 @@ function detailedContractRow(c) {
   const commonPct = c.area ? Number(c.commonArea || 0) / Number(c.area) * 100 : 0;
   const aptPct = c.area ? Number(c.apartmentArea || 0) / Number(c.area) * 100 : 0;
   return '<tr data-contract-id="' + esc(c.id) + '">' +
-    '<td><strong>' + esc(c.number || c.id) + '</strong><div class="muted mono">' + esc(c.id) + '</div></td>' +
+    '<td><button type="button" class="table-link" data-explorer-contract="' + esc(c.id) + '"><strong>' + esc(c.number || c.id) + '</strong></button><div class="muted mono">' + esc(c.id) + '</div></td>' +
     '<td>' + esc(propertyName(c.propertyId)) + '</td>' +
     '<td>' + esc(contractCustomer(c)) + '</td>' +
     '<td>' + esc(unitName(c.unitId)) + '</td>' +
@@ -444,14 +445,16 @@ function portfolioPatternRows(contracts, keyFn, labelFn, valueFn) {
     return b.value - a.value || b.count - a.count || a.label.localeCompare(b.label, "sv");
   });
 }
-function portfolioPatternHtml(title, subtitle, rows, formatter) {
+function portfolioPatternHtml(title, subtitle, rows, formatter, filterId) {
   const max = Math.max.apply(null, [1].concat(rows.map(function(row) { return row.value; })));
   const body = rows.length ? rows.slice(0, 8).map(function(row) {
     const width = row.value > 0 ? Math.max(3, row.value / max * 100) : 3;
-    return '<div class="pattern-row">' +
+    const tag = filterId ? "button" : "div";
+    const attrs = filterId ? ' type="button" class="pattern-row pattern-button" data-set-filter="' + esc(filterId) + '" data-filter-value="' + esc(row.key) + '"' : ' class="pattern-row"';
+    return '<' + tag + attrs + '>' +
       '<div class="pattern-row-head"><strong>' + esc(row.label) + '</strong><span>' + esc(formatter(row)) + '</span></div>' +
       '<div class="pattern-track"><div class="pattern-fill" style="width:' + width + '%"></div></div>' +
-    '</div>';
+    '</' + tag + '>';
   }).join("") : '<div class="empty compact">Ingen data i urvalet.</div>';
   return '<section class="pattern-card"><div class="pattern-head"><h3>' + esc(title) + '</h3><p>' + esc(subtitle) + '</p></div>' + body + '</section>';
 }
@@ -463,6 +466,124 @@ function monthsUntil(dateValue) {
   return (date.getFullYear() - now.getFullYear()) * 12 + (date.getMonth() - now.getMonth()) +
     (date.getDate() >= now.getDate() ? 0 : -1);
 }
+function portfolioActivityItems(contracts) {
+  const contractIds = new Set(contracts.map(function(c) { return c.id; }));
+  const propertyIds = new Set(contracts.map(function(c) { return c.propertyId; }));
+  function inScope(item) {
+    return (item.contractId && contractIds.has(item.contractId)) ||
+      (!item.contractId && item.propertyId && propertyIds.has(item.propertyId));
+  }
+  function responsibleFromAssignments(type, id) {
+    const names = state.assignments.filter(function(a) {
+      return a.targetType === type && a.targetId === id && !a.toDate;
+    }).map(function(a) { return personName(a.personId); }).filter(Boolean);
+    return Array.from(new Set(names)).join(", ");
+  }
+  const items = [];
+  state.projects.filter(inScope).forEach(function(x) {
+    items.push({ group:"project", type:"Projekt", id:x.id, title:x.name, propertyId:x.propertyId, contractId:x.contractId,
+      status:x.status, when:x.end || x.start || "", cost:Number(x.preliminaryCost)||projectBudgetTotal(x),
+      responsible:responsibleFromAssignments("project", x.id) });
+  });
+  state.maintenance.filter(inScope).forEach(function(x) {
+    items.push({ group:"maintenance", type:"Underhåll", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
+      status:x.status || x.priority, when:x.year ? String(x.year) : "", cost:Number(x.cost)||0, responsible:"" });
+  });
+  state.maintenanceStatus.filter(inScope).forEach(function(x) {
+    items.push({ group:"maintenance", type:"Underhållsstatus", id:x.id, title:x.category + (x.actionNeed ? " · " + x.actionNeed : ""),
+      propertyId:x.propertyId, contractId:x.contractId, status:x.status, when:x.assessedDate || "", cost:Number(x.estimatedCost)||0,
+      responsible:personName(x.responsiblePersonId) });
+  });
+  state.driftIssues.filter(inScope).forEach(function(x) {
+    items.push({ group:"drift", type:"Driftärende", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
+      status:x.status, when:x.targetDate || x.createdDate || "", cost:Number(x.finalCost)||Number(x.estimatedCost)||0,
+      responsible:personName(x.responsiblePersonId) });
+  });
+  state.wishes.filter(inScope).forEach(function(x) {
+    items.push({ group:"wish", type:"Önskemål", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
+      status:x.status, when:x.targetDate || x.createdDate || "", cost:Number(x.finalCost)||Number(x.estimatedCost)||0,
+      responsible:personName(x.responsiblePersonId) });
+  });
+  state.investigations.filter(inScope).forEach(function(x) {
+    items.push({ group:"investigation", type:"Utredning", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
+      status:x.status, when:x.year ? String(x.year) : "", cost:Number(x.cost)||0, responsible:"" });
+  });
+  state.operations.filter(inScope).forEach(function(x) {
+    items.push({ group:"operations", type:"Driftkostnad", id:x.id, title:x.category, propertyId:x.propertyId, contractId:x.contractId,
+      status:"Budget / utfall", when:x.period ? String(x.period) : "", cost:Number(x.actual)||Number(x.budget)||0, responsible:"" });
+  });
+  return items.sort(function(a, b) {
+    return String(a.when || "9999").localeCompare(String(b.when || "9999")) || a.type.localeCompare(b.type, "sv");
+  });
+}
+function activityGroupLabel(group) {
+  return {
+    all:"Allt aktuellt",
+    project:"Projekt",
+    maintenance:"Underhåll",
+    drift:"Driftärenden",
+    wish:"Önskemål",
+    investigation:"Utredningar",
+    operations:"Driftkostnader"
+  }[group] || "Allt aktuellt";
+}
+function portfolioActivityHtml(contracts) {
+  const allItems = portfolioActivityItems(contracts);
+  const groups = [
+    ["all","Allt",allItems],
+    ["project","Projekt",allItems.filter(function(x){return x.group==="project";})],
+    ["maintenance","Underhåll",allItems.filter(function(x){return x.group==="maintenance";})],
+    ["drift","Driftärenden",allItems.filter(function(x){return x.group==="drift";})],
+    ["wish","Önskemål",allItems.filter(function(x){return x.group==="wish";})],
+    ["investigation","Utredningar",allItems.filter(function(x){return x.group==="investigation";})],
+    ["operations","Driftkostnader",allItems.filter(function(x){return x.group==="operations";})]
+  ];
+  const cards = groups.map(function(group) {
+    const key=group[0], label=group[1], items=group[2];
+    const cost=items.reduce(function(sum,x){return sum+(Number(x.cost)||0);},0);
+    return '<button type="button" class="activity-card ' + (portfolioExplorer.activity===key ? "active" : "") +
+      '" data-explorer-activity="' + key + '"><span>' + esc(label) + '</span><strong>' + items.length +
+      '</strong><small>' + (key==="all" ? "poster i urvalet" : money(cost)) + '</small></button>';
+  }).join("");
+  const selected = portfolioExplorer.activity==="all" ? allItems : allItems.filter(function(x){return x.group===portfolioExplorer.activity;});
+  const rows = selected.map(function(x) {
+    const property = state.properties.find(function(p){return p.id===x.propertyId;});
+    return '<tr>' +
+      '<td>' + statusBadge(x.type) + '</td>' +
+      '<td><strong>' + esc(x.title || "–") + '</strong></td>' +
+      '<td><button type="button" class="table-link" data-explorer-property="' + esc(x.propertyId||"") + '">' +
+        esc(property ? (property.address||property.id) : (x.propertyId||"–")) + '</button></td>' +
+      '<td>' + (x.contractId ? '<button type="button" class="table-link mono" data-explorer-contract="' + esc(x.contractId) + '">' +
+        esc((state.contracts.find(function(c){return c.id===x.contractId;})||{}).number || x.contractId) + '</button>' : "–") + '</td>' +
+      '<td>' + esc(x.status || "–") + '</td><td>' + esc(x.when || "–") + '</td><td>' + money(x.cost) + '</td><td>' +
+      esc(x.responsible || "–") + '</td></tr>';
+  });
+  return '<section class="activity-section"><div class="activity-section-head"><div><h3>Aktuellt i urvalet</h3>' +
+    '<p>Samma poster oavsett om du tittar på helheten, VÅRDBO, en fastighet eller ett avtal.</p></div>' +
+    '<strong>' + esc(activityGroupLabel(portfolioExplorer.activity)) + '</strong></div>' +
+    '<div class="activity-cards">' + cards + '</div>' +
+    table(["Typ","Aktivitet","Fastighet","Avtal","Status","Tid","Kostnad","Ansvarig"], rows) + '</section>';
+}
+function portfolioContextHtml() {
+  const parts = ['<span class="context-root">Helhet</span>'];
+  const unit = document.getElementById("filter-unit");
+  if (unit && unit.value) parts.push('<span>›</span><button type="button" data-clear-filter="filter-unit">' + esc(unit.options[unit.selectedIndex].text) + ' ×</button>');
+  if (portfolioExplorer.propertyId) {
+    const p=state.properties.find(function(x){return x.id===portfolioExplorer.propertyId;});
+    parts.push('<span>›</span><button type="button" data-clear-explorer="property">' + esc(p ? (p.address||p.id) : portfolioExplorer.propertyId) + ' ×</button>');
+  }
+  if (portfolioExplorer.contractId) {
+    const c=state.contracts.find(function(x){return x.id===portfolioExplorer.contractId;});
+    parts.push('<span>›</span><button type="button" data-clear-explorer="contract">' + esc(c ? (c.number||c.id) : portfolioExplorer.contractId) + ' ×</button>');
+  }
+  if (portfolioExplorer.activity!=="all") parts.push('<span>›</span><button type="button" data-explorer-activity="all">' + esc(activityGroupLabel(portfolioExplorer.activity)) + ' ×</button>');
+  return parts.join("");
+}
+function updatePortfolioContextBanner() {
+  const el=document.getElementById("portfolio-context");
+  if(el) el.innerHTML=portfolioContextHtml();
+}
+
 function portfolioOverviewHtml(contracts) {
   const propertyIds = new Set(contracts.map(function(c) { return c.propertyId; }).filter(Boolean));
   const totalArea = contracts.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0);
@@ -546,16 +667,17 @@ function portfolioOverviewHtml(contracts) {
       '<div><span>Saknar ansvarig hos oss</span><strong>' + missingResponsible + ' av ' + contracts.length + ' avtal</strong></div>' +
     '</div>' +
     '<div class="pattern-grid">' +
-      portfolioPatternHtml("Kunder", "Fördelning av area", customerRows, function(row) { return num(row.value) + " kvm · " + row.count + " avtal"; }) +
-      portfolioPatternHtml("Organisation", "Fördelning av area", unitRows, function(row) { return num(row.value) + " kvm · " + row.count + " avtal"; }) +
-      portfolioPatternHtml("Fastighetsägare", "Fördelning av hyra + drift", ownerRows, function(row) { return money(row.value) + " · " + row.count + " avtal"; }) +
-      portfolioPatternHtml("Ansvar hos oss", "Antal avtal per ansvarig", responsibilityRows, function(row) { return row.count + " avtal"; }) +
+      portfolioPatternHtml("Kunder", "Fördelning av area", customerRows, function(row) { return num(row.value) + " kvm · " + row.count + " avtal"; }, "filter-customer") +
+      portfolioPatternHtml("Organisation", "Klicka t.ex. VÅRDBO för att se hela verksamhetsområdet", unitRows, function(row) { return num(row.value) + " kvm · " + row.count + " avtal"; }, "filter-unit") +
+      portfolioPatternHtml("Fastighetsägare", "Fördelning av hyra + drift", ownerRows, function(row) { return money(row.value) + " · " + row.count + " avtal"; }, "filter-owner") +
+      portfolioPatternHtml("Ansvar hos oss", "Antal avtal per ansvarig", responsibilityRows, function(row) { return row.count + " avtal"; }, "filter-our-person") +
     '</div>' +
     '<div class="pattern-watch">' +
       '<div class="pattern-head"><h3>Avtalsbevakning</h3><p>Närmaste uppsägningsdatum, annars avtalslut. ' +
       (noDate ? noDate + ' avtal saknar båda datumen.' : 'Alla avtal har bevakningsdatum.') + '</p></div>' +
       table(["Avtal", "Fastighet", "Bevakningsdatum", "Tid kvar"], watchRows) +
-    '</div>';
+    '</div>' +
+    portfolioActivityHtml(contracts);
 }
 function updatePortfolioOverview(contracts) {
   const container = document.getElementById("portfolio-overview-content");
@@ -587,7 +709,8 @@ function renderProperties() {
       '<div class="property-body">' +
         '<div class="property-meta"><span><strong>Organisation</strong> ' + esc(units.join(", ") || "–") + '</span>' +
         '<span><strong>Fastighetsbeteckning</strong> ' + esc(p.designation || "–") + '</span>' +
-        '<span><strong>Förvaltare</strong> ' + esc(p.manager || "–") + '</span></div>' +
+        '<span><strong>Förvaltare</strong> ' + esc(p.manager || "–") + '</span>' +
+        '<button type="button" class="inline-link" data-explorer-property="' + esc(p.id) + '">Visa allt för fastigheten</button></div>' +
         table(["Avtal", "Kund", "Organisation", "Fastighetsägare", "Area", "Hyra + drift", "Ansvarig hos oss", "Kundansvarig", "Ägaransvarig"], contractRows) +
       '</div>' +
     '</details>';
@@ -615,6 +738,7 @@ function renderProperties() {
     '</div>' +
     card("Fastigheter & avtal", "Se först portföljens helhet och mönster. Gå sedan vidare till fastighet eller avtal utan att tappa samma filterurval.",
       filterBar +
+      '<div class="portfolio-context" id="portfolio-context">' + portfolioContextHtml() + '</div>' +
       '<div class="property-tab-panel" id="overview-panel"><div id="portfolio-overview-content">' + portfolioOverviewHtml(state.contracts) + '</div></div>' +
       '<div class="property-tab-panel" id="properties-panel" hidden>' + propertyGroups + '</div>' +
       '<div class="property-tab-panel" id="contracts-panel" hidden>' +
@@ -991,8 +1115,10 @@ function bindViewEvents() {
       const control = document.getElementById(id);
       if (control) control.value = "";
     });
+    portfolioExplorer = { propertyId: "", contractId: "", activity: "all" };
     filterPropertyPortfolio();
   });
+  bindPortfolioExplorerControls();
   const by = document.getElementById("budget-year");
   if (by) by.addEventListener("change", function() { selectedBudgetYear = Number(by.value); render(); });
 }
@@ -1013,6 +1139,8 @@ function portfolioFilterValues() {
 }
 function contractMatchesPortfolio(c, filters) {
   const property = state.properties.find(function(p) { return p.id === c.propertyId; });
+  if (portfolioExplorer.propertyId && c.propertyId !== portfolioExplorer.propertyId) return false;
+  if (portfolioExplorer.contractId && c.id !== portfolioExplorer.contractId) return false;
   if (filters.customer && contractCustomerKey(c) !== filters.customer) return false;
   if (filters.unit && c.unitId !== filters.unit) return false;
   if (filters.owner && contractOwnerKey(c, property) !== filters.owner) return false;
@@ -1029,11 +1157,73 @@ function contractMatchesPortfolio(c, filters) {
   }
   return true;
 }
+function bindPortfolioExplorerControls() {
+  document.querySelectorAll("[data-set-filter]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound = "1";
+    button.addEventListener("click", function() {
+      const control=document.getElementById(button.dataset.setFilter);
+      if(control) {
+        control.value=button.dataset.filterValue || "";
+        portfolioExplorer.propertyId="";
+        portfolioExplorer.contractId="";
+        filterPropertyPortfolio();
+      }
+    });
+  });
+  document.querySelectorAll("[data-explorer-property]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound="1";
+    button.addEventListener("click", function(event) {
+      event.preventDefault(); event.stopPropagation();
+      portfolioExplorer.propertyId=button.dataset.explorerProperty || "";
+      portfolioExplorer.contractId="";
+      filterPropertyPortfolio();
+      const overviewTab=document.querySelector('[data-property-tab="overview"]');
+      if(overviewTab) overviewTab.click();
+    });
+  });
+  document.querySelectorAll("[data-explorer-contract]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound="1";
+    button.addEventListener("click", function(event) {
+      event.preventDefault(); event.stopPropagation();
+      const contract=state.contracts.find(function(x){return x.id===button.dataset.explorerContract;});
+      portfolioExplorer.contractId=button.dataset.explorerContract || "";
+      portfolioExplorer.propertyId=contract ? contract.propertyId : portfolioExplorer.propertyId;
+      filterPropertyPortfolio();
+      const overviewTab=document.querySelector('[data-property-tab="overview"]');
+      if(overviewTab) overviewTab.click();
+    });
+  });
+  document.querySelectorAll("[data-explorer-activity]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound="1";
+    button.addEventListener("click", function() {
+      portfolioExplorer.activity=button.dataset.explorerActivity || "all";
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-clear-explorer]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound="1";
+    button.addEventListener("click", function() {
+      if(button.dataset.clearExplorer==="property") { portfolioExplorer.propertyId=""; portfolioExplorer.contractId=""; }
+      if(button.dataset.clearExplorer==="contract") portfolioExplorer.contractId="";
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-clear-filter]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound="1";
+    button.addEventListener("click", function() {
+      const control=document.getElementById(button.dataset.clearFilter);
+      if(control) control.value="";
+      filterPropertyPortfolio();
+    });
+  });
+}
 function filterPropertyPortfolio() {
   const filters = portfolioFilterValues();
   const matchedPortfolioContracts = state.contracts.filter(function(c) { return contractMatchesPortfolio(c, filters); });
   const matchedContractIds = new Set(matchedPortfolioContracts.map(function(c) { return c.id; }));
   updatePortfolioOverview(matchedPortfolioContracts);
+  updatePortfolioContextBanner();
+  bindPortfolioExplorerControls();
   let visibleProperties = 0;
   let visibleContracts = 0;
   document.querySelectorAll(".property-group[data-property-id]").forEach(function(group) {
