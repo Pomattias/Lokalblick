@@ -10,6 +10,16 @@ servers:
 security:
   - entraBearer: []
 paths:
+  /workspace:
+    patch:
+      summary: Persist a frontend workspace change set
+      description: >
+        Transitional frontend contract. The production backend may internally
+        translate this into granular SharePoint/Dataverse writes and must
+        enforce authorization and concurrency.
+      responses:
+        "200":
+          description: Updated workspace snapshot
   /bootstrap:
     get:
       summary: Load the current user's permitted Lokalblick workspace
