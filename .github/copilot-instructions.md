@@ -95,3 +95,14 @@ Before committing:
 - confirm no real data, local paths or secrets were added
 - confirm no files under `frontend/**` were modified
 - summarize changed files and commits
+
+
+## Backend persistence rule
+
+For every non-demo runtime:
+- backend is the single source of truth for all persisted Lokalblick data
+- frontend may render and edit, but all saves must go through the Lokalblick API
+- do not persist business data in localStorage, IndexedDB or browser files
+- do not let frontend write directly to Excel, SharePoint, SQL or source systems
+- Lokalblick-created entities and overlays must be stored in backend-controlled persistence
+- synthetic public demo browser storage is the only exception
