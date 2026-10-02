@@ -183,6 +183,7 @@ function personName(id) {
   return p ? p.name : "Ej tilldelad";
 }
 function targetName(type, id) {
+  if (type === "property") return propertyName(id);
   if (type === "object") return contractName(id);
   if (type === "project") return projectName(id);
   if (type === "driftIssue") {
@@ -526,9 +527,9 @@ function renderOrganisation() {
   });
   const peopleRows = state.people.map(function(p) {
     const ass = state.assignments.filter(function(a) { return a.personId === p.id && !a.toDate; });
-    const objects = ass.filter(function(a) { return a.targetType === "object"; }).map(function(a) { return contractName(a.targetId); });
+    const objects = ass.filter(function(a) { return a.targetType === "property" || a.targetType === "object"; }).map(function(a) { return targetName(a.targetType, a.targetId); });
     const projects = ass.filter(function(a) { return a.targetType === "project"; }).map(function(a) { return projectName(a.targetId); });
-    const other = ass.filter(function(a) { return a.targetType !== "object" && a.targetType !== "project"; }).map(function(a) { return targetName(a.targetType, a.targetId); });
+    const other = ass.filter(function(a) { return a.targetType !== "property" && a.targetType !== "object" && a.targetType !== "project"; }).map(function(a) { return targetName(a.targetType, a.targetId); });
     const load = personLoad(p.id);
     return "<tr><td><strong>" + esc(p.name) + '</strong><div class="muted">' + esc(p.role || "") + "</div></td><td>" + esc(orgType(p.organizationId)) +
       "</td><td>" + esc(orgName(p.organizationId)) + "</td><td>" + esc(unitName(p.unitId)) + "</td><td>" + esc(objects.join(", ") || "–") +
@@ -562,7 +563,7 @@ function renderOrganisation() {
       '<div class="notice"><strong>Fastighetsägaren</strong><br>Intern (SF) eller extern förvaltare, teknisk och ekonomisk kontakt.</div></div>') +
     "</div>" +
     card("Personer och aktiva kopplingar", "En person hör till en organisation och kan vara ansvarig för objekt, projekt, status, driftärenden och önskemål.",
-      table(["Person", "Nivå", "Organisation", "Verksamhetsområde", "Objekt / avtal", "Projekt", "Ärenden / önskemål", "Belastning"], peopleRows),
+      table(["Person", "Nivå", "Organisation", "Verksamhetsområde", "Fastighet / objekt", "Projekt", "Ärenden / önskemål", "Belastning"], peopleRows),
       '<button class="button primary" data-add="person">+ Person</button> <button class="button secondary" data-add="assignment">+ Tilldelning</button>') +
     card("Ansvarshistorik", "Från- och tilldatum gör att ansvar kan bytas utan att historiken försvinner.",
       table(["Person", "Typ", "Mål", "Roll", "Från", "Till", "Omfattning"], assignmentRows)) +
@@ -623,7 +624,7 @@ const fieldTemplates = {
   ],
   assignment: [
     ["personId", "Person", "person", "", true],
-    ["targetType", "Typ", "select", "object|project|driftIssue|wish|maintenanceStatus", true],
+    ["targetType", "Typ", "select", "property|object|project|driftIssue|wish|maintenanceStatus", true],
     ["targetId", "Mål-ID", "target", "", true],
     ["role", "Roll i uppdraget", "text", "", true],
     ["fromDate", "Från", "date", "", false],
