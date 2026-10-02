@@ -354,11 +354,14 @@ function renderDashboard() {
     return '<div class="bar-row"><div class="bar-label">' + esc(x.category) + '</div><div class="bar-track"><div class="bar-fill" style="width:' +
       (x.amount / max * 100) + '%"></div></div><div class="bar-value">' + num(x.amount / 1000000) + "m</div></div>";
   }).join("");
+  const openIssues = state.driftIssues.filter(function(x) { return x.status !== "Klar"; }).length;
+  const openWishes = state.wishes.filter(function(x) { return x.status !== "Klart" && x.status !== "Avslaget"; }).length;
+  const maintenanceNeeds = state.maintenanceStatus.filter(function(x) { return x.status === "Åtgärdsbehov" || x.status === "Akut"; }).length;
   return '<div class="grid kpi-grid">' +
     kpi("Objekt / avtal", num(state.contracts.length), num(totalArea) + " kvm") +
-    kpi("Årshyra + avtalsdrift", money(annualCost), "från objekt/avtal") +
     kpi("Budget " + selectedBudgetYear, money(totalBudget), "automatiskt från källor") +
-    kpi("Organisation", num(ORG_UNITS.length), "VÅRDBO · ORDBO · Mynd/Stab · HoF") +
+    kpi("Öppna driftärenden", num(openIssues), "aktiva ärenden") +
+    kpi("Önskemål / UH-behov", num(openWishes + maintenanceNeeds), openWishes + " önskemål · " + maintenanceNeeds + " statusbehov") +
     '</div><div class="grid two-col" style="margin-top:16px">' +
     card("Årsbudget", "Hyra + drift, projekt, UH, driftkostnader och utredningar", '<div class="bar-list">' + budgetBars + "</div>", '<button class="button secondary" data-goto="budget">Öppna budget</button>') +
     card("Arbetsfördelning", "Vår organisation – tilldelning till objekt och projekt", '<div class="bar-list">' + loadBars + "</div>", '<button class="button secondary" data-goto="organisation">Öppna organisation</button>') +
@@ -496,17 +499,26 @@ function renderOrganisation() {
       return p.unitId === u.id && org && org.type === "our";
     });
     return "<tr><td><strong>" + esc(u.name) + "</strong></td><td>" + cs.length + "</td><td>" +
-      num(cs.reduce(function(s, c) { return s + (Number(c.area) || 0); }, 0)) + " kvm</td><td>" +
-      money(cs.reduce(function(s, c) { return s + totalContractCost(c); }, 0)) + "</td><td>" + people.length + "</td></tr>";
+      num(cs.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0)) + " kvm</td><td>" +
+      money(cs.reduce(function(sum, c) { return sum + totalContractCost(c); }, 0)) + "</td><td>" + people.length + "</td></tr>";
   });
   const peopleRows = state.people.map(function(p) {
-    const ass = state.assignments.filter(function(a) { return a.personId === p.id; });
+    const ass = state.assignments.filter(function(a) { return a.personId === p.id && !a.toDate; });
     const objects = ass.filter(function(a) { return a.targetType === "object"; }).map(function(a) { return contractName(a.targetId); });
     const projects = ass.filter(function(a) { return a.targetType === "project"; }).map(function(a) { return projectName(a.targetId); });
+    const other = ass.filter(function(a) { return a.targetType !== "object" && a.targetType !== "project"; }).map(function(a) { return targetName(a.targetType, a.targetId); });
     const load = personLoad(p.id);
     return "<tr><td><strong>" + esc(p.name) + '</strong><div class="muted">' + esc(p.role || "") + "</div></td><td>" + esc(orgType(p.organizationId)) +
       "</td><td>" + esc(orgName(p.organizationId)) + "</td><td>" + esc(unitName(p.unitId)) + "</td><td>" + esc(objects.join(", ") || "–") +
-      "</td><td>" + esc(projects.join(", ") || "–") + "</td><td>" + (load ? load + "%" : "–") + "</td></tr>";
+      "</td><td>" + esc(projects.join(", ") || "–") + "</td><td>" + esc(other.join(", ") || "–") + "</td><td>" + (load ? load + "%" : "–") + "</td></tr>";
+  });
+  const assignmentRows = state.assignments.slice().sort(function(a,b) {
+    return String(b.fromDate || "").localeCompare(String(a.fromDate || ""));
+  }).map(function(a) {
+    return "<tr><td>" + esc(personName(a.personId)) + "</td><td>" + esc(a.targetType) + "</td><td>" +
+      esc(targetName(a.targetType, a.targetId)) + "</td><td>" + esc(a.role || "–") + "</td><td>" +
+      esc(a.fromDate || "–") + "</td><td>" + esc(a.toDate || "Pågående") + "</td><td>" +
+      (Number(a.allocation) ? Number(a.allocation) + "%" : "–") + "</td></tr>";
   });
   const ourPeople = state.people.filter(function(p) {
     const org = state.organizations.find(function(o) { return o.id === p.organizationId; });
@@ -521,15 +533,17 @@ function renderOrganisation() {
     card("Organisation per verksamhetsområde", "Objekt och våra personer kopplas till VÅRDBO, ORDBO, Myndighet/Stab eller Hälsa & Förebyggande.",
       table(["Organisation", "Objekt / avtal", "Area", "Hyra + drift", "Våra personer"], objectStats)) +
     '<div class="grid two-col">' +
-    card("Arbetsfördelning · vår organisation", "Belastning räknas från tilldelningar till objekt och projekt.", '<div class="bar-list">' + (bars || '<div class="empty">Ingen intern persondata.</div>') + "</div>") +
+    card("Arbetsfördelning · vår organisation", "Belastning räknas från aktiva tilldelningar till objekt och projekt.", '<div class="bar-list">' + (bars || '<div class="empty">Ingen intern persondata.</div>') + "</div>") +
     card("Tre personnivåer", "Samma objekt kan ha personer från tre parter.",
       '<div class="section-stack"><div class="notice"><strong>Vår organisation</strong><br>Objektansvarig, projektledare, samordnare.</div>' +
       '<div class="notice"><strong>Hyresgästen</strong><br>Verksamhetschef, lokal kontakt, ekonom.</div>' +
       '<div class="notice"><strong>Fastighetsägaren</strong><br>Intern (SF) eller extern förvaltare, teknisk och ekonomisk kontakt.</div></div>') +
     "</div>" +
-    card("Personer och kopplingar", "En person hör till en organisation och kan kopplas till ett eller flera objekt/projekt.",
-      table(["Person", "Nivå", "Organisation", "Verksamhetsområde", "Objekt / avtal", "Projekt", "Belastning"], peopleRows),
+    card("Personer och aktiva kopplingar", "En person hör till en organisation och kan vara ansvarig för objekt, projekt, status, driftärenden och önskemål.",
+      table(["Person", "Nivå", "Organisation", "Verksamhetsområde", "Objekt / avtal", "Projekt", "Ärenden / önskemål", "Belastning"], peopleRows),
       '<button class="button primary" data-add="person">+ Person</button> <button class="button secondary" data-add="assignment">+ Tilldelning</button>') +
+    card("Ansvarshistorik", "Från- och tilldatum gör att ansvar kan bytas utan att historiken försvinner.",
+      table(["Person", "Typ", "Mål", "Roll", "Från", "Till", "Omfattning"], assignmentRows)) +
     "</div>";
 }
 
