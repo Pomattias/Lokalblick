@@ -74,3 +74,12 @@ Do not add real LEB files, real company/customer data, local Windows paths, cred
 Use synthetic fixtures only.
 
 The public GitHub Pages site remains demo-only.
+
+
+## Current backend task
+
+The current implementation specification is versioned in:
+
+`docs/COPILOT_BACKEND_TASK.md`
+
+Always fetch the latest `origin/copilot-backend` and read that file before implementation. Do not rely on a copied chat prompt as the source of truth.
