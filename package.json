@@ -6,9 +6,17 @@
   "description": "Lokalblick repository tooling and preflight checks",
   "scripts": {
     "check": "node scripts/repo-check.mjs",
-    "test": "node scripts/repo-check.mjs"
+    "test": "node --test backend/test/*.test.js && node scripts/repo-check.mjs",
+    "setup:company": "node scripts/setup-company.mjs",
+    "company": "node backend/src/server.js"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   }
 }

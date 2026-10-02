@@ -1,51 +1,43 @@
 openapi: 3.0.3
 info:
   title: Lokalblick API
-  version: 0.1.0
+  version: 0.2.0
   description: >
-    Contract between the Lokalblick frontend and the future authenticated
-    Microsoft 365 backend. No production secrets or data belong in GitHub.
+    Loopback-only company-local API. LEB master data is read-only;
+    Lokalblick-owned data is persisted by the backend.
 servers:
   - url: /api
-security:
-  - entraBearer: []
 paths:
+  /health:
+    get:
+      summary: Check service health
+      responses:
+        "200":
+          description: Service status
+  /source/status:
+    get:
+      summary: Return source status without source data
+      responses:
+        "200":
+          description: Counts and file status only
+  /source/refresh:
+    post:
+      summary: Reload LEB and merge with backend persistence
+      responses:
+        "200":
+          description: Updated workspace
+  /bootstrap:
+    get:
+      summary: Load LEB core and backend-persisted workspace
+      responses:
+        "200":
+          description: Workspace snapshot
   /workspace:
     patch:
-      summary: Persist a frontend workspace change set
-      description: >
-        Transitional frontend contract. The production backend may internally
-        translate this into granular SharePoint/Dataverse writes and must
-        enforce authorization and concurrency.
+      summary: Persist user-owned workspace data and overlays
       responses:
         "200":
           description: Updated workspace snapshot
-  /bootstrap:
-    get:
-      summary: Load the current user's permitted Lokalblick workspace
-      responses:
-        "200":
-          description: Bootstrap payload
-  /budget/{year}:
-    get:
-      summary: Build annual budget from contracts and timed needs
-      parameters:
-        - in: path
-          name: year
-          required: true
-          schema: { type: integer }
-      responses:
-        "200":
-          description: Budget rows and summaries
-  /leb/refresh:
-    post:
-      summary: Refresh LEB from the approved SharePoint workbook
-      description: >
-        Server-side operation. The browser never uploads the LEB workbook
-        to the public frontend.
-      responses:
-        "202":
-          description: Refresh accepted
   /{entity}:
     get:
       summary: List permitted records
@@ -55,12 +47,12 @@ paths:
           required: true
           schema:
             type: string
-            enum: [properties, objects, people, assignments, projects, maintenance-status, maintenance, drift-costs, drift-issues, wishes, investigations]
+            enum: [properties, contracts, organizations, people, assignments, projects, maintenance, maintenance-status, drift-costs, operations, drift-issues, wishes, investigations, budget-data, coordinates, contract-overlays, property-overlays]
       responses:
         "200":
           description: Records
     post:
-      summary: Create a record
+      summary: Create a user-owned record
       parameters:
         - in: path
           name: entity
@@ -85,7 +77,7 @@ paths:
         "200":
           description: Record
     patch:
-      summary: Update a record
+      summary: Update a user-owned record
       parameters:
         - in: path
           name: entity
@@ -98,9 +90,17 @@ paths:
       responses:
         "200":
           description: Updated
-components:
-  securitySchemes:
-    entraBearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    delete:
+      summary: Delete a user-owned record or persist a core-data tombstone
+      parameters:
+        - in: path
+          name: entity
+          required: true
+          schema: { type: string }
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
