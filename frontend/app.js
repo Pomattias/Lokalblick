@@ -672,54 +672,134 @@ function portfolioOverviewHtml(contracts) {
   const totalArea = contracts.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0);
   const totalCost = contracts.reduce(function(sum, c) { return sum + totalContractCost(c); }, 0);
   const costPerSqm = totalArea ? totalCost / totalArea : 0;
-  const customerRows = portfolioPatternRows(contracts, contractCustomerKey, contractCustomer, function(c) { return c.area; });
-  const unitRows = portfolioPatternRows(contracts, function(c) { return c.unitId || "Ej satt"; }, function(c) { return unitName(c.unitId); }, function(c) { return c.area; });
-  const ownerRows = portfolioPatternRows(contracts,
-    function(c) { const p=state.properties.find(function(x){return x.id===c.propertyId;}); return contractOwnerKey(c,p); },
-    function(c) { const p=state.properties.find(function(x){return x.id===c.propertyId;}); return contractOwner(c,p); },
-    totalContractCost);
+
+  const customerRows = portfolioPatternRows(
+    contracts,
+    contractCustomerKey,
+    contractCustomer,
+    function(c) { return c.area; }
+  );
+  const unitRows = portfolioPatternRows(
+    contracts,
+    function(c) { return c.unitId || "Ej satt"; },
+    function(c) { return unitName(c.unitId); },
+    function(c) { return c.area; }
+  );
+  const ownerRows = portfolioPatternRows(
+    contracts,
+    function(c) {
+      const property = state.properties.find(function(x) { return x.id === c.propertyId; });
+      return contractOwnerKey(c, property);
+    },
+    function(c) {
+      const property = state.properties.find(function(x) { return x.id === c.propertyId; });
+      return contractOwner(c, property);
+    },
+    totalContractCost
+  );
+
   const responsibility = new Map();
   let missingResponsible = 0;
   contracts.forEach(function(c) {
     const people = contractPartyPeople(c, "our");
-    if (!people.length) { missingResponsible += 1; return; }
+    if (!people.length) {
+      missingResponsible += 1;
+      return;
+    }
     people.forEach(function(person) {
-      const row = responsibility.get(person.id) || { key:person.id, label:person.name, count:0, value:0 };
-      row.count += 1; row.value += 1; responsibility.set(person.id,row);
+      const row = responsibility.get(person.id) || {
+        key: person.id,
+        label: person.name,
+        count: 0,
+        value: 0
+      };
+      row.count += 1;
+      row.value += 1;
+      responsibility.set(person.id, row);
     });
   });
-  const responsibilityRows = Array.from(responsibility.values()).sort(function(a,b){return b.count-a.count;});
+  const responsibilityRows = Array.from(responsibility.values()).sort(function(a, b) {
+    return b.count - a.count;
+  });
+
   const watch = contracts.map(function(c) {
-    const months=monthsUntil(c.notice||c.end); return {contract:c,months:months,date:c.notice||c.end||""};
-  }).filter(function(x){return x.months!=null&&x.months>=0;}).sort(function(a,b){return a.months-b.months;});
-  const within12=watch.filter(function(x){return x.months<=12;}).length;
-  const within24=watch.filter(function(x){return x.months>12&&x.months<=24;}).length;
-  const watchRows=watch.slice(0,6).map(function(item){
-    return '<div class="overview-kpis">' +
-    kpi("Fastigheter",num(propertyIds.size),"i aktuellt urval") +
-    kpi("Avtal",num(contracts.length),"i aktuellt urval") +
-    kpi("Area",num(totalArea)+" kvm",propertyIds.size?num(totalArea/propertyIds.size)+" kvm / fastighet":"–") +
-    kpi("Hyra + drift",money(totalCost),totalArea?num(costPerSqm)+" kr/kvm":"–") +
+    const months = monthsUntil(c.notice || c.end);
+    return {
+      contract: c,
+      months: months,
+      date: c.notice || c.end || ""
+    };
+  }).filter(function(x) {
+    return x.months != null && x.months >= 0;
+  }).sort(function(a, b) {
+    return a.months - b.months;
+  });
+
+  const within12 = watch.filter(function(x) { return x.months <= 12; }).length;
+  const within24 = watch.filter(function(x) { return x.months > 12 && x.months <= 24; }).length;
+
+  const watchRows = watch.slice(0, 6).map(function(item) {
+    return '<tr><td><button type="button" class="table-link" data-explorer-contract="' + esc(item.contract.id) + '"><strong>' +
+      esc(item.contract.number || item.contract.id) +
+      '</strong></button></td><td><button type="button" class="table-link" data-explorer-property="' +
+      esc(item.contract.propertyId) + '">' + esc(propertyName(item.contract.propertyId)) +
+      '</button></td><td>' + esc(item.date) + '</td><td>' +
+      (item.months <= 12 ? statusBadge("≤ 12 mån") : statusBadge(item.months <= 24 ? "13–24 mån" : "> 24 mån")) +
+      '</td></tr>';
+  });
+
+  function concentration(rows, denominator, suffix) {
+    return rows.length && denominator
+      ? percent(rows[0].value / denominator * 100) + " hos " + rows[0].label + suffix
+      : "–";
+  }
+
+  return '<div class="overview-kpis">' +
+    kpi("Fastigheter", num(propertyIds.size), "i aktuellt urval") +
+    kpi("Avtal", num(contracts.length), "i aktuellt urval") +
+    kpi("Area", num(totalArea) + " kvm", propertyIds.size ? num(totalArea / propertyIds.size) + " kvm / fastighet" : "–") +
+    kpi("Hyra + drift", money(totalCost), totalArea ? num(costPerSqm) + " kr/kvm" : "–") +
     '</div>' +
-    '<section class="planning-section"><div class="planning-section-head"><div><span>PLANERA OCH FÖRDJUPA</span><h3>Vad vill du arbeta med?</h3>' +
+
+    '<section class="planning-section">' +
+      '<div class="planning-section-head"><div><span>PLANERA OCH FÖRDJUPA</span><h3>Vad vill du arbeta med?</h3>' +
       '<p>Alla val behåller samma urval. Du kan börja i VÅRDBO och sedan gå vidare till exempelvis Underhåll eller en enskild fastighet.</p></div></div>' +
-      '<div class="planning-grid">' + portfolioPlanningCardsHtml(contracts) + '</div></section>' +
-    '<section class="signals-section"><div class="planning-section-head"><div><span>SIGNALER</span><h3>Det här bör du ha koll på</h3></div></div>' +
+      '<div class="planning-grid">' + portfolioPlanningCardsHtml(contracts) + '</div>' +
+    '</section>' +
+
+    '<section class="signals-section">' +
+      '<div class="planning-section-head"><div><span>SIGNALER</span><h3>Det här bör du ha koll på</h3></div></div>' +
       '<div class="signal-grid">' +
         '<div class="signal-card"><span>Avtal inom 12 mån</span><strong>' + within12 + '</strong><small>' + within24 + ' ytterligare inom 24 mån</small></div>' +
         '<div class="signal-card"><span>Saknar ansvarig</span><strong>' + missingResponsible + '</strong><small>av ' + contracts.length + ' avtal</small></div>' +
-        '<div class="signal-card"><span>Kundkoncentration</span><strong>' + esc(concentration(customerRows,totalArea," av arean")) + '</strong></div>' +
-        '<div class="signal-card"><span>Ägarkoncentration</span><strong>' + esc(concentration(ownerRows,totalCost," av kostnaden")) + '</strong></div>' +
-      '</div></section>' +
-    '<section class="patterns-section"><div class="planning-section-head"><div><span>MÖNSTER</span><h3>Fördelning i urvalet</h3>' +
-      '<p>Klicka på en rad för att fördjupa hela Bestånd-vyn.</p></div></div><div class="pattern-grid">' +
-      portfolioPatternHtml("Kunder","Fördelning av area",customerRows,function(row){return num(row.value)+" kvm · "+row.count+" avtal";},"filter-customer") +
-      portfolioPatternHtml("Organisation","Välj verksamhetsområde",unitRows,function(row){return num(row.value)+" kvm · "+row.count+" avtal";},"filter-unit") +
-      portfolioPatternHtml("Fastighetsägare","Fördelning av hyra + drift",ownerRows,function(row){return money(row.value)+" · "+row.count+" avtal";},"filter-owner") +
-      portfolioPatternHtml("Ansvar hos oss","Antal avtal per ansvarig",responsibilityRows,function(row){return row.count+" avtal";},"filter-our-person") +
-    '</div></section>' +
-    '<div class="pattern-watch"><div class="pattern-head"><h3>Kommande avtalsbevakning</h3><p>Närmaste uppsägningsdatum, annars avtalslut.</p></div>' +
-      table(["Avtal","Fastighet","Bevakningsdatum","Tid kvar"],watchRows) + '</div>';
+        '<div class="signal-card"><span>Kundkoncentration</span><strong>' + esc(concentration(customerRows, totalArea, " av arean")) + '</strong></div>' +
+        '<div class="signal-card"><span>Ägarkoncentration</span><strong>' + esc(concentration(ownerRows, totalCost, " av kostnaden")) + '</strong></div>' +
+      '</div>' +
+    '</section>' +
+
+    '<section class="patterns-section">' +
+      '<div class="planning-section-head"><div><span>MÖNSTER</span><h3>Fördelning i urvalet</h3>' +
+      '<p>Klicka på en rad för att fördjupa hela Bestånd-vyn.</p></div></div>' +
+      '<div class="pattern-grid">' +
+        portfolioPatternHtml("Kunder", "Fördelning av area", customerRows, function(row) {
+          return num(row.value) + " kvm · " + row.count + " avtal";
+        }, "filter-customer") +
+        portfolioPatternHtml("Organisation", "Välj verksamhetsområde", unitRows, function(row) {
+          return num(row.value) + " kvm · " + row.count + " avtal";
+        }, "filter-unit") +
+        portfolioPatternHtml("Fastighetsägare", "Fördelning av hyra + drift", ownerRows, function(row) {
+          return money(row.value) + " · " + row.count + " avtal";
+        }, "filter-owner") +
+        portfolioPatternHtml("Ansvar hos oss", "Antal avtal per ansvarig", responsibilityRows, function(row) {
+          return row.count + " avtal";
+        }, "filter-our-person") +
+      '</div>' +
+    '</section>' +
+
+    '<div class="pattern-watch">' +
+      '<div class="pattern-head"><h3>Kommande avtalsbevakning</h3><p>Närmaste uppsägningsdatum, annars avtalslut.</p></div>' +
+      table(["Avtal", "Fastighet", "Bevakningsdatum", "Tid kvar"], watchRows) +
+    '</div>';
 }
 function renderProperties() {
   const filters=portfolioFilterOptions();
