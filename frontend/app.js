@@ -996,6 +996,7 @@ function bindViewEvents() {
   bindPortfolioSectionControls();
   bindPortfolioExplorerControls();
   applyPortfolioSectionVisibility();
+  if (currentView === "properties") filterPropertyPortfolio();
   const by = document.getElementById("budget-year");
   if (by) by.addEventListener("change", function() { selectedBudgetYear = Number(by.value); render(); });
 }
