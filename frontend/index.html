@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lokalblick · Publik demo</title>
+  <meta name="description" content="Publik demo av Lokalblick. Ingen företagsdata lagras eller importeras här." />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="data/demo-data.js" defer></script>
+  <script src="services/data-service.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">L</div>
+        <div>
+          <strong>Lokalblick</strong>
+          <span>Fastighet · Objekt · Budget · Organisation</span>
+        </div>
+      </div>
+      <nav id="main-nav" class="nav-list" aria-label="Huvudnavigation"></nav>
+      <div class="sidebar-foot">
+        <div class="privacy-note"><strong>Publik demo.</strong> Endast syntetisk testdata. Riktig data ska gå via företagets autentiserade backend.</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow" id="page-eyebrow">PORTFÖLJ</div>
+          <h1 id="page-title">Översikt</h1>
+        </div>
+        <div class="topbar-actions">
+          <span class="badge amber">DEMO</span>
+          <button id="clear-data" class="button secondary" type="button">Återställ demo</button>
+        </div>
+      </header>
+
+      <section id="mode-banner" class="mode-banner demo">
+        <strong>Publik demo</strong>
+        <span>Ingen riktig LEB-, person-, hyres-, drift- eller projektdata får användas här.</span>
+      </section>
+
+      <section id="content" class="content" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <dialog id="editor-dialog" class="editor-dialog">
+    <form method="dialog" id="editor-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow" id="dialog-eyebrow">NY POST</div>
+          <h2 id="dialog-title">Lägg till</h2>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="Stäng">×</button>
+      </div>
+      <div id="dialog-fields" class="dialog-fields"></div>
+      <div class="dialog-actions">
+        <button class="button secondary" value="cancel" type="button" id="dialog-cancel">Avbryt</button>
+        <button class="button primary" value="default" type="submit">Spara demo</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
