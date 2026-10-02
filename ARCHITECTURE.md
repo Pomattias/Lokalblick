@@ -43,3 +43,34 @@ GitHub Pages      ->  company-hosted web app / Teams tab
 ## Map boundary
 
 The public demo may use public map tiles with synthetic coordinates only. Production property addresses are not geocoded from the browser. Coordinates are supplied by the authenticated backend using an organization-approved map/geocoding provider.
+
+
+## Provider adapters
+
+Lokalblick is intentionally provider-neutral.
+
+### Map
+
+```
+app.js
+  -> LokalblickMapService
+      -> LeafletMapAdapter (demo)
+      -> AzureMapsAdapter (future)
+      -> MapboxAdapter (future)
+      -> customer GIS adapter (future)
+```
+
+The UI never calls a map SDK directly.
+
+### Data
+
+```
+Lokalblick API
+  -> LokalblickRepository
+      -> M365SourceAdapter
+      -> ExternalApiSourceAdapter
+      -> SQL/Dataverse adapter
+      -> other customer source adapters
+```
+
+All adapters return the same normalized Lokalblick model. Teams is one host, not the product boundary.
