@@ -969,29 +969,17 @@ function renderOrganisation() {
     "</div>";
 }
 
+function bindAddButtons() {
+  document.querySelectorAll("[data-add]:not([data-add-bound])").forEach(function(button) {
+    button.dataset.addBound = "1";
+    button.addEventListener("click", function() { openEditor(button.dataset.add); });
+  });
+}
 function bindViewEvents() {
-  document.querySelectorAll("[data-goto]").forEach(function(b) {
-    b.addEventListener("click", function() { currentView = b.dataset.goto; render(); });
+  document.querySelectorAll("[data-goto]").forEach(function(button) {
+    button.addEventListener("click", function() { currentView = button.dataset.goto; render(); });
   });
-  document.querySelectorAll("[data-add]").forEach(function(b) {
-    b.addEventListener("click", function() { openEditor(b.dataset.add); });
-  });
-  document.querySelectorAll("[data-property-tab]").forEach(function(button) {
-    button.addEventListener("click", function() {
-      const target = button.dataset.propertyTab;
-      document.querySelectorAll("[data-property-tab]").forEach(function(tab) {
-        const active = tab.dataset.propertyTab === target;
-        tab.classList.toggle("active", active);
-        tab.setAttribute("aria-selected", active ? "true" : "false");
-      });
-      const overviewPanel = document.getElementById("overview-panel");
-      const propertiesPanel = document.getElementById("properties-panel");
-      const contractsPanel = document.getElementById("contracts-panel");
-      if (overviewPanel) overviewPanel.hidden = target !== "overview";
-      if (propertiesPanel) propertiesPanel.hidden = target !== "properties";
-      if (contractsPanel) contractsPanel.hidden = target !== "contracts";
-    });
-  });
+  bindAddButtons();
   ["portfolio-search", "filter-customer", "filter-unit", "filter-owner", "filter-our-person", "filter-tenant-person", "filter-owner-person"].forEach(function(id) {
     const control = document.getElementById(id);
     if (control) control.addEventListener(id === "portfolio-search" ? "input" : "change", filterPropertyPortfolio);
@@ -1002,10 +990,12 @@ function bindViewEvents() {
       const control = document.getElementById(id);
       if (control) control.value = "";
     });
-    portfolioExplorer = { propertyId: "", contractId: "", activity: "all" };
+    portfolioExplorer = { propertyId: "", contractId: "", section: "overview" };
     filterPropertyPortfolio();
   });
+  bindPortfolioSectionControls();
   bindPortfolioExplorerControls();
+  applyPortfolioSectionVisibility();
   const by = document.getElementById("budget-year");
   if (by) by.addEventListener("change", function() { selectedBudgetYear = Number(by.value); render(); });
 }
@@ -1044,101 +1034,141 @@ function contractMatchesPortfolio(c, filters) {
   }
   return true;
 }
-function bindPortfolioExplorerControls() {
-  document.querySelectorAll("[data-set-filter]:not([data-explorer-bound])").forEach(function(button) {
-    button.dataset.explorerBound = "1";
+function activitySections() {
+  return ["project", "maintenance", "drift", "wish", "investigation", "operations"];
+}
+function applyPortfolioSectionVisibility() {
+  const section = portfolioExplorer.section || "overview";
+  const overview = document.getElementById("overview-panel");
+  const properties = document.getElementById("properties-panel");
+  const contracts = document.getElementById("contracts-panel");
+  const activity = document.getElementById("activity-panel");
+  if (overview) overview.hidden = section !== "overview";
+  if (properties) properties.hidden = section !== "properties";
+  if (contracts) contracts.hidden = section !== "contracts";
+  if (activity) activity.hidden = !activitySections().includes(section);
+}
+function bindPortfolioSectionControls() {
+  document.querySelectorAll("[data-portfolio-section]:not([data-section-bound])").forEach(function(button) {
+    button.dataset.sectionBound = "1";
     button.addEventListener("click", function() {
-      const control=document.getElementById(button.dataset.setFilter);
-      if(control) {
-        control.value=button.dataset.filterValue || "";
-        portfolioExplorer.propertyId="";
-        portfolioExplorer.contractId="";
-        filterPropertyPortfolio();
-      }
-    });
-  });
-  document.querySelectorAll("[data-explorer-property]:not([data-explorer-bound])").forEach(function(button) {
-    button.dataset.explorerBound="1";
-    button.addEventListener("click", function(event) {
-      event.preventDefault(); event.stopPropagation();
-      portfolioExplorer.propertyId=button.dataset.explorerProperty || "";
-      portfolioExplorer.contractId="";
-      filterPropertyPortfolio();
-      const overviewTab=document.querySelector('[data-property-tab="overview"]');
-      if(overviewTab) overviewTab.click();
-    });
-  });
-  document.querySelectorAll("[data-explorer-contract]:not([data-explorer-bound])").forEach(function(button) {
-    button.dataset.explorerBound="1";
-    button.addEventListener("click", function(event) {
-      event.preventDefault(); event.stopPropagation();
-      const contract=state.contracts.find(function(x){return x.id===button.dataset.explorerContract;});
-      portfolioExplorer.contractId=button.dataset.explorerContract || "";
-      portfolioExplorer.propertyId=contract ? contract.propertyId : portfolioExplorer.propertyId;
-      filterPropertyPortfolio();
-      const overviewTab=document.querySelector('[data-property-tab="overview"]');
-      if(overviewTab) overviewTab.click();
-    });
-  });
-  document.querySelectorAll("[data-explorer-activity]:not([data-explorer-bound])").forEach(function(button) {
-    button.dataset.explorerBound="1";
-    button.addEventListener("click", function() {
-      portfolioExplorer.activity=button.dataset.explorerActivity || "all";
-      filterPropertyPortfolio();
-    });
-  });
-  document.querySelectorAll("[data-clear-explorer]:not([data-explorer-bound])").forEach(function(button) {
-    button.dataset.explorerBound="1";
-    button.addEventListener("click", function() {
-      if(button.dataset.clearExplorer==="property") { portfolioExplorer.propertyId=""; portfolioExplorer.contractId=""; }
-      if(button.dataset.clearExplorer==="contract") portfolioExplorer.contractId="";
-      filterPropertyPortfolio();
-    });
-  });
-  document.querySelectorAll("[data-clear-filter]:not([data-explorer-bound])").forEach(function(button) {
-    button.dataset.explorerBound="1";
-    button.addEventListener("click", function() {
-      const control=document.getElementById(button.dataset.clearFilter);
-      if(control) control.value="";
+      portfolioExplorer.section = button.dataset.portfolioSection || "overview";
       filterPropertyPortfolio();
     });
   });
 }
+function bindPortfolioExplorerControls() {
+  document.querySelectorAll("[data-set-filter]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound = "1";
+    button.addEventListener("click", function() {
+      const control = document.getElementById(button.dataset.setFilter);
+      if (!control) return;
+      control.value = button.dataset.filterValue || "";
+      portfolioExplorer.propertyId = "";
+      portfolioExplorer.contractId = "";
+      portfolioExplorer.section = "overview";
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-explorer-property]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound = "1";
+    button.addEventListener("click", function(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      portfolioExplorer.propertyId = button.dataset.explorerProperty || "";
+      portfolioExplorer.contractId = "";
+      portfolioExplorer.section = "overview";
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-explorer-contract]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound = "1";
+    button.addEventListener("click", function(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const contract = state.contracts.find(function(x) { return x.id === button.dataset.explorerContract; });
+      portfolioExplorer.contractId = button.dataset.explorerContract || "";
+      portfolioExplorer.propertyId = contract ? contract.propertyId : portfolioExplorer.propertyId;
+      portfolioExplorer.section = "overview";
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-clear-explorer]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound = "1";
+    button.addEventListener("click", function() {
+      if (button.dataset.clearExplorer === "property") {
+        portfolioExplorer.propertyId = "";
+        portfolioExplorer.contractId = "";
+      }
+      if (button.dataset.clearExplorer === "contract") portfolioExplorer.contractId = "";
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-clear-filter]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound = "1";
+    button.addEventListener("click", function() {
+      const control = document.getElementById(button.dataset.clearFilter);
+      if (control) control.value = "";
+      filterPropertyPortfolio();
+    });
+  });
+}
+function updatePortfolioSurfaces(contracts) {
+  const overview = document.getElementById("portfolio-overview-content");
+  if (overview) overview.innerHTML = portfolioOverviewHtml(contracts);
+
+  const tabs = document.getElementById("portfolio-content-tabs");
+  if (tabs) {
+    tabs.innerHTML = portfolioContentTabsHtml(contracts);
+    bindPortfolioSectionControls();
+  }
+
+  const activity = document.getElementById("portfolio-activity-content");
+  if (activity) {
+    activity.innerHTML = activitySections().includes(portfolioExplorer.section)
+      ? portfolioActivityGroupedHtml(contracts, portfolioExplorer.section)
+      : "";
+  }
+
+  const context = document.getElementById("portfolio-context");
+  if (context) context.innerHTML = portfolioContextHtml();
+
+  bindPortfolioExplorerControls();
+  bindAddButtons();
+  applyPortfolioSectionVisibility();
+}
 function filterPropertyPortfolio() {
   const filters = portfolioFilterValues();
-  const matchedPortfolioContracts = state.contracts.filter(function(c) { return contractMatchesPortfolio(c, filters); });
-  const matchedContractIds = new Set(matchedPortfolioContracts.map(function(c) { return c.id; }));
-  updatePortfolioOverview(matchedPortfolioContracts);
-  updatePortfolioContextBanner();
-  bindPortfolioExplorerControls();
-  let visibleProperties = 0;
-  let visibleContracts = 0;
+  const matchedContracts = state.contracts.filter(function(c) { return contractMatchesPortfolio(c, filters); });
+  const matchedIds = new Set(matchedContracts.map(function(c) { return c.id; }));
+  const matchedPropertyIds = new Set(matchedContracts.map(function(c) { return c.propertyId; }));
+
   document.querySelectorAll(".property-group[data-property-id]").forEach(function(group) {
     const property = state.properties.find(function(p) { return p.id === group.dataset.propertyId; });
     const contracts = state.contracts.filter(function(c) { return c.propertyId === group.dataset.propertyId; });
-    const matchedContracts = contracts.filter(function(c) { return matchedContractIds.has(c.id); });
-    let propertyMatches = matchedContracts.length > 0;
-    if (!contracts.length && !filters.customer && !filters.unit && !filters.owner && !filters.ourPerson && !filters.tenantPerson && !filters.ownerPerson) {
-      const propertyText = [property && property.id, property && property.address, property && property.designation, property && property.owner].filter(Boolean).join(" ").toLowerCase();
-      propertyMatches = !filters.q || propertyText.includes(filters.q);
+    const matched = contracts.filter(function(c) { return matchedIds.has(c.id); });
+    let show = matched.length > 0;
+    if (!contracts.length && !filters.customer && !filters.unit && !filters.owner && !filters.ourPerson && !filters.tenantPerson && !filters.ownerPerson &&
+        !portfolioExplorer.propertyId && !portfolioExplorer.contractId) {
+      const text = [property && property.id, property && property.address, property && property.designation, property && property.owner]
+        .filter(Boolean).join(" ").toLowerCase();
+      show = !filters.q || text.includes(filters.q);
+      if (show) matchedPropertyIds.add(group.dataset.propertyId);
     }
-    group.hidden = !propertyMatches;
-    if (propertyMatches) {
-      visibleProperties += 1;
-      group.querySelectorAll("tbody tr[data-contract-id]").forEach(function(row) {
-        const contract = state.contracts.find(function(c) { return c.id === row.dataset.contractId; });
-        row.hidden = !contract || !matchedContractIds.has(contract.id);
-      });
-    }
+    group.hidden = !show;
+    group.querySelectorAll("tbody tr[data-contract-id]").forEach(function(row) {
+      row.hidden = !matchedIds.has(row.dataset.contractId);
+    });
   });
+
   document.querySelectorAll("#contracts-panel tbody tr[data-contract-id]").forEach(function(row) {
-    const contract = state.contracts.find(function(c) { return c.id === row.dataset.contractId; });
-    const match = contract && matchedContractIds.has(contract.id);
-    row.hidden = !match;
-    if (match) visibleContracts += 1;
+    row.hidden = !matchedIds.has(row.dataset.contractId);
   });
+
   const result = document.getElementById("portfolio-filter-result");
-  if (result) result.textContent = visibleProperties + " fastigheter · " + visibleContracts + " avtal";
+  if (result) result.textContent = matchedPropertyIds.size + " fastigheter · " + matchedContracts.length + " avtal";
+
+  updatePortfolioSurfaces(matchedContracts);
 }
 const fieldTemplates = {
   object: [
