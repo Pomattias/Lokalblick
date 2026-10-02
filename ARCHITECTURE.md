@@ -85,3 +85,26 @@ The user-facing architecture is intentionally explained as three zones:
 3. Customer-controlled private data environment: master data, raw documents, system credentials and source APIs.
 
 Only the records and fields an authenticated user is authorized to view cross from the private environment to the frontend. Source credentials and raw master data never belong in public frontend assets.
+
+
+## Backend is the persistence authority
+
+For every non-demo runtime, the backend is the single persistence authority.
+
+The frontend may:
+- fetch data from the Lokalblick API
+- display data
+- edit data in forms
+- hold temporary unsaved UI state
+
+The frontend must not:
+- persist business data in localStorage, IndexedDB or browser files
+- become a second source of truth
+- write directly to Excel, SharePoint, SQL or other source systems
+- store API keys, credentials or source-system secrets
+
+Every saved create/update/delete action goes through the Lokalblick API and is persisted by the backend.
+
+Source/master data such as LEB may remain read-only in its source system. Lokalblick-created data and overlays — including projects, people, assignments, maintenance, drift issues, wishes, investigations, budgets, coordinates and object complements — are persisted in backend-controlled storage.
+
+The public GitHub Pages demo is the only exception: synthetic demo state may use browser storage because it contains no real customer data.
