@@ -23,6 +23,7 @@ const demo = window.LokalblickDemoData;
 const views = [
   { id: "dashboard", label: "Översikt", icon: "◫", eyebrow: "PORTFÖLJ" },
   { id: "properties", label: "Fastigheter", icon: "▦", eyebrow: "LEB · FASTIGHET" },
+  { id: "map", label: "Karta", icon: "⌖", eyebrow: "GEOGRAFI" },
   { id: "contracts", label: "Objekt / avtal", icon: "≣", eyebrow: "LEB · OBJEKT = AVTAL" },
   { id: "budget", label: "Årsbudget", icon: "¤", eyebrow: "EKONOMI" },
   { id: "portfolio", label: "Projekt & behov", icon: "◇", eyebrow: "ÅTGÄRDER" },
@@ -33,6 +34,7 @@ let state = clone(demo);
 let currentView = "dashboard";
 let selectedBudgetYear = new Date().getFullYear() + 1;
 let editorType = null;
+let propertyMap = null;
 
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function ensureShape(data) {
@@ -264,11 +266,13 @@ function render() {
   if (currentView === "dashboard") html = renderDashboard();
   else if (currentView === "properties") html = renderProperties();
   else if (currentView === "contracts") html = renderContracts();
+  else if (currentView === "map") html = renderMap();
   else if (currentView === "budget") html = renderBudget();
   else if (currentView === "portfolio") html = renderPortfolio();
   else html = renderOrganisation();
   document.getElementById("content").innerHTML = html;
   bindViewEvents();
+  if (currentView === "map") initPropertyMap();
 }
 
 function renderDashboard() {
@@ -305,7 +309,8 @@ function renderDashboard() {
     '</div><div class="grid two-col" style="margin-top:16px">' +
     card("Årsbudget", "Hyra + drift, projekt, UH, driftkostnader och utredningar", '<div class="bar-list">' + budgetBars + "</div>", '<button class="button secondary" data-goto="budget">Öppna budget</button>') +
     card("Arbetsfördelning", "Vår organisation – tilldelning till objekt och projekt", '<div class="bar-list">' + loadBars + "</div>", '<button class="button secondary" data-goto="organisation">Öppna organisation</button>') +
-    "</div>";
+    "</div>" +
+    '<div style="margin-top:16px">' + card("Geografi", "Se fastigheter och objekt på karta.", '<div class="map-dashboard-copy">Hover på dator eller tryck på en markör på mobil för snabbfakta.</div>', '<button class="button secondary" data-goto="map">Öppna karta</button>') + '</div>';
 }
 
 function renderProperties() {
@@ -322,6 +327,127 @@ function renderProperties() {
     '<div class="toolbar"><input class="search" id="property-search" placeholder="Sök objektsnummer, adress, ägare…"><select class="select" id="property-type"><option value="">Alla</option><option>Intern</option><option>Extern</option></select></div>' +
     '<div id="property-table">' + table(["Fastighet", "Adress", "Typ", "Fastighetsägare", "Objekt/avtal", "Area", "Hyra + drift", "Organisation"], rows) + "</div>");
 }
+
+function renderMap() {
+  const mapped = state.properties.filter(function(p) {
+    return Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude));
+  });
+  const missing = state.properties.length - mapped.length;
+  const units = Array.from(new Set(state.contracts.map(function(c) { return c.unitId; }).filter(Boolean)));
+  return card(
+    "Karta",
+    "Hover på dator eller tryck på mobil för att se information om platsen.",
+    '<div class="toolbar map-toolbar">' +
+      '<select class="select" id="map-type"><option value="">Alla fastigheter</option><option>Intern</option><option>Extern</option></select>' +
+      '<select class="select" id="map-unit"><option value="">Alla verksamhetsområden</option>' +
+        units.map(function(id) { return '<option value="' + esc(id) + '">' + esc(unitName(id)) + '</option>'; }).join("") +
+      '</select>' +
+      '<span class="map-count">' + mapped.length + ' kartlagda' + (missing ? ' · ' + missing + ' saknar koordinat' : '') + '</span>' +
+    '</div>' +
+    '<div id="property-map" class="property-map" role="region" aria-label="Karta över fastigheter"></div>' +
+    '<div class="map-footnote">Demokartan använder syntetiska koordinater. I företagsversionen hämtas koordinater via backend och godkänd karttjänst.</div>'
+  );
+}
+
+function mapPropertySummary(p) {
+  const cs = state.contracts.filter(function(c) { return c.propertyId === p.id; });
+  const area = cs.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0);
+  const cost = cs.reduce(function(sum, c) { return sum + totalContractCost(c); }, 0);
+  const units = Array.from(new Set(cs.map(function(c) { return unitName(c.unitId); }).filter(Boolean)));
+  const projects = state.projects.filter(function(x) { return x.propertyId === p.id && x.status !== "Klar"; }).length;
+  const issues = state.driftIssues.filter(function(x) { return x.propertyId === p.id && x.status !== "Klar"; }).length;
+  const wishes = state.wishes.filter(function(x) { return x.propertyId === p.id && x.status !== "Klart" && x.status !== "Avslaget"; }).length;
+  return {
+    contracts: cs.length,
+    area: area,
+    cost: cost,
+    units: units,
+    projects: projects,
+    issues: issues,
+    wishes: wishes
+  };
+}
+
+function mapPopupHtml(p) {
+  const x = mapPropertySummary(p);
+  return '<div class="map-popup">' +
+    '<div class="map-popup-kicker">' + esc(p.type || "Fastighet") + ' · ' + esc(p.id) + '</div>' +
+    '<div class="map-popup-title">' + esc(p.address || "Adress saknas") + '</div>' +
+    '<div class="map-popup-sub">' + esc(p.designation || "") + '</div>' +
+    '<div class="map-popup-grid">' +
+      '<span>Fastighetsägare</span><strong>' + esc(p.owner || "–") + '</strong>' +
+      '<span>Objekt / avtal</span><strong>' + num(x.contracts) + '</strong>' +
+      '<span>Area</span><strong>' + num(x.area) + ' kvm</strong>' +
+      '<span>Hyra + drift</span><strong>' + money(x.cost) + '</strong>' +
+      '<span>Organisation</span><strong>' + esc(x.units.join(", ") || "–") + '</strong>' +
+    '</div>' +
+    '<div class="map-popup-status">' +
+      '<span>' + x.projects + ' projekt</span>' +
+      '<span>' + x.issues + ' driftärenden</span>' +
+      '<span>' + x.wishes + ' önskemål</span>' +
+    '</div>' +
+  '</div>';
+}
+
+function initPropertyMap() {
+  const el = document.getElementById("property-map");
+  if (!el || !window.L) return;
+  if (propertyMap) {
+    propertyMap.remove();
+    propertyMap = null;
+  }
+
+  propertyMap = L.map(el, { zoomControl: true, scrollWheelZoom: true });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap"
+  }).addTo(propertyMap);
+
+  function draw() {
+    propertyMap.eachLayer(function(layer) {
+      if (layer instanceof L.CircleMarker) propertyMap.removeLayer(layer);
+    });
+
+    const type = document.getElementById("map-type") ? document.getElementById("map-type").value : "";
+    const unit = document.getElementById("map-unit") ? document.getElementById("map-unit").value : "";
+    const points = state.properties.filter(function(p) {
+      if (!Number.isFinite(Number(p.latitude)) || !Number.isFinite(Number(p.longitude))) return false;
+      if (type && p.type !== type) return false;
+      if (unit) {
+        const hasUnit = state.contracts.some(function(c) { return c.propertyId === p.id && c.unitId === unit; });
+        if (!hasUnit) return false;
+      }
+      return true;
+    });
+
+    const bounds = [];
+    points.forEach(function(p) {
+      const marker = L.circleMarker([Number(p.latitude), Number(p.longitude)], {
+        radius: 9,
+        weight: 3,
+        opacity: 1,
+        fillOpacity: 0.82
+      }).addTo(propertyMap);
+      marker.bindPopup(mapPopupHtml(p), { closeButton: false, autoPanPadding: [24, 24] });
+      marker.on("mouseover", function() { this.openPopup(); });
+      marker.on("mouseout", function() { this.closePopup(); });
+      marker.on("click", function() { this.openPopup(); });
+      bounds.push([Number(p.latitude), Number(p.longitude)]);
+    });
+
+    if (bounds.length === 1) propertyMap.setView(bounds[0], 15);
+    else if (bounds.length > 1) propertyMap.fitBounds(bounds, { padding: [36, 36] });
+    else propertyMap.setView([55.6050, 13.0038], 12);
+  }
+
+  draw();
+  const type = document.getElementById("map-type");
+  const unit = document.getElementById("map-unit");
+  if (type) type.addEventListener("change", draw);
+  if (unit) unit.addEventListener("change", draw);
+  setTimeout(function() { if (propertyMap) propertyMap.invalidateSize(); }, 0);
+}
+
 
 function renderContracts() {
   const rows = state.contracts.map(function(c) {
