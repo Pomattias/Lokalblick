@@ -59,3 +59,8 @@ Backend är säkerhets- och datagränsen för den framtida företagsversionen. D
 **Företagsversion / Teams:** samma frontend, men med `m365-api-service`, Entra ID och företagets backend/M365-lagring.
 
 Se även `ARCHITECTURE.md` och `backend/README.md`.
+
+
+## Om-flik och säkerhetsgräns
+
+Appens **Om**-flik visar användaren vad som kan vara publikt och vad som ska stanna i kundens skyddade hemmamiljö. Lokalblicks frontend kan vara internetåtkomlig, medan masterdata, råfiler, API-nycklar och systemhemligheter hålls bakom ett autentiserat API/connector-lager.
