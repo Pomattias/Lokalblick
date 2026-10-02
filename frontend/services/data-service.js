@@ -15,7 +15,7 @@
   window.LokalblickDataService = {
     mode: "demo",
 
-    load() {
+    async load() {
       try {
         const raw = localStorage.getItem(DEMO_KEY);
         return raw ? JSON.parse(raw) : clone(window.LokalblickDemoData);
@@ -24,7 +24,7 @@
       }
     },
 
-    save(data) {
+    async save(data) {
       const safe = clone(data);
       safe.isDemo = true;
       safe.sourceName = "Publik demodata";
@@ -32,7 +32,7 @@
       return safe;
     },
 
-    reset() {
+    async reset() {
       try { localStorage.removeItem(DEMO_KEY); } catch (_) {}
       return clone(window.LokalblickDemoData);
     }
