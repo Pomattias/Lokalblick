@@ -48,6 +48,37 @@ export function validateHost(host) {
   }
 }
 
+function assertExternalPath(value) {
+  if (!value) return;
+  const relative = path.relative(ROOT, path.resolve(value));
+  if (relative === "" || (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))) {
+    throw new Error("Company data paths must be outside the Git repository");
+  }
+}
+
+function validateMutationOrigin(request, server) {
+  const origin = request.headers.origin;
+  if (!origin) return;
+  let parsed;
+  try { parsed = new URL(origin); } catch {
+    const error = new Error("Request origin is not allowed");
+    error.statusCode = 403;
+    throw error;
+  }
+  const listeningPort = server.address()?.port;
+  if (
+    parsed.protocol !== "http:" ||
+    !ALLOWED_HOSTS.has(parsed.hostname.replace(/^\[|\]$/g, "")) ||
+    Number(parsed.port || 80) !== Number(listeningPort) ||
+    parsed.username ||
+    parsed.password
+  ) {
+    const error = new Error("Request origin is not allowed");
+    error.statusCode = 403;
+    throw error;
+  }
+}
+
 function sendJson(response, statusCode, value) {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
@@ -121,6 +152,9 @@ export function createLokalblickServer(repository, { host = DEFAULT_HOST, port =
     try {
       const url = new URL(request.url, "http://localhost");
       const pathname = url.pathname;
+      if (["PATCH", "POST", "DELETE"].includes(request.method) && pathname.startsWith("/api/")) {
+        validateMutationOrigin(request, server);
+      }
       if (pathname === "/services/data-service.js" && request.method === "GET") {
         response.writeHead(200, {
           "Content-Type": "text/javascript; charset=utf-8",
@@ -188,6 +222,12 @@ export function createLokalblickServer(repository, { host = DEFAULT_HOST, port =
 
 async function main() {
   await loadLocalEnvironment(path.join(ROOT, ".env.local"));
+  if (process.env.LOKALBLICK_SOURCE && process.env.LOKALBLICK_SOURCE !== "local-company") {
+    throw new Error("Unsupported local company source");
+  }
+  assertExternalPath(process.env.LOKALBLICK_LEB_PATH);
+  assertExternalPath(process.env.LOKALBLICK_DATA_PATH);
+  assertExternalPath(process.env.LOKALBLICK_COORDINATES_PATH);
   const host = process.env.LOKALBLICK_HOST || DEFAULT_HOST;
   const port = Number(process.env.LOKALBLICK_PORT || DEFAULT_PORT);
   validateHost(host);

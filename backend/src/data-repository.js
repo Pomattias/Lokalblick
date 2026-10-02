@@ -75,7 +75,7 @@ function validateJson(value, depth = 0) {
     throw new TypeError("Payload must contain JSON values only");
   }
   for (const [key, nested] of Object.entries(value)) {
-    if (["__proto__", "prototype", "constructor", "path", "filePath", "lebPath", "coordinatesPath"].includes(key)) {
+    if (["__proto__", "prototype", "constructor", "path", "filepath", "lebpath", "coordinatespath", "sourcepath", "workbookpath"].includes(key.toLowerCase())) {
       throw new TypeError("Payload contains a prohibited property");
     }
     validateJson(nested, depth + 1);
@@ -307,14 +307,14 @@ export class LokalblickRepository {
 
   async update(entity, id, payload) {
     if (!USER_ENTITIES.includes(entity)) throw new RangeError("Entity is read-only or unknown");
-    const current = await this.get(entity, id);
-    if (!current) return null;
-    const record = validateEntityRecord(entity, { ...current, ...payload, id }, id, this.core);
-    await this.commit((store) => {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new TypeError("Record payload must be an object");
+    return this.commit((store) => {
       const index = store.entities[entity].findIndex((item) => item.id === id);
-      if (index >= 0) store.entities[entity][index] = record;
+      if (index < 0) return null;
+      const record = validateEntityRecord(entity, { ...store.entities[entity][index], ...payload, id }, id, this.core);
+      store.entities[entity][index] = record;
+      return record;
     });
-    return record;
   }
 
   async delete(entity, id) {

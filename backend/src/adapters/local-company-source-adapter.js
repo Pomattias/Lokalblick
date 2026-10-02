@@ -191,6 +191,8 @@ export class LocalCompanySourceAdapter {
       if (!Array.isArray(records)) throw new Error("Coordinates file must contain an array");
       return records.filter((record) =>
         record && typeof record.propertyId === "string" &&
+        record.latitude != null && record.latitude !== "" &&
+        record.longitude != null && record.longitude !== "" &&
         Number.isFinite(Number(record.latitude)) &&
         Number.isFinite(Number(record.longitude))
       ).map((record) => ({

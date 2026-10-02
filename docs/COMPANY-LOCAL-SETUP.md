@@ -34,7 +34,7 @@ company location and back them up according to company policy.
 
 `npm run setup:company` and `npm run company` require Node.js 20 or newer.
 The server binds only to `127.0.0.1`, `localhost`, or `::1`; it does not enable
-CORS.
+CORS and rejects cross-origin writes.
 
 ## Environment boundary
 

@@ -176,11 +176,18 @@ test("server allows loopback only and exposes a redacted source status", async (
   assert.equal(JSON.stringify(status).includes("SENSITIVE"), false);
   const saved = await fetch(`${base}/api/workspace`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { Origin: base, "Content-Type": "application/json" },
     body: JSON.stringify({ people: [{ id: "API-PERSON", name: "Syntetisk API-person" }] })
   });
   assert.equal(saved.status, 200);
   assert.equal((await (await fetch(`${base}/api/bootstrap`)).json()).people[0].id, "API-PERSON");
+  const crossOrigin = await fetch(`${base}/api/people`, {
+    method: "POST",
+    headers: { Origin: "http://attacker.invalid:8787", "Content-Type": "application/json" },
+    body: JSON.stringify({ id: "CROSS-ORIGIN", name: "blocked" })
+  });
+  assert.equal(crossOrigin.status, 403);
+  assert.equal(await repository.get("people", "CROSS-ORIGIN"), null);
   const runtimeScript = await (await fetch(`${base}/services/data-service.js`)).text();
   assert.match(runtimeScript, /api\/workspace/);
   assert.doesNotMatch(runtimeScript, /localStorage|indexedDB/);

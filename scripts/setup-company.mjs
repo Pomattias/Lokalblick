@@ -23,6 +23,13 @@ async function main() {
     const dataPath = externalPath(await terminal.question("Backend data file path: "), "Backend data path");
     const coordinatesInput = await terminal.question("Optional coordinates JSON path (leave blank to skip): ");
     const coordinatesPath = coordinatesInput.trim() ? externalPath(coordinatesInput, "Coordinates path") : "";
+    if (path.extname(dataPath).toLowerCase() !== ".json") throw new Error("Backend data file must use a .json extension");
+    if (coordinatesPath && path.extname(coordinatesPath).toLowerCase() !== ".json") {
+      throw new Error("Coordinates file must use a .json extension");
+    }
+    if (new Set([lebPath, dataPath, coordinatesPath].filter(Boolean)).size !== 2 + Number(Boolean(coordinatesPath))) {
+      throw new Error("Choose distinct source, backend data, and coordinates files");
+    }
     await fs.access(lebPath);
     const counts = await inspectLebFile(lebPath);
     if (coordinatesPath) {
