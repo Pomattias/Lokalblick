@@ -505,22 +505,25 @@ function activityGroupLabel(group) {
 function portfolioContentTabsHtml(contracts) {
   const items = portfolioActivityItems(contracts);
   const propertyCount = new Set(contracts.map(function(c) { return c.propertyId; })).size;
-  const tabs = [
-    ["overview","Helhet",""],
-    ["properties","Fastigheter",propertyCount],
-    ["contracts","Avtal",contracts.length],
-    ["project","Projekt",items.filter(function(x){return x.group==="project";}).length],
-    ["maintenance","Underhåll",items.filter(function(x){return x.group==="maintenance";}).length],
-    ["drift","Driftärenden",items.filter(function(x){return x.group==="drift";}).length],
-    ["wish","Önskemål",items.filter(function(x){return x.group==="wish";}).length],
-    ["investigation","Utredningar",items.filter(function(x){return x.group==="investigation";}).length],
-    ["operations","Driftkostnader",items.filter(function(x){return x.group==="operations";}).length]
+  const modes = [
+    ["overview","Helhet","◫","Överblick och mönster",""],
+    ["properties","Fastigheter","▦","Samlad bild per fastighet",propertyCount],
+    ["contracts","Avtal","≣","Avtal, area och ekonomi",contracts.length],
+    ["project","Projekt","◇","Projekt, tid och budget",items.filter(function(x){return x.group==="project";}).length],
+    ["maintenance","Underhåll","⌂","Status och planerade åtgärder",items.filter(function(x){return x.group==="maintenance";}).length],
+    ["drift","Driftärenden","⚙","Operativa frågor och åtgärder",items.filter(function(x){return x.group==="drift";}).length],
+    ["wish","Önskemål","＋","Behov från verksamheten",items.filter(function(x){return x.group==="wish";}).length],
+    ["investigation","Utredningar","?","Beslut och förberedelser",items.filter(function(x){return x.group==="investigation";}).length],
+    ["operations","Driftkostnader","¤","Budget och utfall",items.filter(function(x){return x.group==="operations";}).length]
   ];
-  return tabs.map(function(tab) {
-    const active = portfolioExplorer.section === tab[0];
-    return '<button class="view-tab ' + (active ? "active" : "") + '" type="button" data-portfolio-section="' + tab[0] +
-      '" role="tab" aria-selected="' + (active ? "true" : "false") + '">' + esc(tab[1]) +
-      (tab[2] === "" ? "" : " <span>" + tab[2] + "</span>") + '</button>';
+  return modes.map(function(mode) {
+    const active = portfolioExplorer.section === mode[0];
+    return '<button class="mode-card ' + (active ? "active" : "") + '" type="button" data-portfolio-section="' + mode[0] +
+      '" role="tab" aria-selected="' + (active ? "true" : "false") + '">' +
+      '<span class="mode-icon">' + mode[2] + '</span>' +
+      '<span class="mode-copy"><strong>' + esc(mode[1]) + '</strong><small>' + esc(mode[3]) + '</small></span>' +
+      (mode[4] === "" ? '<span class="mode-arrow">→</span>' : '<span class="mode-count">' + mode[4] + '</span>') +
+      '</button>';
   }).join("");
 }
 function portfolioActivityGroupedHtml(contracts, group) {
@@ -607,32 +610,7 @@ function portfolioScopeCardsHtml() {
     '</button>';
   }).join("");
 }
-function portfolioPlanningCardsHtml(contracts) {
-  const items = portfolioActivityItems(contracts);
-  const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
-  const definitions = [
-    { key:"properties", label:"Fastigheter", icon:"▦", count:propertyCount, foot:"Samlad bild per fastighet" },
-    { key:"contracts", label:"Avtal", icon:"≣", count:contracts.length, foot:"Avtal, area och ekonomi" },
-    { key:"project", label:"Projekt", icon:"◇", count:items.filter(function(x){return x.group==="project";}).length,
-      foot:money(items.filter(function(x){return x.group==="project";}).reduce(function(s,x){return s+(Number(x.cost)||0);},0)) },
-    { key:"maintenance", label:"Underhåll", icon:"⌂", count:items.filter(function(x){return x.group==="maintenance";}).length,
-      foot:money(items.filter(function(x){return x.group==="maintenance";}).reduce(function(s,x){return s+(Number(x.cost)||0);},0)) },
-    { key:"drift", label:"Driftärenden", icon:"⚙", count:items.filter(function(x){return x.group==="drift";}).length,
-      foot:"Operativa frågor och åtgärder" },
-    { key:"wish", label:"Önskemål", icon:"＋", count:items.filter(function(x){return x.group==="wish";}).length,
-      foot:"Behov från verksamheten" },
-    { key:"investigation", label:"Utredningar", icon:"?", count:items.filter(function(x){return x.group==="investigation";}).length,
-      foot:money(items.filter(function(x){return x.group==="investigation";}).reduce(function(s,x){return s+(Number(x.cost)||0);},0)) },
-    { key:"operations", label:"Driftkostnader", icon:"¤", count:items.filter(function(x){return x.group==="operations";}).length,
-      foot:money(items.filter(function(x){return x.group==="operations";}).reduce(function(s,x){return s+(Number(x.cost)||0);},0)) }
-  ];
-  return definitions.map(function(item) {
-    return '<button type="button" class="planning-card" data-portfolio-section="' + item.key + '">' +
-      '<span class="planning-icon">' + item.icon + '</span><span class="planning-copy"><strong>' + esc(item.label) +
-      '</strong><small>' + esc(item.foot) + '</small></span><span class="planning-count">' + item.count + '</span><span class="planning-arrow">→</span>' +
-    '</button>';
-  }).join("");
-}
+
 function portfolioScopeTitle() {
   if (portfolioExplorer.contractId) {
     const contract=state.contracts.find(function(c){return c.id===portfolioExplorer.contractId;});
@@ -761,12 +739,6 @@ function portfolioOverviewHtml(contracts) {
     kpi("Hyra + drift", money(totalCost), totalArea ? num(costPerSqm) + " kr/kvm" : "–") +
     '</div>' +
 
-    '<section class="planning-section">' +
-      '<div class="planning-section-head"><div><span>PLANERA OCH FÖRDJUPA</span><h3>Vad vill du arbeta med?</h3>' +
-      '<p>Alla val behåller samma urval. Du kan börja i VÅRDBO och sedan gå vidare till exempelvis Underhåll eller en enskild fastighet.</p></div></div>' +
-      '<div class="planning-grid">' + portfolioPlanningCardsHtml(contracts) + '</div>' +
-    '</section>' +
-
     '<section class="signals-section">' +
       '<div class="planning-section-head"><div><span>SIGNALER</span><h3>Det här bör du ha koll på</h3></div></div>' +
       '<div class="signal-grid">' +
@@ -848,8 +820,8 @@ function renderProperties() {
       '<div class="portfolio-context" id="portfolio-context"><span class="context-root">Helhet</span></div>' +
     '</section>' +
     '<section class="card pad bestands-shell">' +
-      '<div class="bestands-toolbar"><span>Visa</span><div class="view-tabs bestands-tabs" id="portfolio-content-tabs" role="tablist">' +
-        portfolioContentTabsHtml(state.contracts) + '</div></div>' +
+      '<div class="mode-heading"><div><span>VAD VILL DU SE?</span><h3>Välj arbetsyta</h3></div><small>Samma urval följer med mellan nivåerna</small></div>' +
+      '<div class="mode-grid" id="portfolio-content-tabs" role="tablist">' + portfolioContentTabsHtml(state.contracts) + '</div>' +
       '<div class="bestands-content">' +
         '<div class="property-tab-panel" id="overview-panel"><div id="portfolio-overview-content">' + portfolioOverviewHtml(state.contracts) + '</div></div>' +
         '<div class="property-tab-panel" id="properties-panel" hidden>' + propertyGroups + '</div>' +
