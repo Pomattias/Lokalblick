@@ -3,9 +3,9 @@ window.LokalblickDemoData = {
   isDemo: true,
   sourceName: "Demodata",
   properties: [
-    { id: "DEMO-101", type: "Intern", address: "Hamnvägen 12", designation: "Hamnen 4", owner: "Stadsfastigheter", manager: "A. Förvaltare" },
-    { id: "DEMO-201", type: "Extern", address: "Storgatan 20", designation: "Centrum 5", owner: "Fastighetsbolaget AB", manager: "B. Handläggare" },
-    { id: "DEMO-301", type: "Intern", address: "Västanväg 119", designation: "Gräset 2", owner: "Stadsfastigheter", manager: "C. Förvaltare" }
+    { id: "DEMO-101", type: "Intern", address: "Hamnvägen 12", designation: "Hamnen 4", owner: "Stadsfastigheter", manager: "A. Förvaltare", latitude: 55.6098, longitude: 13.0105 },
+    { id: "DEMO-201", type: "Extern", address: "Storgatan 20", designation: "Centrum 5", owner: "Fastighetsbolaget AB", manager: "B. Handläggare", latitude: 55.6057, longitude: 13.0004 },
+    { id: "DEMO-301", type: "Intern", address: "Västanväg 119", designation: "Gräset 2", owner: "Stadsfastigheter", manager: "C. Förvaltare", latitude: 55.5855, longitude: 13.0108 }
   ],
   contracts: [
     {
