@@ -473,3 +473,105 @@ tr:hover td { background: #fbfcfc; }
   .property-summary > span:nth-of-type(5) { display: grid; }
   .property-body { padding: 10px; }
 }
+
+
+/* Helhet och mönster */
+.overview-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.pattern-insights {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.pattern-insights > div {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #f7f9f8;
+  display: grid;
+  gap: 5px;
+}
+.pattern-insights span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.pattern-insights strong {
+  font-size: 12px;
+  line-height: 1.35;
+}
+.pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.pattern-card,
+.pattern-watch {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 14px;
+}
+.pattern-watch { margin-top: 12px; }
+.pattern-head { margin-bottom: 12px; }
+.pattern-head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.pattern-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.pattern-row + .pattern-row { margin-top: 10px; }
+.pattern-row-head {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+.pattern-row-head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.pattern-row-head span {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.pattern-track {
+  height: 7px;
+  border-radius: 999px;
+  background: #edf1f0;
+  overflow: hidden;
+}
+.pattern-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-2);
+}
+.empty.compact {
+  padding: 16px 4px;
+  text-align: left;
+}
+@media (max-width: 1050px) {
+  .overview-kpis,
+  .pattern-insights { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .overview-kpis,
+  .pattern-insights,
+  .pattern-grid { grid-template-columns: 1fr; }
+}
