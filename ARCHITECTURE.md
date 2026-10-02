@@ -74,3 +74,14 @@ Lokalblick API
 ```
 
 All adapters return the same normalized Lokalblick model. Teams is one host, not the product boundary.
+
+
+## Public vs private security boundary
+
+The user-facing architecture is intentionally explained as three zones:
+
+1. Public/external Lokalblick product: UI, map rendering and sign-in shell.
+2. Authenticated API/connector boundary: authorization, normalization, filtering and logging.
+3. Customer-controlled private data environment: master data, raw documents, system credentials and source APIs.
+
+Only the records and fields an authenticated user is authorized to view cross from the private environment to the frontend. Source credentials and raw master data never belong in public frontend assets.
