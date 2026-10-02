@@ -589,6 +589,84 @@ function portfolioContextHtml() {
   }
   return parts.join("");
 }
+
+function portfolioScopeCardsHtml() {
+  const allContracts = state.contracts;
+  const cards = [{ id:"", name:"Hela beståndet" }].concat(ORG_UNITS.map(function(unit) {
+    return { id:unit.id, name:unit.name };
+  }));
+  return cards.map(function(card) {
+    const contracts = card.id ? allContracts.filter(function(c){return c.unitId===card.id;}) : allContracts;
+    const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
+    const area = contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
+    const cost = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
+    return '<button type="button" class="scope-card ' + (!card.id ? "active" : "") + '" data-quick-unit="' + esc(card.id) + '">' +
+      '<span class="scope-card-label">' + esc(card.name) + '</span>' +
+      '<strong>' + propertyCount + ' fastigheter</strong>' +
+      '<small>' + num(area) + ' kvm · ' + money(cost) + '</small>' +
+    '</button>';
+  }).join("");
+}
+function portfolioPlanningCardsHtml(contracts) {
+  const items = portfolioActivityItems(contracts);
+  const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
+  const definitions = [
+    { key:"properties", label:"Fastigheter", icon:"▦", count:propertyCount, foot:"Samlad bild per fastighet" },
+    { key:"contracts", label:"Avtal", icon:"≣", count:contracts.length, foot:"Avtal, area och ekonomi" },
+    { key:"project", label:"Projekt", icon:"◇", count:items.filter(function(x){return x.group==="project";}).length,
+      foot:money(items.filter(function(x){return x.group==="project";}).reduce(function(s,x){return s+(Number(x.cost)||0);},0)) },
+    { key:"maintenance", label:"Underhåll", icon:"⌂", count:items.filter(function(x){return x.group==="maintenance";}).length,
+      foot:money(items.filter(function(x){return x.group==="maintenance";}).reduce(function(s,x){return s+(Number(x.cost)||0);},0)) },
+    { key:"drift", label:"Driftärenden", icon:"⚙", count:items.filter(function(x){return x.group==="drift";}).length,
+      foot:"Operativa frågor och åtgärder" },
+    { key:"wish", label:"Önskemål", icon:"＋", count:items.filter(function(x){return x.group==="wish";}).length,
+      foot:"Behov från verksamheten" },
+    { key:"investigation", label:"Utredningar", icon:"?", count:items.filter(function(x){return x.group==="investigation";}).length,
+      foot:money(items.filter(function(x){return x.group==="investigation";}).reduce(function(s,x){return s+(Number(x.cost)||0);},0)) },
+    { key:"operations", label:"Driftkostnader", icon:"¤", count:items.filter(function(x){return x.group==="operations";}).length,
+      foot:money(items.filter(function(x){return x.group==="operations";}).reduce(function(s,x){return s+(Number(x.cost)||0);},0)) }
+  ];
+  return definitions.map(function(item) {
+    return '<button type="button" class="planning-card" data-portfolio-section="' + item.key + '">' +
+      '<span class="planning-icon">' + item.icon + '</span><span class="planning-copy"><strong>' + esc(item.label) +
+      '</strong><small>' + esc(item.foot) + '</small></span><span class="planning-count">' + item.count + '</span><span class="planning-arrow">→</span>' +
+    '</button>';
+  }).join("");
+}
+function portfolioScopeTitle() {
+  if (portfolioExplorer.contractId) {
+    const contract=state.contracts.find(function(c){return c.id===portfolioExplorer.contractId;});
+    return contract ? "Avtal " + (contract.number || contract.id) : "Valt avtal";
+  }
+  if (portfolioExplorer.propertyId) {
+    const property=state.properties.find(function(p){return p.id===portfolioExplorer.propertyId;});
+    return property ? (property.address || property.id) : "Vald fastighet";
+  }
+  const unit=document.getElementById("filter-unit");
+  if (unit && unit.value) return unit.options[unit.selectedIndex].text;
+  const customer=document.getElementById("filter-customer");
+  if (customer && customer.value) return customer.options[customer.selectedIndex].text;
+  const owner=document.getElementById("filter-owner");
+  if (owner && owner.value) return owner.options[owner.selectedIndex].text;
+  return "Hela beståndet";
+}
+function updatePortfolioScopeHeader(contracts) {
+  const title=document.getElementById("portfolio-scope-title");
+  const meta=document.getElementById("portfolio-scope-meta");
+  if(title) title.textContent=portfolioScopeTitle();
+  if(meta) {
+    const properties=new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
+    const area=contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
+    meta.textContent=properties+" fastigheter · "+contracts.length+" avtal · "+num(area)+" kvm";
+  }
+}
+function updateQuickScopeButtons() {
+  const unit=document.getElementById("filter-unit");
+  const selected=unit ? unit.value : "";
+  document.querySelectorAll("[data-quick-unit]").forEach(function(button) {
+    button.classList.toggle("active", button.dataset.quickUnit===selected);
+  });
+}
 function portfolioOverviewHtml(contracts) {
   const propertyIds = new Set(contracts.map(function(c) { return c.propertyId; }).filter(Boolean));
   const totalArea = contracts.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0);
@@ -617,30 +695,30 @@ function portfolioOverviewHtml(contracts) {
   const within12=watch.filter(function(x){return x.months<=12;}).length;
   const within24=watch.filter(function(x){return x.months>12&&x.months<=24;}).length;
   const watchRows=watch.slice(0,6).map(function(item){
-    return '<tr><td><button type="button" class="table-link" data-explorer-contract="' + esc(item.contract.id) + '"><strong>' +
-      esc(item.contract.number||item.contract.id) + '</strong></button></td><td><button type="button" class="table-link" data-explorer-property="' +
-      esc(item.contract.propertyId) + '">' + esc(propertyName(item.contract.propertyId)) + '</button></td><td>' + esc(item.date) +
-      '</td><td>' + (item.months<=12?statusBadge("≤ 12 mån"):statusBadge(item.months<=24?"13–24 mån":"> 24 mån")) + '</td></tr>';
-  });
-  function concentration(rows,denominator,suffix) {
-    return rows.length&&denominator ? percent(rows[0].value/denominator*100)+" hos "+rows[0].label+suffix : "–";
-  }
-  return '<div class="overview-kpis">' +
+    return '<div class="overview-kpis">' +
     kpi("Fastigheter",num(propertyIds.size),"i aktuellt urval") +
     kpi("Avtal",num(contracts.length),"i aktuellt urval") +
     kpi("Area",num(totalArea)+" kvm",propertyIds.size?num(totalArea/propertyIds.size)+" kvm / fastighet":"–") +
     kpi("Hyra + drift",money(totalCost),totalArea?num(costPerSqm)+" kr/kvm":"–") +
-    '</div><div class="pattern-insights">' +
-      '<div><span>Kundkoncentration</span><strong>' + esc(concentration(customerRows,totalArea," av arean")) + '</strong></div>' +
-      '<div><span>Ägarkoncentration</span><strong>' + esc(concentration(ownerRows,totalCost," av kostnaden")) + '</strong></div>' +
-      '<div><span>Avtalsbevakning</span><strong>' + within12 + ' inom 12 mån · ' + within24 + ' inom 24 mån</strong></div>' +
-      '<div><span>Saknar ansvarig</span><strong>' + missingResponsible + ' av ' + contracts.length + ' avtal</strong></div>' +
-    '</div><div class="pattern-grid">' +
+    '</div>' +
+    '<section class="planning-section"><div class="planning-section-head"><div><span>PLANERA OCH FÖRDJUPA</span><h3>Vad vill du arbeta med?</h3>' +
+      '<p>Alla val behåller samma urval. Du kan börja i VÅRDBO och sedan gå vidare till exempelvis Underhåll eller en enskild fastighet.</p></div></div>' +
+      '<div class="planning-grid">' + portfolioPlanningCardsHtml(contracts) + '</div></section>' +
+    '<section class="signals-section"><div class="planning-section-head"><div><span>SIGNALER</span><h3>Det här bör du ha koll på</h3></div></div>' +
+      '<div class="signal-grid">' +
+        '<div class="signal-card"><span>Avtal inom 12 mån</span><strong>' + within12 + '</strong><small>' + within24 + ' ytterligare inom 24 mån</small></div>' +
+        '<div class="signal-card"><span>Saknar ansvarig</span><strong>' + missingResponsible + '</strong><small>av ' + contracts.length + ' avtal</small></div>' +
+        '<div class="signal-card"><span>Kundkoncentration</span><strong>' + esc(concentration(customerRows,totalArea," av arean")) + '</strong></div>' +
+        '<div class="signal-card"><span>Ägarkoncentration</span><strong>' + esc(concentration(ownerRows,totalCost," av kostnaden")) + '</strong></div>' +
+      '</div></section>' +
+    '<section class="patterns-section"><div class="planning-section-head"><div><span>MÖNSTER</span><h3>Fördelning i urvalet</h3>' +
+      '<p>Klicka på en rad för att fördjupa hela Bestånd-vyn.</p></div></div><div class="pattern-grid">' +
       portfolioPatternHtml("Kunder","Fördelning av area",customerRows,function(row){return num(row.value)+" kvm · "+row.count+" avtal";},"filter-customer") +
-      portfolioPatternHtml("Organisation","Klicka t.ex. VÅRDBO för att byta hela urvalet",unitRows,function(row){return num(row.value)+" kvm · "+row.count+" avtal";},"filter-unit") +
+      portfolioPatternHtml("Organisation","Välj verksamhetsområde",unitRows,function(row){return num(row.value)+" kvm · "+row.count+" avtal";},"filter-unit") +
       portfolioPatternHtml("Fastighetsägare","Fördelning av hyra + drift",ownerRows,function(row){return money(row.value)+" · "+row.count+" avtal";},"filter-owner") +
       portfolioPatternHtml("Ansvar hos oss","Antal avtal per ansvarig",responsibilityRows,function(row){return row.count+" avtal";},"filter-our-person") +
-    '</div><div class="pattern-watch"><div class="pattern-head"><h3>Kommande avtalsbevakning</h3><p>Närmaste uppsägningsdatum, annars avtalslut.</p></div>' +
+    '</div></section>' +
+    '<div class="pattern-watch"><div class="pattern-head"><h3>Kommande avtalsbevakning</h3><p>Närmaste uppsägningsdatum, annars avtalslut.</p></div>' +
       table(["Avtal","Fastighet","Bevakningsdatum","Tid kvar"],watchRows) + '</div>';
 }
 function renderProperties() {
@@ -661,31 +739,45 @@ function renderProperties() {
       money(cost) + '</strong></span><span class="property-chevron">⌄</span></summary><div class="property-body">' +
       '<div class="property-meta"><span><strong>Organisation</strong> ' + esc(units.join(", ")||"–") + '</span><span><strong>Fastighetsbeteckning</strong> ' +
       esc(p.designation||"–") + '</span><span><strong>Förvaltare</strong> ' + esc(p.manager||"–") + '</span>' +
-      '<button type="button" class="inline-link" data-explorer-property="' + esc(p.id) + '">Visa allt för fastigheten</button></div>' +
+      '<button type="button" class="inline-link" data-explorer-property="' + esc(p.id) + '">Öppna fastigheten →</button></div>' +
       table(["Avtal","Kund","Organisation","Fastighetsägare","Area","Hyra + drift","Ansvarig hos oss","Kundansvarig","Ägaransvarig"],
         contracts.map(function(c){return contractSummaryRow(c,p);})) + '</div></details>';
   }).join("") || '<div class="empty">Ingen fastighetsdata.</div>';
-  const filterBar='<div class="portfolio-filters"><input class="search portfolio-search" id="portfolio-search" placeholder="Sök fastighet, avtal, kund, person…">' +
-    '<select class="select" id="filter-customer">' + selectOptions(filters.customer,"Alla kunder") + '</select>' +
-    '<select class="select" id="filter-unit">' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
-    '<select class="select" id="filter-owner">' + selectOptions(filters.owner,"Alla fastighetsägare") + '</select>' +
-    '<select class="select" id="filter-our-person">' + selectOptions(filters.ourPeople,"Ansvarig hos oss") + '</select>' +
-    '<select class="select" id="filter-tenant-person">' + selectOptions(filters.tenantPeople,"Kundansvarig") + '</select>' +
-    '<select class="select" id="filter-owner-person">' + selectOptions(filters.ownerPeople,"Ägaransvarig") + '</select>' +
-    '<button class="button secondary filter-reset" id="portfolio-filter-reset">Rensa</button></div>' +
-    '<div class="filter-result" id="portfolio-filter-result">' + state.properties.length + ' fastigheter · ' + state.contracts.length + ' avtal</div>';
+
+  const advancedFilters =
+    '<details class="advanced-filters"><summary><span>Fler filter</span><span class="advanced-count">Kund · ägare · ansvariga</span></summary>' +
+      '<div class="advanced-filter-grid">' +
+        '<select class="select" id="filter-customer">' + selectOptions(filters.customer,"Alla kunder") + '</select>' +
+        '<select class="select" id="filter-owner">' + selectOptions(filters.owner,"Alla fastighetsägare") + '</select>' +
+        '<select class="select" id="filter-our-person">' + selectOptions(filters.ourPeople,"Ansvarig hos oss") + '</select>' +
+        '<select class="select" id="filter-tenant-person">' + selectOptions(filters.tenantPeople,"Kundansvarig") + '</select>' +
+        '<select class="select" id="filter-owner-person">' + selectOptions(filters.ownerPeople,"Ägaransvarig") + '</select>' +
+      '</div></details>';
+
   return '<div class="bestands-page">' +
-    '<section class="card pad bestands-shell"><div class="card-head"><div><h2>Bestånd</h2><p>Ett urval, flera nivåer. Börja i helheten och klicka dig ned utan att byta vy.</p></div></div>' +
-    filterBar + '<div class="portfolio-context" id="portfolio-context"><span class="context-root">Helhet</span></div>' +
-    '<div class="view-tabs bestands-tabs" id="portfolio-content-tabs" role="tablist">' + portfolioContentTabsHtml(state.contracts) + '</div>' +
-    '<div class="bestands-content">' +
-      '<div class="property-tab-panel" id="overview-panel"><div id="portfolio-overview-content">' + portfolioOverviewHtml(state.contracts) + '</div></div>' +
-      '<div class="property-tab-panel" id="properties-panel" hidden>' + propertyGroups + '</div>' +
-      '<div class="property-tab-panel" id="contracts-panel" hidden><div class="content-action"><button class="button primary" data-add="object">Komplettera avtal</button></div>' +
-        table(["Avtal","Fastighet","Kund","Organisation","Fastighetsägare","Area","Avtalsperiod","Årshyra","Avtalsdrift","Summa","Anst./brukare/rum","Ytor","Ansvariga"],
-          state.contracts.map(detailedContractRow)) + '</div>' +
-      '<div class="property-tab-panel" id="activity-panel" hidden><div id="portfolio-activity-content"></div></div>' +
-    '</div></section></div>';
+    '<section class="portfolio-hero">' +
+      '<div class="portfolio-hero-copy"><span class="portfolio-kicker">BESTÅND</span><h2 id="portfolio-scope-title">Hela beståndet</h2>' +
+        '<p id="portfolio-scope-meta">' + state.properties.length + ' fastigheter · ' + state.contracts.length + ' avtal</p></div>' +
+      '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" placeholder="Sök fastighet, avtal, kund eller person…">' +
+        '<button class="button secondary" id="portfolio-filter-reset">Rensa urval</button></div>' +
+      '<div class="scope-heading"><span>Välj verksamhetsområde</span><small>Ett klick uppdaterar hela planeringsytan</small></div>' +
+      '<div class="scope-grid">' + portfolioScopeCardsHtml() + '</div>' +
+      '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
+      advancedFilters +
+      '<div class="filter-result" id="portfolio-filter-result">' + state.properties.length + ' fastigheter · ' + state.contracts.length + ' avtal</div>' +
+      '<div class="portfolio-context" id="portfolio-context"><span class="context-root">Helhet</span></div>' +
+    '</section>' +
+    '<section class="card pad bestands-shell">' +
+      '<div class="bestands-toolbar"><span>Visa</span><div class="view-tabs bestands-tabs" id="portfolio-content-tabs" role="tablist">' +
+        portfolioContentTabsHtml(state.contracts) + '</div></div>' +
+      '<div class="bestands-content">' +
+        '<div class="property-tab-panel" id="overview-panel"><div id="portfolio-overview-content">' + portfolioOverviewHtml(state.contracts) + '</div></div>' +
+        '<div class="property-tab-panel" id="properties-panel" hidden>' + propertyGroups + '</div>' +
+        '<div class="property-tab-panel" id="contracts-panel" hidden><div class="content-action"><button class="button primary" data-add="object">Komplettera avtal</button></div>' +
+          table(["Avtal","Fastighet","Kund","Organisation","Fastighetsägare","Area","Avtalsperiod","Årshyra","Avtalsdrift","Summa","Anst./brukare/rum","Ytor","Ansvariga"],
+            state.contracts.map(detailedContractRow)) + '</div>' +
+        '<div class="property-tab-panel" id="activity-panel" hidden><div id="portfolio-activity-content"></div></div>' +
+      '</div></section></div>';
 }
 function renderMap() {
   const mapped = state.properties.filter(function(p) {
@@ -1059,6 +1151,17 @@ function bindPortfolioSectionControls() {
   });
 }
 function bindPortfolioExplorerControls() {
+  document.querySelectorAll("[data-quick-unit]:not([data-explorer-bound])").forEach(function(button) {
+    button.dataset.explorerBound = "1";
+    button.addEventListener("click", function() {
+      const control=document.getElementById("filter-unit");
+      if(control) control.value=button.dataset.quickUnit || "";
+      portfolioExplorer.propertyId="";
+      portfolioExplorer.contractId="";
+      portfolioExplorer.section="overview";
+      filterPropertyPortfolio();
+    });
+  });
   document.querySelectorAll("[data-set-filter]:not([data-explorer-bound])").forEach(function(button) {
     button.dataset.explorerBound = "1";
     button.addEventListener("click", function() {
@@ -1134,6 +1237,8 @@ function updatePortfolioSurfaces(contracts) {
   const context = document.getElementById("portfolio-context");
   if (context) context.innerHTML = portfolioContextHtml();
 
+  updatePortfolioScopeHeader(contracts);
+  updateQuickScopeButtons();
   bindPortfolioExplorerControls();
   bindAddButtons();
   applyPortfolioSectionVisibility();
