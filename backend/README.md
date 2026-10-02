@@ -43,3 +43,10 @@ Rekommenderad första produktionsversion:
 - Entra-grupper: åtkomst till Lokalblick
 
 Den publika GitHub Pages-versionen använder aldrig denna backend och innehåller endast demodata.
+
+
+## Kartdata
+
+Fastighet kan ha `latitude` och `longitude`. I produktion ska adressgeokodning ske server-side eller via en av organisationen godkänd karttjänst. Företagsadresser ska inte skickas från den publika GitHub-klienten till en extern geokodningstjänst.
+
+Frontend ska endast få tillbaka de koordinater och fastighetsuppgifter den inloggade användaren har rätt att se.
