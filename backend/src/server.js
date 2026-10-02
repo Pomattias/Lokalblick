@@ -8,7 +8,9 @@ import { LocalCompanySourceAdapter } from "./adapters/local-company-source-adapt
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const FRONTEND = path.join(ROOT, "frontend");
-const ALLOWED_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+export const DEFAULT_HOST = "127.0.0.1";
+export const DEFAULT_PORT = 8787;
+const ALLOWED_HOSTS = new Set([DEFAULT_HOST, "localhost", "::1"]);
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -31,10 +33,12 @@ const API_ENTITIES = {
   "budget-data": "budgetData",
   coordinates: "coordinates",
   "contract-overlays": "contractOverlays",
+  "property-overlays": "propertyOverlays",
   properties: "properties",
   contracts: "contracts"
 };
 const MAX_BODY_SIZE = 2 * 1024 * 1024;
+const COMPANY_DATA_SERVICE = `(function(){async function request(url,options){var response=await fetch(url,Object.assign({credentials:"same-origin",headers:{"Content-Type":"application/json"}},options||{}));if(!response.ok)throw new Error("Lokalblick API "+response.status);if(response.status===204)return null;return response.json()}window.LokalblickDataService={mode:"company-api",load:function(){return request("/api/bootstrap")},save:function(data){return request("/api/workspace",{method:"PATCH",body:JSON.stringify(data)})},reset:function(){return this.load()}}})();`;
 
 export function validateHost(host) {
   if (!ALLOWED_HOSTS.has(String(host || "").toLowerCase())) {
@@ -111,12 +115,21 @@ async function serveFrontend(request, response, pathname) {
   return true;
 }
 
-export function createLokalblickServer(repository, { host = "127.0.0.1", port = 8787 } = {}) {
+export function createLokalblickServer(repository, { host = DEFAULT_HOST, port = DEFAULT_PORT } = {}) {
   validateHost(host);
   const server = http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, "http://localhost");
       const pathname = url.pathname;
+      if (pathname === "/services/data-service.js" && request.method === "GET") {
+        response.writeHead(200, {
+          "Content-Type": "text/javascript; charset=utf-8",
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff"
+        });
+        response.end(COMPANY_DATA_SERVICE);
+        return;
+      }
       if (pathname === "/api/health" && request.method === "GET") {
         return sendJson(response, 200, { status: "ok" });
       }
@@ -175,8 +188,8 @@ export function createLokalblickServer(repository, { host = "127.0.0.1", port = 
 
 async function main() {
   await loadLocalEnvironment(path.join(ROOT, ".env.local"));
-  const host = process.env.LOKALBLICK_HOST || "127.0.0.1";
-  const port = Number(process.env.LOKALBLICK_PORT || 8787);
+  const host = process.env.LOKALBLICK_HOST || DEFAULT_HOST;
+  const port = Number(process.env.LOKALBLICK_PORT || DEFAULT_PORT);
   validateHost(host);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid company server port");
   const sourceAdapter = new LocalCompanySourceAdapter();

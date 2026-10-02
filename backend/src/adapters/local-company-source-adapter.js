@@ -100,8 +100,10 @@ function normalizePropertyId(record) {
 
 function normalizeContract(record, source) {
   const ext = source === "EXT";
+  const contractId = stableId(record, source);
   const contract = {
-    id: stableId(record, source),
+    id: contractId,
+    contractId,
     propertyId: normalizePropertyId(record),
     number: record["Avtalsnummer"],
     source,

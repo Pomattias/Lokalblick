@@ -5,7 +5,7 @@ import path from "node:path";
 export const USER_ENTITIES = [
   "organizations", "people", "assignments", "projects", "maintenance",
   "maintenanceStatus", "driftCosts", "operations", "driftIssues", "wishes",
-  "investigations", "budgetData", "coordinates", "contractOverlays"
+  "investigations", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
 ];
 
 const CORE_ENTITIES = ["properties", "contracts"];
@@ -18,6 +18,34 @@ function emptyStore() {
     deleted: { properties: [], contracts: [] },
     updatedAt: null
   };
+}
+
+function validateEntityRecord(entity, payload, id, core) {
+  const record = validateRecord(payload, id);
+  if (entity === "coordinates") {
+    if (typeof record.propertyId !== "string" || !record.propertyId.trim()) throw new TypeError("Coordinate propertyId is required");
+    const latitude = Number(record.latitude);
+    const longitude = Number(record.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      throw new TypeError("Record coordinates are invalid");
+    }
+    record.id = record.propertyId;
+    record.latitude = latitude;
+    record.longitude = longitude;
+  }
+  if (entity === "contractOverlays") {
+    if (typeof record.contractId !== "string" || !core.contracts.some((contract) => contract.id === record.contractId)) {
+      throw new TypeError("Overlay contractId must identify an imported contract");
+    }
+    record.id = record.contractId;
+  }
+  if (entity === "propertyOverlays") {
+    if (typeof record.propertyId !== "string" || !core.properties.some((property) => property.id === record.propertyId)) {
+      throw new TypeError("Overlay propertyId must identify an imported property");
+    }
+    record.id = record.propertyId;
+  }
+  return record;
 }
 
 function ensureStoreShape(value) {
@@ -138,6 +166,10 @@ export class LokalblickRepository {
         const overlay = store.entities.contractOverlays.find((item) => item.contractId === contract.id);
         return overlay ? { ...contract, ...overlay, id: contract.id, propertyId: contract.propertyId } : { ...contract };
       });
+    const completedProperties = properties.map((property) => {
+      const overlay = store.entities.propertyOverlays.find((item) => item.propertyId === property.id);
+      return overlay ? { ...property, ...overlay, id: property.id } : property;
+    });
     const workspace = Object.fromEntries(USER_ENTITIES.map((entity) => [
       entity,
       structuredClone(store.entities[entity])
@@ -146,7 +178,7 @@ export class LokalblickRepository {
       isDemo: false,
       sourceName: "Lokal company source",
       ...workspace,
-      properties,
+      properties: completedProperties,
       contracts,
       sourceCounts: structuredClone(this.core.sourceCounts || { sfRows: 0, extRows: 0 })
     };
@@ -176,12 +208,76 @@ export class LokalblickRepository {
     for (const entity of USER_ENTITIES) {
       if (Object.hasOwn(payload, entity)) {
         if (!Array.isArray(payload[entity])) throw new TypeError(`${entity} must be an array`);
-        updates[entity] = payload[entity].map((record) => validateRecord(record));
+        updates[entity] = payload[entity].map((record) => validateEntityRecord(entity, record, undefined, this.core));
       }
+    }
+    if (Array.isArray(payload.properties)) {
+      const coordinates = new Map();
+      for (const property of payload.properties) {
+        if (!property || typeof property.id !== "string") continue;
+        const hasLatitude = property.latitude != null && property.latitude !== "";
+        const hasLongitude = property.longitude != null && property.longitude !== "";
+        if (!hasLatitude && !hasLongitude) continue;
+        const latitude = Number(property.latitude);
+        const longitude = Number(property.longitude);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+          throw new TypeError("Property coordinates are invalid");
+        }
+        coordinates.set(property.id, {
+          id: property.id,
+          propertyId: property.id,
+          latitude,
+          longitude
+        });
+      }
+      updates.coordinates = [...this.store.entities.coordinates.filter((record) => !coordinates.has(record.propertyId || record.id)), ...coordinates.values()];
+    }
+    if (Array.isArray(payload.contracts)) {
+      const masterFields = new Set([
+      "id", "contractId", "propertyId", "number", "source", "costCenter", "propertyDesignation",
+        "address", "customerType", "landlord", "area", "contractType",
+        "originalValidFrom", "originalValidTo", "currentValidTo", "extensionPeriod",
+        "noticePeriod", "terminatedOn", "terminationReason", "noticeBy", "category",
+        "use", "manager"
+      ]);
+      const overlays = new Map(this.store.entities.contractOverlays.map((record) => [record.contractId, record]));
+      for (const contract of payload.contracts) {
+        if (!contract || typeof contract.id !== "string") continue;
+        const master = this.core.contracts.find((record) => record.id === contract.id);
+        if (!master) continue;
+        const overlay = { id: contract.id, contractId: contract.id };
+        for (const [key, value] of Object.entries(contract)) {
+          if (!masterFields.has(key) && !["__proto__", "constructor", "prototype", "path", "filePath"].includes(key)) {
+            validateJson(value);
+            overlay[key] = value;
+          }
+        }
+        overlays.set(contract.id, overlay);
+      }
+      updates.contractOverlays = [...overlays.values()];
+    }
+    if (Array.isArray(payload.properties)) {
+      const masterFields = new Set([
+        "id", "type", "designation", "address", "owner", "manager", "latitude", "longitude"
+      ]);
+      const overlays = new Map(this.store.entities.propertyOverlays.map((record) => [record.propertyId, record]));
+      for (const property of payload.properties) {
+        if (!property || typeof property.id !== "string") continue;
+        const overlay = { id: property.id, propertyId: property.id };
+        for (const [key, value] of Object.entries(property)) {
+          if (!masterFields.has(key) && !["__proto__", "constructor", "prototype", "path", "filePath"].includes(key)) {
+            validateJson(value);
+            overlay[key] = value;
+          }
+        }
+        overlays.set(property.id, overlay);
+      }
+      updates.propertyOverlays = [...overlays.values()];
     }
     await this.commit((store) => {
       for (const [entity, records] of Object.entries(updates)) store.entities[entity] = records;
     });
+    await this.applyCoordinates();
     return this.bootstrap();
   }
 
@@ -197,7 +293,7 @@ export class LokalblickRepository {
 
   async create(entity, payload) {
     if (!USER_ENTITIES.includes(entity)) throw new RangeError("Entity is read-only or unknown");
-    const record = validateRecord(payload);
+    const record = validateEntityRecord(entity, payload, undefined, this.core);
     await this.commit((store) => {
       if (store.entities[entity].some((item) => item.id === record.id)) {
         const error = new Error("Record already exists");
@@ -213,7 +309,7 @@ export class LokalblickRepository {
     if (!USER_ENTITIES.includes(entity)) throw new RangeError("Entity is read-only or unknown");
     const current = await this.get(entity, id);
     if (!current) return null;
-    const record = validateRecord({ ...current, ...payload, id }, id);
+    const record = validateEntityRecord(entity, { ...current, ...payload, id }, id, this.core);
     await this.commit((store) => {
       const index = store.entities[entity].findIndex((item) => item.id === id);
       if (index >= 0) store.entities[entity][index] = record;
