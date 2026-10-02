@@ -1,71 +1,76 @@
-# Copilot handoff
+# Copilot backend handoff
 
 Repository: `Pomattias/Mattias-testsida`
 
-Working branch: `utveckling`
+## Work-stream split
 
-Protected-by-instruction branch: `main` — do not modify.
+- Product/frontend/repository development: `utveckling` — handled in the ChatGPT workflow.
+- Backend implementation: `copilot-backend` — handled by Copilot.
+- Production branch: `main` — do not modify.
 
-## Current handoff state
+Copilot must treat `frontend/**` as read-only unless the user explicitly changes this rule.
 
-The repository is prepared for a Copilot implementation session. This file does not authorize any specific next feature by itself.
-
-Start every implementation session with:
+## Start every Copilot backend session with
 
 ```bash
 git status
 git branch --show-current
 git rev-parse HEAD
+git fetch
 ```
 
 Expected branch:
 
 ```text
-utveckling
+copilot-backend
 ```
 
 Then read:
 
 ```text
 .github/copilot-instructions.md
+COPILOT_HANDOFF.md
 README.md
 ARCHITECTURE.md
 backend/README.md
 ```
 
-Inspect all relevant code under:
+Inspect the backend under:
 
 ```text
-frontend/
 backend/
 ```
 
-Run the repository preflight before and after work:
+You may read `frontend/` to understand the current API contract, but do not edit it.
+
+Run:
 
 ```bash
 npm test
 ```
 
+before and after backend changes.
+
+## Integration rule
+
+Backend commits stay on `copilot-backend`.
+
+Do not merge or push backend commits directly into `utveckling` or `main`.
+
+When a backend task is complete, return:
+- current backend branch HEAD
+- commit SHA(s)
+- changed files
+- test results
+- API contract changes
+- any frontend work that is needed
+
+The ChatGPT/product stream will decide how to integrate the backend commits into `utveckling`.
+
 ## Data safety
 
-Do not add real LEB files, real customer/company data, local Windows paths, credentials, tokens or API keys to this repository.
+Do not add real LEB files, real company/customer data, local Windows paths, credentials, tokens or API keys to the repository.
 
-Use synthetic test data only.
+Use synthetic fixtures only.
 
-The public GitHub Pages site is demo-only.
-
-## Current branch baseline before this preparation
-
-Before adding the Copilot preparation files, `utveckling` was:
-
-```text
-71f76dbbca93006ca707550559b085ba99ab00eb
-```
-
-At that time `main` was:
-
-```text
-6774aa95dccfe6395bfca421ed12ef308fa95c95
-```
-
-Do not use the baseline above as the expected current HEAD after preparation. Always run `git rev-parse HEAD`.
+The public GitHub Pages site remains demo-only.
