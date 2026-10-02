@@ -27,7 +27,8 @@ const views = [
   { id: "contracts", label: "Objekt / avtal", icon: "≣", eyebrow: "LEB · OBJEKT = AVTAL" },
   { id: "budget", label: "Årsbudget", icon: "¤", eyebrow: "EKONOMI" },
   { id: "portfolio", label: "Projekt & behov", icon: "◇", eyebrow: "ÅTGÄRDER" },
-  { id: "organisation", label: "Organisation", icon: "◎", eyebrow: "PERSONER & ANSVAR" }
+  { id: "organisation", label: "Organisation", icon: "◎", eyebrow: "PERSONER & ANSVAR" },
+  { id: "about", label: "Om", icon: "ⓘ", eyebrow: "SÄKERHET & ARKITEKTUR" }
 ];
 
 let state = clone(demo);
@@ -271,7 +272,8 @@ function render() {
   else if (currentView === "map") html = renderMap();
   else if (currentView === "budget") html = renderBudget();
   else if (currentView === "portfolio") html = renderPortfolio();
-  else html = renderOrganisation();
+  else if (currentView === "organisation") html = renderOrganisation();
+  else html = renderAbout();
   document.getElementById("content").innerHTML = html;
   bindViewEvents();
   if (currentView === "map") initPropertyMap();
@@ -543,6 +545,93 @@ function renderPortfolio() {
     card("Utredningar", "Tidsatta utredningar går automatiskt in i årsbudgeten.", table(["Utredning", "Objekt / avtal", "År", "Status", "Kostnad"], invRows), '<button class="button primary" data-add="investigation">+ Utredning</button>') +
     "</div>";
 }
+
+function renderAbout() {
+  return '<div class="about-page">' +
+    '<div class="about-intro">' +
+      '<div><div class="about-kicker">LOKALBLICK-PRINCIPEN</div><h2>Produkten kan vara publik – kundens data ska inte vara det.</h2>' +
+      '<p>Lokalblick kan köras som vanlig webb, Teams-flik eller white-label. Det som skiljer kunderna åt är datakällorna och behörigheten bakom API-gränsen.</p></div>' +
+      '<div class="about-rule"><strong>Grundregel</strong><span>Ingen rå kunddata, fil, API-nyckel eller hemlighet byggs in i frontend eller publik kod.</span></div>' +
+    '</div>' +
+
+    '<div class="security-architecture" aria-label="Illustration över publik och skyddad miljö">' +
+      '<section class="security-zone public-zone">' +
+        '<div class="security-zone-head"><span class="zone-icon">◎</span><div><span class="zone-label">PUBLIK / EXTERN</span><h3>Lokalblick-tjänsten</h3></div></div>' +
+        '<p class="zone-copy">Det här kan ligga på internet och användas från webb, Teams eller en kundportal.</p>' +
+        '<div class="zone-items">' +
+          '<div class="zone-item"><strong>Frontend / UI</strong><span>Fastighet, objekt, budget, projekt och karta</span></div>' +
+          '<div class="zone-item"><strong>Map adapter</strong><span>Visualiserar koordinater som användaren får se</span></div>' +
+          '<div class="zone-item"><strong>Inloggning</strong><span>Visar inget skyddat innehåll före godkänd autentisering</span></div>' +
+        '</div>' +
+        '<div class="zone-safe"><strong>Får vara publikt:</strong> programkod, layout, tomma vyer, dokumentation och API-adress.</div>' +
+      '</section>' +
+
+      '<section class="security-bridge">' +
+        '<div class="bridge-arrow">→</div>' +
+        '<div class="bridge-card">' +
+          '<span class="zone-label">SÄKER GRÄNS</span><h3>Lokalblick API + connector</h3>' +
+          '<div class="bridge-list">' +
+            '<span>✓ autentiserar användaren</span>' +
+            '<span>✓ kontrollerar behörighet</span>' +
+            '<span>✓ mappar till Lokalblick-modellen</span>' +
+            '<span>✓ filtrerar bort otillåten data</span>' +
+            '<span>✓ loggar och validerar anrop</span>' +
+          '</div>' +
+          '<div class="bridge-lock">🔒 Endast godkända anrop passerar</div>' +
+        '</div>' +
+        '<div class="bridge-arrow">←</div>' +
+      '</section>' +
+
+      '<section class="security-zone private-zone">' +
+        '<div class="security-zone-head"><span class="zone-icon">⌂</span><div><span class="zone-label">SKYDDAD HEMMAMILJÖ</span><h3>Kundens datalager</h3></div></div>' +
+        '<p class="zone-copy">Masterdata ligger kvar i kundens godkända miljö och kopplas via en adapter.</p>' +
+        '<div class="zone-items">' +
+          '<div class="zone-item"><strong>M365 / SharePoint / Lists</strong><span>LEB, dokument, personer och kompletteringar</span></div>' +
+          '<div class="zone-item"><strong>Fastighetssystem / API</strong><span>Kundens befintliga verksamhetssystem</span></div>' +
+          '<div class="zone-item"><strong>SQL / Dataverse / filer</strong><span>Andra interna eller avtalade datalager</span></div>' +
+        '</div>' +
+        '<div class="zone-danger"><strong>Ska stanna här:</strong> råfiler, full masterdata, credentials, API-nycklar och systemhemligheter.</div>' +
+      '</section>' +
+    '</div>' +
+
+    '<div class="data-flow-note"><strong>Vad passerar gränsen?</strong><span>Bara den information den inloggade användaren behöver och har rätt att se. Frontend måste få de visade posterna, men källsystemet och dess hemligheter exponeras aldrig.</span></div>' +
+
+    '<div class="about-grid">' +
+      '<section class="about-card"><div class="about-card-head"><span>1</span><h3>Så bygger ni kopplingen</h3></div>' +
+        '<ol class="connection-steps">' +
+          '<li><strong>Välj datakällan</strong><span>Behåll data i M365, fastighetssystem, SQL eller annan godkänd källa.</span></li>' +
+          '<li><strong>Välj eller bygg en adapter</strong><span>Adaptern kan ligga nära datakällan och pratar med dess API eller filer.</span></li>' +
+          '<li><strong>Mappa till Lokalblick-modellen</strong><span>Fastighet, Objekt/Avtal, Projekt, Person, Budget, geodata med mera får samma struktur.</span></li>' +
+          '<li><strong>Sätt autentisering och behörighet</strong><span>OAuth/Entra eller annan godkänd metod och minsta möjliga rättighet.</span></li>' +
+          '<li><strong>Anslut till Lokalblick API</strong><span>API:t returnerar endast tillåtna fält och poster till användaren.</span></li>' +
+        '</ol>' +
+      '</section>' +
+
+      '<section class="about-card"><div class="about-card-head"><span>2</span><h3>Vad kan bytas utan att UI byggs om?</h3></div>' +
+        '<div class="swap-stack">' +
+          '<div><strong>Datakälla</strong><span>M365 ↔ fastighetssystem ↔ SQL ↔ annat API</span></div>' +
+          '<div class="swap-arrow">↓</div>' +
+          '<div><strong>Source adapter</strong><span>Översätter kundens struktur till Lokalblick</span></div>' +
+          '<div class="swap-arrow">↓</div>' +
+          '<div><strong>Lokalblick API</strong><span>Samma kontrakt mot frontend</span></div>' +
+          '<div class="swap-arrow">↓</div>' +
+          '<div><strong>Samma Lokalblick</strong><span>Webb · Teams · white-label</span></div>' +
+        '</div>' +
+      '</section>' +
+    '</div>' +
+
+    '<section class="about-principles">' +
+      '<h3>Fyra regler vi bygger efter</h3>' +
+      '<div class="principle-grid">' +
+        '<div><span>01</span><strong>Frontend är inte databasen</strong><p>Webbläsaren visar data men äger inte kundens masterdata.</p></div>' +
+        '<div><span>02</span><strong>Hemligheter stannar server-side</strong><p>API-nycklar och credentials får aldrig hamna i JavaScript eller GitHub.</p></div>' +
+        '<div><span>03</span><strong>Minsta möjliga åtkomst</strong><p>Varje connector får bara läsa eller skriva det som behövs.</p></div>' +
+        '<div><span>04</span><strong>Adapter före specialkod</strong><p>Nya källor kopplas in utan att Lokalblicks vyer byggs om.</p></div>' +
+      '</div>' +
+    '</section>' +
+  '</div>';
+}
+
 
 function renderOrganisation() {
   const objectStats = ORG_UNITS.map(function(u) {
