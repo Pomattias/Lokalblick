@@ -21,7 +21,7 @@ const DRIFT_ISSUE_CATEGORIES = [
 const demo = window.LokalblickDemoData;
 
 const views = [
-  { id: "properties", label: "Bestånd", icon: "▦", eyebrow: "HELHET · FASTIGHET · AVTAL · AKTUELLT" },
+  { id: "properties", label: "Bestånd", icon: "▦", eyebrow: "URVAL · FASTIGHET · AVTAL · AKTUELLT" },
   { id: "map", label: "Karta", icon: "⌖", eyebrow: "GEOGRAFI" },
   { id: "budget", label: "Årsbudget", icon: "¤", eyebrow: "EKONOMI" },
   { id: "organisation", label: "Organisation", icon: "◎", eyebrow: "PERSONER & ANSVAR" },
