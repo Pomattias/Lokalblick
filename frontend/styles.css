@@ -609,7 +609,7 @@ tr:hover td { background: #fbfcfc; }
   margin-bottom: 10px;
 }
 
-/* Helhet */
+/* Alla: summering och detaljer */
 .overview-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2340,7 +2340,7 @@ tr:hover td { background: #fbfcfc; }
 }
 .bestands-content { margin-top: 12px; }
 
-/* The root view is simply "Alla", never a separate Helhet module. */
+/* Root state: Alla. Scope and perspective drive the same data view. */
 .overview-kpis { margin-bottom: 12px; }
 .overview-kpis .kpi,
 .signal-card,
