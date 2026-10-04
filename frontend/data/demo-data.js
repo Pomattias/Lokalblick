@@ -77,5 +77,41 @@ window.LokalblickDemoData = {
   ],
   wishes: [
     { id:"W1", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Verksamhetsanpassning", title:"Lugnare mötesrum", description:"Önskemål om bättre akustik och avskärmning.", createdDate:"2026-09-10", targetDate:"2027-02-01", decisionDate:"2026-10-20", completedDate:"", status:"Beslutat", responsiblePersonId:"P1", budgetYear:2027, budgetCategory:"Projekt", estimatedCost:240000, finalCost:0, includeInBudget:"Ja" }
+  ],
+  budgetPlans: [
+    {
+      year: 2027,
+      status: "Låst",
+      createdAt: "2026-09-25",
+      lockedAt: "2026-10-01",
+      notes: {
+        "Projekt": "Avrundning och reserv för mindre projekteringsändringar",
+        "Underhåll": "Årsreserv för mindre ej identifierade åtgärder",
+        "Driftkostnader": "Reserv för pris- och volymförändringar",
+        "Utredningar": "Avrundning till beslutad årsram"
+      },
+      targets: {
+        "Hyra + drift": 19700000,
+        "Projekt": 3600000,
+        "Underhåll": 1000000,
+        "Driftkostnader": 1250000,
+        "Utredningar": 550000
+      },
+      lines: [
+        { category:"Hyra + drift", sub:"Avtal", source:"SF-DEMO-101-1", contractId:"SF|DEMO-101-1", amount:2910000 },
+        { category:"Hyra + drift", sub:"Avtal", source:"5307-10030", contractId:"EXT|DEMO-201-1", amount:13750000 },
+        { category:"Hyra + drift", sub:"Avtal", source:"SF-DEMO-301-1", contractId:"SF|DEMO-301-1", amount:3040000 },
+        { category:"Utredningar", sub:"Projektutredning", source:"Ventilationsåtgärder", contractId:"SF|DEMO-101-1", amount:250000 },
+        { category:"Projekt", sub:"Genomförande + inredning", source:"Ventilationsåtgärder", contractId:"SF|DEMO-101-1", amount:3350000 },
+        { category:"Projekt", sub:"Verksamhetsanpassning", source:"Önskemål: Lugnare mötesrum", contractId:"SF|DEMO-101-1", amount:240000 },
+        { category:"Underhåll", sub:"Ytskikt", source:"Ytskikt", contractId:"SF|DEMO-301-1", amount:650000 },
+        { category:"Underhåll", sub:"Ytskick", source:"Status: Ytskick", contractId:"SF|DEMO-101-1", amount:180000 },
+        { category:"Underhåll", sub:"Passage", source:"Status: Passage", contractId:"EXT|DEMO-201-1", amount:90000 },
+        { category:"Driftkostnader", sub:"Energi", source:"Energi", contractId:"SF|DEMO-101-1", amount:640000 },
+        { category:"Driftkostnader", sub:"Energi", source:"Energi", contractId:"EXT|DEMO-201-1", amount:450000 },
+        { category:"Driftkostnader", sub:"Ventilation", source:"Ärende: Ojämn temperatur plan 3", contractId:"EXT|DEMO-201-1", amount:120000 },
+        { category:"Utredningar", sub:"Kapacitetsutredning", source:"Kapacitetsutredning", contractId:"EXT|DEMO-201-1", amount:280000 }
+      ]
+    }
   ]
 };
