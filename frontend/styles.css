@@ -2433,3 +2433,80 @@ tr:hover td { background: #fbfcfc; }
     border-radius:12px;
   }
 }
+
+
+/* Perspective summary */
+.perspective-summary {
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  overflow: hidden;
+}
+.perspective-summary-head {
+  padding: 14px 16px 9px;
+}
+.perspective-summary-head h3 {
+  margin: 3px 0;
+  font-size: 17px;
+}
+.perspective-summary-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.perspective-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid #edf0f2;
+  background: #edf0f2;
+  gap: 1px;
+}
+.perspective-summary-grid > div {
+  min-width: 0;
+  padding: 11px 14px;
+  background: #fafcfc;
+  display: grid;
+  gap: 2px;
+}
+.perspective-summary-grid span {
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: .05em;
+}
+.perspective-summary-grid strong {
+  font-size: 18px;
+  letter-spacing: -.02em;
+}
+.perspective-summary-grid small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.perspective-summary-grid .attention strong {
+  color: var(--warn);
+}
+.activity-view-head.details-head {
+  margin-top: 4px;
+  padding-top: 4px;
+}
+.activity-view-head.details-head h3 {
+  font-size: 14px;
+}
+@media (max-width:700px) {
+  .perspective-summary {
+    border-radius: 12px;
+    margin-bottom: 9px;
+  }
+  .perspective-summary-head {
+    padding: 12px 13px 8px;
+  }
+  .perspective-summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .perspective-summary-grid > div {
+    padding: 10px 12px;
+  }
+}
