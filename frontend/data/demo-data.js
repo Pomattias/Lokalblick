@@ -53,7 +53,7 @@ window.LokalblickDemoData = {
       id: "PR1", propertyId: "DEMO-101", contractId: "SF|DEMO-101-1", name: "Ventilationsåtgärder",
       description: "Förbättrad ventilation och komfort.", status: "Pågår", phase: "Genomförande",
       start: "2026-09-01", end: "2027-05-31", moveIn: "2027-06-15", budgetYear: 2027,
-      budgetInvestigation: 250000, budgetExecution: 3200000, budgetFurnishing: 150000, preliminaryCost: 3800000
+      budgetInvestigation: 250000, budgetExecution: 3200000, budgetFurnishing: 150000, preliminaryCost: 3800000, planningQuarter: 2, planningMonth: 5
     }
   ],
   maintenance: [
@@ -73,7 +73,7 @@ window.LokalblickDemoData = {
     { id:"MS3", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Passage", assessedDate:"2026-09-20", status:"Acceptabel", priority:"Medel", comment:"Äldre läsare på plan 2.", actionNeed:"Utred byte", budgetYear:2027, estimatedCost:90000, includeInBudget:"Ja", responsiblePersonId:"P2", planningQuarter:3, planningMonth:9 }
   ],
   driftIssues: [
-    { id:"DI1", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Ventilation", title:"Ojämn temperatur plan 3", description:"Återkommande felanmälningar från verksamheten.", createdDate:"2026-09-25", targetDate:"2026-11-15", decisionDate:"", completedDate:"", status:"Pågår", priority:"Hög", responsiblePersonId:"P2", budgetYear:2027, estimatedCost:120000, finalCost:0, includeInBudget:"Ja" }
+    { id:"DI1", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Ventilation", title:"Ojämn temperatur plan 3", description:"Återkommande felanmälningar från verksamheten.", createdDate:"2026-09-25", targetDate:"2026-11-15", decisionDate:"", completedDate:"", status:"Pågår", priority:"Hög", responsiblePersonId:"P2", budgetYear:2027, estimatedCost:120000, finalCost:0, includeInBudget:"Ja", planningQuarter:1, planningMonth:null }
   ],
   wishes: [
     { id:"W1", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Verksamhetsanpassning", title:"Lugnare mötesrum", description:"Önskemål om bättre akustik och avskärmning.", createdDate:"2026-09-10", targetDate:"2027-02-01", decisionDate:"2026-10-20", completedDate:"", status:"Beslutat", responsiblePersonId:"P1", budgetYear:2027, budgetCategory:"Projekt", estimatedCost:240000, finalCost:0, includeInBudget:"Ja" }
