@@ -1338,13 +1338,6 @@ function propertyPersistentContextHtml(contracts) {
       '<div><span>Avtal</span><strong>' + cs.length + ' st</strong></div>' +
       '<div><span>Hyra + avtalsdrift</span><strong>' + money(annual) + '/år</strong></div>' +
     '</div>' +
-    '<div class="property-cost-strip">' +
-      '<button type="button" data-portfolio-section="maintenance"><span>Underhåll</span><strong>' + money(sumCost(maintenance)) + '</strong><small>' + maintenance.length + ' poster</small></button>' +
-      '<button type="button" data-portfolio-section="project"><span>Projekt</span><strong>' + money(sumCost(projects)) + '</strong><small>' + projects.length + ' poster</small></button>' +
-      '<button type="button" data-portfolio-section="drift"><span>Drift</span><strong>' + money(sumCost(drift)) + '</strong><small>' + drift.length + ' poster</small></button>' +
-      '<button type="button" data-portfolio-section="wish"><span>Önskemål</span><strong>' + wishes.length + ' st</strong><small>' + money(sumCost(wishes)) + ' bedömt</small></button>' +
-      '<button type="button" data-portfolio-section="contracts"><span>Avtal</span><strong>' + cs.length + ' st</strong><small>' + money(annual) + '/år</small></button>' +
-    '</div>' +
   '</section>';
 }
 function propertyAllSectionHtml(contracts, group, title, subtitle, addType) {
@@ -1373,23 +1366,92 @@ function propertyContractsSectionHtml(contracts) {
     return '<div class="property-work-row"><div class="property-work-main"><strong>' + esc(c.number||c.id) + '</strong><span>' +
       esc(contractCustomer(c)) + ' · ' + num(c.area) + ' kvm</span></div><div class="property-work-status">' +
       statusBadge(activeInYear(c,new Date().getFullYear()) ? "Aktivt" : "Bevaka") + '</div><div class="property-work-time">' +
-      esc(c.end||"–") + '</div><div class="property-work-cost">' + money(totalContractCost(c)) + '/år</div></div>';
+      esc(c.end||"–") + '</div><div class="property-work-row-actions"><strong class="property-work-cost">' + money(totalContractCost(c)) + '/år</strong>' +
+      '<button type="button" class="inline-link compact-link" data-edit-type="object" data-edit-id="' + esc(c.id) + '">Redigera</button></div></div>';
   }).join("");
   return '<section class="property-work-section"><div class="property-work-head"><div><span>AVTAL & LOKALER</span><h3>Avtal</h3></div>' +
     '<div class="property-work-actions"><strong>' + money(total) + '/år</strong><button class="inline-link" type="button" data-portfolio-section="contracts">Visa allt →</button></div></div>' +
     (rows || '<div class="empty compact">Inga avtal ännu.</div>') + '</section>';
 }
+function propertyControlBoardHtml(contracts) {
+  const activity = portfolioActivityItems(contracts);
+  const planned = annualPlanningItems(contracts).filter(function(item) {
+    return Number(item.year) === Number(maintenancePlanning.year);
+  });
+  const property = state.properties.find(function(p) { return p.id === portfolioExplorer.propertyId; });
+  const groups = [
+    { key:"maintenance", label:"Underhåll", items:activity.filter(function(x){return x.group==="maintenance";}), plannedCategory:"Underhåll" },
+    { key:"project", label:"Projekt", items:activity.filter(function(x){return x.group==="project";}), plannedCategory:"Projekt" },
+    { key:"drift", label:"Drift", items:activity.filter(function(x){return x.group==="drift" || x.group==="operations";}), plannedCategory:"Drift" }
+  ];
+
+  function groupCard(group) {
+    const amount = group.items.reduce(function(sum,item){return sum+(Number(item.cost)||0);},0);
+    const attention = group.items.filter(function(item){
+      return /akut|hög|sen|beslut|åtgärdsbehov|risk|pågår|utreds/i.test(String(item.status||""));
+    }).length;
+    const unplaced = planned.filter(function(item){
+      if(item.category!==group.plannedCategory) return false;
+      const period=planningPeriod(item.source);
+      return !period.quarter && !period.month;
+    }).length;
+    const largest = group.items.slice().sort(function(a,b){return (Number(b.cost)||0)-(Number(a.cost)||0);})[0];
+    return '<button type="button" class="property-control-card" data-portfolio-section="' + group.key + '">' +
+      '<span class="property-control-kicker">' + group.label.toUpperCase() + '</span>' +
+      '<strong class="property-control-value">' + money(amount) + '</strong>' +
+      '<div class="property-control-metrics"><span><b>' + group.items.length + '</b> poster</span>' +
+        '<span class="' + (attention?"attention":"") + '"><b>' + attention + '</b> att följa</span>' +
+        '<span class="' + (unplaced?"attention":"") + '"><b>' + unplaced + '</b> ej placerade</span></div>' +
+      (largest ? '<small>Störst: ' + esc(largest.title||largest.type) + ' · ' + money(largest.cost) + '</small>' : '<small>Inga poster ännu</small>') +
+      '<span class="property-control-link">Visa underlaget →</span>' +
+    '</button>';
+  }
+
+  const annual = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
+  const contractWatch = contracts.map(function(c){
+    return {contract:c, months:monthsUntil(c.notice||c.end)};
+  }).filter(function(x){return x.months!=null && x.months>=0 && x.months<=12;});
+  const contractCard = '<button type="button" class="property-control-card" data-portfolio-section="contracts">' +
+    '<span class="property-control-kicker">AVTAL</span><strong class="property-control-value">' + money(annual) + '/år</strong>' +
+    '<div class="property-control-metrics"><span><b>' + contracts.length + '</b> avtal</span><span class="' + (contractWatch.length?"attention":"") +
+      '"><b>' + contractWatch.length + '</b> inom 12 mån</span></div>' +
+    '<small>' + num(contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0)) + ' kvm i fastigheten</small>' +
+    '<span class="property-control-link">Visa avtalen →</span></button>';
+
+  const contractPeople = Array.from(new Set(contracts.flatMap(function(c){
+    return contractPartyPeople(c,"our").map(function(p){return p.name;});
+  }).filter(Boolean)));
+  const activityPeople = Array.from(new Set(activity.map(function(item){return item.responsible;}).filter(Boolean)));
+  const people = Array.from(new Set(contractPeople.concat(activityPeople)));
+  const responsible = people.length ? people : (property && property.manager ? [property.manager] : []);
+  const responsibilityCard = '<section class="property-control-card responsibility">' +
+    '<span class="property-control-kicker">ANSVAR</span><strong class="property-control-value responsibility-value">' +
+      esc(responsible.length ? responsible.slice(0,2).join(", ") : "Ansvarig saknas") + '</strong>' +
+    '<div class="property-control-metrics"><span><b>' + responsible.length + '</b> ansvariga</span><span><b>' +
+      activity.filter(function(item){return item.responsible;}).length + '</b> kopplade poster</span></div>' +
+    '<small>' + (responsible.length ? 'Ansvar visas från avtal och kopplade arbetsobjekt.' : 'Lägg ansvar på avtal eller arbetsobjekt för tydlig uppföljning.') + '</small>' +
+    '<span class="property-control-link muted-control-link">Samma ansvar följer objekten</span></section>';
+
+  return '<section class="property-control-board">' +
+    '<div class="planning-section-head"><div><span>STYRBILD</span><h3>Kostnad, aktivitet och ansvar</h3>' +
+      '<p>Varje summa byggs av posterna i fastigheten. Klicka på ett block för att se och administrera underlaget.</p></div>' +
+      '<strong class="property-control-year">' + esc(maintenancePlanning.year) + '</strong></div>' +
+    '<div class="property-control-grid">' + groups.map(groupCard).join("") + contractCard + responsibilityCard + '</div>' +
+  '</section>';
+}
+
 function propertyWorkspaceHtml(contracts) {
   const cs = propertyContractsForContext(contracts);
   return '<div class="property-all-workspace">' +
-    '<div class="property-all-intro"><div><span class="portfolio-kicker">ALLT PÅ FASTIGHETEN</span><h3>Planera och agera från samma vy</h3>' +
-      '<p>Varje post är samma objekt oavsett om du kommer hit via fastigheten eller via Underhåll, Projekt, Drift eller Önskemål.</p></div></div>' +
+    propertyControlBoardHtml(cs) +
     annualPlanDashboardHtml(cs,"property") +
+    '<div class="property-detail-heading"><div><span class="portfolio-kicker">UNDERLAG</span><h3>Poster som bygger styrbilden</h3>' +
+      '<p>Ändra samma post här eller från respektive perspektiv. Summering och årsplan uppdateras från samma objekt.</p></div></div>' +
     propertyAllSectionHtml(cs,"maintenance","Underhåll","BEHOV · PLANÅR · KOSTNAD","maintenance") +
     propertyAllSectionHtml(cs,"project","Projekt","UTREDNING · GENOMFÖRANDE · TID","project") +
     propertyAllSectionHtml(cs,"drift","Drift","DRIFTKOSTNAD · ÄRENDE · UTFALL","driftIssue") +
-    propertyAllSectionHtml(cs,"wish","Önskemål","VERKSAMHETENS BEHOV · BESLUT · KOSTNAD","wish") +
     propertyContractsSectionHtml(cs) +
+    propertyAllSectionHtml(cs,"wish","Övriga behov","ÖNSKEMÅL · BESLUT · KOSTNAD","wish") +
   '</div>';
 }
 
@@ -2382,6 +2444,7 @@ function options(items, valueKey, labelFn) {
 }
 function editorCollection(type) {
   return {
+    object: state.contracts,
     person: state.people,
     assignment: state.assignments,
     project: state.projects,
