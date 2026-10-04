@@ -108,3 +108,34 @@ Every saved create/update/delete action goes through the Lokalblick API and is p
 Source/master data such as LEB may remain read-only in its source system. Lokalblick-created data and overlays — including projects, people, assignments, maintenance, drift issues, wishes, investigations, budgets, coordinates and object complements — are persisted in backend-controlled storage.
 
 The public GitHub Pages demo is the only exception: synthetic demo state may use browser storage because it contains no real customer data.
+
+
+## Annual budget invariant
+
+Lokalblick treats the annual budget as a decision baseline, not as a live sum that changes when source details change.
+
+For each year:
+
+1. Current detail records form the budget proposal basis.
+2. The user may add explicit positive or negative adjustment amounts at the relevant budget category.
+3. The annual budget is the frozen detail snapshot plus those explicit adjustment amounts.
+4. When the budget is locked, its detail snapshot, adjustments, targets and lock metadata are immutable baseline data.
+5. Later changes to maintenance, projects, operations, wishes and other source details feed the current forecast, not the locked budget.
+6. Actual cost is tracked separately from both budget and forecast.
+7. Every budget/forecast/actual amount must remain traceable to where the cost belongs and when it is expected or incurred.
+
+The conceptual model is:
+
+```
+detail need -> budget proposal -> locked annual budget -> forecast -> actual
+```
+
+A budget adjustment must never be hidden by rewriting source detail estimates. Example:
+
+```
+maintenance detail basis   453 700
+budget adjustment           46 300
+locked maintenance budget  500 000
+```
+
+The backend is the persistence authority for locked annual budget snapshots in production.
