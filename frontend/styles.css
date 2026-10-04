@@ -1804,3 +1804,158 @@ tr:hover td { background: #fbfcfc; }
   .mobile-all-workspace .property-work-section,
   .property-all-workspace .property-work-section { box-shadow: none; }
 }
+
+
+/* Maintenance click planner */
+.maintenance-planner {
+  margin: 14px 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.maintenance-planner-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid #edf0f2;
+}
+.maintenance-planner-head h3 { margin: 3px 0; font-size: 17px; }
+.maintenance-planner-head p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; max-width: 680px; }
+.maintenance-planner-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.planning-mode-toggle {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f4f7f7;
+}
+.planning-mode-toggle button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 11px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 11px;
+}
+.planning-mode-toggle button.active {
+  background: var(--accent);
+  color: #fff;
+}
+.maintenance-plan-summary {
+  display: flex;
+  gap: 10px;
+  padding: 11px 16px;
+  background: #fafcfc;
+  border-bottom: 1px solid #edf0f2;
+}
+.maintenance-plan-summary > div {
+  min-width: 150px;
+  display: grid;
+  gap: 1px;
+}
+.maintenance-plan-summary span { color: var(--muted); font-size: 9px; text-transform: uppercase; font-weight: 800; letter-spacing: .06em; }
+.maintenance-plan-summary strong { font-size: 15px; }
+.maintenance-plan-summary small { color: var(--muted); font-size: 10px; }
+.maintenance-plan-summary .attention strong { color: var(--warn); }
+
+.maintenance-plan-scroll { overflow-x: auto; overscroll-behavior-inline: contain; }
+.maintenance-plan-board { min-width: 650px; }
+.maintenance-plan-board.month { min-width: 980px; }
+.maintenance-plan-header,
+.maintenance-plan-row {
+  display: grid;
+  grid-template-columns: minmax(250px, 1.6fr) repeat(var(--maintenance-slots), minmax(46px, .52fr)) 34px;
+  gap: 5px;
+  align-items: stretch;
+}
+.maintenance-plan-header {
+  padding: 9px 12px;
+  background: #f5f7f8;
+  border-bottom: 1px solid var(--line);
+}
+.maintenance-plan-header > div:first-child {
+  display: grid;
+  gap: 2px;
+  align-content: center;
+}
+.maintenance-plan-header > div:first-child strong { font-size: 11px; }
+.maintenance-plan-header > div:first-child span { color: var(--muted); font-size: 9px; }
+.maintenance-plan-slot-head {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1px;
+  text-align: center;
+}
+.maintenance-plan-slot-head strong { font-size: 10px; }
+.maintenance-plan-slot-head span { max-width: 100%; color: var(--muted); font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.maintenance-plan-row {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f2f3;
+}
+.maintenance-plan-row:last-child { border-bottom: 0; }
+.maintenance-plan-item {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  padding-right: 6px;
+}
+.maintenance-plan-item strong { font-size: 11px; line-height: 1.25; }
+.maintenance-plan-item span,
+.maintenance-plan-item small { color: var(--muted); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.maintenance-plan-cell {
+  min-height: 42px;
+  border: 1px solid #dfe5e7;
+  border-radius: 9px;
+  background: #fbfcfc;
+  color: var(--accent);
+  font-weight: 900;
+}
+.maintenance-plan-cell.coarse {
+  border-style: dashed;
+  background: #f0f5f3;
+  color: #8ca59f;
+}
+.maintenance-plan-cell.selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.maintenance-plan-clear {
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  color: #99a3aa;
+  font-size: 18px;
+  border-radius: 8px;
+}
+.maintenance-plan-clear:hover { background: #f4f6f7; color: var(--danger); }
+
+@media (hover: hover) and (pointer: fine) {
+  .maintenance-plan-cell:not(.selected):hover {
+    border-color: #9eb8b2;
+    background: #f2f7f5;
+  }
+}
+@media (max-width: 700px) {
+  .maintenance-planner-head { display: grid; padding: 13px; }
+  .maintenance-planner-controls { justify-content: flex-start; }
+  .maintenance-plan-summary { padding: 10px 13px; }
+  .maintenance-plan-summary > div { min-width: 0; flex: 1; }
+  .maintenance-plan-board { min-width: 700px; }
+  .maintenance-plan-board.month { min-width: 1040px; }
+  .maintenance-plan-header,
+  .maintenance-plan-row {
+    grid-template-columns: minmax(205px, 1.45fr) repeat(var(--maintenance-slots), minmax(44px, .5fr)) 32px;
+  }
+  .maintenance-plan-row { padding-block: 7px; }
+}
