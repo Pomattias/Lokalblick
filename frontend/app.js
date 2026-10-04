@@ -630,6 +630,65 @@ function renderNav() {
     btn.addEventListener("click", function() { currentView = btn.dataset.view; render(); });
   });
 }
+function mobileDockKey() {
+  if (currentView === "budget") return "economy";
+  if (currentView !== "properties") return "more";
+  if (portfolioExplorer.section === "properties" || portfolioExplorer.propertyId) return "properties";
+  if (portfolioExplorer.section === "activities" || activitySections().includes(portfolioExplorer.section)) return "activities";
+  return "home";
+}
+function closeMobileMoreSheet() {
+  const sheet = document.getElementById("mobile-more-sheet");
+  if (sheet) sheet.hidden = true;
+}
+function renderMobileDock() {
+  const dock = document.getElementById("mobile-dock");
+  if (!dock) return;
+  const active = mobileDockKey();
+  dock.querySelectorAll("[data-mobile-dock]").forEach(function(button) {
+    button.classList.toggle("active", button.dataset.mobileDock === active);
+    if (button.dataset.mobileBound) return;
+    button.dataset.mobileBound = "1";
+    button.addEventListener("click", function() {
+      const target = button.dataset.mobileDock;
+      if (target === "more") {
+        const sheet = document.getElementById("mobile-more-sheet");
+        if (sheet) sheet.hidden = false;
+        return;
+      }
+      closeMobileMoreSheet();
+      if (target === "economy") {
+        currentView = "budget";
+        render();
+        return;
+      }
+      const section = target === "properties" ? "properties" : target === "activities" ? "activities" : "overview";
+      if (currentView === "properties") {
+        portfolioExplorer.contractId = "";
+        if (target === "home") portfolioExplorer.propertyId = "";
+        portfolioExplorer.section = section;
+        filterPropertyPortfolio();
+        renderMobileDock();
+      } else {
+        currentView = "properties";
+        portfolioExplorer = { propertyId:"", contractId:"", section:section };
+        render();
+      }
+    });
+  });
+  document.querySelectorAll("[data-mobile-sheet-close]:not([data-mobile-bound])").forEach(function(button) {
+    button.dataset.mobileBound = "1";
+    button.addEventListener("click", closeMobileMoreSheet);
+  });
+  document.querySelectorAll("[data-mobile-target]:not([data-mobile-bound])").forEach(function(button) {
+    button.dataset.mobileBound = "1";
+    button.addEventListener("click", function() {
+      currentView = button.dataset.mobileTarget;
+      closeMobileMoreSheet();
+      render();
+    });
+  });
+}
 function render() {
   if (currentView !== "map" && window.LokalblickMapService) {
     window.LokalblickMapService.destroy();
@@ -651,6 +710,7 @@ function render() {
   else html = renderAbout();
   document.getElementById("content").innerHTML = html;
   bindViewEvents();
+  renderMobileDock();
   if (currentView === "map") initPropertyMap();
 }
 
@@ -1235,38 +1295,96 @@ function mobileContractCardsHtml(contracts) {
   }).join("") || '<div class="empty">Inga avtal i urvalet.</div>';
 }
 function mobileOverviewHtml(contracts) {
-  const propertyCount=new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
-  const totalArea=contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
-  const totalCost=contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
-  const items=portfolioActivityItems(contracts);
-  const maintenance=items.filter(function(x){return x.group==="maintenance";}).length;
-  const projects=items.filter(function(x){return x.group==="project";}).length;
-  const issues=items.filter(function(x){return x.group==="drift";}).length;
-  const wishes=items.filter(function(x){return x.group==="wish";}).length;
-  const due12=contracts.filter(function(c){
+  const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
+  const totalArea = contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
+  const annualContracts = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
+  const items = portfolioActivityItems(contracts);
+  const groups = {
+    maintenance: items.filter(function(x){return x.group==="maintenance";}),
+    project: items.filter(function(x){return x.group==="project";}),
+    drift: items.filter(function(x){return x.group==="drift" || x.group==="operations";}),
+    wish: items.filter(function(x){return x.group==="wish";})
+  };
+  const plannedCost = groups.maintenance.concat(groups.project, groups.drift).reduce(function(sum,x){return sum+(Number(x.cost)||0);},0);
+  const openItems = items.filter(function(item){return !/klar|klart|avslaget|utfört/i.test(String(item.status||""));});
+  const due12 = contracts.filter(function(c){
     const months=monthsUntil(c.notice||c.end);
     return months!=null && months>=0 && months<=12;
   }).length;
-  const missingResponsible=contracts.filter(function(c){return !contractPartyPeople(c,"our").length;}).length;
-  return '<div class="mobile-overview-summary">' +
-    '<div><strong>' + propertyCount + '</strong><span>Fastigheter</span></div>' +
-    '<div><strong>' + contracts.length + '</strong><span>Avtal</span></div>' +
-    '<div><strong>' + num(totalArea) + '</strong><span>kvm</span></div>' +
-    '<div><strong>' + money(totalCost) + '</strong><span>Hyra + drift</span></div>' +
+  const attention = openItems.slice().sort(function(a,b){
+    const aa=/akut|hög|sen|risk|åtgärdsbehov|pågår/i.test(String(a.status||""))?1:0;
+    const bb=/akut|hög|sen|risk|åtgärdsbehov|pågår/i.test(String(b.status||""))?1:0;
+    return bb-aa || (Number(b.cost)||0)-(Number(a.cost)||0);
+  }).slice(0,4);
+  return '<section class="mobile-home-hero">' +
+    '<div class="mobile-home-hero-copy"><span>AKTUELLT URVAL</span><h2>' + esc(portfolioScopeTitle()) + '</h2><p>' + propertyCount + ' fastigheter · ' + contracts.length + ' avtal · ' + num(totalArea) + ' kvm</p></div>' +
+    '<div class="mobile-home-hero-value"><span>Årskostnad avtal</span><strong>' + money(annualContracts) + '</strong><small>Hyra + avtalsdrift</small></div>' +
+  '</section>' +
+  '<div class="mobile-kpi-grid">' +
+    '<button type="button" data-portfolio-section="properties"><span>Fastigheter</span><strong>' + propertyCount + '</strong><small>' + num(totalArea) + ' kvm</small></button>' +
+    '<button type="button" data-portfolio-section="activities"><span>Aktiva poster</span><strong>' + openItems.length + '</strong><small>' + money(plannedCost) + '</small></button>' +
   '</div>' +
-  '<section class="mobile-attention"><div class="mobile-section-title"><span>ATT AGERA PÅ</span><h3>Det viktigaste just nu</h3></div>' +
-    '<div class="mobile-attention-grid">' +
-      '<button type="button" data-portfolio-section="contracts"><strong>' + due12 + '</strong><span>Avtal inom 12 mån</span><b>→</b></button>' +
-      '<button type="button" data-portfolio-section="maintenance"><strong>' + maintenance + '</strong><span>Underhåll</span><b>→</b></button>' +
-      '<button type="button" data-portfolio-section="drift"><strong>' + issues + '</strong><span>Driftärenden</span><b>→</b></button>' +
-      '<button type="button" data-portfolio-section="contracts"><strong>' + missingResponsible + '</strong><span>Saknar ansvarig</span><b>→</b></button>' +
-    '</div></section>' +
-  '<section class="mobile-workload"><div class="mobile-section-title"><span>I URVALET</span><h3>Det som bygger summan</h3></div>' +
-    '<div class="mobile-workload-row">' +
-      '<button type="button" data-portfolio-section="project"><strong>' + projects + '</strong><span>Projekt</span></button>' +
-      '<button type="button" data-portfolio-section="wish"><strong>' + wishes + '</strong><span>Önskemål</span></button>' +
-      '<button type="button" data-portfolio-section="properties"><strong>' + propertyCount + '</strong><span>Fastigheter</span></button>' +
-    '</div></section>';
+  '<section class="mobile-shortcuts"><div class="mobile-section-title"><span>SE HELHETEN</span><h3>Välj vad du vill förstå</h3></div><div class="mobile-shortcut-grid">' +
+    '<button type="button" class="maintenance" data-portfolio-section="maintenance"><span class="mobile-shortcut-icon">⌁</span><strong>Underhåll</strong><b>' + groups.maintenance.length + '</b><small>' + money(groups.maintenance.reduce(function(s,x){return s+(Number(x.cost)||0);},0)) + '</small></button>' +
+    '<button type="button" class="drift" data-portfolio-section="drift"><span class="mobile-shortcut-icon">⚙</span><strong>Drift</strong><b>' + groups.drift.length + '</b><small>' + money(groups.drift.reduce(function(s,x){return s+(Number(x.cost)||0);},0)) + '</small></button>' +
+    '<button type="button" class="contracts" data-portfolio-section="contracts"><span class="mobile-shortcut-icon">▤</span><strong>Avtal</strong><b>' + contracts.length + '</b><small>' + due12 + ' inom 12 mån</small></button>' +
+    '<button type="button" class="wish" data-portfolio-section="wish"><span class="mobile-shortcut-icon">◇</span><strong>Önskemål</strong><b>' + groups.wish.length + '</b><small>' + money(groups.wish.reduce(function(s,x){return s+(Number(x.cost)||0);},0)) + '</small></button>' +
+  '</div></section>' +
+  '<section class="mobile-now"><div class="mobile-section-title"><span>ATT AGERA PÅ</span><h3>Det viktigaste just nu</h3></div>' +
+    (attention.length ? attention.map(function(item){
+      const property=state.properties.find(function(p){return p.id===item.propertyId;});
+      return '<button type="button" class="mobile-now-row" data-portfolio-section="' + esc(item.group==="operations"?"drift":item.group) + '">' +
+        '<span class="mobile-now-main"><strong>' + esc(item.title||item.type) + '</strong><small>' + esc(property ? (property.address||property.id) : "Fastighetsnivå") + ' · ' + esc(item.status||"") + '</small></span>' +
+        '<span class="mobile-now-cost">' + money(item.cost) + '</span><b>›</b></button>';
+    }).join("") : '<div class="empty compact">Inget kräver särskild uppmärksamhet just nu.</div>') +
+  '</section>';
+}
+function mobileActivitiesHubHtml(contracts) {
+  const items = portfolioActivityItems(contracts).filter(function(x){return ["maintenance","project","drift","operations","wish"].includes(x.group);});
+  const categories = [
+    ["maintenance","Underhåll","⌁"],["project","Projekt","◆"],["drift","Drift","⚙"],["wish","Önskemål","◇"]
+  ];
+  const open = items.filter(function(item){return !/klar|klart|avslaget|utfört/i.test(String(item.status||""));});
+  const recent = open.slice().sort(function(a,b){return String(b.when||"").localeCompare(String(a.when||""));}).slice(0,8);
+  return '<section class="mobile-activity-hub-head"><span>AKTIVITETER</span><h2>Allt som händer i urvalet</h2><p>Underhåll, projekt, drift och önskemål använder samma underlag och samma fastighetskoppling.</p></section>' +
+    '<div class="mobile-activity-category-grid">' + categories.map(function(cat){
+      const selected=items.filter(function(x){return cat[0]==="drift"?(x.group==="drift"||x.group==="operations"):x.group===cat[0];});
+      const total=selected.reduce(function(s,x){return s+(Number(x.cost)||0);},0);
+      return '<button type="button" data-portfolio-section="' + cat[0] + '"><span>' + cat[2] + '</span><strong>' + cat[1] + '</strong><b>' + selected.length + '</b><small>' + money(total) + '</small></button>';
+    }).join("") + '</div>' +
+    '<section class="mobile-now"><div class="mobile-section-title"><span>ÖPPET / PÅGÅENDE</span><h3>' + open.length + ' poster att följa</h3></div>' +
+    (recent.length ? recent.map(function(item){
+      const property=state.properties.find(function(p){return p.id===item.propertyId;});
+      const group=item.group==="operations"?"drift":item.group;
+      return '<button type="button" class="mobile-now-row" data-portfolio-section="' + group + '">' +
+        '<span class="mobile-now-main"><strong>' + esc(item.title||item.type) + '</strong><small>' + esc(property ? (property.address||property.id) : "Fastighetsnivå") + ' · ' + esc(item.status||"") + '</small></span>' +
+        '<span class="mobile-now-cost">' + money(item.cost) + '</span><b>›</b></button>';
+    }).join("") : '<div class="empty compact">Inga öppna aktiviteter i urvalet.</div>') + '</section>';
+}
+function mobilePropertyHeroHtml(contracts) {
+  const property=state.properties.find(function(p){return p.id===portfolioExplorer.propertyId;});
+  if(!property) return "";
+  const cs=propertyContractsForContext(contracts);
+  const area=cs.reduce(function(s,c){return s+(Number(c.area)||0);},0);
+  const annual=cs.reduce(function(s,c){return s+totalContractCost(c);},0);
+  const people=Array.from(new Set(cs.flatMap(function(c){return contractPartyPeople(c,"our").map(function(p){return p.name;});}))).filter(Boolean);
+  return '<section class="mobile-property-hero"><button type="button" class="mobile-property-back" data-clear-explorer="property">‹</button><div class="mobile-property-title"><span>FASTIGHET</span><h2>' + esc(property.address||property.id) + '</h2><p>' + esc(property.designation||property.id) + '</p></div>' +
+    '<div class="mobile-property-facts"><div><span>Area</span><strong>' + num(area) + ' kvm</strong></div><div><span>Avtal</span><strong>' + cs.length + '</strong></div><div><span>Årskostnad</span><strong>' + money(annual) + '</strong></div><div><span>Ansvarig</span><strong>' + esc(people.join(", ")||property.manager||"–") + '</strong></div></div></section>';
+}
+function mobilePropertyOverviewHtml(contracts) {
+  const cs=propertyContractsForContext(contracts);
+  const items=portfolioActivityItems(cs);
+  const cards=[
+    ["maintenance","Underhåll",items.filter(function(x){return x.group==="maintenance";})],
+    ["project","Projekt",items.filter(function(x){return x.group==="project";})],
+    ["drift","Drift",items.filter(function(x){return x.group==="drift"||x.group==="operations";})],
+    ["contracts","Avtal",cs],
+    ["wish","Önskemål",items.filter(function(x){return x.group==="wish";})]
+  ];
+  return '<div class="mobile-property-overview-grid">' + cards.map(function(card){
+    const total=card[0]==="contracts"?card[2].reduce(function(s,c){return s+totalContractCost(c);},0):card[2].reduce(function(s,x){return s+(Number(x.cost)||0);},0);
+    return '<button type="button" data-portfolio-section="' + card[0] + '"><span>' + esc(card[1]) + '</span><strong>' + card[2].length + '</strong><small>' + money(total) + (card[0]==="contracts"?"/år":"") + '</small><b>→</b></button>';
+  }).join("") + '</div>' + mobileActivitiesHubHtml(cs);
 }
 function mobileContextHtml() {
   if (portfolioExplorer.contractId) {
@@ -1287,12 +1405,12 @@ function updateMobilePortfolioSurfaces(contracts) {
 
   const modes=document.getElementById("mobile-content-tabs");
   if(modes) {
-    modes.innerHTML=mobileModeChooserHtml(contracts);
+    modes.innerHTML=portfolioExplorer.propertyId ? mobileModeChooserHtml(contracts) : "";
     bindPortfolioSectionControls();
   }
 
   const overview=document.getElementById("mobile-overview-content");
-  if(overview) overview.innerHTML=portfolioExplorer.propertyId ? propertyWorkspaceHtml(contracts) : mobileOverviewHtml(contracts);
+  if(overview) overview.innerHTML=portfolioExplorer.propertyId ? mobilePropertyOverviewHtml(contracts) : mobileOverviewHtml(contracts);
 
   const properties=document.getElementById("mobile-properties-content");
   if(properties) properties.innerHTML=mobilePropertyCardsHtml(contracts);
@@ -2071,7 +2189,7 @@ function contractMatchesPortfolio(c, filters) {
   return true;
 }
 function activitySections() {
-  return ["project", "maintenance", "drift", "wish", "investigation", "operations"];
+  return ["activities", "project", "maintenance", "drift", "wish", "investigation", "operations"];
 }
 function applyPortfolioSectionVisibility() {
   const section = portfolioExplorer.section || "overview";
@@ -2082,7 +2200,7 @@ function applyPortfolioSectionVisibility() {
   if (overview) overview.hidden = section !== "overview";
   if (properties) properties.hidden = section !== "properties";
   if (contracts) contracts.hidden = section !== "contracts";
-  if (activity) activity.hidden = !activitySections().includes(section);
+  if (activity) activity.hidden = section === "activities" || !activitySections().includes(section);
 
   const mobileOverview = document.getElementById("mobile-overview-panel");
   const mobileProperties = document.getElementById("mobile-properties-panel");
@@ -2099,6 +2217,7 @@ function bindPortfolioSectionControls() {
     button.addEventListener("click", function() {
       portfolioExplorer.section = button.dataset.portfolioSection || "overview";
       filterPropertyPortfolio();
+      renderMobileDock();
     });
   });
 }
@@ -2182,7 +2301,7 @@ function updatePortfolioSurfaces(contracts) {
   const propertyContext = document.getElementById("property-persistent-context");
   if (propertyContext) propertyContext.innerHTML = propertyPersistentContextHtml(contracts);
   const mobilePropertyContext = document.getElementById("mobile-property-persistent-context");
-  if (mobilePropertyContext) mobilePropertyContext.innerHTML = propertyPersistentContextHtml(contracts);
+  if (mobilePropertyContext) mobilePropertyContext.innerHTML = portfolioExplorer.propertyId ? mobilePropertyHeroHtml(contracts) : "";
 
   const tabs = document.getElementById("portfolio-content-tabs");
   if (tabs) {
@@ -2206,9 +2325,11 @@ function updatePortfolioSurfaces(contracts) {
 
   const mobileActivity = document.getElementById("mobile-activity-content");
   if (mobileActivity) {
-    mobileActivity.innerHTML = activitySections().includes(portfolioExplorer.section)
-      ? portfolioActivityGroupedHtml(contracts, portfolioExplorer.section)
-      : "";
+    mobileActivity.innerHTML = portfolioExplorer.section === "activities"
+      ? mobileActivitiesHubHtml(contracts)
+      : activitySections().includes(portfolioExplorer.section)
+        ? portfolioActivityGroupedHtml(contracts, portfolioExplorer.section)
+        : "";
   }
 
   bindPortfolioExplorerControls();
