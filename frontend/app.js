@@ -898,7 +898,7 @@ function portfolioContentTabsHtml(contracts) {
     ["wish","Önskemål","＋","Behov från verksamheten",wishes.length],
     ["contracts","Avtal","≣","Avtal, area och årskostnad",contracts.length]
   ] : [
-    ["overview","Helhet","◫","Överblick, signaler och kostnader",""],
+    ["overview","Alla","◫","Summering och alla detaljer",""],
     ["properties","Fastigheter","▦","Samlad bild per fastighet",propertyCount],
     ["maintenance","Underhåll","⌂","Behov och planerade åtgärder",maintenance.length],
     ["project","Projekt","◇","Projekt, tid och budget",projects.length],
@@ -909,10 +909,10 @@ function portfolioContentTabsHtml(contracts) {
   return modes.map(function(mode) {
     const active = portfolioExplorer.section === mode[0];
     return '<button class="mode-card ' + (active ? "active" : "") + '" type="button" data-portfolio-section="' + mode[0] +
-      '" role="tab" aria-selected="' + (active ? "true" : "false") + '">' +
+      '" role="tab" aria-selected="' + (active ? "true" : "false") + '" title="' + esc(mode[3]) + '">' +
       '<span class="mode-icon">' + mode[2] + '</span>' +
-      '<span class="mode-copy"><strong>' + esc(mode[1]) + '</strong><small>' + esc(mode[3]) + '</small></span>' +
-      (mode[4] === "" ? '<span class="mode-arrow">→</span>' : '<span class="mode-count">' + esc(mode[4]) + '</span>') +
+      '<strong class="mode-label">' + esc(mode[1]) + '</strong>' +
+      (mode[4] === "" ? "" : '<span class="mode-count">' + esc(mode[4]) + '</span>') +
       '</button>';
   }).join("");
 }
@@ -965,7 +965,7 @@ function portfolioActivityGroupedHtml(contracts, group) {
     '<div class="activity-view-actions">' + action + '</div></div>' + planner + (groups || '<div class="empty">Ingen data i urvalet.</div>');
 }
 function portfolioContextHtml() {
-  const parts = ['<span class="context-root">Helhet</span>'];
+  const parts = ['<span class="context-root">Alla</span>'];
   const controls = [
     ["filter-customer","Kund"],["filter-unit","Organisation"],["filter-owner","Fastighetsägare"],
     ["filter-our-person","Ansvarig"],["filter-tenant-person","Kundansvarig"],["filter-owner-person","Ägaransvarig"]
@@ -988,7 +988,7 @@ function portfolioContextHtml() {
 
 function portfolioScopeCardsHtml() {
   const allContracts = state.contracts;
-  const cards = [{ id:"", name:"Hela beståndet" }].concat(ORG_UNITS.map(function(unit) {
+  const cards = [{ id:"", name:"Alla" }].concat(ORG_UNITS.map(function(unit) {
     return { id:unit.id, name:unit.name };
   }));
   return cards.map(function(card) {
@@ -1019,7 +1019,7 @@ function portfolioScopeTitle() {
   if (customer && customer.value) return customer.options[customer.selectedIndex].text;
   const owner=document.getElementById("filter-owner");
   if (owner && owner.value) return owner.options[owner.selectedIndex].text;
-  return "Hela beståndet";
+  return "Alla fastigheter";
 }
 function updatePortfolioScopeHeader(contracts) {
   const title=document.getElementById("portfolio-scope-title");
@@ -1042,11 +1042,11 @@ function updateQuickScopeButtons() {
 }
 
 function mobileScopePickerHtml() {
-  const cards = [{ id:"", name:"Hela beståndet" }].concat(ORG_UNITS.map(function(unit) {
+  const cards = [{ id:"", name:"Alla" }].concat(ORG_UNITS.map(function(unit) {
     return { id:unit.id, name:unit.name };
   }));
   return '<details class="mobile-scope-picker" id="mobile-scope-picker">' +
-    '<summary><span class="mobile-picker-kicker">Område</span><strong id="mobile-scope-label">Hela beståndet</strong><span class="mobile-picker-chevron">⌄</span></summary>' +
+    '<summary><span class="mobile-picker-kicker">Urval</span><strong id="mobile-scope-label">Alla fastigheter</strong><span class="mobile-picker-chevron">⌄</span></summary>' +
     '<div class="mobile-scope-options">' +
       cards.map(function(card) {
         const contracts = card.id ? state.contracts.filter(function(c){return c.unitId===card.id;}) : state.contracts;
@@ -1059,7 +1059,6 @@ function mobileScopePickerHtml() {
 }
 function mobileModeChooserHtml(contracts) {
   const items = portfolioActivityItems(contracts);
-  const propertyMode = Boolean(portfolioExplorer.propertyId);
   const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
   const counts = {
     overview:"",
@@ -1070,39 +1069,32 @@ function mobileModeChooserHtml(contracts) {
     drift:items.filter(function(x){return x.group==="drift" || x.group==="operations";}).length,
     wish:items.filter(function(x){return x.group==="wish";}).length
   };
-  const primary = propertyMode ? [
-    ["overview","Alla","◫"],
-    ["maintenance","Underhåll","⌂"],
-    ["project","Projekt","◇"],
-    ["drift","Drift","⚙"]
+  const modes = portfolioExplorer.propertyId ? [
+    ["overview","Alla"],
+    ["maintenance","Underhåll"],
+    ["project","Projekt"],
+    ["drift","Drift"],
+    ["wish","Önskemål"],
+    ["contracts","Avtal"]
   ] : [
-    ["overview","Helhet","◫"],
-    ["properties","Fastigheter","▦"],
-    ["maintenance","Underhåll","⌂"],
-    ["project","Projekt","◇"]
+    ["overview","Alla"],
+    ["properties","Fastigheter"],
+    ["maintenance","Underhåll"],
+    ["project","Projekt"],
+    ["drift","Drift"],
+    ["wish","Önskemål"],
+    ["contracts","Avtal"]
   ];
-  const secondary = propertyMode ? [
-    ["wish","Önskemål","＋"],
-    ["contracts","Avtal","≣"]
-  ] : [
-    ["drift","Drift","⚙"],
-    ["wish","Önskemål","＋"],
-    ["contracts","Avtal","≣"]
-  ];
-  function button(mode, extraClass) {
-    const active = portfolioExplorer.section === mode[0];
-    return '<button type="button" class="mobile-mode-button ' + (extraClass || "") + (active ? ' active' : '') +
-      '" data-portfolio-section="' + mode[0] + '">' +
-      '<span class="mobile-mode-icon">' + mode[2] + '</span><span>' + esc(mode[1]) + '</span>' +
-      (counts[mode[0]] === "" ? "" : '<strong>' + counts[mode[0]] + '</strong>') +
-    '</button>';
-  }
-  const selectedSecondary = secondary.find(function(mode){return mode[0]===portfolioExplorer.section;});
-  return '<div class="mobile-mode-primary">' + primary.map(function(mode){return button(mode,"");}).join("") + '</div>' +
-    '<details class="mobile-more-modes"' + (selectedSecondary ? " open" : "") + '>' +
-      '<summary><span>' + (selectedSecondary ? esc(selectedSecondary[1]) : "Mer") + '</span><span>⌄</span></summary>' +
-      '<div class="mobile-more-grid">' + secondary.map(function(mode){return button(mode,"secondary");}).join("") + '</div>' +
-    '</details>';
+  return '<div class="mobile-perspective-strip" role="tablist" aria-label="Perspektiv">' +
+    modes.map(function(mode) {
+      const active=portfolioExplorer.section===mode[0];
+      return '<button type="button" class="mobile-perspective-pill ' + (active?"active":"") +
+        '" data-portfolio-section="' + mode[0] + '" role="tab" aria-selected="' + (active?"true":"false") + '">' +
+        '<span>' + esc(mode[1]) + '</span>' +
+        (counts[mode[0]]==="" ? "" : '<strong>' + counts[mode[0]] + '</strong>') +
+      '</button>';
+    }).join("") +
+  '</div>';
 }
 function mobilePropertyCardsHtml(contracts) {
   const grouped = new Map();
@@ -1170,7 +1162,7 @@ function mobileOverviewHtml(contracts) {
       '<button type="button" data-portfolio-section="drift"><strong>' + issues + '</strong><span>Driftärenden</span><b>→</b></button>' +
       '<button type="button" data-portfolio-section="contracts"><strong>' + missingResponsible + '</strong><span>Saknar ansvarig</span><b>→</b></button>' +
     '</div></section>' +
-  '<section class="mobile-workload"><div class="mobile-section-title"><span>PLANERING</span><h3>Aktuellt i urvalet</h3></div>' +
+  '<section class="mobile-workload"><div class="mobile-section-title"><span>I URVALET</span><h3>Det som bygger summan</h3></div>' +
     '<div class="mobile-workload-row">' +
       '<button type="button" data-portfolio-section="project"><strong>' + projects + '</strong><span>Projekt</span></button>' +
       '<button type="button" data-portfolio-section="wish"><strong>' + wishes + '</strong><span>Önskemål</span></button>' +
@@ -1490,9 +1482,9 @@ function renderProperties() {
   return '<div class="bestands-page">' +
     '<section class="portfolio-hero">' +
       '<div class="desktop-only">' +
-        '<div class="portfolio-hero-copy"><span class="portfolio-kicker">BESTÅND</span><h2 id="portfolio-scope-title">Hela beståndet</h2>' +
+        '<div class="portfolio-hero-copy"><span class="portfolio-kicker">URVAL</span><h2 id="portfolio-scope-title">Alla fastigheter</h2>' +
           '<p id="portfolio-scope-meta">' + state.properties.length + ' fastigheter · ' + state.contracts.length + ' avtal</p></div>' +
-        '<div class="scope-heading"><span>Välj verksamhetsområde</span><small>Ett klick uppdaterar hela planeringsytan</small></div>' +
+        '<div class="scope-heading"><span>Zooma in</span><small>Välj område eller gå vidare till en fastighet</small></div>' +
         '<div class="scope-grid">' + portfolioScopeCardsHtml() + '</div>' +
       '</div>' +
       '<div class="mobile-only mobile-scope-wrap">' + mobileScopePickerHtml() + '<div id="mobile-context"></div></div>' +
@@ -1501,12 +1493,12 @@ function renderProperties() {
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
       advancedFilters +
       '<div class="filter-result desktop-only" id="portfolio-filter-result">' + state.properties.length + ' fastigheter · ' + state.contracts.length + ' avtal</div>' +
-      '<div class="portfolio-context desktop-only" id="portfolio-context"><span class="context-root">Helhet</span></div>' +
+      '<div class="portfolio-context desktop-only" id="portfolio-context"><span class="context-root">Alla</span></div>' +
     '</section>' +
 
     '<section class="card pad bestands-shell desktop-only">' +
       '<div id="property-persistent-context"></div>' +
-      '<div class="mode-heading"><div><span>VAD VILL DU SE?</span><h3>Välj arbetsyta</h3></div><small>Samma urval följer med mellan nivåerna</small></div>' +
+      '<div class="mode-heading"><div><span>PERSPEKTIV</span><h3>Visa</h3></div><small>Summering överst · detaljer under</small></div>' +
       '<div class="mode-grid" id="portfolio-content-tabs" role="tablist">' + portfolioContentTabsHtml(state.contracts) + '</div>' +
       '<div class="bestands-content">' +
         '<div class="property-tab-panel" id="overview-panel"><div id="portfolio-overview-content">' + portfolioOverviewHtml(state.contracts) + '</div></div>' +
