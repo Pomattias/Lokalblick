@@ -680,6 +680,7 @@ function mobileScopePickerHtml() {
 }
 function mobileModeChooserHtml(contracts) {
   const items = portfolioActivityItems(contracts);
+  const propertyMode = Boolean(portfolioExplorer.propertyId);
   const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
   const counts = {
     overview:"",
@@ -687,23 +688,27 @@ function mobileModeChooserHtml(contracts) {
     contracts:contracts.length,
     project:items.filter(function(x){return x.group==="project";}).length,
     maintenance:items.filter(function(x){return x.group==="maintenance";}).length,
-    drift:items.filter(function(x){return x.group==="drift";}).length,
-    wish:items.filter(function(x){return x.group==="wish";}).length,
-    investigation:items.filter(function(x){return x.group==="investigation";}).length,
-    operations:items.filter(function(x){return x.group==="operations";}).length
+    drift:items.filter(function(x){return x.group==="drift" || x.group==="operations";}).length,
+    wish:items.filter(function(x){return x.group==="wish";}).length
   };
-  const primary = [
+  const primary = propertyMode ? [
+    ["overview","Alla","◫"],
+    ["maintenance","Underhåll","⌂"],
+    ["project","Projekt","◇"],
+    ["drift","Drift","⚙"]
+  ] : [
     ["overview","Helhet","◫"],
     ["properties","Fastigheter","▦"],
     ["maintenance","Underhåll","⌂"],
     ["project","Projekt","◇"]
   ];
-  const secondary = [
-    ["contracts","Avtal","≣"],
-    ["drift","Driftärenden","⚙"],
+  const secondary = propertyMode ? [
     ["wish","Önskemål","＋"],
-    ["investigation","Utredningar","?"],
-    ["operations","Driftkostnader","¤"]
+    ["contracts","Avtal","≣"]
+  ] : [
+    ["drift","Drift","⚙"],
+    ["wish","Önskemål","＋"],
+    ["contracts","Avtal","≣"]
   ];
   function button(mode, extraClass) {
     const active = portfolioExplorer.section === mode[0];
@@ -817,7 +822,7 @@ function updateMobilePortfolioSurfaces(contracts) {
   }
 
   const overview=document.getElementById("mobile-overview-content");
-  if(overview) overview.innerHTML=mobileOverviewHtml(contracts);
+  if(overview) overview.innerHTML=portfolioExplorer.propertyId ? propertyWorkspaceHtml(contracts) : mobileOverviewHtml(contracts);
 
   const properties=document.getElementById("mobile-properties-content");
   if(properties) properties.innerHTML=mobilePropertyCardsHtml(contracts);
@@ -922,6 +927,20 @@ function portfolioOverviewHtml(contracts) {
   const totalArea = contracts.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0);
   const totalCost = contracts.reduce(function(sum, c) { return sum + totalContractCost(c); }, 0);
   const costPerSqm = totalArea ? totalCost / totalArea : 0;
+  const activityItems = portfolioActivityItems(contracts);
+  const plannedCosts = [
+    { key:"maintenance", label:"Underhåll", items:activityItems.filter(function(x){return x.group==="maintenance";}) },
+    { key:"project", label:"Projekt", items:activityItems.filter(function(x){return x.group==="project";}) },
+    { key:"drift", label:"Drift", items:activityItems.filter(function(x){return x.group==="drift" || x.group==="operations";}) },
+    { key:"wish", label:"Önskemål", items:activityItems.filter(function(x){return x.group==="wish";}) }
+  ].map(function(group){
+    return {
+      key:group.key,
+      label:group.label,
+      count:group.items.length,
+      amount:group.items.reduce(function(sum,item){return sum+(Number(item.cost)||0);},0)
+    };
+  });
 
   const customerRows = portfolioPatternRows(
     contracts,
@@ -1010,6 +1029,15 @@ function portfolioOverviewHtml(contracts) {
     kpi("Area", num(totalArea) + " kvm", propertyIds.size ? num(totalArea / propertyIds.size) + " kvm / fastighet" : "–") +
     kpi("Hyra + drift", money(totalCost), totalArea ? num(costPerSqm) + " kr/kvm" : "–") +
     '</div>' +
+    '<section class="portfolio-cost-picture">' +
+      '<div class="planning-section-head"><div><span>DETALJER SOM BYGGER HELHETEN</span><h3>Var ligger behoven och kostnaderna?</h3>' +
+        '<p>Samma poster kan öppnas från denna helhet eller från respektive fastighet.</p></div></div>' +
+      '<div class="portfolio-cost-grid">' + plannedCosts.map(function(group) {
+        return '<button type="button" data-portfolio-section="' + group.key + '">' +
+          '<span>' + esc(group.label) + '</span><strong>' + money(group.amount) + '</strong><small>' + group.count + ' poster · visa →</small>' +
+        '</button>';
+      }).join("") + '</div>' +
+    '</section>' +
 
     '<section class="signals-section">' +
       '<div class="planning-section-head"><div><span>SIGNALER</span><h3>Det här bör du ha koll på</h3></div></div>' +
