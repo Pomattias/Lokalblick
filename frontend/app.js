@@ -33,6 +33,7 @@ let currentView = "properties";
 let selectedBudgetYear = new Date().getFullYear() + 1;
 let maintenancePlanning = { year: new Date().getFullYear() + 1, mode: "quarter" };
 let editorType = null;
+let editorRecord = null;
 let portfolioExplorer = { propertyId: "", contractId: "", section: "overview" };
 
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -945,6 +946,67 @@ function perspectiveSummaryHtml(contracts, group) {
     '</div>' +
   '</section>';
 }
+
+function maintenanceDistributionHtml(contracts) {
+  const maintenanceItems = portfolioActivityItems(contracts).filter(function(item) { return item.group === "maintenance"; });
+  if (!maintenanceItems.length) return "";
+
+  const total = maintenanceItems.reduce(function(sum, item) { return sum + (Number(item.cost) || 0); }, 0);
+  const byUnit = new Map();
+  const byProperty = new Map();
+
+  maintenanceItems.forEach(function(item) {
+    const contract = state.contracts.find(function(c) { return c.id === item.contractId; });
+    const unitId = contract && contract.unitId ? contract.unitId : "";
+    const unitKey = unitId || "NO_UNIT";
+    const unit = byUnit.get(unitKey) || { id: unitId, label: unitId ? unitName(unitId) : "Ej kopplat område", amount: 0, count: 0 };
+    unit.amount += Number(item.cost) || 0;
+    unit.count += 1;
+    byUnit.set(unitKey, unit);
+
+    const propertyId = item.propertyId || "NO_PROPERTY";
+    const property = state.properties.find(function(p) { return p.id === propertyId; });
+    const propertyRow = byProperty.get(propertyId) || {
+      id: propertyId,
+      label: property ? (property.address || property.id) : (propertyId === "NO_PROPERTY" ? "Ej kopplad fastighet" : propertyId),
+      amount: 0,
+      count: 0
+    };
+    propertyRow.amount += Number(item.cost) || 0;
+    propertyRow.count += 1;
+    byProperty.set(propertyId, propertyRow);
+  });
+
+  function rowsHtml(rows, kind) {
+    const sorted = Array.from(rows.values()).sort(function(a,b) { return b.amount - a.amount || b.count - a.count; });
+    const max = Math.max.apply(null, [1].concat(sorted.map(function(row){ return row.amount; })));
+    return sorted.slice(0,8).map(function(row) {
+      const pct = total ? Math.round((row.amount / total) * 100) : 0;
+      const width = Math.max(3, Math.round((row.amount / max) * 100));
+      const attrs = kind === "unit"
+        ? ' data-set-filter="filter-unit" data-filter-value="' + esc(row.id) + '"'
+        : (row.id !== "NO_PROPERTY" ? ' data-explorer-property="' + esc(row.id) + '"' : '');
+      return '<button type="button" class="distribution-row"' + attrs + '>' +
+        '<span class="distribution-copy"><strong>' + esc(row.label) + '</strong><small>' + row.count + ' poster · ' + pct + '%</small></span>' +
+        '<span class="distribution-value">' + money(row.amount) + '</span>' +
+        '<span class="distribution-track" aria-hidden="true"><span style="width:' + width + '%"></span></span>' +
+      '</button>';
+    }).join("");
+  }
+
+  return '<section class="maintenance-distribution">' +
+    '<div class="planning-section-head"><div><span>KOSTNADSFÖRDELNING</span><h3>Var uppstår underhållskostnaderna?</h3>' +
+      '<p>Samma underhållsposter summeras per område och fastighet. Klicka för att borra ner utan att lämna Underhåll.</p></div>' +
+      '<strong class="distribution-total">' + money(total) + '</strong></div>' +
+    '<div class="maintenance-distribution-grid">' +
+      '<div class="distribution-panel"><div class="distribution-panel-head"><span>OMRÅDE</span><strong>Verksamhetsfördelning</strong></div>' +
+        rowsHtml(byUnit, "unit") + '</div>' +
+      '<div class="distribution-panel"><div class="distribution-panel-head"><span>FASTIGHET</span><strong>Största kostnadsbärare</strong></div>' +
+        rowsHtml(byProperty, "property") + '</div>' +
+    '</div>' +
+  '</section>';
+}
+
 function portfolioActivityGroupedHtml(contracts, group) {
   const selected = portfolioActivityItems(contracts).filter(function(x) {
     return group === "drift" ? (x.group === "drift" || x.group === "operations") : x.group === group;
@@ -982,7 +1044,10 @@ function portfolioActivityGroupedHtml(contracts, group) {
             esc(item.contractId) + '">' + esc(contract ? (contract.number || contract.id) : item.contractId) + '</button>' : '<strong>–</strong>') + '</div>' +
           '<div><span>Ansvarig</span><strong>' + esc(item.responsible || "–") + '</strong></div>' +
           detailRowsHtml(item.detail || []) +
-        '</div></div></details>';
+        '</div>' +
+        (activityEditorType(item) ? '<div class="activity-record-actions"><button type="button" class="button secondary" data-edit-type="' +
+          activityEditorType(item) + '" data-edit-id="' + esc(item.id) + '">Redigera samma post</button></div>' : '') +
+        '</div></details>';
     }).join("");
     return '<section class="activity-property-group"><div class="activity-property-head"><div><button type="button" class="table-link" data-explorer-property="' +
       esc(propertyId) + '"><strong>' + esc(property ? (property.address || property.id) : propertyId) + '</strong></button>' +
@@ -990,7 +1055,8 @@ function portfolioActivityGroupedHtml(contracts, group) {
       '<div><strong>' + money(total) + '</strong><span> kostnad</span></div></div>' + records + '</section>';
   }).join("");
   const planner = group === "maintenance" ? maintenancePlannerHtml(contracts) : "";
-  return perspectiveSummaryHtml(contracts,group) +
+  const distribution = group === "maintenance" ? maintenanceDistributionHtml(contracts) : "";
+  return perspectiveSummaryHtml(contracts,group) + distribution +
     '<div class="activity-view-head details-head"><div><h3>Detaljer</h3><p>Poster som bygger summeringen ovan, grupperade per fastighet.</p></div>' +
     '<div class="activity-view-actions">' + action + '</div></div>' + planner + (groups || '<div class="empty">Ingen data i urvalet.</div>');
 }
@@ -1286,11 +1352,14 @@ function propertyAllSectionHtml(contracts, group, title, subtitle, addType) {
   const items = portfolioActivityItems(contracts).filter(function(x){return groups.includes(x.group);});
   const total = items.reduce(function(sum,x){return sum+(Number(x.cost)||0);},0);
   const rows = items.slice(0,6).map(function(item){
+    const editType = activityEditorType(item);
     return '<div class="property-work-row">' +
       '<div class="property-work-main"><strong>' + esc(item.title||"–") + '</strong><span>' + esc(item.type) + (item.responsible ? ' · ' + esc(item.responsible) : '') + '</span></div>' +
       '<div class="property-work-status">' + statusBadge(item.status) + '</div>' +
       '<div class="property-work-time">' + esc(item.when||"–") + '</div>' +
-      '<div class="property-work-cost">' + money(item.cost) + '</div>' +
+      '<div class="property-work-row-actions"><strong class="property-work-cost">' + money(item.cost) + '</strong>' +
+        (editType ? '<button type="button" class="inline-link compact-link" data-edit-type="' + editType + '" data-edit-id="' + esc(item.id) + '">Redigera</button>' : '') +
+      '</div>' +
     '</div>';
   }).join("");
   const add = addType ? '<button class="button secondary" data-add="' + addType + '">+ Lägg till</button>' : "";
@@ -1518,6 +1587,7 @@ function renderProperties() {
         '<div class="scope-grid">' + portfolioScopeCardsHtml() + '</div>' +
       '</div>' +
       '<div class="mobile-only mobile-scope-wrap">' + mobileScopePickerHtml() + '<div id="mobile-context"></div></div>' +
+      '<div id="mobile-content-tabs" class="mobile-content-tabs mobile-only">' + mobileModeChooserHtml(state.contracts) + '</div>' +
       '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
       '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" placeholder="Sök fastighet, avtal, kund eller person…">' +
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
@@ -1541,7 +1611,6 @@ function renderProperties() {
 
     '<section class="mobile-only mobile-workspace">' +
       '<div id="mobile-property-persistent-context"></div>' +
-      '<div id="mobile-content-tabs" class="mobile-content-tabs">' + mobileModeChooserHtml(state.contracts) + '</div>' +
       '<div class="mobile-panels">' +
         '<div class="mobile-panel" id="mobile-overview-panel"><div id="mobile-overview-content">' + mobileOverviewHtml(state.contracts) + '</div></div>' +
         '<div class="mobile-panel" id="mobile-properties-panel" hidden><div id="mobile-properties-content">' + mobilePropertyCardsHtml(state.contracts) + '</div></div>' +
@@ -1902,7 +1971,17 @@ function renderOrganisation() {
 function bindAddButtons() {
   document.querySelectorAll("[data-add]:not([data-add-bound])").forEach(function(button) {
     button.dataset.addBound = "1";
-    button.addEventListener("click", function() { openEditor(button.dataset.add); });
+    button.addEventListener("click", function() { openEditor(button.dataset.add, ""); });
+  });
+}
+function bindEditButtons() {
+  document.querySelectorAll("[data-edit-type][data-edit-id]:not([data-edit-bound])").forEach(function(button) {
+    button.dataset.editBound = "1";
+    button.addEventListener("click", function(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      openEditor(button.dataset.editType, button.dataset.editId);
+    });
   });
 }
 function bindViewEvents() {
@@ -1910,6 +1989,7 @@ function bindViewEvents() {
     button.addEventListener("click", function() { currentView = button.dataset.goto; render(); });
   });
   bindAddButtons();
+  bindEditButtons();
   ["portfolio-search", "filter-customer", "filter-unit", "filter-owner", "filter-our-person", "filter-tenant-person", "filter-owner-person"].forEach(function(id) {
     const control = document.getElementById(id);
     if (control) control.addEventListener(id === "portfolio-search" ? "input" : "change", filterPropertyPortfolio);
@@ -2039,9 +2119,10 @@ function bindPortfolioExplorerControls() {
     button.addEventListener("click", function() {
       const control=document.getElementById("filter-unit");
       if(control) control.value=button.dataset.quickUnit || "";
+      const keepSection = activitySections().includes(portfolioExplorer.section) ? portfolioExplorer.section : "overview";
       portfolioExplorer.propertyId="";
       portfolioExplorer.contractId="";
-      portfolioExplorer.section="overview";
+      portfolioExplorer.section=keepSection;
       const picker=button.closest(".mobile-scope-picker");
       if(picker) picker.removeAttribute("open");
       filterPropertyPortfolio();
@@ -2052,10 +2133,11 @@ function bindPortfolioExplorerControls() {
     button.addEventListener("click", function() {
       const control = document.getElementById(button.dataset.setFilter);
       if (!control) return;
+      const keepSection = activitySections().includes(portfolioExplorer.section) ? portfolioExplorer.section : "overview";
       control.value = button.dataset.filterValue || "";
       portfolioExplorer.propertyId = "";
       portfolioExplorer.contractId = "";
-      portfolioExplorer.section = "overview";
+      portfolioExplorer.section = keepSection;
       filterPropertyPortfolio();
     });
   });
@@ -2064,9 +2146,10 @@ function bindPortfolioExplorerControls() {
     button.addEventListener("click", function(event) {
       event.preventDefault();
       event.stopPropagation();
+      const keepSection = activitySections().includes(portfolioExplorer.section) ? portfolioExplorer.section : "overview";
       portfolioExplorer.propertyId = button.dataset.explorerProperty || "";
       portfolioExplorer.contractId = "";
-      portfolioExplorer.section = "overview";
+      portfolioExplorer.section = keepSection;
       filterPropertyPortfolio();
     });
   });
@@ -2076,9 +2159,10 @@ function bindPortfolioExplorerControls() {
       event.preventDefault();
       event.stopPropagation();
       const contract = state.contracts.find(function(x) { return x.id === button.dataset.explorerContract; });
+      const keepSection = activitySections().includes(portfolioExplorer.section) ? portfolioExplorer.section : "overview";
       portfolioExplorer.contractId = button.dataset.explorerContract || "";
       portfolioExplorer.propertyId = contract ? contract.propertyId : portfolioExplorer.propertyId;
-      portfolioExplorer.section = "overview";
+      portfolioExplorer.section = keepSection;
       filterPropertyPortfolio();
     });
   });
@@ -2141,6 +2225,7 @@ function updatePortfolioSurfaces(contracts) {
   bindPortfolioExplorerControls();
   bindPortfolioSectionControls();
   bindAddButtons();
+  bindEditButtons();
   bindMaintenancePlannerControls();
   bindAnnualPlannerControls();
   applyPortfolioSectionVisibility();
@@ -2295,56 +2380,114 @@ const fieldTemplates = {
 function options(items, valueKey, labelFn) {
   return items.map(function(x) { return '<option value="' + esc(x[valueKey]) + '">' + esc(labelFn(x)) + "</option>"; }).join("");
 }
-function openEditor(type) {
+function editorCollection(type) {
+  return {
+    person: state.people,
+    assignment: state.assignments,
+    project: state.projects,
+    maintenance: state.maintenance,
+    operation: state.operations,
+    investigation: state.investigations,
+    maintenanceStatus: state.maintenanceStatus,
+    driftIssue: state.driftIssues,
+    wish: state.wishes
+  }[type] || null;
+}
+function editorRecordById(type, id) {
+  const collection = editorCollection(type);
+  return collection ? collection.find(function(item) { return item.id === id; }) : null;
+}
+function activityEditorType(item) {
+  return {
+    "Projekt":"project",
+    "Underhåll":"maintenance",
+    "Underhållsstatus":"maintenanceStatus",
+    "Driftärende":"driftIssue",
+    "Driftkostnad":"operation",
+    "Önskemål":"wish",
+    "Utredning":"investigation"
+  }[item && item.type] || "";
+}
+function editorContextContractId(record) {
+  if (record && record.contractId) return record.contractId;
+  if (portfolioExplorer.contractId) return portfolioExplorer.contractId;
+  if (portfolioExplorer.propertyId) {
+    const contract = state.contracts.find(function(c) { return c.propertyId === portfolioExplorer.propertyId; });
+    return contract ? contract.id : "";
+  }
+  return "";
+}
+function openEditor(type, recordId) {
   editorType = type;
+  const existing = recordId ? editorRecordById(type, recordId) : null;
+  editorRecord = existing ? { type:type, id:existing.id, record:existing } : null;
+  const editing = Boolean(existing);
   const titles = {
     object: "Komplettera objekt / avtal",
-    person: "Lägg till person",
-    assignment: "Lägg till tilldelning",
-    project: "Lägg till projekt",
-    maintenance: "Lägg till UH-behov",
-    operation: "Lägg till driftpost",
-    investigation: "Lägg till utredning",
-    maintenanceStatus: "Lägg till underhållsstatus",
-    driftIssue: "Lägg till driftärende",
-    wish: "Lägg till önskemål"
+    person: editing ? "Redigera person" : "Lägg till person",
+    assignment: editing ? "Redigera tilldelning" : "Lägg till tilldelning",
+    project: editing ? "Redigera projekt" : "Lägg till projekt",
+    maintenance: editing ? "Redigera UH-behov" : "Lägg till UH-behov",
+    operation: editing ? "Redigera driftpost" : "Lägg till driftpost",
+    investigation: editing ? "Redigera utredning" : "Lägg till utredning",
+    maintenanceStatus: editing ? "Redigera underhållsstatus" : "Lägg till underhållsstatus",
+    driftIssue: editing ? "Redigera driftärende" : "Lägg till driftärende",
+    wish: editing ? "Redigera önskemål" : "Lägg till önskemål"
   };
-  document.getElementById("dialog-title").textContent = titles[type] || "Lägg till";
-  document.getElementById("dialog-eyebrow").textContent = "NY / ÄNDRA";
+  document.getElementById("dialog-title").textContent = titles[type] || (editing ? "Redigera" : "Lägg till");
+  document.getElementById("dialog-eyebrow").textContent = editing ? "REDIGERA SAMMA POST" : "NY POST";
+
+  function fieldValue(name, preset) {
+    if (existing && Object.prototype.hasOwnProperty.call(existing, name)) return existing[name] == null ? "" : existing[name];
+    if (name === "contractId") return editorContextContractId(existing);
+    return preset == null ? "" : preset;
+  }
+  function optionHtml(value, label, selectedValue) {
+    return '<option value="' + esc(value) + '"' + (String(value) === String(selectedValue) ? ' selected' : '') + '>' + esc(label) + '</option>';
+  }
+
   document.getElementById("dialog-fields").innerHTML = fieldTemplates[type].map(function(field) {
     const name = field[0], label = field[1], kind = field[2], preset = field[3], required = field[4];
+    const value = fieldValue(name, preset);
     let control = "";
     if (kind === "select") {
       control = '<select name="' + name + '"' + (required ? " required" : "") + ">" +
-        String(preset).split("|").map(function(v) { return '<option value="' + esc(v) + '">' + esc(v) + "</option>"; }).join("") + "</select>";
+        String(preset).split("|").map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
     } else if (kind === "contract") {
-      control = '<select name="' + name + '"' + (required ? " required" : "") + '><option value="">–</option>' +
-        options(state.contracts, "id", function(c) { return (c.number || c.id) + " · " + propertyName(c.propertyId); }) + "</select>";
+      control = '<select name="' + name + '"' + (required ? " required" : "") + '>' +
+        optionHtml("", "–", value) +
+        state.contracts.map(function(c) { return optionHtml(c.id, (c.number || c.id) + " · " + propertyName(c.propertyId), value); }).join("") + "</select>";
     } else if (kind === "person") {
-      control = '<select name="' + name + '" required>' + options(state.people, "id", function(p) { return p.name; }) + "</select>";
+      control = '<select name="' + name + '" required>' +
+        state.people.map(function(p) { return optionHtml(p.id, p.name, value); }).join("") + "</select>";
     } else if (kind === "organization") {
-      control = '<select name="' + name + '" required>' + options(state.organizations, "id", function(o) { return orgType(o.id) + " · " + o.name; }) + "</select>";
+      control = '<select name="' + name + '" required>' +
+        state.organizations.map(function(o) { return optionHtml(o.id, orgType(o.id) + " · " + o.name, value); }).join("") + "</select>";
     } else if (kind === "unit") {
-      control = '<select name="' + name + '"' + (required ? " required" : "") + '><option value="">–</option>' +
-        options(ORG_UNITS, "id", function(u) { return u.name; }) + "</select>";
+      control = '<select name="' + name + '"' + (required ? " required" : "") + '>' + optionHtml("", "–", value) +
+        ORG_UNITS.map(function(u) { return optionHtml(u.id, u.name, value); }).join("") + "</select>";
     } else if (kind === "internalperson") {
       const internalPeople = state.people.filter(function(p) {
         const org = state.organizations.find(function(o) { return o.id === p.organizationId; });
         return org && org.type === "our";
       });
-      control = '<select name="' + name + '"><option value="">–</option>' + options(internalPeople, "id", function(p) { return p.name; }) + "</select>";
+      control = '<select name="' + name + '">' + optionHtml("", "–", value) +
+        internalPeople.map(function(p) { return optionHtml(p.id, p.name, value); }).join("") + "</select>";
     } else if (kind === "maintenanceCategory") {
-      control = '<select name="' + name + '" required>' + MAINTENANCE_STATUS_CATEGORIES.map(function(v) { return '<option value="' + esc(v) + '">' + esc(v) + "</option>"; }).join("") + "</select>";
+      control = '<select name="' + name + '" required>' +
+        MAINTENANCE_STATUS_CATEGORIES.map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
     } else if (kind === "issueCategory") {
-      control = '<select name="' + name + '" required>' + DRIFT_ISSUE_CATEGORIES.map(function(v) { return '<option value="' + esc(v) + '">' + esc(v) + "</option>"; }).join("") + "</select>";
+      control = '<select name="' + name + '" required>' +
+        DRIFT_ISSUE_CATEGORIES.map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
     } else if (kind === "wishCategory") {
-      control = '<select name="' + name + '" required>' + WISH_CATEGORIES.map(function(v) { return '<option value="' + esc(v) + '">' + esc(v) + "</option>"; }).join("") + "</select>";
+      control = '<select name="' + name + '" required>' +
+        WISH_CATEGORIES.map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
     } else if (kind === "target") {
-      control = '<input name="' + name + '" placeholder="Objekt-ID eller ProjektID" required>';
+      control = '<input name="' + name + '" value="' + esc(value) + '" placeholder="Objekt-ID eller ProjektID" required>';
     } else if (kind === "textarea") {
-      control = '<textarea name="' + name + '" rows="4"></textarea>';
+      control = '<textarea name="' + name + '" rows="4">' + esc(value) + '</textarea>';
     } else {
-      control = '<input name="' + name + '" type="' + kind + '" value="' + esc(preset) + '"' + (required ? " required" : "") + ">";
+      control = '<input name="' + name + '" type="' + kind + '" value="' + esc(value) + '"' + (required ? " required" : "") + ">";
     }
     return '<div class="field ' + (kind === "textarea" ? "full" : "") + '"><label>' + label + "</label>" + control + "</div>";
   }).join("");
@@ -2354,81 +2497,130 @@ function nextId(prefix, list) {
   const max = Math.max.apply(null, [0].concat(list.map(function(x) { return Number(String(x.id).replace(/\D/g, "")) || 0; })));
   return prefix + (max + 1);
 }
+function syncResponsibleAssignment(targetType, targetId, personId, fromDate) {
+  const today = new Date().toISOString().slice(0,10);
+  const active = state.assignments.filter(function(a) {
+    return a.targetType === targetType && a.targetId === targetId && !a.toDate;
+  });
+  const same = active.find(function(a) { return a.personId === personId; });
+  active.forEach(function(a) {
+    if (!personId || a.personId !== personId) a.toDate = today;
+  });
+  if (personId && !same) {
+    state.assignments.push({
+      id: nextId("A", state.assignments),
+      personId: personId,
+      targetType: targetType,
+      targetId: targetId,
+      role: "Ansvarig",
+      fromDate: fromDate || today,
+      toDate: "",
+      allocation: 0
+    });
+  }
+}
 async function saveEditor(form) {
   const data = Object.fromEntries(new FormData(form).entries());
+  const existing = editorRecord && editorRecord.type === editorType ? editorRecord.record : null;
+
   if (editorType === "object") {
     const c = state.contracts.find(function(x) { return x.id === data.contractId; });
     if (!c) return false;
     ["annualRent", "annualContractDrift", "employees", "users", "rooms", "commonArea", "apartmentArea"].forEach(function(k) { c[k] = Number(data[k]) || 0; });
     c.unitId = data.unitId || "";
   } else if (editorType === "person") {
-    data.id = nextId("P", state.people);
-    state.people.push(data);
+    const target = existing || { id: nextId("P", state.people) };
+    Object.assign(target, data);
+    if (!existing) state.people.push(target);
   } else if (editorType === "assignment") {
-    data.id = nextId("A", state.assignments);
-    data.allocation = Number(data.allocation) || 0;
-    state.assignments.push(data);
+    const target = existing || { id: nextId("A", state.assignments) };
+    Object.assign(target, data);
+    target.allocation = Number(data.allocation) || 0;
+    if (!existing) state.assignments.push(target);
   } else if (editorType === "project") {
-    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
-    data.id = nextId("PR", state.projects);
-    data.propertyId = c ? c.propertyId : "";
-    ["budgetYear", "budgetInvestigation", "budgetExecution", "budgetFurnishing", "preliminaryCost"].forEach(function(k) { data[k] = Number(data[k]) || 0; });
-    data.planningQuarter = null;
-    data.planningMonth = null;
-    state.projects.push(data);
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("PR", state.projects), planningQuarter:null, planningMonth:null };
+    const id = target.id, planningQuarter = target.planningQuarter, planningMonth = target.planningMonth;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    ["budgetYear", "budgetInvestigation", "budgetExecution", "budgetFurnishing", "preliminaryCost"].forEach(function(k) { target[k] = Number(target[k]) || 0; });
+    target.planningQuarter = planningQuarter == null ? null : planningQuarter;
+    target.planningMonth = planningMonth == null ? null : planningMonth;
+    if (!existing) state.projects.push(target);
   } else if (editorType === "maintenance") {
-    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
-    data.id = nextId("UH", state.maintenance);
-    data.propertyId = c ? c.propertyId : "";
-    data.year = Number(data.year) || null;
-    data.cost = Number(data.cost) || 0;
-    data.planningQuarter = null;
-    data.planningMonth = null;
-    state.maintenance.push(data);
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("UH", state.maintenance), planningQuarter:null, planningMonth:null };
+    const id = target.id, planningQuarter = target.planningQuarter, planningMonth = target.planningMonth;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.year = Number(target.year) || null;
+    target.cost = Number(target.cost) || 0;
+    target.planningQuarter = planningQuarter == null ? null : planningQuarter;
+    target.planningMonth = planningMonth == null ? null : planningMonth;
+    if (!existing) state.maintenance.push(target);
   } else if (editorType === "operation") {
-    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
-    data.id = nextId("D", state.operations);
-    data.propertyId = c ? c.propertyId : "";
-    data.period = Number(data.period) || null;
-    data.budget = Number(data.budget) || 0;
-    data.actual = Number(data.actual) || 0;
-    state.operations.push(data);
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("D", state.operations) };
+    const id = target.id;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.period = Number(target.period) || null;
+    target.budget = Number(target.budget) || 0;
+    target.actual = Number(target.actual) || 0;
+    if (!existing) state.operations.push(target);
   } else if (editorType === "investigation") {
-    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
-    data.id = nextId("U", state.investigations);
-    data.propertyId = c ? c.propertyId : "";
-    data.year = Number(data.year) || null;
-    data.cost = Number(data.cost) || 0;
-    state.investigations.push(data);
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("U", state.investigations) };
+    const id = target.id;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.year = Number(target.year) || null;
+    target.cost = Number(target.cost) || 0;
+    if (!existing) state.investigations.push(target);
   } else if (editorType === "maintenanceStatus") {
-    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
-    data.id = nextId("MS", state.maintenanceStatus);
-    data.propertyId = c ? c.propertyId : "";
-    data.budgetYear = Number(data.budgetYear) || null;
-    data.estimatedCost = Number(data.estimatedCost) || 0;
-    state.maintenanceStatus.push(data);
-    if (data.responsiblePersonId) state.assignments.push({ id:nextId("A",state.assignments), personId:data.responsiblePersonId, targetType:"maintenanceStatus", targetId:data.id, role:"Ansvarig", fromDate:data.assessedDate||"", toDate:"", allocation:0 });
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("MS", state.maintenanceStatus) };
+    const id = target.id;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.budgetYear = Number(target.budgetYear) || null;
+    target.estimatedCost = Number(target.estimatedCost) || 0;
+    if (!existing) state.maintenanceStatus.push(target);
+    syncResponsibleAssignment("maintenanceStatus", target.id, target.responsiblePersonId || "", target.assessedDate || "");
   } else if (editorType === "driftIssue") {
-    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
-    data.id = nextId("DI", state.driftIssues);
-    data.propertyId = c ? c.propertyId : "";
-    data.budgetYear = Number(data.budgetYear) || null;
-    data.estimatedCost = Number(data.estimatedCost) || 0;
-    data.finalCost = Number(data.finalCost) || 0;
-    data.planningQuarter = null;
-    data.planningMonth = null;
-    state.driftIssues.push(data);
-    if (data.responsiblePersonId) state.assignments.push({ id:nextId("A",state.assignments), personId:data.responsiblePersonId, targetType:"driftIssue", targetId:data.id, role:"Ansvarig", fromDate:data.createdDate||"", toDate:"", allocation:0 });
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("DI", state.driftIssues), planningQuarter:null, planningMonth:null };
+    const id = target.id, planningQuarter = target.planningQuarter, planningMonth = target.planningMonth;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.budgetYear = Number(target.budgetYear) || null;
+    target.estimatedCost = Number(target.estimatedCost) || 0;
+    target.finalCost = Number(target.finalCost) || 0;
+    target.planningQuarter = planningQuarter == null ? null : planningQuarter;
+    target.planningMonth = planningMonth == null ? null : planningMonth;
+    if (!existing) state.driftIssues.push(target);
+    syncResponsibleAssignment("driftIssue", target.id, target.responsiblePersonId || "", target.createdDate || "");
   } else if (editorType === "wish") {
-    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
-    data.id = nextId("W", state.wishes);
-    data.propertyId = c ? c.propertyId : "";
-    data.budgetYear = Number(data.budgetYear) || null;
-    data.estimatedCost = Number(data.estimatedCost) || 0;
-    data.finalCost = Number(data.finalCost) || 0;
-    state.wishes.push(data);
-    if (data.responsiblePersonId) state.assignments.push({ id:nextId("A",state.assignments), personId:data.responsiblePersonId, targetType:"wish", targetId:data.id, role:"Ansvarig", fromDate:data.createdDate||"", toDate:"", allocation:0 });
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("W", state.wishes) };
+    const id = target.id;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.budgetYear = Number(target.budgetYear) || null;
+    target.estimatedCost = Number(target.estimatedCost) || 0;
+    target.finalCost = Number(target.finalCost) || 0;
+    if (!existing) state.wishes.push(target);
+    syncResponsibleAssignment("wish", target.id, target.responsiblePersonId || "", target.createdDate || "");
   }
+
+  editorRecord = null;
   await saveState();
   render();
   return true;
@@ -2445,6 +2637,7 @@ document.getElementById("clear-data").addEventListener("click", async function()
   }
 });
 document.getElementById("dialog-cancel").addEventListener("click", function() {
+  editorRecord = null;
   document.getElementById("editor-dialog").close();
 });
 document.getElementById("editor-form").addEventListener("submit", async function(e) {
