@@ -1744,3 +1744,63 @@ tr:hover td { background: #fbfcfc; }
   .budget-equals { display:none; }
   .budget-target { grid-column:1 / -1; }
 }
+
+
+/* Detail-driven portfolio cost picture */
+.portfolio-cost-picture {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.portfolio-cost-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.portfolio-cost-grid button {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8faf9;
+  padding: 14px;
+  text-align: left;
+  color: var(--ink);
+}
+.portfolio-cost-grid button:hover {
+  background: #f1f6f4;
+  border-color: #aac0ba;
+}
+.portfolio-cost-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.portfolio-cost-grid strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 20px;
+  letter-spacing: -.02em;
+}
+.portfolio-cost-grid small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+@media (max-width: 980px) {
+  .portfolio-cost-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .portfolio-cost-picture { padding: 14px; box-shadow: none; }
+  .portfolio-cost-grid { grid-template-columns: 1fr 1fr; }
+  .portfolio-cost-grid strong { font-size: 16px; }
+  .mobile-all-workspace .property-work-section,
+  .property-all-workspace .property-work-section { box-shadow: none; }
+}
