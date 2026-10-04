@@ -189,3 +189,48 @@ Roll-ups must support at least:
 - traceability from aggregate cost to the exact source item
 
 Locked annual budget snapshots remain unchanged by later planning movements. Planning changes feed the current forecast and operational view.
+
+
+## Selection and perspective UX invariant
+
+Lokalblick does not have a separate "Helhet" module.
+
+The interface is driven by two independent concepts:
+
+```
+selection + perspective
+```
+
+Selection answers **what the user is looking at**:
+- Alla
+- organizational area
+- property
+- contract / local detail when relevant
+
+Perspective answers **what the user wants to see**:
+- Alla
+- Fastigheter
+- Underhåll
+- Projekt
+- Drift
+- Önskemål
+- Avtal
+
+Every perspective follows the same visual rule:
+
+1. show a concise summary for the current selection at the top
+2. show the source details that build that summary immediately below
+3. drilling down changes the selection, not the underlying object identity
+4. changing a detail updates all summaries that aggregate that same object
+
+Example:
+
+```
+Alla + Underhåll
+Vårdbo + Underhåll
+Solgården + Underhåll
+```
+
+are the same Underhåll perspective at three different zoom levels.
+
+"Alla" is a state, not a module. Organizational area/property is selection. Underhåll/Projekt/Drift/Önskemål/Avtal are perspectives.
