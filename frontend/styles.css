@@ -3604,3 +3604,44 @@ button.property-control-card:hover {
   }
   .editor-dialog form { padding:16px; }
 }
+
+
+/* Shared cross-view scope: the same selection drives Bestånd, Karta and Ekonomi. */
+.cross-view-scope {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:4px 10px;
+  align-items:center;
+  margin-bottom:10px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+}
+.cross-view-scope > span {
+  color:var(--accent);
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.12em;
+}
+.cross-view-scope > strong { font-size:13px; }
+.cross-view-scope > small {
+  grid-column:3;
+  color:var(--muted);
+  font-size:9px;
+  text-align:right;
+}
+@media (max-width:700px) {
+  .cross-view-scope {
+    grid-template-columns:auto minmax(0,1fr);
+    margin:0 0 8px;
+    padding:9px 11px;
+    border:0;
+    border-radius:13px;
+    box-shadow:0 3px 14px rgba(24,33,43,.04);
+  }
+  .cross-view-scope > small {
+    grid-column:2;
+    text-align:left;
+  }
+}

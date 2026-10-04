@@ -27,7 +27,10 @@
         });
         marker.on("mouseover", function() { this.openPopup(); });
         marker.on("mouseout", function() { this.closePopup(); });
-        marker.on("click", function() { this.openPopup(); });
+        marker.on("click", function() {
+          this.openPopup();
+          if (typeof handle.onPointClick === "function") handle.onPointClick(point);
+        });
       }
 
       marker.addTo(handle.markers);
@@ -72,7 +75,8 @@
       const handle = {
         map: map,
         markers: L.layerGroup().addTo(map),
-        fallbackCenter: fallbackCenter
+        fallbackCenter: fallbackCenter,
+        onPointClick: typeof options.onPointClick === "function" ? options.onPointClick : null
       };
 
       addPoints(handle, options.points || []);

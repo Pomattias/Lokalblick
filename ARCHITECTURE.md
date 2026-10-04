@@ -234,3 +234,26 @@ Solgården + Underhåll
 are the same Underhåll perspective at three different zoom levels.
 
 "Alla" is a state, not a module. Organizational area/property is selection. Underhåll/Projekt/Drift/Önskemål/Avtal are perspectives.
+
+
+## Shared selection invariant
+
+Selection is application state, not page state.
+
+The same current scope must follow the user between Bestånd, activities, map and economy views:
+
+```
+area / responsible / property / contract
+            ↓
+   shared selection state
+            ↓
+Bestånd · Aktiviteter · Karta · Ekonomi
+```
+
+Rules:
+- changing area, responsible person, property or contract updates the shared scope
+- navigating to another perspective keeps that scope
+- aggregates are recalculated from the same underlying records inside the scope
+- editing a source record changes every aggregate that includes that record
+- clicking a property on the map changes the shared property selection and opens that property context
+- annual budget decisions remain portfolio-wide until explicit allocation of budget adjustments to lower levels is modeled; filtered views therefore show scoped detail/baseline, forecast and actual without editing the global adjustment
