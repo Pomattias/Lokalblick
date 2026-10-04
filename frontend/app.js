@@ -311,9 +311,9 @@ function maintenancePlannerHtml(contracts) {
         '<button type="button" data-maintenance-plan-mode="quarter" class="' + (mode==="quarter"?"active":"") + '">Q1–Q4</button>' +
         '<button type="button" data-maintenance-plan-mode="month" class="' + (mode==="month"?"active":"") + '">1–12</button>' +
       '</div></div></div>' +
-    '<div class="maintenance-plan-summary"><div><span>Planerat</span><strong>' + shortMoney(slotTotals.reduce(function(s,x){return s+x.amount;},0)) +
+    '<div class="maintenance-plan-summary"><div><span>' + (mode==="month"?"Månadsatt":"Planerat") + '</span><strong>' + shortMoney(slotTotals.reduce(function(s,x){return s+x.amount;},0)) +
       '</strong><small>' + slotTotals.reduce(function(s,x){return s+x.count;},0) + ' poster</small></div><div class="' + (unplacedCount?"attention":"") +
-      '"><span>Ej placerat</span><strong>' + shortMoney(unplacedAmount) + '</strong><small>' + unplacedCount + ' poster</small></div></div>' +
+      '"><span>' + (mode==="month"?"Ej månadsatt":"Ej placerat") + '</span><strong>' + shortMoney(unplacedAmount) + '</strong><small>' + unplacedCount + ' poster</small></div></div>' +
     '<div class="maintenance-plan-scroll"><div class="maintenance-plan-board ' + mode + '">' +
       '<div class="maintenance-plan-header" style="--maintenance-slots:' + slotCount + '"><div><strong>Åtgärd</strong><span>Kostnad · nuvarande placering</span></div>' +
         headerSlots + '<div></div></div>' +
