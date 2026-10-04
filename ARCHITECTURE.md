@@ -139,3 +139,24 @@ locked maintenance budget  500 000
 ```
 
 The backend is the persistence authority for locked annual budget snapshots in production.
+
+
+## Maintenance planning invariant
+
+Maintenance planning is kept on the same maintenance record; the planner does not create duplicate planning objects.
+
+Optional planning fields:
+
+```
+planningQuarter: 1..4 | null
+planningMonth: 1..12 | null
+```
+
+Rules:
+- quarterly planning is the default overview
+- monthly planning is an optional refinement
+- a month implies its quarter
+- selecting a quarter clears a previously selected month
+- clearing planning removes both fields
+- changing timing changes the current plan/forecast, not an already locked annual budget snapshot
+- the UI may show quarterly and monthly views of the same record, but there is only one maintenance item in persistence
