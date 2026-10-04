@@ -57,8 +57,8 @@ window.LokalblickDemoData = {
     }
   ],
   maintenance: [
-    { id: "UH1", propertyId: "DEMO-101", contractId: "SF|DEMO-101-1", title: "Tak", year: 2028, cost: 4500000, priority: "Hög", status: "Planerad" },
-    { id: "UH2", propertyId: "DEMO-301", contractId: "SF|DEMO-301-1", title: "Ytskikt", year: 2027, cost: 650000, priority: "Medel", status: "Identifierad" }
+    { id: "UH1", propertyId: "DEMO-101", contractId: "SF|DEMO-101-1", title: "Tak", year: 2028, cost: 4500000, priority: "Hög", status: "Planerad", planningQuarter: 3, planningMonth: null },
+    { id: "UH2", propertyId: "DEMO-301", contractId: "SF|DEMO-301-1", title: "Ytskikt", year: 2027, cost: 650000, priority: "Medel", status: "Identifierad", planningQuarter: 2, planningMonth: null }
   ],
   operations: [
     { id: "D1", propertyId: "DEMO-101", contractId: "SF|DEMO-101-1", period: 2027, category: "Energi", budget: 640000, actual: 0 },
@@ -68,9 +68,9 @@ window.LokalblickDemoData = {
     { id: "U1", propertyId: "DEMO-201", contractId: "EXT|DEMO-201-1", title: "Kapacitetsutredning", year: 2027, cost: 280000, status: "Planerad" }
   ],
   maintenanceStatus: [
-    { id:"MS1", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Ytskick", assessedDate:"2026-09-15", status:"Åtgärdsbehov", priority:"Medel", comment:"Slitage i gemensamma ytor.", actionNeed:"Målning och mindre lagningar", budgetYear:2027, estimatedCost:180000, includeInBudget:"Ja", responsiblePersonId:"P2" },
+    { id:"MS1", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Ytskick", assessedDate:"2026-09-15", status:"Åtgärdsbehov", priority:"Medel", comment:"Slitage i gemensamma ytor.", actionNeed:"Målning och mindre lagningar", budgetYear:2027, estimatedCost:180000, includeInBudget:"Ja", responsiblePersonId:"P2", planningQuarter:1, planningMonth:3 },
     { id:"MS2", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Brand / utrymning", assessedDate:"2026-09-15", status:"Bra", priority:"Låg", comment:"Kontrollerat.", actionNeed:"", budgetYear:null, estimatedCost:0, includeInBudget:"Nej", responsiblePersonId:"" },
-    { id:"MS3", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Passage", assessedDate:"2026-09-20", status:"Acceptabel", priority:"Medel", comment:"Äldre läsare på plan 2.", actionNeed:"Utred byte", budgetYear:2027, estimatedCost:90000, includeInBudget:"Ja", responsiblePersonId:"P2" }
+    { id:"MS3", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Passage", assessedDate:"2026-09-20", status:"Acceptabel", priority:"Medel", comment:"Äldre läsare på plan 2.", actionNeed:"Utred byte", budgetYear:2027, estimatedCost:90000, includeInBudget:"Ja", responsiblePersonId:"P2", planningQuarter:3, planningMonth:9 }
   ],
   driftIssues: [
     { id:"DI1", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Ventilation", title:"Ojämn temperatur plan 3", description:"Återkommande felanmälningar från verksamheten.", createdDate:"2026-09-25", targetDate:"2026-11-15", decisionDate:"", completedDate:"", status:"Pågår", priority:"Hög", responsiblePersonId:"P2", budgetYear:2027, estimatedCost:120000, finalCost:0, includeInBudget:"Ja" }
