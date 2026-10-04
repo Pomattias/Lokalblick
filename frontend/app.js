@@ -305,7 +305,7 @@ function maintenancePlannerHtml(contracts) {
   return '<section class="maintenance-planner">' +
     '<div class="maintenance-planner-head"><div><span class="portfolio-kicker">ÅRSPLANERING</span><h3>När ska underhållet göras?</h3>' +
       '<p>Klicka direkt i tidslinjen. Kvartal räcker för överblick; välj månad när du vill planera mer exakt.</p></div>' +
-      '<div class="maintenance-planner-controls"><select class="select" id="maintenance-plan-year">' +
+      '<div class="maintenance-planner-controls"><select class="select" data-maintenance-plan-year>' +
         years.map(function(year){return '<option value="' + year + '"' + (Number(year)===Number(maintenancePlanning.year)?" selected":"") + '>' + year + '</option>';}).join("") +
       '</select><div class="planning-mode-toggle" role="group" aria-label="Detaljnivå">' +
         '<button type="button" data-maintenance-plan-mode="quarter" class="' + (mode==="quarter"?"active":"") + '">Q1–Q4</button>' +
@@ -325,14 +325,13 @@ function findMaintenancePlanningSource(type,id) {
   return state.maintenance.find(function(x){return x.id===id;});
 }
 function bindMaintenancePlannerControls() {
-  const year = document.getElementById("maintenance-plan-year");
-  if (year && !year.dataset.bound) {
-    year.dataset.bound="1";
+  document.querySelectorAll("[data-maintenance-plan-year]:not([data-plan-bound])").forEach(function(year){
+    year.dataset.planBound="1";
     year.addEventListener("change",function(){
       maintenancePlanning.year=Number(year.value);
       filterPropertyPortfolio();
     });
-  }
+  });
   document.querySelectorAll("[data-maintenance-plan-mode]:not([data-plan-bound])").forEach(function(button){
     button.dataset.planBound="1";
     button.addEventListener("click",function(){
@@ -650,13 +649,13 @@ function portfolioActivityItems(contracts) {
   state.maintenance.filter(inScope).forEach(function(x) {
     items.push({ group:"maintenance", type:"Underhåll", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
       status:x.status || x.priority, when:x.year ? String(x.year) : "", cost:Number(x.cost)||0, responsible:"",
-      detail:[["Planår",x.year||"–"],["Prioritet",x.priority||"–"],["Status",x.status||"–"],["Kostnad",money(x.cost)]] });
+      detail:[["Planår",x.year||"–"],["Planering",maintenanceTimingLabel(x)],["Prioritet",x.priority||"–"],["Status",x.status||"–"],["Kostnad",money(x.cost)]] });
   });
   state.maintenanceStatus.filter(inScope).forEach(function(x) {
     items.push({ group:"maintenance", type:"Underhållsstatus", id:x.id, title:x.category + (x.actionNeed ? " · " + x.actionNeed : ""),
       propertyId:x.propertyId, contractId:x.contractId, status:x.status, when:x.assessedDate || "", cost:Number(x.estimatedCost)||0,
       responsible:personName(x.responsiblePersonId),
-      detail:[["Bedömd",x.assessedDate||"–"],["Prioritet",x.priority||"–"],["Åtgärdsbehov",x.actionNeed||""],
+      detail:[["Bedömd",x.assessedDate||"–"],["Planering",maintenanceTimingLabel(x)],["Prioritet",x.priority||"–"],["Åtgärdsbehov",x.actionNeed||""],
         ["Kommentar",x.comment||""],["Budgetår",x.budgetYear||"–"],["Till årsbudget",x.includeInBudget||"–"]] });
   });
   state.driftIssues.filter(inScope).forEach(function(x) {
