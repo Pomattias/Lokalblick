@@ -160,3 +160,32 @@ Rules:
 - clearing planning removes both fields
 - changing timing changes the current plan/forecast, not an already locked annual budget snapshot
 - the UI may show quarterly and monthly views of the same record, but there is only one maintenance item in persistence
+
+
+## Planning roll-up invariant
+
+Lokalblick has one planning model, not separate property and portfolio plans.
+
+Planning period fields live on the underlying work item and roll up through every view:
+
+```
+detail item -> property -> organizational area -> portfolio
+```
+
+The unified annual plan includes:
+- maintenance needs and maintenance-status actions
+- projects with a planned budget/cost
+- costed drift issues
+
+Quarterly planning is the default overview. Monthly planning is an optional refinement of the same item.
+
+Changing a period in any planning view changes the same underlying item. Portfolio and property views only aggregate those records; they do not persist duplicate planning rows.
+
+Roll-ups must support at least:
+- cost and item count per Q1-Q4 or month 1-12
+- cost by maintenance / project / drift
+- cost and unplaced item count by property
+- filtering by organizational area and current portfolio scope
+- traceability from aggregate cost to the exact source item
+
+Locked annual budget snapshots remain unchanged by later planning movements. Planning changes feed the current forecast and operational view.
