@@ -1314,12 +1314,6 @@ function propertyPersistentContextHtml(contracts) {
   const cs = propertyContractsForContext(contracts);
   const area = cs.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
   const annual = cs.reduce(function(sum,c){return sum+totalContractCost(c);},0);
-  const items = portfolioActivityItems(cs);
-  const maintenance = items.filter(function(x){return x.group==="maintenance";});
-  const projects = items.filter(function(x){return x.group==="project";});
-  const drift = items.filter(function(x){return x.group==="drift" || x.group==="operations";});
-  const wishes = items.filter(function(x){return x.group==="wish";});
-  const sumCost = function(list){return list.reduce(function(sum,x){return sum+(Number(x.cost)||0);},0);};
   const owners = Array.from(new Set(cs.map(function(c){return contractOwner(c,property);}).filter(Boolean)));
   const customers = Array.from(new Set(cs.map(contractCustomer).filter(Boolean)));
   const units = Array.from(new Set(cs.map(function(c){return unitName(c.unitId);}).filter(Boolean)));
@@ -2501,6 +2495,7 @@ function openEditor(type, recordId) {
   document.getElementById("dialog-eyebrow").textContent = editing ? "REDIGERA SAMMA POST" : "NY POST";
 
   function fieldValue(name, preset) {
+    if (type === "object" && existing && name === "contractId") return existing.id;
     if (existing && Object.prototype.hasOwnProperty.call(existing, name)) return existing[name] == null ? "" : existing[name];
     if (name === "contractId") return editorContextContractId(existing);
     return preset == null ? "" : preset;
