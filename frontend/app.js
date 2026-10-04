@@ -826,7 +826,7 @@ function portfolioActivityItems(contracts) {
     items.push({ group:"project", type:"Projekt", id:x.id, title:x.name, propertyId:x.propertyId, contractId:x.contractId,
       status:x.status, when:x.end || x.start || "", cost:Number(x.preliminaryCost)||projectBudgetTotal(x),
       responsible:responsibleFromAssignments("project", x.id),
-      detail:[["Skede",x.phase||"–"],["Start",x.start||"–"],["Slut",x.end||"–"],["Inflyttning",x.moveIn||"–"],
+      detail:[["Skede",x.phase||"–"],["Planering",maintenanceTimingLabel(x)],["Start",x.start||"–"],["Slut",x.end||"–"],["Inflyttning",x.moveIn||"–"],
         ["Beskrivning",x.description||""],["Budget utredning",money(x.budgetInvestigation)],["Budget genomförande",money(x.budgetExecution)],
         ["Budget inredning",money(x.budgetFurnishing)]] });
   });
@@ -846,7 +846,7 @@ function portfolioActivityItems(contracts) {
     items.push({ group:"drift", type:"Driftärende", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
       status:x.status, when:x.targetDate || x.createdDate || "", cost:Number(x.finalCost)||Number(x.estimatedCost)||0,
       responsible:personName(x.responsiblePersonId),
-      detail:[["Kategori",x.category||"–"],["Prioritet",x.priority||"–"],["Upplagt",x.createdDate||"–"],["Tidplan",x.targetDate||"–"],
+      detail:[["Kategori",x.category||"–"],["Planering",maintenanceTimingLabel(x)],["Prioritet",x.priority||"–"],["Upplagt",x.createdDate||"–"],["Tidplan",x.targetDate||"–"],
         ["Beskrivning",x.description||""],["Bedömd kostnad",money(x.estimatedCost)],["Slutkostnad",money(x.finalCost)]] });
   });
   state.wishes.filter(inScope).forEach(function(x) {
