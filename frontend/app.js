@@ -916,6 +916,35 @@ function portfolioContentTabsHtml(contracts) {
       '</button>';
   }).join("");
 }
+function perspectiveSummaryHtml(contracts, group) {
+  const selected = portfolioActivityItems(contracts).filter(function(item){
+    return group === "drift" ? (item.group === "drift" || item.group === "operations") : item.group === group;
+  });
+  const propertyCount = new Set(selected.map(function(item){return item.propertyId;}).filter(Boolean)).size;
+  const total = selected.reduce(function(sum,item){return sum+(Number(item.cost)||0);},0);
+  const attention = selected.filter(function(item){
+    return /akut|hög|sen|beslut|åtgärdsbehov|risk/i.test(String(item.status||""));
+  }).length;
+  const labels = {
+    maintenance:["Underhåll","Identifierade och planerade åtgärder"],
+    project:["Projekt","Utredning, genomförande och kostnad"],
+    drift:["Drift","Driftkostnader och driftärenden"],
+    wish:["Önskemål","Verksamhetens behov och bedömda kostnader"],
+    investigation:["Utredningar","Beslutsunderlag och förberedelser"],
+    operations:["Driftkostnader","Löpande kostnader och utfall"]
+  };
+  const copy = labels[group] || ["Aktuellt","Poster i aktuellt urval"];
+  return '<section class="perspective-summary">' +
+    '<div class="perspective-summary-head"><div><span class="portfolio-kicker">' + esc(copy[0].toUpperCase()) +
+      '</span><h3>' + esc(copy[0]) + ' i urvalet</h3><p>' + esc(copy[1]) + '. Summeringen byggs direkt av detaljerna.</p></div></div>' +
+    '<div class="perspective-summary-grid">' +
+      '<div><span>Kostnad</span><strong>' + money(total) + '</strong><small>summerat från posterna</small></div>' +
+      '<div><span>Poster</span><strong>' + selected.length + '</strong><small>i aktuellt urval</small></div>' +
+      '<div><span>Fastigheter</span><strong>' + propertyCount + '</strong><small>berörda</small></div>' +
+      '<div class="' + (attention ? "attention" : "") + '"><span>Att agera på</span><strong>' + attention + '</strong><small>prioriterade / beslut</small></div>' +
+    '</div>' +
+  '</section>';
+}
 function portfolioActivityGroupedHtml(contracts, group) {
   const selected = portfolioActivityItems(contracts).filter(function(x) {
     return group === "drift" ? (x.group === "drift" || x.group === "operations") : x.group === group;
@@ -961,7 +990,8 @@ function portfolioActivityGroupedHtml(contracts, group) {
       '<div><strong>' + money(total) + '</strong><span> kostnad</span></div></div>' + records + '</section>';
   }).join("");
   const planner = group === "maintenance" ? maintenancePlannerHtml(contracts) : "";
-  return '<div class="activity-view-head"><div><h3>' + esc(activityGroupLabel(group)) + '</h3><p>Grupperat per fastighet. Öppna en post för detaljer eller klicka vidare till fastighet/avtal.</p></div>' +
+  return perspectiveSummaryHtml(contracts,group) +
+    '<div class="activity-view-head details-head"><div><h3>Detaljer</h3><p>Poster som bygger summeringen ovan, grupperade per fastighet.</p></div>' +
     '<div class="activity-view-actions">' + action + '</div></div>' + planner + (groups || '<div class="empty">Ingen data i urvalet.</div>');
 }
 function portfolioContextHtml() {
@@ -1403,8 +1433,8 @@ function portfolioOverviewHtml(contracts) {
     '</div>' +
     annualPlanDashboardHtml(contracts,"portfolio") +
     '<section class="portfolio-cost-picture">' +
-      '<div class="planning-section-head"><div><span>DETALJER SOM BYGGER HELHETEN</span><h3>Var ligger behoven och kostnaderna?</h3>' +
-        '<p>Samma poster kan öppnas från denna helhet eller från respektive fastighet.</p></div></div>' +
+      '<div class="planning-section-head"><div><span>DETALJER SOM BYGGER SUMMAN</span><h3>Var ligger behoven och kostnaderna?</h3>' +
+        '<p>Samma poster kan öppnas härifrån eller från respektive fastighet.</p></div></div>' +
       '<div class="portfolio-cost-grid">' + plannedCosts.map(function(group) {
         return '<button type="button" data-portfolio-section="' + group.key + '">' +
           '<span>' + esc(group.label) + '</span><strong>' + money(group.amount) + '</strong><small>' + group.count + ' poster · visa →</small>' +
