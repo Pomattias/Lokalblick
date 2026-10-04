@@ -49,7 +49,8 @@ function ensureShape(data) {
     investigations: (data && data.investigations) || [],
     maintenanceStatus: (data && data.maintenanceStatus) || [],
     driftIssues: (data && data.driftIssues) || [],
-    wishes: (data && data.wishes) || []
+    wishes: (data && data.wishes) || [],
+    budgetPlans: (data && data.budgetPlans) || []
   });
 }
 async function loadState() {
@@ -504,17 +505,28 @@ function activityGroupLabel(group) {
 }
 function portfolioContentTabsHtml(contracts) {
   const items = portfolioActivityItems(contracts);
-  const propertyCount = new Set(contracts.map(function(c) { return c.propertyId; })).size;
-  const modes = [
-    ["overview","Helhet","◫","Överblick och mönster",""],
+  const propertyMode = Boolean(portfolioExplorer.propertyId);
+  const maintenance = items.filter(function(x){return x.group==="maintenance";});
+  const projects = items.filter(function(x){return x.group==="project";});
+  const drift = items.filter(function(x){return x.group==="drift" || x.group==="operations";});
+  const wishes = items.filter(function(x){return x.group==="wish";});
+  const sum = function(list){return list.reduce(function(total,item){return total+(Number(item.cost)||0);},0);};
+  const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
+  const modes = propertyMode ? [
+    ["overview","Alla","◫","Allt som hör till fastigheten",""],
+    ["maintenance","Underhåll","⌂","Planerade och identifierade behov",money(sum(maintenance))],
+    ["project","Projekt","◇","Utredning och genomförande",money(sum(projects))],
+    ["drift","Drift","⚙","Driftkostnader och driftärenden",money(sum(drift))],
+    ["wish","Önskemål","＋","Behov från verksamheten",wishes.length],
+    ["contracts","Avtal","≣","Avtal, area och årskostnad",contracts.length]
+  ] : [
+    ["overview","Helhet","◫","Överblick, signaler och kostnader",""],
     ["properties","Fastigheter","▦","Samlad bild per fastighet",propertyCount],
-    ["contracts","Avtal","≣","Avtal, area och ekonomi",contracts.length],
-    ["project","Projekt","◇","Projekt, tid och budget",items.filter(function(x){return x.group==="project";}).length],
-    ["maintenance","Underhåll","⌂","Status och planerade åtgärder",items.filter(function(x){return x.group==="maintenance";}).length],
-    ["drift","Driftärenden","⚙","Operativa frågor och åtgärder",items.filter(function(x){return x.group==="drift";}).length],
-    ["wish","Önskemål","＋","Behov från verksamheten",items.filter(function(x){return x.group==="wish";}).length],
-    ["investigation","Utredningar","?","Beslut och förberedelser",items.filter(function(x){return x.group==="investigation";}).length],
-    ["operations","Driftkostnader","¤","Budget och utfall",items.filter(function(x){return x.group==="operations";}).length]
+    ["maintenance","Underhåll","⌂","Behov och planerade åtgärder",maintenance.length],
+    ["project","Projekt","◇","Projekt, tid och budget",projects.length],
+    ["drift","Drift","⚙","Driftkostnader och driftärenden",drift.length],
+    ["wish","Önskemål","＋","Behov från verksamheten",wishes.length],
+    ["contracts","Avtal","≣","Avtal, area och ekonomi",contracts.length]
   ];
   return modes.map(function(mode) {
     const active = portfolioExplorer.section === mode[0];
@@ -522,12 +534,14 @@ function portfolioContentTabsHtml(contracts) {
       '" role="tab" aria-selected="' + (active ? "true" : "false") + '">' +
       '<span class="mode-icon">' + mode[2] + '</span>' +
       '<span class="mode-copy"><strong>' + esc(mode[1]) + '</strong><small>' + esc(mode[3]) + '</small></span>' +
-      (mode[4] === "" ? '<span class="mode-arrow">→</span>' : '<span class="mode-count">' + mode[4] + '</span>') +
+      (mode[4] === "" ? '<span class="mode-arrow">→</span>' : '<span class="mode-count">' + esc(mode[4]) + '</span>') +
       '</button>';
   }).join("");
 }
 function portfolioActivityGroupedHtml(contracts, group) {
-  const selected = portfolioActivityItems(contracts).filter(function(x) { return x.group === group; });
+  const selected = portfolioActivityItems(contracts).filter(function(x) {
+    return group === "drift" ? (x.group === "drift" || x.group === "operations") : x.group === group;
+  });
   const byProperty = new Map();
   selected.forEach(function(item) {
     const key = item.propertyId || "NO_PROPERTY";
@@ -816,6 +830,93 @@ function updateMobilePortfolioSurfaces(contracts) {
 
   bindPortfolioExplorerControls();
 }
+
+function propertyContractsForContext(contracts) {
+  if (!portfolioExplorer.propertyId) return contracts;
+  return contracts.filter(function(c){return c.propertyId===portfolioExplorer.propertyId;});
+}
+function propertyPersistentContextHtml(contracts) {
+  if (!portfolioExplorer.propertyId) return "";
+  const property = state.properties.find(function(p){return p.id===portfolioExplorer.propertyId;});
+  if (!property) return "";
+  const cs = propertyContractsForContext(contracts);
+  const area = cs.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
+  const annual = cs.reduce(function(sum,c){return sum+totalContractCost(c);},0);
+  const items = portfolioActivityItems(cs);
+  const maintenance = items.filter(function(x){return x.group==="maintenance";});
+  const projects = items.filter(function(x){return x.group==="project";});
+  const drift = items.filter(function(x){return x.group==="drift" || x.group==="operations";});
+  const wishes = items.filter(function(x){return x.group==="wish";});
+  const sumCost = function(list){return list.reduce(function(sum,x){return sum+(Number(x.cost)||0);},0);};
+  const owners = Array.from(new Set(cs.map(function(c){return contractOwner(c,property);}).filter(Boolean)));
+  const customers = Array.from(new Set(cs.map(contractCustomer).filter(Boolean)));
+  const units = Array.from(new Set(cs.map(function(c){return unitName(c.unitId);}).filter(Boolean)));
+  const ourPeople = Array.from(new Set(cs.flatMap(function(c){return contractPartyPeople(c,"our").map(function(p){return p.name;});})));
+
+  return '<section class="property-persistent">' +
+    '<div class="property-identity"><div><span class="portfolio-kicker">FASTIGHET</span><h2>' + esc(property.address||property.id) + '</h2><p>' +
+      esc(property.designation||property.id) + ' · ' + esc(property.type||"Fastighet") + '</p></div>' +
+      '<button class="button secondary" type="button" data-clear-explorer="property">← Tillbaka till urvalet</button></div>' +
+    '<div class="property-facts">' +
+      '<div><span>Organisation</span><strong>' + esc(units.join(", ")||"–") + '</strong></div>' +
+      '<div><span>Nyttjare</span><strong>' + esc(customers.join(", ")||"–") + '</strong></div>' +
+      '<div><span>Fastighetsägare</span><strong>' + esc(owners.join(", ")||property.owner||"–") + '</strong></div>' +
+      '<div><span>Ansvar hos oss</span><strong>' + esc(ourPeople.join(", ")||property.manager||"–") + '</strong></div>' +
+      '<div><span>Area</span><strong>' + num(area) + ' kvm</strong></div>' +
+      '<div><span>Avtal</span><strong>' + cs.length + ' st</strong></div>' +
+      '<div><span>Hyra + avtalsdrift</span><strong>' + money(annual) + '/år</strong></div>' +
+    '</div>' +
+    '<div class="property-cost-strip">' +
+      '<button type="button" data-portfolio-section="maintenance"><span>Underhåll</span><strong>' + money(sumCost(maintenance)) + '</strong><small>' + maintenance.length + ' poster</small></button>' +
+      '<button type="button" data-portfolio-section="project"><span>Projekt</span><strong>' + money(sumCost(projects)) + '</strong><small>' + projects.length + ' poster</small></button>' +
+      '<button type="button" data-portfolio-section="drift"><span>Drift</span><strong>' + money(sumCost(drift)) + '</strong><small>' + drift.length + ' poster</small></button>' +
+      '<button type="button" data-portfolio-section="wish"><span>Önskemål</span><strong>' + wishes.length + ' st</strong><small>' + money(sumCost(wishes)) + ' bedömt</small></button>' +
+      '<button type="button" data-portfolio-section="contracts"><span>Avtal</span><strong>' + cs.length + ' st</strong><small>' + money(annual) + '/år</small></button>' +
+    '</div>' +
+  '</section>';
+}
+function propertyAllSectionHtml(contracts, group, title, subtitle, addType) {
+  const groups = group === "drift" ? ["drift","operations"] : [group];
+  const items = portfolioActivityItems(contracts).filter(function(x){return groups.includes(x.group);});
+  const total = items.reduce(function(sum,x){return sum+(Number(x.cost)||0);},0);
+  const rows = items.slice(0,6).map(function(item){
+    return '<div class="property-work-row">' +
+      '<div class="property-work-main"><strong>' + esc(item.title||"–") + '</strong><span>' + esc(item.type) + (item.responsible ? ' · ' + esc(item.responsible) : '') + '</span></div>' +
+      '<div class="property-work-status">' + statusBadge(item.status) + '</div>' +
+      '<div class="property-work-time">' + esc(item.when||"–") + '</div>' +
+      '<div class="property-work-cost">' + money(item.cost) + '</div>' +
+    '</div>';
+  }).join("");
+  const add = addType ? '<button class="button secondary" data-add="' + addType + '">+ Lägg till</button>' : "";
+  return '<section class="property-work-section"><div class="property-work-head"><div><span>' + esc(subtitle) + '</span><h3>' + esc(title) + '</h3></div>' +
+    '<div class="property-work-actions"><strong>' + money(total) + '</strong><button class="inline-link" type="button" data-portfolio-section="' + group + '">Visa allt →</button>' + add + '</div></div>' +
+    (rows || '<div class="empty compact">Inga poster ännu.</div>') + '</section>';
+}
+function propertyContractsSectionHtml(contracts) {
+  const total = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
+  const rows = contracts.map(function(c){
+    return '<div class="property-work-row"><div class="property-work-main"><strong>' + esc(c.number||c.id) + '</strong><span>' +
+      esc(contractCustomer(c)) + ' · ' + num(c.area) + ' kvm</span></div><div class="property-work-status">' +
+      statusBadge(activeInYear(c,new Date().getFullYear()) ? "Aktivt" : "Bevaka") + '</div><div class="property-work-time">' +
+      esc(c.end||"–") + '</div><div class="property-work-cost">' + money(totalContractCost(c)) + '/år</div></div>';
+  }).join("");
+  return '<section class="property-work-section"><div class="property-work-head"><div><span>AVTAL & LOKALER</span><h3>Avtal</h3></div>' +
+    '<div class="property-work-actions"><strong>' + money(total) + '/år</strong><button class="inline-link" type="button" data-portfolio-section="contracts">Visa allt →</button></div></div>' +
+    (rows || '<div class="empty compact">Inga avtal ännu.</div>') + '</section>';
+}
+function propertyWorkspaceHtml(contracts) {
+  const cs = propertyContractsForContext(contracts);
+  return '<div class="property-all-workspace">' +
+    '<div class="property-all-intro"><div><span class="portfolio-kicker">ALLT PÅ FASTIGHETEN</span><h3>Planera och agera från samma vy</h3>' +
+      '<p>Varje post är samma objekt oavsett om du kommer hit via fastigheten eller via Underhåll, Projekt, Drift eller Önskemål.</p></div></div>' +
+    propertyAllSectionHtml(cs,"maintenance","Underhåll","BEHOV · PLANÅR · KOSTNAD","maintenance") +
+    propertyAllSectionHtml(cs,"project","Projekt","UTREDNING · GENOMFÖRANDE · TID","project") +
+    propertyAllSectionHtml(cs,"drift","Drift","DRIFTKOSTNAD · ÄRENDE · UTFALL","driftIssue") +
+    propertyAllSectionHtml(cs,"wish","Önskemål","VERKSAMHETENS BEHOV · BESLUT · KOSTNAD","wish") +
+    propertyContractsSectionHtml(cs) +
+  '</div>';
+}
+
 function portfolioOverviewHtml(contracts) {
   const propertyIds = new Set(contracts.map(function(c) { return c.propertyId; }).filter(Boolean));
   const totalArea = contracts.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0);
@@ -995,6 +1096,7 @@ function renderProperties() {
     '</section>' +
 
     '<section class="card pad bestands-shell desktop-only">' +
+      '<div id="property-persistent-context"></div>' +
       '<div class="mode-heading"><div><span>VAD VILL DU SE?</span><h3>Välj arbetsyta</h3></div><small>Samma urval följer med mellan nivåerna</small></div>' +
       '<div class="mode-grid" id="portfolio-content-tabs" role="tablist">' + portfolioContentTabsHtml(state.contracts) + '</div>' +
       '<div class="bestands-content">' +
@@ -1007,6 +1109,7 @@ function renderProperties() {
       '</div></section>' +
 
     '<section class="mobile-only mobile-workspace">' +
+      '<div id="mobile-property-persistent-context"></div>' +
       '<div id="mobile-content-tabs" class="mobile-content-tabs">' + mobileModeChooserHtml(state.contracts) + '</div>' +
       '<div class="mobile-panels">' +
         '<div class="mobile-panel" id="mobile-overview-panel"><div id="mobile-overview-content">' + mobileOverviewHtml(state.contracts) + '</div></div>' +
@@ -1123,38 +1226,103 @@ function initPropertyMap() {
   if (unit) unit.addEventListener("change", redraw);
 }
 
-function renderBudget() {
-  const rows = budgetRows(selectedBudgetYear);
-  const summary = budgetSummary(selectedBudgetYear);
-  const total = rows.reduce(function(s, r) { return s + r.amount; }, 0);
-  const max = Math.max.apply(null, [1].concat(summary.map(function(x) { return x.amount; })));
-  const bars = summary.map(function(x) {
-    return '<div class="bar-row"><div class="bar-label">' + esc(x.category) + '</div><div class="bar-track"><div class="bar-fill" style="width:' +
-      (x.amount / max * 100) + '%"></div></div><div class="bar-value">' + num(x.amount / 1000000) + "m</div></div>";
-  }).join("");
-  const detail = rows.map(function(r) {
-    return "<tr><td>" + esc(r.category) + "</td><td>" + esc(r.sub || "") + "</td><td>" + esc(r.source) + "</td><td>" +
-      (r.contractId ? esc(contractName(r.contractId)) : "–") + "</td><td>" + money(r.amount) + "</td></tr>";
-  });
-  const missing = [];
-  state.contracts.filter(function(c) { return activeInYear(c, selectedBudgetYear) && totalContractCost(c) === 0; }).forEach(function(c) {
-    missing.push((c.number || c.id) + ": hyra/drift saknas");
-  });
-  state.maintenance.filter(function(x) { return !x.year || !Number(x.cost); }).forEach(function(x) { missing.push(x.title + ": planår eller kostnad saknas"); });
-  state.projects.filter(function(x) { return !x.budgetYear || projectBudgetTotal(x) === 0; }).forEach(function(x) { missing.push(x.name + ": budgetår eller budget saknas"); });
-  const yearSelect = '<select class="select" id="budget-year">' + budgetYears().map(function(y) {
-    return '<option value="' + y + '"' + (Number(y) === Number(selectedBudgetYear) ? " selected" : "") + ">" + y + "</option>";
-  }).join("") + "</select>";
-  return '<div class="section-stack"><div class="grid kpi-grid">' +
-    summary.map(function(x) { return kpi(x.category, money(x.amount), "budget " + selectedBudgetYear); }).join("") +
-    '</div><div class="grid two-col">' +
-    card("Årsbudget " + selectedBudgetYear, "Budget hämtas automatiskt från avtal och tidsatta behov.", '<div class="toolbar">' + yearSelect + '</div><div class="bar-list">' + bars + "</div>") +
-    card("Underlag som inte kommer med", "Poster utan år eller kostnad tas inte in i årsbudgeten.",
-      missing.length ? '<div class="section-stack">' + missing.map(function(x) { return '<div class="notice">' + esc(x) + "</div>"; }).join("") + "</div>" : '<div class="notice">Alla aktuella källor har tillräckligt budgetunderlag.</div>') +
-    "</div>" +
-    card("Budgetdetaljer · total " + money(total), "Varje rad kan spåras tillbaka till sin källa.", table(["Kategori", "Underkategori", "Källa", "Objekt / avtal", "Belopp"], detail)) +
-    "</div>";
+function budgetPlan(year) {
+  return (state.budgetPlans || []).find(function(plan){return Number(plan.year)===Number(year);}) || null;
 }
+function budgetCategories() {
+  return ["Hyra + drift","Projekt","Underhåll","Driftkostnader","Utredningar"];
+}
+function summarizeBudgetRows(rows) {
+  return budgetCategories().map(function(category){
+    return { category:category, amount:rows.filter(function(r){return r.category===category;}).reduce(function(sum,r){return sum+(Number(r.amount)||0);},0) };
+  });
+}
+function budgetActualSummary(year) {
+  const amounts = {"Hyra + drift":0,"Projekt":0,"Underhåll":0,"Driftkostnader":0,"Utredningar":0};
+  state.operations.filter(function(x){return Number(x.period)===Number(year);}).forEach(function(x){amounts["Driftkostnader"] += Number(x.actual)||0;});
+  state.driftIssues.filter(function(x){return Number(x.budgetYear)===Number(year);}).forEach(function(x){amounts["Driftkostnader"] += Number(x.finalCost)||0;});
+  state.wishes.filter(function(x){return Number(x.budgetYear)===Number(year) && x.budgetCategory && x.budgetCategory!=="Ej budget";}).forEach(function(x){
+    amounts[x.budgetCategory] = (amounts[x.budgetCategory]||0) + (Number(x.finalCost)||0);
+  });
+  return budgetCategories().map(function(category){return {category:category,amount:amounts[category]||0};});
+}
+function budgetPropertyLabel(row) {
+  const contract = row.contractId ? state.contracts.find(function(c){return c.id===row.contractId;}) : null;
+  const property = contract ? state.properties.find(function(p){return p.id===contract.propertyId;}) : null;
+  return property ? (property.address||property.id) : "–";
+}
+function budgetTimingLabel(row, year) {
+  if (row.category==="Hyra + drift" || row.category==="Driftkostnader") return "Löpande " + year;
+  return String(year);
+}
+function budgetAdjustment(plan, category, baseAmount) {
+  if (!plan || !plan.targets) return 0;
+  return (Number(plan.targets[category])||0) - baseAmount;
+}
+function renderBudget() {
+  const liveRows = budgetRows(selectedBudgetYear);
+  const plan = budgetPlan(selectedBudgetYear);
+  const baselineRows = plan && Array.isArray(plan.lines) && plan.lines.length ? plan.lines : liveRows;
+  const baseSummary = summarizeBudgetRows(baselineRows);
+  const forecastSummary = summarizeBudgetRows(liveRows);
+  const actualSummary = budgetActualSummary(selectedBudgetYear);
+  const targets = {};
+  baseSummary.forEach(function(row){
+    targets[row.category] = plan && plan.targets && Number.isFinite(Number(plan.targets[row.category])) ? Number(plan.targets[row.category]) : row.amount;
+  });
+  const budgetTotal = budgetCategories().reduce(function(sum,category){return sum+(Number(targets[category])||0);},0);
+  const forecastTotal = forecastSummary.reduce(function(sum,row){return sum+row.amount;},0);
+  const actualTotal = actualSummary.reduce(function(sum,row){return sum+row.amount;},0);
+  const variance = forecastTotal - budgetTotal;
+  const locked = Boolean(plan && plan.status==="Låst");
+
+  const yearSelect = '<select class="select" id="budget-year">' + budgetYears().map(function(y) {
+    return '<option value="' + y + '"' + (Number(y)===Number(selectedBudgetYear) ? " selected" : "") + ">" + y + "</option>";
+  }).join("") + "</select>";
+
+  const categoryCards = baseSummary.map(function(base){
+    const forecast = forecastSummary.find(function(x){return x.category===base.category;}) || {amount:0};
+    const actual = actualSummary.find(function(x){return x.category===base.category;}) || {amount:0};
+    const target = targets[base.category] || 0;
+    const adjustment = target - base.amount;
+    const adjustmentControl = locked
+      ? '<strong class="budget-adjustment-value">' + (adjustment>=0?"+":"") + money(adjustment) + '</strong>'
+      : '<label class="budget-adjustment-edit"><span>Justering</span><input type="number" data-budget-adjustment="' + esc(base.category) + '" value="' + adjustment + '"></label>';
+    return '<section class="budget-category-card"><div class="budget-category-head"><div><span>DETALJUNDERLAG</span><h3>' + esc(base.category) + '</h3></div><strong>' + money(target) + '</strong></div>' +
+      '<div class="budget-equation"><div><span>Detaljer</span><strong>' + money(base.amount) + '</strong></div><div class="budget-plus">+</div><div><span>Justering</span>' +
+      adjustmentControl + '</div><div class="budget-equals">=</div><div class="budget-target"><span>Årsbudget</span><strong>' + money(target) + '</strong></div></div>' +
+      '<div class="budget-followup"><span>Prognos <strong>' + money(forecast.amount) + '</strong></span><span>Utfall <strong>' + money(actual.amount) + '</strong></span>' +
+      '<span>Avvikelse <strong class="' + (forecast.amount-target>0?"negative":"positive") + '">' + (forecast.amount-target>=0?"+":"") + money(forecast.amount-target) + '</strong></span></div></section>';
+  }).join("");
+
+  const detailRows = baselineRows.map(function(r){
+    return '<tr><td>' + esc(r.category) + '</td><td>' + esc(r.sub||"") + '</td><td>' + esc(r.source||"") + '</td><td>' +
+      esc(budgetPropertyLabel(r)) + '</td><td>' + esc(budgetTimingLabel(r,selectedBudgetYear)) + '</td><td>' + money(r.amount) + '</td></tr>';
+  });
+  baseSummary.forEach(function(base){
+    const adjustment=budgetAdjustment(plan,base.category,base.amount);
+    if (adjustment) detailRows.push('<tr class="budget-adjustment-row"><td>' + esc(base.category) + '</td><td>Budgetjustering</td><td>' +
+      esc((plan && plan.notes && plan.notes[base.category]) || "Justeringspost") + '</td><td>–</td><td>Årsnivå</td><td>' +
+      (adjustment>=0?"+":"") + money(adjustment) + '</td></tr>');
+  });
+
+  const status = plan ? '<span class="budget-status ' + (locked?"locked":"draft") + '">' + esc(plan.status||"Arbetsbudget") + '</span>' : '<span class="budget-status draft">Ej skapad</span>';
+  const action = !plan ? '<button class="button primary" id="budget-create">Skapa arbetsbudget från detaljer</button>' :
+    locked ? '<span class="budget-lock-note">Låst ' + esc(plan.lockedAt||"") + ' · används som baslinje för uppföljning</span>' :
+    '<button class="button primary" id="budget-lock">Lås årsbudget</button>';
+
+  return '<div class="budget-page"><section class="budget-hero"><div><span class="portfolio-kicker">ÅRSBUDGET · BASLINJE · PROGNOS</span><h2>Budget ' +
+    selectedBudgetYear + '</h2><p>Detaljerna bygger budgeten. Justeringsposter gör beslutad ram tydlig utan att skriva över underlaget.</p></div>' +
+    '<div class="budget-hero-actions">' + yearSelect + status + action + '</div></section><div class="budget-kpis">' +
+    kpi("Beslutad budget",money(budgetTotal),locked?"låst årsbaslinje":"arbetsbudget") +
+    kpi("Aktuell prognos",money(forecastTotal),"från dagens detaljposter") +
+    kpi("Utfall registrerat",money(actualTotal),"bokfört/rapporterat i Lokalblick") +
+    kpi("Prognosavvikelse",(variance>=0?"+":"") + money(variance),variance>0?"över budget":"inom budget") +
+    '</div><div class="budget-category-grid">' + categoryCards + '</div>' +
+    card("Budgetdetaljer","Låst budget består av importerade detaljposter plus explicita justeringsposter. Varje rad kan spåras till fastighet och källa.",
+      table(["Kategori","Detalj","Källa","Fastighet","När","Belopp"],detailRows)) + '</div>';
+}
+
 
 function renderAbout() {
   return '<div class="about-page">' +
@@ -1329,6 +1497,42 @@ function bindViewEvents() {
   if (currentView === "properties") filterPropertyPortfolio();
   const by = document.getElementById("budget-year");
   if (by) by.addEventListener("change", function() { selectedBudgetYear = Number(by.value); render(); });
+
+  const createBudget = document.getElementById("budget-create");
+  if (createBudget) createBudget.addEventListener("click", async function() {
+    const rows = budgetRows(selectedBudgetYear).map(function(row){return Object.assign({},row);});
+    const summary = summarizeBudgetRows(rows);
+    const targets = {};
+    summary.forEach(function(row){targets[row.category]=row.amount;});
+    state.budgetPlans = state.budgetPlans || [];
+    state.budgetPlans.push({year:selectedBudgetYear,status:"Arbetsbudget",createdAt:new Date().toISOString().slice(0,10),lockedAt:"",lines:rows,targets:targets,notes:{}});
+    await saveState();
+    render();
+  });
+
+  document.querySelectorAll("[data-budget-adjustment]").forEach(function(input) {
+    input.addEventListener("change", async function() {
+      const plan = budgetPlan(selectedBudgetYear);
+      if (!plan || plan.status==="Låst") return;
+      const category = input.dataset.budgetAdjustment;
+      const base = summarizeBudgetRows(plan.lines || []).find(function(x){return x.category===category;});
+      plan.targets = plan.targets || {};
+      plan.targets[category] = (base ? base.amount : 0) + (Number(input.value)||0);
+      await saveState();
+      render();
+    });
+  });
+
+  const lockBudget = document.getElementById("budget-lock");
+  if (lockBudget) lockBudget.addEventListener("click", async function() {
+    const plan = budgetPlan(selectedBudgetYear);
+    if (!plan || plan.status==="Låst") return;
+    if (!confirm("Lås budget " + selectedBudgetYear + "? Budgeten blir baslinje för prognos och uppföljning.")) return;
+    plan.status = "Låst";
+    plan.lockedAt = new Date().toISOString().slice(0,10);
+    await saveState();
+    render();
+  });
 }
 function portfolioFilterValues() {
   function value(id) {
@@ -1468,7 +1672,12 @@ function bindPortfolioExplorerControls() {
 }
 function updatePortfolioSurfaces(contracts) {
   const overview = document.getElementById("portfolio-overview-content");
-  if (overview) overview.innerHTML = portfolioOverviewHtml(contracts);
+  if (overview) overview.innerHTML = portfolioExplorer.propertyId ? propertyWorkspaceHtml(contracts) : portfolioOverviewHtml(contracts);
+
+  const propertyContext = document.getElementById("property-persistent-context");
+  if (propertyContext) propertyContext.innerHTML = propertyPersistentContextHtml(contracts);
+  const mobilePropertyContext = document.getElementById("mobile-property-persistent-context");
+  if (mobilePropertyContext) mobilePropertyContext.innerHTML = propertyPersistentContextHtml(contracts);
 
   const tabs = document.getElementById("portfolio-content-tabs");
   if (tabs) {
