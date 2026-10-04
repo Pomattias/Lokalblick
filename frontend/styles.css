@@ -2510,3 +2510,166 @@ tr:hover td { background: #fbfcfc; }
     padding: 10px 12px;
   }
 }
+
+/* Lokalblick unified drilldown + same-record editing */
+
+.maintenance-distribution {
+  margin: 0 0 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.maintenance-distribution .planning-section-head {
+  margin-bottom: 12px;
+}
+.distribution-total {
+  font-size: 20px;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+}
+.maintenance-distribution-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.distribution-panel {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #edf0f2;
+  border-radius: 11px;
+  background: #fafcfc;
+}
+.distribution-panel-head {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 7px;
+}
+.distribution-panel-head span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.distribution-panel-head strong {
+  font-size: 13px;
+}
+.distribution-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 9px 6px;
+  border: 0;
+  border-top: 1px solid #edf0f2;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.distribution-row:first-of-type {
+  border-top: 0;
+}
+.distribution-row:hover {
+  background: #f2f7f5;
+}
+.distribution-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.distribution-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.distribution-copy small,
+.distribution-value {
+  color: var(--muted);
+  font-size: 9px;
+}
+.distribution-value {
+  color: var(--ink);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.distribution-track {
+  grid-column: 1 / -1;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eeeb;
+}
+.distribution-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.activity-record-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+.activity-record-actions .button {
+  min-height: 34px;
+  padding: 7px 11px;
+  font-size: 10px;
+}
+.property-work-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+.compact-link {
+  width: auto !important;
+  margin: 0 !important;
+  padding: 3px 5px;
+  font-size: 9px;
+}
+@media (max-width: 700px) {
+  .mobile-scope-wrap + .mobile-content-tabs {
+    margin-top: 8px;
+  }
+  .portfolio-hero > .mobile-content-tabs {
+    margin-bottom: 4px;
+  }
+  .maintenance-distribution {
+    padding: 12px;
+    border-radius: 12px;
+  }
+  .maintenance-distribution .planning-section-head {
+    display: grid;
+    gap: 7px;
+  }
+  .distribution-total {
+    font-size: 17px;
+  }
+  .maintenance-distribution-grid {
+    grid-template-columns: 1fr;
+  }
+  .distribution-panel {
+    padding: 10px;
+  }
+  .property-work-row {
+    grid-template-columns: minmax(150px,1fr) 90px;
+  }
+  .property-work-row-actions {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    justify-items: end;
+    gap: 2px;
+  }
+  .property-work-row-actions .property-work-cost {
+    text-align: right;
+  }
+  .activity-record-actions {
+    justify-content: stretch;
+  }
+  .activity-record-actions .button {
+    width: 100%;
+  }
+}
