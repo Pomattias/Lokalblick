@@ -1959,3 +1959,225 @@ tr:hover td { background: #fbfcfc; }
   }
   .maintenance-plan-row { padding-block: 7px; }
 }
+
+
+/* Unified annual plan */
+.annual-plan-dashboard {
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.annual-plan-dashboard.portfolio { margin-top: 16px; box-shadow: var(--shadow); }
+.annual-plan-dashboard.property { margin-bottom: 4px; }
+.annual-plan-head {
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  align-items:flex-start;
+  padding:16px 18px 13px;
+  border-bottom:1px solid #edf0f2;
+}
+.annual-plan-head h3 { margin:3px 0; font-size:18px; }
+.annual-plan-head p { margin:0; color:var(--muted); font-size:11px; line-height:1.45; max-width:760px; }
+.annual-plan-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+.annual-plan-kpis {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:1px;
+  background:#edf0f2;
+  border-bottom:1px solid #edf0f2;
+}
+.annual-plan-kpis > div {
+  padding:11px 16px;
+  background:#fafcfc;
+  display:grid;
+  gap:2px;
+}
+.annual-plan-kpis span,
+.annual-slot-card span,
+.annual-category-card span {
+  color:var(--muted);
+  font-size:9px;
+  text-transform:uppercase;
+  font-weight:800;
+  letter-spacing:.06em;
+}
+.annual-plan-kpis strong { font-size:17px; }
+.annual-plan-kpis small,
+.annual-slot-card small,
+.annual-category-card small { color:var(--muted); font-size:9px; }
+.annual-plan-kpis .attention strong { color:var(--warn); }
+
+.annual-slot-grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  padding:12px 16px 8px;
+}
+.annual-plan-dashboard:has(.annual-plan-board.month) .annual-slot-grid {
+  grid-template-columns:repeat(6,minmax(0,1fr));
+}
+.annual-slot-card {
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px 11px;
+  background:#f8faf9;
+}
+.annual-slot-card strong { display:block; margin-top:3px; font-size:14px; }
+
+.annual-category-grid {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  padding:4px 16px 12px;
+}
+.annual-category-card {
+  border-radius:10px;
+  padding:10px 11px;
+  border:1px solid var(--line);
+  background:#fff;
+}
+.annual-category-card.maintenance { border-left:4px solid #6f9480; }
+.annual-category-card.project { border-left:4px solid #6f86a6; }
+.annual-category-card.drift { border-left:4px solid #aa8a62; }
+.annual-category-card strong { display:block; margin-top:3px; font-size:14px; }
+
+.annual-property-list {
+  margin:0 16px 12px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  overflow:hidden;
+}
+.annual-subhead {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+  background:#f6f8f9;
+  font-size:10px;
+}
+.annual-subhead span { color:var(--muted); }
+.annual-property-row {
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) 90px 120px 110px;
+  gap:12px;
+  align-items:center;
+  padding:9px 12px;
+  border-top:1px solid #edf0f2;
+  font-size:10px;
+}
+.annual-property-row span { color:var(--muted); }
+.annual-property-row b { text-align:right; }
+
+.annual-plan-scroll { overflow-x:auto; border-top:1px solid #edf0f2; }
+.annual-plan-board { min-width:720px; }
+.annual-plan-board.month { min-width:1120px; }
+.annual-plan-grid-head,
+.annual-plan-row {
+  display:grid;
+  grid-template-columns:minmax(250px,1.6fr) repeat(var(--annual-slots), minmax(46px,.52fr)) 34px;
+  gap:5px;
+  align-items:stretch;
+}
+.annual-plan-grid-head {
+  padding:8px 12px;
+  background:#f5f7f8;
+  border-bottom:1px solid var(--line);
+  color:var(--muted);
+  font-size:9px;
+  font-weight:800;
+  text-align:center;
+}
+.annual-plan-grid-head > div:first-child { text-align:left; }
+.annual-plan-row {
+  padding:8px 12px;
+  border-bottom:1px solid #f0f2f3;
+}
+.annual-plan-row:last-child { border-bottom:0; }
+.annual-plan-item {
+  min-width:0;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  column-gap:7px;
+  row-gap:2px;
+  align-content:center;
+}
+.annual-kind {
+  grid-row:1 / span 2;
+  align-self:center;
+  display:inline-flex;
+  padding:3px 6px;
+  border-radius:999px;
+  font-size:8px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.annual-kind.maintenance { background:#eaf2ed; color:#4f705e; }
+.annual-kind.project { background:#edf1f7; color:#536b8a; }
+.annual-kind.drift { background:#f5efe7; color:#7c6549; }
+.annual-plan-item strong {
+  min-width:0;
+  font-size:11px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.annual-plan-item small {
+  min-width:0;
+  color:var(--muted);
+  font-size:9px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.annual-plan-cell {
+  min-height:42px;
+  border:1px solid #dfe5e7;
+  border-radius:9px;
+  background:#fbfcfc;
+  color:var(--accent);
+  font-weight:900;
+}
+.annual-plan-cell.coarse {
+  border-style:dashed;
+  background:#f0f5f3;
+  color:#8ca59f;
+}
+.annual-plan-cell.selected {
+  border-color:var(--accent);
+  background:var(--accent);
+  color:#fff;
+}
+.annual-plan-clear {
+  min-height:42px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:#9ba4aa;
+  font-size:18px;
+}
+@media (hover:hover) and (pointer:fine) {
+  .annual-plan-cell:not(.selected):hover { border-color:#9eb8b2; background:#f2f7f5; }
+  .annual-plan-clear:hover { background:#f4f6f7; color:var(--danger); }
+}
+@media (max-width:980px) {
+  .annual-plan-dashboard:has(.annual-plan-board.month) .annual-slot-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+}
+@media (max-width:700px) {
+  .annual-plan-dashboard.portfolio { box-shadow:none; }
+  .annual-plan-head { display:grid; padding:13px; }
+  .annual-plan-controls { justify-content:flex-start; }
+  .annual-plan-kpis { grid-template-columns:1fr 1fr; }
+  .annual-slot-grid { grid-template-columns:1fr 1fr !important; padding-inline:13px; }
+  .annual-category-grid { grid-template-columns:1fr 1fr 1fr; padding-inline:13px; }
+  .annual-property-list { margin-inline:13px; }
+  .annual-property-row { grid-template-columns:minmax(150px,1fr) 72px 92px; }
+  .annual-property-row span:nth-of-type(2) { display:none; }
+  .annual-plan-board { min-width:760px; }
+  .annual-plan-board.month { min-width:1160px; }
+  .annual-plan-grid-head,
+  .annual-plan-row {
+    grid-template-columns:minmax(210px,1.5fr) repeat(var(--annual-slots), minmax(44px,.5fr)) 32px;
+  }
+}
