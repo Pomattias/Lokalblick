@@ -321,8 +321,7 @@ function maintenancePlannerHtml(contracts) {
     '</div></div></section>';
 }
 function findMaintenancePlanningSource(type,id) {
-  if (type === "maintenanceStatus") return state.maintenanceStatus.find(function(x){return x.id===id;});
-  return state.maintenance.find(function(x){return x.id===id;});
+  return planningSource(type,id);
 }
 function bindMaintenancePlannerControls() {
   document.querySelectorAll("[data-maintenance-plan-year]:not([data-plan-bound])").forEach(function(year){
@@ -368,6 +367,191 @@ function bindMaintenancePlannerControls() {
     });
   });
 }
+
+function planningSource(type, id) {
+  if (type === "maintenanceStatus") return state.maintenanceStatus.find(function(x){return x.id===id;});
+  if (type === "maintenance") return state.maintenance.find(function(x){return x.id===id;});
+  if (type === "project") return state.projects.find(function(x){return x.id===id;});
+  if (type === "driftIssue") return state.driftIssues.find(function(x){return x.id===id;});
+  return null;
+}
+function planningPeriod(item) {
+  const month = Number(item && item.planningMonth) || 0;
+  const quarter = Number(item && item.planningQuarter) || (month ? Math.ceil(month / 3) : 0);
+  return { month:month, quarter:quarter };
+}
+function annualPlanningItems(contracts) {
+  const contractIds = new Set(contracts.map(function(c){return c.id;}));
+  const propertyIds = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean));
+  function inScope(item) {
+    return (item.contractId && contractIds.has(item.contractId)) ||
+      (!item.contractId && item.propertyId && propertyIds.has(item.propertyId));
+  }
+  const rows = maintenancePlanningItems(contracts).map(function(item){
+    return Object.assign({}, item, { category:"Underhåll", sourceType:item.sourceType });
+  });
+  state.projects.filter(inScope).forEach(function(item){
+    const cost = Number(item.preliminaryCost) || projectBudgetTotal(item);
+    if (!item.budgetYear || cost <= 0 || item.status === "Klar") return;
+    rows.push({
+      sourceType:"project", source:item, id:item.id, title:item.name, category:"Projekt",
+      propertyId:item.propertyId, contractId:item.contractId, year:Number(item.budgetYear),
+      cost:cost, status:item.status || item.phase || "Projekt", priority:item.phase || ""
+    });
+  });
+  state.driftIssues.filter(inScope).forEach(function(item){
+    const cost = Number(item.finalCost) || Number(item.estimatedCost) || 0;
+    if (!item.budgetYear || cost <= 0 || item.status === "Klar") return;
+    rows.push({
+      sourceType:"driftIssue", source:item, id:item.id, title:item.title, category:"Drift",
+      propertyId:item.propertyId, contractId:item.contractId, year:Number(item.budgetYear),
+      cost:cost, status:item.status || "Drift", priority:item.priority || ""
+    });
+  });
+  return rows.sort(function(a,b){
+    return (Number(a.year)||9999)-(Number(b.year)||9999) || (b.cost-a.cost) || a.title.localeCompare(b.title,"sv");
+  });
+}
+function annualPlanningYears() {
+  const years = new Set(maintenancePlanningYears());
+  state.projects.forEach(function(x){ if(x.budgetYear) years.add(Number(x.budgetYear)); });
+  state.driftIssues.forEach(function(x){ if(x.budgetYear) years.add(Number(x.budgetYear)); });
+  return Array.from(years).filter(Boolean).sort(function(a,b){return a-b;});
+}
+function annualPlanDashboardHtml(contracts, context) {
+  const years = annualPlanningYears();
+  if (!years.includes(Number(maintenancePlanning.year))) maintenancePlanning.year = years[0] || (new Date().getFullYear()+1);
+  const year = Number(maintenancePlanning.year);
+  const mode = maintenancePlanning.mode === "month" ? "month" : "quarter";
+  const slotCount = mode === "month" ? 12 : 4;
+  const rows = annualPlanningItems(contracts).filter(function(item){return Number(item.year)===year;});
+  const slotTotals = Array.from({length:slotCount},function(){return {amount:0,count:0};});
+  const categoryTotals = {Underhåll:0,Projekt:0,Drift:0};
+  const propertyTotals = new Map();
+  let unplacedAmount=0, unplacedCount=0;
+
+  rows.forEach(function(item){
+    categoryTotals[item.category] = (categoryTotals[item.category]||0) + item.cost;
+    const property = state.properties.find(function(p){return p.id===item.propertyId;});
+    const propertyNameValue = property ? (property.address||property.id) : (item.propertyId||"Fastighetsnivå");
+    const prop = propertyTotals.get(item.propertyId||"NO_PROPERTY") || {label:propertyNameValue,amount:0,count:0,unplaced:0};
+    prop.amount += item.cost; prop.count += 1;
+    const period = planningPeriod(item.source);
+    const slot = mode === "month" ? period.month : period.quarter;
+    if(slot>=1 && slot<=slotCount) {
+      slotTotals[slot-1].amount += item.cost;
+      slotTotals[slot-1].count += 1;
+    } else {
+      unplacedAmount += item.cost; unplacedCount += 1; prop.unplaced += 1;
+    }
+    propertyTotals.set(item.propertyId||"NO_PROPERTY",prop);
+  });
+
+  const slotCards = slotTotals.map(function(slot,index){
+    const label = mode === "month" ? String(index+1) : "Q"+(index+1);
+    return '<div class="annual-slot-card"><span>' + label + '</span><strong>' + shortMoney(slot.amount) +
+      '</strong><small>' + slot.count + ' poster</small></div>';
+  }).join("");
+
+  const categoryCards = ["Underhåll","Projekt","Drift"].map(function(category){
+    const count = rows.filter(function(item){return item.category===category;}).length;
+    const cls = category==="Underhåll" ? "maintenance" : category==="Projekt" ? "project" : "drift";
+    return '<div class="annual-category-card ' + cls + '"><span>' + category +
+      '</span><strong>' + shortMoney(categoryTotals[category]||0) + '</strong><small>' + count + ' poster</small></div>';
+  }).join("");
+
+  const propertyRows = Array.from(propertyTotals.values()).sort(function(a,b){return b.amount-a.amount;}).slice(0,6).map(function(prop){
+    return '<div class="annual-property-row"><strong>' + esc(prop.label) + '</strong><span>' + prop.count +
+      ' poster</span><span>' + (prop.unplaced ? prop.unplaced + ' ej placerade' : 'planerad') + '</span><b>' +
+      shortMoney(prop.amount) + '</b></div>';
+  }).join("");
+
+  const itemRows = rows.slice(0, context==="property" ? 30 : 12).map(function(item){
+    const property = state.properties.find(function(p){return p.id===item.propertyId;});
+    const period = planningPeriod(item.source);
+    const buttons = Array.from({length:slotCount},function(_,index){
+      const slot=index+1;
+      const selected = mode==="month" ? period.month===slot : period.quarter===slot;
+      const coarse = mode==="month" && !period.month && period.quarter && Math.ceil(slot/3)===period.quarter;
+      return '<button type="button" class="annual-plan-cell ' + (selected?"selected ":"") + (coarse?"coarse ":"") +
+        '" data-annual-source="' + esc(item.sourceType) + '" data-annual-id="' + esc(item.id) + '" data-annual-slot="' + slot +
+        '" aria-label="Planera ' + esc(item.title) + ' till ' + (mode==="month"?"månad "+slot:"Q"+slot) + '">' +
+        (selected?"✓":coarse?"·":"") + '</button>';
+    }).join("");
+    return '<div class="annual-plan-row" style="--annual-slots:' + slotCount + '">' +
+      '<div class="annual-plan-item"><span class="annual-kind ' + (item.category==="Underhåll"?"maintenance":item.category==="Projekt"?"project":"drift") + '">' +
+      esc(item.category) + '</span><strong>' + esc(item.title) +
+      '</strong><small>' + esc(property ? (property.address||property.id) : (item.propertyId||"Fastighetsnivå")) +
+      ' · ' + shortMoney(item.cost) + '</small></div>' + buttons +
+      '<button type="button" class="annual-plan-clear" data-annual-clear="' + esc(item.id) + '" data-annual-source="' +
+      esc(item.sourceType) + '" aria-label="Rensa planering">×</button></div>';
+  }).join("");
+
+  const total = rows.reduce(function(sum,item){return sum+item.cost;},0);
+  return '<section class="annual-plan-dashboard ' + (context==="portfolio"?"portfolio":"property") + '">' +
+    '<div class="annual-plan-head"><div><span class="portfolio-kicker">' + (context==="portfolio"?"ÖVERGRIPANDE ÅRSPLAN":"FASTIGHETENS ÅRSPLAN") +
+      '</span><h3>Vad ska göras, när och för hur mycket?</h3><p>Underhåll, projekt och kostnadsatta driftåtgärder i samma plan. Klicka i tidslinjen för att flytta en post.</p></div>' +
+      '<div class="annual-plan-controls"><select class="select" data-annual-plan-year>' +
+        years.map(function(y){return '<option value="' + y + '"' + (y===year?" selected":"") + '>' + y + '</option>';}).join("") +
+      '</select><div class="planning-mode-toggle"><button type="button" data-annual-plan-mode="quarter" class="' + (mode==="quarter"?"active":"") +
+      '">Q1–Q4</button><button type="button" data-annual-plan-mode="month" class="' + (mode==="month"?"active":"") + '">1–12</button></div></div></div>' +
+    '<div class="annual-plan-kpis"><div><span>Årsvolym</span><strong>' + shortMoney(total) + '</strong><small>' + rows.length +
+      ' poster</small></div><div class="' + (unplacedCount?"attention":"") + '"><span>Ej placerat</span><strong>' +
+      shortMoney(unplacedAmount) + '</strong><small>' + unplacedCount + ' poster</small></div></div>' +
+    '<div class="annual-slot-grid">' + slotCards + '</div>' +
+    '<div class="annual-category-grid">' + categoryCards + '</div>' +
+    (context==="portfolio" ? '<div class="annual-property-list"><div class="annual-subhead"><strong>Störst planerad belastning per fastighet</strong><span>Topplista i aktuellt urval</span></div>' +
+      (propertyRows||'<div class="empty compact">Ingen planering ännu.</div>') + '</div>' : '') +
+    '<div class="annual-plan-scroll"><div class="annual-plan-board ' + mode + '">' +
+      '<div class="annual-plan-grid-head" style="--annual-slots:' + slotCount + '"><div>Post</div>' +
+        slotTotals.map(function(_,index){return '<div>' + (mode==="month"?(index+1):"Q"+(index+1)) + '</div>';}).join("") + '<div></div></div>' +
+      (itemRows || '<div class="empty compact">Inga poster för ' + year + '.</div>') +
+    '</div></div></section>';
+}
+function bindAnnualPlannerControls() {
+  document.querySelectorAll("[data-annual-plan-year]:not([data-annual-bound])").forEach(function(select){
+    select.dataset.annualBound="1";
+    select.addEventListener("change",function(){
+      maintenancePlanning.year=Number(select.value);
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-annual-plan-mode]:not([data-annual-bound])").forEach(function(button){
+    button.dataset.annualBound="1";
+    button.addEventListener("click",function(){
+      maintenancePlanning.mode=button.dataset.annualPlanMode==="month"?"month":"quarter";
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-annual-slot]:not([data-annual-bound])").forEach(function(button){
+    button.dataset.annualBound="1";
+    button.addEventListener("click",async function(){
+      const item=planningSource(button.dataset.annualSource,button.dataset.annualId);
+      if(!item) return;
+      const slot=Number(button.dataset.annualSlot);
+      if(maintenancePlanning.mode==="month") {
+        item.planningMonth=slot;
+        item.planningQuarter=Math.ceil(slot/3);
+      } else {
+        item.planningQuarter=slot;
+        item.planningMonth=null;
+      }
+      await saveState();
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-annual-clear]:not([data-annual-bound])").forEach(function(button){
+    button.dataset.annualBound="1";
+    button.addEventListener("click",async function(){
+      const item=planningSource(button.dataset.annualSource,button.dataset.annualClear);
+      if(!item) return;
+      item.planningQuarter=null;
+      item.planningMonth=null;
+      await saveState();
+      filterPropertyPortfolio();
+    });
+  });
+}
 function budgetRows(year) {
   const rows = [];
   state.contracts.filter(function(c) { return activeInYear(c, year); }).forEach(function(c) {
@@ -384,8 +568,8 @@ function budgetRows(year) {
   state.projects.filter(function(p) { return Number(p.budgetYear) === Number(year); }).forEach(function(p) {
     const investigation = Number(p.budgetInvestigation) || 0;
     const project = (Number(p.budgetExecution) || 0) + (Number(p.budgetFurnishing) || 0);
-    if (investigation > 0) rows.push({ category: "Utredningar", sub: "Projektutredning", source: p.name, contractId: p.contractId, amount: investigation });
-    if (project > 0) rows.push({ category: "Projekt", sub: "Genomförande + inredning", source: p.name, contractId: p.contractId, amount: project });
+    if (investigation > 0) rows.push({ category: "Utredningar", sub: "Projektutredning", source: p.name, contractId: p.contractId, amount: investigation, timing: maintenanceTimingLabel(p) });
+    if (project > 0) rows.push({ category: "Projekt", sub: "Genomförande + inredning", source: p.name, contractId: p.contractId, amount: project, timing: maintenanceTimingLabel(p) });
   });
   state.maintenance.filter(function(u) { return Number(u.year) === Number(year) && Number(u.cost) > 0; }).forEach(function(u) {
     rows.push({ category: "Underhåll", sub: u.title, source: u.title, contractId: u.contractId, amount: Number(u.cost), timing: maintenanceTimingLabel(u) });
@@ -404,7 +588,7 @@ function budgetRows(year) {
   state.driftIssues.filter(function(x) {
     return x.includeInBudget === "Ja" && Number(x.budgetYear) === Number(year) && Number(x.estimatedCost) > 0 && x.status !== "Klar";
   }).forEach(function(x) {
-    rows.push({ category: "Driftkostnader", sub: x.category, source: "Ärende: " + x.title, contractId: x.contractId, amount: Number(x.estimatedCost) });
+    rows.push({ category: "Driftkostnader", sub: x.category, source: "Ärende: " + x.title, contractId: x.contractId, amount: Number(x.estimatedCost), timing: maintenanceTimingLabel(x) });
   });
   state.wishes.filter(function(x) {
     return x.includeInBudget === "Ja" && x.budgetCategory && x.budgetCategory !== "Ej budget" &&
@@ -1109,6 +1293,7 @@ function propertyWorkspaceHtml(contracts) {
   return '<div class="property-all-workspace">' +
     '<div class="property-all-intro"><div><span class="portfolio-kicker">ALLT PÅ FASTIGHETEN</span><h3>Planera och agera från samma vy</h3>' +
       '<p>Varje post är samma objekt oavsett om du kommer hit via fastigheten eller via Underhåll, Projekt, Drift eller Önskemål.</p></div></div>' +
+    annualPlanDashboardHtml(cs,"property") +
     propertyAllSectionHtml(cs,"maintenance","Underhåll","BEHOV · PLANÅR · KOSTNAD","maintenance") +
     propertyAllSectionHtml(cs,"project","Projekt","UTREDNING · GENOMFÖRANDE · TID","project") +
     propertyAllSectionHtml(cs,"drift","Drift","DRIFTKOSTNAD · ÄRENDE · UTFALL","driftIssue") +
@@ -1224,6 +1409,7 @@ function portfolioOverviewHtml(contracts) {
     kpi("Area", num(totalArea) + " kvm", propertyIds.size ? num(totalArea / propertyIds.size) + " kvm / fastighet" : "–") +
     kpi("Hyra + drift", money(totalCost), totalArea ? num(costPerSqm) + " kr/kvm" : "–") +
     '</div>' +
+    annualPlanDashboardHtml(contracts,"portfolio") +
     '<section class="portfolio-cost-picture">' +
       '<div class="planning-section-head"><div><span>DETALJER SOM BYGGER HELHETEN</span><h3>Var ligger behoven och kostnaderna?</h3>' +
         '<p>Samma poster kan öppnas från denna helhet eller från respektive fastighet.</p></div></div>' +
@@ -1934,6 +2120,7 @@ function updatePortfolioSurfaces(contracts) {
   bindPortfolioSectionControls();
   bindAddButtons();
   bindMaintenancePlannerControls();
+  bindAnnualPlannerControls();
   applyPortfolioSectionVisibility();
 }
 function filterPropertyPortfolio() {
@@ -2164,6 +2351,8 @@ async function saveEditor(form) {
     data.id = nextId("PR", state.projects);
     data.propertyId = c ? c.propertyId : "";
     ["budgetYear", "budgetInvestigation", "budgetExecution", "budgetFurnishing", "preliminaryCost"].forEach(function(k) { data[k] = Number(data[k]) || 0; });
+    data.planningQuarter = null;
+    data.planningMonth = null;
     state.projects.push(data);
   } else if (editorType === "maintenance") {
     const c = state.contracts.find(function(x) { return x.id === data.contractId; });
@@ -2204,6 +2393,8 @@ async function saveEditor(form) {
     data.budgetYear = Number(data.budgetYear) || null;
     data.estimatedCost = Number(data.estimatedCost) || 0;
     data.finalCost = Number(data.finalCost) || 0;
+    data.planningQuarter = null;
+    data.planningMonth = null;
     state.driftIssues.push(data);
     if (data.responsiblePersonId) state.assignments.push({ id:nextId("A",state.assignments), personId:data.responsiblePersonId, targetType:"driftIssue", targetId:data.id, role:"Ansvarig", fromDate:data.createdDate||"", toDate:"", allocation:0 });
   } else if (editorType === "wish") {
