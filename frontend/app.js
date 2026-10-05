@@ -2312,7 +2312,7 @@ function bindMobileScopeFilterControls() {
       portfolioExplorer.contractId="";
       const details=button.closest(".mobile-filter-chip");
       if(details) details.removeAttribute("open");
-      filterPropertyPortfolio();
+      if (currentView === "map") render(); else filterPropertyPortfolio();
     });
   });
   document.querySelectorAll("[data-mobile-clear-scope]:not([data-mobile-filter-bound])").forEach(function(button) {
@@ -2327,7 +2327,7 @@ function bindMobileScopeFilterControls() {
       portfolioFilters.ourPerson="";
       portfolioExplorer.propertyId="";
       portfolioExplorer.contractId="";
-      filterPropertyPortfolio();
+      if (currentView === "map") render(); else filterPropertyPortfolio();
     });
   });
 }
