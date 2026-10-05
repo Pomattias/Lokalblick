@@ -1257,22 +1257,35 @@ function mobileModeChooserHtml(contracts) {
     drift:items.filter(function(x){return x.group==="drift" || x.group==="operations";}).length,
     wish:items.filter(function(x){return x.group==="wish";}).length
   };
-  const modes = portfolioExplorer.propertyId ? [
-    ["overview","Sammanställning"],
+  const propertyMode = Boolean(portfolioExplorer.propertyId);
+  const modes = propertyMode ? [
+    ["overview","Översikt"],
     ["maintenance","Underhåll"],
     ["project","Projekt"],
     ["drift","Drift"],
     ["wish","Önskemål"],
     ["contracts","Avtal"]
   ] : [
-    ["overview","Alla"],
+    ["overview","Översikt"],
     ["properties","Fastigheter"],
     ["maintenance","Underhåll"],
     ["project","Projekt"],
     ["drift","Drift"],
-    ["wish","Önskemål"],
-    ["contracts","Avtal"]
+    ["contracts","Avtal"],
+    ["wish","Önskemål"]
   ];
+  if (!propertyMode) {
+    return '<div class="mobile-large-chip-strip" role="tablist" aria-label="Visa">' +
+      modes.map(function(mode) {
+        const active=portfolioExplorer.section===mode[0];
+        return '<button type="button" class="mobile-large-chip ' + (active?"active":"") +
+          '" data-portfolio-section="' + mode[0] + '" role="tab" aria-selected="' + (active?"true":"false") + '">' +
+          '<span>' + esc(mode[1]) + '</span>' +
+          (counts[mode[0]]==="" ? '<small>Helhetsbild</small>' : '<strong>' + counts[mode[0]] + '</strong><small>i urvalet</small>') +
+        '</button>';
+      }).join("") +
+    '</div>';
+  }
   return '<div class="mobile-perspective-strip" role="tablist" aria-label="Perspektiv">' +
     modes.map(function(mode) {
       const active=portfolioExplorer.section===mode[0];
@@ -1284,6 +1297,55 @@ function mobileModeChooserHtml(contracts) {
     }).join("") +
   '</div>';
 }
+
+function mobileFilterChoiceLabel(filterId, value) {
+  if (!value) return "";
+  if (filterId === "filter-unit") return unitName(value);
+  if (filterId === "filter-our-person") return personName(value);
+  if (filterId === "filter-owner") {
+    const sample=state.contracts.find(function(c){
+      const property=state.properties.find(function(p){return p.id===c.propertyId;});
+      return contractOwnerKey(c,property)===value;
+    });
+    const property=sample ? state.properties.find(function(p){return p.id===sample.propertyId;}) : null;
+    return sample ? contractOwner(sample,property) : value;
+  }
+  return value;
+}
+function mobileFilterChipHtml(filterId, label, options, selectedValue, allLabel) {
+  const selectedLabel=mobileFilterChoiceLabel(filterId,selectedValue);
+  const rows=[{value:"",label:allLabel}].concat(options||[]);
+  return '<details class="mobile-filter-chip ' + (selectedValue?"active":"") + '">' +
+    '<summary><span>' + esc(label) + '</span>' + (selectedLabel?'<strong>' + esc(selectedLabel) + '</strong>':'<strong>Alla</strong>') + '<b>⌄</b></summary>' +
+    '<div class="mobile-filter-menu">' +
+      '<div class="mobile-filter-menu-head"><span>' + esc(label) + '</span><small>Filtrerar hela Lokalblick</small></div>' +
+      rows.map(function(row){
+        const selected=(row.value||"")===(selectedValue||"");
+        return '<button type="button" class="' + (selected?"selected":"") + '" data-mobile-filter-id="' + filterId +
+          '" data-mobile-filter-value="' + esc(row.value||"") + '">' +
+          '<span><strong>' + esc(row.label) + '</strong></span><b>' + (selected?"✓":"") + '</b></button>';
+      }).join("") +
+    '</div></details>';
+}
+function mobileScopeFiltersHtml(filters, contracts) {
+  const active=[
+    portfolioFilters.ourPerson ? "Ansvarig: " + mobileFilterChoiceLabel("filter-our-person",portfolioFilters.ourPerson) : "",
+    portfolioFilters.unit ? "Organisation: " + mobileFilterChoiceLabel("filter-unit",portfolioFilters.unit) : "",
+    portfolioFilters.owner ? "Fastighetsägare: " + mobileFilterChoiceLabel("filter-owner",portfolioFilters.owner) : ""
+  ].filter(Boolean);
+  const propertyCount=new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
+  return '<div class="mobile-scope-filter-row">' +
+    mobileFilterChipHtml("filter-our-person","Ansvarig",filters.ourPeople,portfolioFilters.ourPerson,"Alla ansvariga") +
+    mobileFilterChipHtml("filter-unit","Organisation",filters.unit,portfolioFilters.unit,"Alla organisationer") +
+    mobileFilterChipHtml("filter-owner","Fastighetsägare",filters.owner,portfolioFilters.owner,"Alla fastighetsägare") +
+  '</div>' +
+  '<div class="mobile-filter-state ' + (active.length?"active":"") + '">' +
+    '<div><span>' + (active.length?"VALT URVAL":"URVAL") + '</span><strong>' + esc(active.length?active.join(" · "):"Alla fastigheter") + '</strong>' +
+    '<small>' + propertyCount + ' fastigheter · ' + contracts.length + ' avtal</small></div>' +
+    (active.length?'<button type="button" data-mobile-clear-scope>Rensa</button>':'') +
+  '</div>';
+}
+
 function mobilePropertyCardsHtml(contracts) {
   const grouped = new Map();
   contracts.forEach(function(c) {
@@ -1434,8 +1496,14 @@ function updateMobilePortfolioSurfaces(contracts) {
 
   const modes=document.getElementById("mobile-content-tabs");
   if(modes) {
-    modes.innerHTML=portfolioExplorer.propertyId ? mobileModeChooserHtml(contracts) : "";
+    modes.innerHTML=mobileModeChooserHtml(contracts);
     bindPortfolioSectionControls();
+  }
+
+  const mobileFilters=document.getElementById("mobile-scope-filters");
+  if(mobileFilters) {
+    mobileFilters.innerHTML=mobileScopeFiltersHtml(portfolioFilterOptions(),contracts);
+    bindMobileScopeFilterControls();
   }
 
   const overview=document.getElementById("mobile-overview-content");
@@ -1722,11 +1790,12 @@ function renderProperties() {
         '<div class="scope-heading"><span>Zooma in</span><small>Välj område eller gå vidare till en fastighet</small></div>' +
         '<div class="scope-grid">' + portfolioScopeCardsHtml() + '</div>' +
       '</div>' +
-      '<div class="mobile-only mobile-scope-wrap">' + mobileScopePickerHtml() + '<div id="mobile-context"></div></div>' +
-      '<div id="mobile-content-tabs" class="mobile-content-tabs mobile-only">' + mobileModeChooserHtml(state.contracts) + '</div>' +
-      '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
       '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" placeholder="Sök fastighet, avtal, kund eller person…">' +
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
+      '<div id="mobile-content-tabs" class="mobile-content-tabs mobile-only">' + mobileModeChooserHtml(state.contracts) + '</div>' +
+      '<div id="mobile-scope-filters" class="mobile-only">' + mobileScopeFiltersHtml(filters,state.contracts) + '</div>' +
+      '<div class="mobile-only" id="mobile-context"></div>' +
+      '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
       advancedFilters +
       '<div class="filter-result desktop-only" id="portfolio-filter-result">' + state.properties.length + ' fastigheter · ' + state.contracts.length + ' avtal</div>' +
       '<div class="portfolio-context desktop-only" id="portfolio-context"><span class="context-root">Alla</span></div>' +
@@ -2141,6 +2210,39 @@ function bindEditButtons() {
     });
   });
 }
+function bindMobileScopeFilterControls() {
+  document.querySelectorAll("[data-mobile-filter-id]:not([data-mobile-filter-bound])").forEach(function(button) {
+    button.dataset.mobileFilterBound="1";
+    button.addEventListener("click",function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      const control=document.getElementById(button.dataset.mobileFilterId);
+      if (!control) return;
+      control.value=button.dataset.mobileFilterValue||"";
+      syncPortfolioFiltersFromControls();
+      portfolioExplorer.propertyId="";
+      portfolioExplorer.contractId="";
+      const details=button.closest(".mobile-filter-chip");
+      if(details) details.removeAttribute("open");
+      filterPropertyPortfolio();
+    });
+  });
+  document.querySelectorAll("[data-mobile-clear-scope]:not([data-mobile-filter-bound])").forEach(function(button) {
+    button.dataset.mobileFilterBound="1";
+    button.addEventListener("click",function(){
+      ["filter-unit","filter-owner","filter-our-person"].forEach(function(id){
+        const control=document.getElementById(id);
+        if(control) control.value="";
+      });
+      portfolioFilters.unit="";
+      portfolioFilters.owner="";
+      portfolioFilters.ourPerson="";
+      portfolioExplorer.propertyId="";
+      portfolioExplorer.contractId="";
+      filterPropertyPortfolio();
+    });
+  });
+}
 function bindViewEvents() {
   applyPortfolioFiltersToControls();
   document.querySelectorAll("[data-shared-unit]:not([data-shared-bound])").forEach(function(button) {
@@ -2184,6 +2286,7 @@ function bindViewEvents() {
   });
   bindPortfolioSectionControls();
   bindPortfolioExplorerControls();
+  bindMobileScopeFilterControls();
   applyPortfolioSectionVisibility();
   if (currentView === "properties") filterPropertyPortfolio();
   const by = document.getElementById("budget-year");
