@@ -32,6 +32,7 @@ let state = clone(demo);
 let currentView = "properties";
 let selectedBudgetYear = new Date().getFullYear() + 1;
 let maintenancePlanning = { year: new Date().getFullYear() + 1, mode: "quarter" };
+let mobileMapMetric = "cost";
 let editorType = null;
 let editorRecord = null;
 let portfolioExplorer = { propertyId: "", contractId: "", section: "overview" };
@@ -332,7 +333,7 @@ function bindMaintenancePlannerControls() {
     year.dataset.planBound="1";
     year.addEventListener("change",function(){
       maintenancePlanning.year=Number(year.value);
-      filterPropertyPortfolio();
+      if (currentView === "map") render(); else filterPropertyPortfolio();
     });
   });
   document.querySelectorAll("[data-maintenance-plan-mode]:not([data-plan-bound])").forEach(function(button){
@@ -635,11 +636,11 @@ function renderNav() {
   });
 }
 function mobileDockKey() {
-  if (currentView === "budget") return "economy";
-  if (currentView !== "properties") return "more";
-  if (portfolioExplorer.section === "activities" || activitySections().includes(portfolioExplorer.section)) return "activities";
-  if (portfolioExplorer.section === "properties" || portfolioExplorer.propertyId) return "properties";
-  return "home";
+  if (currentView === "map") return "map";
+  if (currentView === "budget") return "budget";
+  if (currentView === "properties" && portfolioExplorer.section === "activities") return "plan";
+  if (currentView === "properties") return "overview";
+  return "more";
 }
 function closeMobileMoreSheet() {
   const sheet = document.getElementById("mobile-more-sheet");
@@ -652,10 +653,11 @@ function renderMobileDock() {
   if (window.matchMedia && window.matchMedia("(max-width: 700px)").matches) {
     const title=document.getElementById("page-title");
     if (title) {
-      title.textContent = active==="home" ? "Översikt" :
-        active==="properties" ? (portfolioExplorer.propertyId ? portfolioScopeTitle() : "Fastigheter") :
-        active==="activities" ? "Aktiviteter" :
-        active==="economy" ? "Ekonomi" : (views.find(function(v){return v.id===currentView;})||{}).label || "Lokalblick";
+      title.textContent = active==="overview" ? "Översikt" :
+        active==="map" ? "Karta" :
+        active==="plan" ? "Planera" :
+        active==="budget" ? "Budget" :
+        (views.find(function(v){return v.id===currentView;})||{}).label || "Lokalblick";
     }
   }
   dock.querySelectorAll("[data-mobile-dock]").forEach(function(button) {
@@ -670,23 +672,26 @@ function renderMobileDock() {
         return;
       }
       closeMobileMoreSheet();
-      if (target === "economy") {
+
+      if (target === "map") {
+        currentView = "map";
+        render();
+        return;
+      }
+      if (target === "budget") {
         currentView = "budget";
         render();
         return;
       }
-      const section = target === "properties" ? "properties" : target === "activities" ? "activities" : "overview";
-      if (currentView === "properties") {
-        portfolioExplorer.contractId = "";
-        if (target === "home" || target === "properties") portfolioExplorer.propertyId = "";
-        portfolioExplorer.section = section;
-        filterPropertyPortfolio();
-        renderMobileDock();
-      } else {
-        currentView = "properties";
-        portfolioExplorer = { propertyId:"", contractId:"", section:section };
-        render();
+      currentView = "properties";
+      portfolioExplorer.contractId = "";
+      if (target === "overview") {
+        portfolioExplorer.propertyId = "";
+        portfolioExplorer.section = "overview";
+      } else if (target === "plan") {
+        portfolioExplorer.section = "activities";
       }
+      render();
     });
   });
   document.querySelectorAll("[data-mobile-sheet-close]:not([data-mobile-bound])").forEach(function(button) {
@@ -1278,16 +1283,24 @@ function mobileModeChooserHtml(contracts) {
   const drift = items.filter(function(x){return x.group==="drift" || x.group==="operations";});
   const wishes = items.filter(function(x){return x.group==="wish";});
 
+  function activityLabel(item, fallback) {
+    const property=state.properties.find(function(p){return p.id===item.propertyId;});
+    const address=property ? (property.address || property.designation || property.id) : (item.propertyId || "");
+    return (item.title || item.type || fallback) + (address ? " · " + address : "");
+  }
+
+  if (portfolioExplorer.section === "activities") return "";
+
   return '<div class="mobile-compact-accordion" aria-label="Ekonomi och aktiviteter i urvalet">' +
     section("Hyra",rentRows,moneyTotal(rentRows),function(x){return x.label;},function(x){return x.amount;},"rent") +
     section("Projekt",projects,projects.reduce(function(s,x){return s+(Number(x.cost)||0);},0),
-      function(x){return x.title || "Projekt";},function(x){return Number(x.cost)||0;},"project") +
+      function(x){return activityLabel(x,"Projekt");},function(x){return Number(x.cost)||0;},"project") +
     section("Underhåll",maintenance,maintenance.reduce(function(s,x){return s+(Number(x.cost)||0);},0),
-      function(x){return x.title || x.type || "Underhåll";},function(x){return Number(x.cost)||0;},"maintenance") +
+      function(x){return activityLabel(x,"Underhåll");},function(x){return Number(x.cost)||0;},"maintenance") +
     section("Drift",drift,drift.reduce(function(s,x){return s+(Number(x.cost)||0);},0),
-      function(x){return x.title || x.type || "Drift";},function(x){return Number(x.cost)||0;},"drift") +
+      function(x){return activityLabel(x,"Drift");},function(x){return Number(x.cost)||0;},"drift") +
     section("Önskemål",wishes,wishes.reduce(function(s,x){return s+(Number(x.cost)||0);},0),
-      function(x){return x.title || x.type || "Önskemål";},function(x){return Number(x.cost)||0;},"wish") +
+      function(x){return activityLabel(x,"Önskemål");},function(x){return Number(x.cost)||0;},"wish") +
   '</div>';
 }
 function mobileFilterChoiceLabel(filterId, value) {
@@ -1806,7 +1819,7 @@ function renderProperties() {
         '<div class="property-tab-panel" id="activity-panel" hidden><div id="portfolio-activity-content"></div></div>' +
       '</div></section>' +
 
-    '<section class="mobile-only mobile-workspace">' +
+    '<section class="mobile-only mobile-workspace ' + (portfolioExplorer.section==="activities" ? "plan-visible" : "") + '">' +
       '<div id="mobile-property-persistent-context"></div>' +
       '<div class="mobile-panels">' +
         '<div class="mobile-panel" id="mobile-overview-panel"><div id="mobile-overview-content">' + mobileOverviewHtml(state.contracts) + '</div></div>' +
@@ -1818,6 +1831,7 @@ function renderProperties() {
   '</div>';
 }
 function renderMap() {
+  const filters = portfolioFilterOptions();
   const scopedContracts = portfolioScopeContracts();
   const scopedPropertyIds = new Set(scopedContracts.map(function(c){return c.propertyId;}).filter(Boolean));
   const scopedProperties = state.properties.filter(function(p){return scopedPropertyIds.has(p.id);});
@@ -1826,21 +1840,42 @@ function renderMap() {
   });
   const missing = scopedProperties.length - mapped.length;
   const units = Array.from(new Set(state.contracts.map(function(c) { return c.unitId; }).filter(Boolean)));
-  return '<div class="map-page"><div class="cross-view-scope"><span>URVAL</span><strong>' + esc(portfolioScopeTitle()) + '</strong><small>Karta, listor och ekonomi använder samma urval</small></div>' + card(
-    "Karta",
-    "Välj område eller klicka på en fastighet. Samma urval följer med tillbaka till övriga Lokalblick.",
-    '<div class="toolbar map-toolbar">' +
+
+  const mobileTop =
+    '<div class="mobile-map-top mobile-only">' +
+      '<div id="mobile-scope-filters">' + mobileScopeFiltersHtml(filters) + '</div>' +
+      '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" value="' + esc(portfolioFilters.q||"") +
+        '" placeholder="Sök fastighet, avtal, kund eller person…">' +
+        '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
+      '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla områden") + '</select>' +
+      '<select id="filter-our-person" hidden>' + selectOptions(filters.ourPeople,"Alla ansvariga") + '</select>' +
+      '<div class="mobile-map-metrics" role="tablist" aria-label="Nyckeltal på karta">' +
+        [["cost","kr"],["sqm","kr/kvm"],["users","kr/brukare"],["employees","kr/anställd"]].map(function(metric){
+          return '<button type="button" data-map-metric="' + metric[0] + '" class="' + (mobileMapMetric===metric[0]?"active":"") +
+            '" role="tab" aria-selected="' + (mobileMapMetric===metric[0]?"true":"false") + '">' + metric[1] + '</button>';
+        }).join("") +
+      '</div>' +
+    '</div>';
+
+  const desktopToolbar =
+    '<div class="toolbar map-toolbar desktop-only">' +
       '<select class="select" id="map-type"><option value="">Alla fastigheter</option><option>Intern</option><option>Extern</option></select>' +
       '<select class="select" id="map-unit"><option value="">Alla verksamhetsområden</option>' +
         units.map(function(id) { return '<option value="' + esc(id) + '"' + (portfolioFilters.unit===id?' selected':'') + '>' + esc(unitName(id)) + '</option>'; }).join("") +
       '</select>' +
       '<span class="map-count">' + mapped.length + ' kartlagda' + (missing ? ' · ' + missing + ' saknar koordinat' : '') + '</span>' +
-    '</div>' +
-    '<div id="property-map" class="property-map" role="region" aria-label="Karta över fastigheter"></div>' +
-    '<div class="map-footnote">Demokartan använder syntetiska koordinater. I företagsversionen hämtas koordinater via backend och godkänd karttjänst.</div>'
-  ) + '</div>';
-}
+    '</div>';
 
+  return '<div class="map-page">' + mobileTop +
+    '<div class="cross-view-scope desktop-only"><span>URVAL</span><strong>' + esc(portfolioScopeTitle()) +
+      '</strong><small>Karta, listor och ekonomi använder samma urval</small></div>' +
+    '<section class="card pad map-card">' +
+      '<div class="card-head desktop-only"><div><h2>Karta</h2><p>Välj område eller klicka på en fastighet. Samma urval följer med tillbaka till övriga Lokalblick.</p></div></div>' +
+      desktopToolbar +
+      '<div id="property-map" class="property-map" role="region" aria-label="Karta över fastigheter"></div>' +
+      '<div class="map-footnote desktop-only">Demokartan använder syntetiska koordinater. I företagsversionen hämtas koordinater via backend och godkänd karttjänst.</div>' +
+    '</section></div>';
+}
 function mapPropertySummary(p) {
   const cs = state.contracts.filter(function(c) { return c.propertyId === p.id; });
   const area = cs.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0);
@@ -1885,25 +1920,51 @@ function initPropertyMap() {
   const mapService = window.LokalblickMapService;
   if (!mapService) return;
 
+  function propertyMetric(property, contracts) {
+    const cost = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
+    const area = contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
+    const users = contracts.reduce(function(sum,c){return sum+(Number(c.users)||0);},0);
+    const employees = contracts.reduce(function(sum,c){return sum+(Number(c.employees)||0);},0);
+    if (mobileMapMetric === "sqm") return area ? cost/area : 0;
+    if (mobileMapMetric === "users") return users ? cost/users : 0;
+    if (mobileMapMetric === "employees") return employees ? cost/employees : 0;
+    return cost;
+  }
+
+  function metricLabel(value) {
+    if (mobileMapMetric === "cost") return money(value);
+    return num(value) + " kr";
+  }
+
   function buildPoints() {
     const type = document.getElementById("map-type") ? document.getElementById("map-type").value : "";
     const unit = document.getElementById("map-unit") ? document.getElementById("map-unit").value : portfolioFilters.unit;
-    portfolioFilters.unit = unit || "";
+    portfolioFilters.unit = unit || portfolioFilters.unit || "";
     const scopedContracts = portfolioScopeContracts();
     const scopedPropertyIds = new Set(scopedContracts.map(function(c){return c.propertyId;}).filter(Boolean));
 
-    return state.properties.filter(function(p) {
+    const rows = state.properties.filter(function(p) {
       if (!scopedPropertyIds.has(p.id)) return false;
       if (!Number.isFinite(Number(p.latitude)) || !Number.isFinite(Number(p.longitude))) return false;
       if (type && p.type !== type) return false;
       return true;
     }).map(function(p) {
+      const cs=scopedContracts.filter(function(c){return c.propertyId===p.id;});
+      return { property:p, contracts:cs, metric:propertyMetric(p,cs) };
+    });
+    const maxMetric=Math.max.apply(null,[1].concat(rows.map(function(row){return row.metric||0;})));
+
+    return rows.map(function(row) {
+      const p=row.property;
       return {
         id: p.id,
         latitude: Number(p.latitude),
         longitude: Number(p.longitude),
         popupHtml: mapPopupHtml(p),
-        category: p.type || "Fastighet"
+        category: p.type || "Fastighet",
+        metricValue: row.metric,
+        metricLabel: metricLabel(row.metric),
+        metricRatio: row.metric>0 ? Math.max(.08,row.metric/maxMetric) : .04
       };
     });
   }
@@ -1929,8 +1990,24 @@ function initPropertyMap() {
   const unit = document.getElementById("map-unit");
   if (type) type.addEventListener("change", redraw);
   if (unit) unit.addEventListener("change", function(){ portfolioFilters.unit=unit.value||""; redraw(); renderMobileDock(); });
-}
 
+  const search=document.getElementById("portfolio-search");
+  if(search) search.addEventListener("input",function(){
+    portfolioFilters.q=String(search.value||"").trim().toLowerCase();
+    redraw();
+  });
+
+  document.querySelectorAll("[data-map-metric]").forEach(function(button){
+    button.addEventListener("click",function(){
+      mobileMapMetric=button.dataset.mapMetric||"cost";
+      document.querySelectorAll("[data-map-metric]").forEach(function(b){
+        b.classList.toggle("active",b===button);
+        b.setAttribute("aria-selected",b===button?"true":"false");
+      });
+      redraw();
+    });
+  });
+}
 function budgetPlan(year) {
   return (state.budgetPlans || []).find(function(plan){return Number(plan.year)===Number(year);}) || null;
 }
@@ -2223,7 +2300,7 @@ function bindMobileScopeFilterControls() {
         portfolioExplorer.contractId="";
         const propertyDetails=button.closest(".mobile-filter-chip");
         if(propertyDetails) propertyDetails.removeAttribute("open");
-        filterPropertyPortfolio();
+        if (currentView === "map") render(); else filterPropertyPortfolio();
         return;
       }
 
@@ -2283,7 +2360,7 @@ function bindViewEvents() {
   bindEditButtons();
   ["portfolio-search", "filter-customer", "filter-unit", "filter-owner", "filter-our-person", "filter-tenant-person", "filter-owner-person"].forEach(function(id) {
     const control = document.getElementById(id);
-    if (control) control.addEventListener(id === "portfolio-search" ? "input" : "change", filterPropertyPortfolio);
+    if (control && currentView !== "map") control.addEventListener(id === "portfolio-search" ? "input" : "change", filterPropertyPortfolio);
   });
   const reset = document.getElementById("portfolio-filter-reset");
   if (reset) reset.addEventListener("click", function() {
@@ -2293,7 +2370,7 @@ function bindViewEvents() {
     });
     clearPortfolioFilters();
     portfolioExplorer = { propertyId: "", contractId: "", section: "overview" };
-    filterPropertyPortfolio();
+    if (currentView === "map") render(); else filterPropertyPortfolio();
   });
   bindPortfolioSectionControls();
   bindPortfolioExplorerControls();
