@@ -5726,3 +5726,232 @@ button.property-control-card:hover {
   .mobile-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
   .mobile-budget-categories{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+
+/* 2026-10-05 desktop visual-system consolidation */
+@media (min-width:701px) {
+  /* One control language: same compact cards/pills as mobile, scaled for desktop */
+  .mobile-scope-filter-row{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:10px;
+    align-items:start;
+  }
+  .mobile-filter-chip{
+    position:relative;
+    min-width:0;
+    border:0;
+    border-radius:13px;
+    background:transparent;
+  }
+  .mobile-filter-chip>summary{
+    min-height:52px;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 18px;
+    grid-template-rows:auto auto;
+    align-items:center;
+    gap:1px 8px;
+    padding:8px 12px;
+    list-style:none;
+    border:1px solid var(--line);
+    border-radius:13px;
+    background:#fff;
+    box-shadow:0 2px 10px rgba(24,33,43,.025);
+    cursor:pointer;
+    transition:border-color .14s ease,background .14s ease,box-shadow .14s ease;
+  }
+  .mobile-filter-chip>summary::-webkit-details-marker{display:none}
+  .mobile-filter-chip>summary span{
+    grid-column:1;
+    color:#74818a;
+    font-size:9px;
+    font-weight:850;
+    letter-spacing:.04em;
+  }
+  .mobile-filter-chip>summary strong{
+    grid-column:1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:#25313a;
+    font-size:13px;
+    font-weight:850;
+  }
+  .mobile-filter-chip>summary b{
+    grid-column:2;
+    grid-row:1 / 3;
+    align-self:center;
+    color:#87939a;
+    font-size:11px;
+    transition:transform .14s ease;
+  }
+  .mobile-filter-chip.active>summary,
+  .mobile-filter-chip[open]>summary{
+    border-color:#81969b;
+    background:#f0f5f4;
+    box-shadow:inset 0 0 0 1px rgba(49,95,103,.08);
+  }
+  .mobile-filter-chip[open]>summary b{transform:rotate(180deg)}
+
+  /* Correct desktop dropdown: overlay, never inline/raw buttons */
+  .mobile-filter-menu{
+    position:absolute;
+    z-index:120;
+    top:calc(100% + 7px);
+    left:0;
+    width:min(380px,calc(100vw - 280px));
+    max-height:360px;
+    overflow:auto;
+    display:grid;
+    gap:5px;
+    padding:9px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:#fff;
+    box-shadow:0 18px 46px rgba(17,35,40,.16);
+  }
+  .mobile-filter-chip:nth-child(2) .mobile-filter-menu{
+    left:50%;
+    transform:translateX(-50%);
+  }
+  .mobile-filter-chip:nth-child(3) .mobile-filter-menu{
+    left:auto;
+    right:0;
+  }
+  .mobile-filter-menu-head{
+    display:grid;
+    gap:2px;
+    padding:3px 5px 8px;
+    border-bottom:1px solid #edf0f2;
+    margin-bottom:2px;
+  }
+  .mobile-filter-menu-head span{
+    color:#26343c;
+    font-size:12px;
+    font-weight:850;
+  }
+  .mobile-filter-menu-head small{
+    color:var(--muted);
+    font-size:9px;
+  }
+  .mobile-filter-menu button{
+    min-height:40px;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 18px;
+    align-items:center;
+    gap:8px;
+    padding:7px 9px;
+    border:0;
+    border-radius:10px;
+    background:#f7f9fa;
+    color:var(--ink);
+    text-align:left;
+  }
+  .mobile-filter-menu button:hover{background:#eef3f4}
+  .mobile-filter-menu button.selected{
+    background:#e8f0ef;
+    color:#173d42;
+  }
+  .mobile-filter-menu button strong{
+    font-size:11px;
+    font-weight:800;
+  }
+  .mobile-filter-menu button b{
+    color:var(--accent);
+    text-align:center;
+  }
+
+  /* Search and metrics read as a single desktop toolbar */
+  .unified-map-controls,
+  .unified-portfolio-hero,
+  .mobile-budget-filters{
+    border:1px solid #e1e6e9;
+    border-radius:16px;
+    background:#f8fafb;
+    padding:12px;
+    box-shadow:0 2px 10px rgba(24,33,43,.02);
+  }
+  .unified-map-controls{
+    grid-template-columns:minmax(0,1fr);
+    gap:9px;
+  }
+  .unified-map-controls .portfolio-search-row,
+  .unified-portfolio-hero .portfolio-search-row,
+  .mobile-budget-filters .portfolio-search-row{
+    margin:0;
+  }
+  .portfolio-search-row .portfolio-search{
+    border-color:#dbe2e6;
+    background:#fff;
+    box-shadow:none;
+  }
+  .portfolio-search-row .button{
+    min-width:74px;
+    border:1px solid #dbe2e6;
+    background:#fff;
+  }
+
+  /* Segmented metrics share the same active language as left navigation */
+  .unified-map-metrics{
+    max-width:620px;
+    display:inline-grid;
+    grid-template-columns:repeat(4,minmax(105px,1fr));
+    gap:6px;
+    padding:4px;
+    border:1px solid #dde4e7;
+    border-radius:13px;
+    background:#fff;
+  }
+  .unified-map-metrics button{
+    min-height:38px;
+    border:0;
+    border-radius:9px;
+    background:transparent;
+    color:#5f6d75;
+    font-size:11px;
+    font-weight:850;
+  }
+  .unified-map-metrics button:hover{background:#f0f3f4}
+  .unified-map-metrics button.active{
+    background:#213438;
+    color:#fff;
+    box-shadow:none;
+  }
+  .unified-map-count{
+    padding:1px 2px 0;
+    color:#75818a;
+    font-size:10px;
+  }
+
+  /* Main cards use one radius/shadow system */
+  .card,
+  .mobile-property-card,
+  .mobile-contract-card,
+  .mobile-budget-category,
+  .plan-group,
+  .mobile-now{
+    border-color:#dfe5e8;
+    border-radius:14px;
+    box-shadow:0 2px 10px rgba(24,33,43,.025);
+  }
+
+  /* Reduce excess whitespace on map and let the map dominate */
+  .unified-map-page{gap:10px}
+  .unified-map-card{border-radius:16px}
+  .unified-map-card .property-map{min-height:calc(100vh - 330px);height:clamp(520px,65vh,780px)}
+
+  /* Sidebar is the primary navigation; use the same active shape as in-page controls */
+  .sidebar{width:auto}
+  .nav-button{
+    border-radius:11px;
+    color:#b9c8c4;
+    transition:background .14s ease,color .14s ease;
+  }
+  .nav-button:hover{background:rgba(255,255,255,.055)}
+  .nav-button.active{
+    background:#304347;
+    color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
+  }
+}
