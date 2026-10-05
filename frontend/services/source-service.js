@@ -4,14 +4,16 @@
   const DB_NAME = "lokalblick-local-sources";
   const STORE = "handles";
   const HANDLE_KEY = "excel-source";
-  const MODEL_VERSION = "1";
+  const MODEL_VERSION = "2";
 
   const SCHEMAS = [
     { sheet:"Fastigheter", key:"properties", prefix:"FAST", columns:[
-      ["id","_id",true],["type","Typ"],["address","Adress"],["designation","Fastighetsbeteckning"],["owner","Fastighetsägare"],["manager","Förvaltare"],["latitude","Latitud"],["longitude","Longitud"]
+      ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
+      ["type","Typ"],["address","Adress"],["designation","Fastighetsbeteckning"],["owner","Fastighetsägare"],["manager","Förvaltare"],["latitude","Latitud"],["longitude","Longitud"]
     ]},
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
-      ["id","_id",true],["propertyId","_propertyId",true],["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["use","Verksamhet"],["start","Start"],["end","Slut"],["notice","Säg upp senast"],["annualRent","Årshyra"],["annualContractDrift","Avtalsdrift"],["unitId","_unitId",true],["tenantOrgId","_tenantOrgId",true],["ownerOrgId","_ownerOrgId",true],["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"]
+      ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
+      ["propertyId","_propertyId",true],["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["use","Verksamhet"],["start","Start"],["end","Slut"],["notice","Säg upp senast"],["annualRent","Årshyra"],["annualContractDrift","Avtalsdrift"],["unitId","_unitId",true],["tenantOrgId","_tenantOrgId",true],["ownerOrgId","_ownerOrgId",true],["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"]
     ], display:["Fastighet","Hyresgäst","Fastighetsägare","Område"] },
     { sheet:"Organisationer", key:"organizations", prefix:"ORG", columns:[
       ["id","_id",true],["name","Företag"],["type","Typ"],["ownerClass","Ägarklass"]
@@ -52,6 +54,25 @@
     schema.fields = schema.columns.map(function(column){ return column[0]; });
   });
 
+  const ACTIVITY_SCHEMA = {
+    sheet:"Aktiviteter",
+    key:"activities",
+    prefix:"ACT",
+    columns:[
+      ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
+      ["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],
+      ["type","Typ"],["title","Aktivitet"],["description","Beskrivning"],["category","Kategori"],["status","Status"],["priority","Prioritet"],
+      ["planningYear","Planår"],["planningQuarter","Kvartal"],["planningMonth","Månad"],["budgetCategory","Budgetkategori"],
+      ["estimatedCost","Bedömd kostnad"],["phase","Fas"],["startDate","Start"],["endDate","Slut"],
+      ["orderedAt","Beställd"],["orderedBy","Beställd av"],["supplier","Leverantör"],["orderReference","Beställningsreferens"],["orderedCost","Beställningsbelopp"],
+      ["deliveryText","Leverans"],["completedAt","Utförd"],["finalCost","Slutkostnad"],["paymentStatus","Betalstatus"],["paidAt","Betald"],["invoiceComment","Faktura / kommentar"],
+      ["ownerPays","Betalas av fastighetsägaren"]
+    ],
+    display:["Fastighet","Avtal","Ansvarig"]
+  };
+  ACTIVITY_SCHEMA.fields = ACTIVITY_SCHEMA.columns.map(function(column){ return column[0]; });
+  const LEGACY_ACTIVITY_KEYS = new Set(["projects","maintenance","investigations","driftIssues","wishes"]);
+
   const source = {
     handle:null,
     fileName:"",
@@ -63,7 +84,9 @@
     baselineData:null,
     workbook:null,
     discovered:[],
-    pendingChanges:[]
+    pendingChanges:[],
+    sourceKind:"canonical",
+    migrationReport:null
   };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -322,11 +345,120 @@
     });
   }
 
+  function activityRowsFromData(data) {
+    const rows = [];
+    function orderFields(item) {
+      return {
+        orderedAt:item.orderedAt||"",orderedBy:item.orderedBy||"",supplier:item.supplier||"",orderReference:item.orderReference||"",
+        orderedCost:Number(item.orderedCost)||0,deliveryText:item.deliveryText||"",completedAt:item.completedAt||item.completedDate||"",
+        finalCost:Number(item.finalCost)||0,paymentStatus:item.paymentStatus||"",paidAt:item.paidAt||"",invoiceComment:item.invoiceComment||"",
+        sourceId:item.sourceId||"",sourceSheet:item.sourceSheet||"",sourceRow:item.sourceRow||"",ownerPays:item.ownerPays||""
+      };
+    }
+    (data.projects||[]).forEach(function(item){
+      rows.push(Object.assign({
+        id:item.id,type:"Projekt",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        title:item.name||"",description:item.description||"",category:"",status:item.status||"",priority:"",
+        planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
+        budgetCategory:"Projekt",estimatedCost:Number(item.preliminaryCost)||Number(item.budgetExecution)||0,
+        phase:item.phase||"",startDate:item.start||"",endDate:item.end||""
+      },orderFields(item)));
+    });
+    (data.maintenance||[]).forEach(function(item){
+      rows.push(Object.assign({
+        id:item.id,type:"Underhåll",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
+        planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
+        budgetCategory:"Underhåll",estimatedCost:Number(item.cost)||0,phase:"",startDate:"",endDate:""
+      },orderFields(item)));
+    });
+    (data.driftIssues||[]).forEach(function(item){
+      rows.push(Object.assign({
+        id:item.id,type:"Drift",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
+        planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
+        budgetCategory:"Driftkostnader",estimatedCost:Number(item.estimatedCost)||0,phase:"",startDate:item.createdDate||"",endDate:item.targetDate||""
+      },orderFields(item)));
+    });
+    (data.wishes||[]).forEach(function(item){
+      rows.push(Object.assign({
+        id:item.id,type:"Önskemål",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
+        planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
+        budgetCategory:item.budgetCategory||"Ej budget",estimatedCost:Number(item.estimatedCost)||0,phase:"",startDate:item.createdDate||"",endDate:item.targetDate||""
+      },orderFields(item)));
+    });
+    (data.investigations||[]).forEach(function(item){
+      rows.push(Object.assign({
+        id:item.id,type:"Utredning",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
+        planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
+        budgetCategory:"Utredningar",estimatedCost:Number(item.cost)||0,phase:"",startDate:"",endDate:""
+      },orderFields(item)));
+    });
+    return rows;
+  }
+
+  function applyActivityRows(data, rows) {
+    data.activities = rows || [];
+    data.projects=[];data.maintenance=[];data.investigations=[];data.driftIssues=[];data.wishes=[];
+    (rows||[]).forEach(function(a){
+      const order={
+        orderedAt:a.orderedAt||"",orderedBy:a.orderedBy||"",supplier:a.supplier||"",orderReference:a.orderReference||"",
+        orderedCost:Number(a.orderedCost)||0,deliveryText:a.deliveryText||"",completedAt:a.completedAt||"",
+        finalCost:Number(a.finalCost)||0,paymentStatus:a.paymentStatus||"",paidAt:a.paidAt||"",invoiceComment:a.invoiceComment||"",
+        sourceId:a.sourceId||"",sourceSheet:a.sourceSheet||"",sourceRow:a.sourceRow||"",ownerPays:a.ownerPays||""
+      };
+      if(a.type==="Projekt") {
+        data.projects.push(Object.assign({
+          id:a.id,propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
+          name:a.title||"",description:a.description||"",status:a.status||"Planerad",phase:a.phase||"Förstudie",
+          start:a.startDate||"",end:a.endDate||"",moveIn:"",budgetYear:a.planningYear||"",
+          budgetInvestigation:0,budgetExecution:Number(a.estimatedCost)||0,budgetFurnishing:0,preliminaryCost:Number(a.estimatedCost)||0,
+          planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||""
+        },order));
+      } else if(a.type==="Underhåll") {
+        data.maintenance.push(Object.assign({
+          id:a.id,propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
+          title:a.title||"",description:a.description||"",category:a.category||"",year:a.planningYear||"",cost:Number(a.estimatedCost)||0,
+          priority:a.priority||"",status:a.status||"Identifierad",planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||""
+        },order));
+      } else if(a.type==="Drift") {
+        data.driftIssues.push(Object.assign({
+          id:a.id,contractId:a.contractId||"",propertyId:a.propertyId||"",category:a.category||"Övrigt",title:a.title||"",
+          description:a.description||"",createdDate:a.startDate||"",targetDate:a.endDate||"",decisionDate:"",
+          completedDate:a.completedAt||"",status:a.status||"Nytt",priority:a.priority||"",responsiblePersonId:a.responsiblePersonId||"",
+          budgetYear:a.planningYear||"",estimatedCost:Number(a.estimatedCost)||0,finalCost:Number(a.finalCost)||0,
+          includeInBudget:"Ja",planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||""
+        },order));
+      } else if(a.type==="Önskemål") {
+        data.wishes.push(Object.assign({
+          id:a.id,contractId:a.contractId||"",propertyId:a.propertyId||"",category:a.category||"Övrigt",title:a.title||"",
+          description:a.description||"",createdDate:a.startDate||"",targetDate:a.endDate||"",decisionDate:"",
+          completedDate:a.completedAt||"",status:a.status||"Nytt",responsiblePersonId:a.responsiblePersonId||"",
+          budgetYear:a.planningYear||"",budgetCategory:a.budgetCategory||"Ej budget",estimatedCost:Number(a.estimatedCost)||0,
+          finalCost:Number(a.finalCost)||0,includeInBudget:"Ja"
+        },order));
+      } else if(a.type==="Utredning") {
+        data.investigations.push(Object.assign({
+          id:a.id,propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
+          title:a.title||"",description:a.description||"",year:a.planningYear||"",cost:Number(a.estimatedCost)||0,status:a.status||"Planerad"
+        },order));
+      }
+    });
+  }
+
   function workbookToData(workbook) {
     const data = { isDemo:false, sourceName:source.fileName || "Excel-källa" };
     SCHEMAS.forEach(function(schema) {
       data[schema.key] = schemaRowsFromSheet(workbook, schema);
     });
+    if (workbook.Sheets[ACTIVITY_SCHEMA.sheet]) {
+      const activityRows = schemaRowsFromSheet(workbook, ACTIVITY_SCHEMA);
+      applyActivityRows(data, activityRows);
+    } else {
+      data.activities = activityRowsFromData(data);
+    }
     ensureStableIds(data);
     resolveHumanRelations(data);
 
@@ -446,9 +578,11 @@
     ];
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(metadata), "Lokalblick");
 
-    SCHEMAS.forEach(function(schema) {
+    SCHEMAS.filter(function(schema){return !LEGACY_ACTIVITY_KEYS.has(schema.key);}).forEach(function(schema) {
       XLSX.utils.book_append_sheet(workbook, sheetFromSchema(schema,(data&&data[schema.key])||[],data), schema.sheet);
     });
+    const activities = activityRowsFromData(data || {});
+    XLSX.utils.book_append_sheet(workbook, sheetFromSchema(ACTIVITY_SCHEMA, activities, data || {}), ACTIVITY_SCHEMA.sheet);
 
     const plans = (data && data.budgetPlans) || [];
     XLSX.utils.book_append_sheet(workbook, simpleSheet(plans.map(function(plan) {
@@ -473,9 +607,12 @@
   }
 
   function validateWorkbook(workbook) {
-    const required = ["Fastigheter","Avtal"];
-    const missing = required.filter(function(name){ return !workbook.Sheets[name]; });
-    if (missing.length) throw new Error("Filen saknar obligatoriska tabeller: " + missing.join(", ") + ". Skapa gärna en Lokalblick Excel-källa först.");
+    const canonical = workbook.Sheets["Fastigheter"] && workbook.Sheets["Avtal"];
+    const migration = window.LokalblickMigrationAdapter && window.LokalblickMigrationAdapter.detect(workbook);
+    if (!canonical && !migration) {
+      throw new Error("Filen känns inte igen som Lokalblick-källa eller stödd migreringskälla.");
+    }
+    return canonical ? "canonical" : "migration";
   }
 
   function discoverWorkbook(workbook) {
@@ -493,12 +630,20 @@
     const file = await handle.getFile();
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type:"array", cellDates:false });
-    validateWorkbook(workbook);
+    const kind = validateWorkbook(workbook);
     source.handle = handle;
     source.fileName = file.name || handle.name || "Excel-källa.xlsx";
-    source.mode = mode === "readwrite" ? "readwrite" : "read";
+    source.sourceKind = kind;
+    source.mode = kind === "migration" ? "read" : (mode === "readwrite" ? "readwrite" : "read");
     source.workbook = workbook;
-    source.data = workbookToData(workbook);
+    if (kind === "migration") {
+      const migrated = window.LokalblickMigrationAdapter.migrate(workbook, source.fileName);
+      source.data = migrated.data;
+      source.migrationReport = migrated.report;
+    } else {
+      source.data = workbookToData(workbook);
+      source.migrationReport = null;
+    }
     source.baselineData = clone(source.data);
     source.connected = true;
     source.dirty = false;
@@ -532,7 +677,7 @@
     });
     const base = blank ? {
       isDemo:false, sourceName:handle.name || "Lokalblick-data.xlsx",
-      properties:[], contracts:[], organizations:[], people:[], assignments:[], projects:[], maintenance:[],
+      properties:[], contracts:[], organizations:[], people:[], assignments:[], activities:[], projects:[], maintenance:[],
       operations:[], investigations:[], maintenanceStatus:[], driftIssues:[], wishes:[], budgetPlans:[], assignmentChanges:[]
     } : clone(data || {});
     base.isDemo = false;
@@ -545,6 +690,8 @@
     source.handle = handle;
     source.fileName = handle.name || "Lokalblick-data.xlsx";
     source.mode = mode === "readwrite" ? "readwrite" : "read";
+    source.sourceKind = "canonical";
+    source.migrationReport = null;
     source.workbook = workbook;
     source.data = base;
     source.baselineData = clone(base);
@@ -577,6 +724,7 @@
 
   async function write() {
     if (!source.connected || !source.handle || !source.data) throw new Error("Ingen Excel-källa är ansluten.");
+    if (source.sourceKind === "migration") throw new Error("Migreringskällan skrivs inte om. Skapa först en ny Lokalblick-fil under Datakällor.");
     if (source.mode !== "readwrite") throw new Error("Källan är ansluten som läsbar. Byt till Läs + skriv först.");
     const access = await permission(source.handle, "readwrite", true);
     if (access !== "granted") throw new Error("Skrivåtkomst godkändes inte.");
@@ -596,6 +744,9 @@
 
   async function setMode(mode) {
     const next = mode === "readwrite" ? "readwrite" : "read";
+    if (next === "readwrite" && source.sourceKind === "migration") {
+      throw new Error("Migreringskällan är skrivskyddad. Skapa en ny Lokalblick-fil för fortsatt arbete.");
+    }
     if (next === "readwrite" && source.handle) {
       const access = await permission(source.handle, "readwrite", true);
       if (access !== "granted") throw new Error("Skrivåtkomst godkändes inte.");
@@ -616,6 +767,8 @@
     source.workbook = null;
     source.discovered = [];
     source.pendingChanges = [];
+    source.sourceKind = "canonical";
+    source.migrationReport = null;
     await forgetHandle();
     if (window.LokalblickDemoDataService) window.LokalblickDataService = window.LokalblickDemoDataService;
     return window.LokalblickDataService.load();
@@ -630,12 +783,14 @@
       dirty:source.dirty,
       lastRead:source.lastRead,
       discovered:clone(source.discovered || []),
-      pendingChanges:clone(source.pendingChanges || [])
+      pendingChanges:clone(source.pendingChanges || []),
+      sourceKind:source.sourceKind || "canonical",
+      migrationReport:clone(source.migrationReport || null)
     };
   }
 
   window.LokalblickSourceService = {
-    schemas:SCHEMAS,
+    schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]),
     connect:connect,
     reconnect:reconnect,
     createFile:createFile,
