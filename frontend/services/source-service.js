@@ -186,15 +186,166 @@
     });
   }
 
+  function schemaRowsFromSheet(workbook, schema) {
+    const rows = normalizeRows(rowsFromSheet(workbook, schema.sheet));
+    return rows.map(function(row) {
+      const out = {};
+      schema.columns.forEach(function(column) {
+        const field = column[0], label = column[1];
+        if (Object.prototype.hasOwnProperty.call(row, label)) out[field] = row[label];
+        else if (Object.prototype.hasOwnProperty.call(row, field)) out[field] = row[field];
+        else out[field] = "";
+      });
+      (schema.display || []).forEach(function(label) {
+        out["__display_" + label] = row[label] == null ? "" : row[label];
+      });
+      return out;
+    });
+  }
+
+  function nextStableId(prefix, rows) {
+    const used = new Set((rows || []).map(function(row){ return String(row.id || ""); }));
+    let n = 1;
+    while (used.has(prefix + "-" + String(n).padStart(4,"0"))) n++;
+    return prefix + "-" + String(n).padStart(4,"0");
+  }
+
+  function ensureStableIds(data) {
+    SCHEMAS.forEach(function(schema) {
+      const rows = data[schema.key] || [];
+      rows.forEach(function(row) {
+        if (!row.id) row.id = nextStableId(schema.prefix || "ID", rows);
+      });
+    });
+  }
+
+  function propertyDisplay(property) {
+    if (!property) return "";
+    return property.address || property.designation || property.id || "";
+  }
+  function contractDisplay(contract) {
+    if (!contract) return "";
+    return contract.number || contract.id || "";
+  }
+  function orgDisplay(org) {
+    return org ? (org.name || org.id || "") : "";
+  }
+  function personDisplay(person) {
+    return person ? (person.name || person.id || "") : "";
+  }
+  function unitDisplay(id) {
+    return {
+      VARDBO:"VÅRDBO", ORDBO:"ORDBO", MYND_STAB:"Myndighet / Stab", HOF:"Hälsa & Förebyggande"
+    }[id] || id || "";
+  }
+  function unitIdFromDisplay(value) {
+    const text = String(value || "").trim().toLowerCase();
+    const pairs = {
+      "vårdbo":"VARDBO","vardbo":"VARDBO","ordbo":"ORDBO",
+      "myndighet / stab":"MYND_STAB","myndighet/stab":"MYND_STAB",
+      "hälsa & förebyggande":"HOF","halsa & forebyggande":"HOF"
+    };
+    return pairs[text] || value || "";
+  }
+
+  function byDisplay(rows, value, displayFn) {
+    const wanted = String(value || "").trim().toLowerCase();
+    if (!wanted) return null;
+    return (rows || []).find(function(row) {
+      return String(displayFn(row) || "").trim().toLowerCase() === wanted ||
+        String(row.id || "").trim().toLowerCase() === wanted;
+    }) || null;
+  }
+
+  function resolveHumanRelations(data) {
+    const properties=data.properties||[], contracts=data.contracts||[], organizations=data.organizations||[], people=data.people||[];
+
+    (data.contracts||[]).forEach(function(row) {
+      if (!row.propertyId && row.__display_Fastighet) {
+        const match=byDisplay(properties,row.__display_Fastighet,propertyDisplay); if(match) row.propertyId=match.id;
+      }
+      if (!row.tenantOrgId && row.__display_Hyresgäst) {
+        const match=byDisplay(organizations,row.__display_Hyresgäst,orgDisplay); if(match) row.tenantOrgId=match.id;
+      }
+      if (!row.ownerOrgId && row.__display_Fastighetsägare) {
+        const match=byDisplay(organizations,row.__display_Fastighetsägare,orgDisplay); if(match) row.ownerOrgId=match.id;
+      }
+      if (!row.unitId && row.__display_Område) row.unitId=unitIdFromDisplay(row.__display_Område);
+    });
+
+    (data.people||[]).forEach(function(row) {
+      if (!row.organizationId && row.__display_Organisation) {
+        const match=byDisplay(organizations,row.__display_Organisation,orgDisplay); if(match) row.organizationId=match.id;
+      }
+      if (!row.unitId && row.__display_Område) row.unitId=unitIdFromDisplay(row.__display_Område);
+    });
+
+    function resolveCommon(row) {
+      if (!row.propertyId && row.__display_Fastighet) {
+        const match=byDisplay(properties,row.__display_Fastighet,propertyDisplay); if(match) row.propertyId=match.id;
+      }
+      if (!row.contractId && row.__display_Avtal) {
+        const match=byDisplay(contracts,row.__display_Avtal,contractDisplay); if(match) row.contractId=match.id;
+      }
+      if (!row.responsiblePersonId && row.__display_Ansvarig) {
+        const match=byDisplay(people,row.__display_Ansvarig,personDisplay); if(match) row.responsiblePersonId=match.id;
+      }
+    }
+    ["projects","maintenance","operations","investigations","maintenanceStatus","driftIssues","wishes"].forEach(function(key) {
+      (data[key]||[]).forEach(resolveCommon);
+    });
+
+    (data.assignments||[]).forEach(function(row) {
+      if (!row.personId && row.__display_Person) {
+        const match=byDisplay(people,row.__display_Person,personDisplay); if(match) row.personId=match.id;
+      }
+      if (!row.targetId && row.__display_Mål) {
+        const wanted=String(row.__display_Mål||"").trim().toLowerCase();
+        const groups=[
+          ["property",properties,propertyDisplay],["object",contracts,contractDisplay],
+          ["project",data.projects||[],function(x){return x.name||x.id;}],
+          ["maintenance",data.maintenance||[],function(x){return x.title||x.id;}],
+          ["driftIssue",data.driftIssues||[],function(x){return x.title||x.id;}],
+          ["wish",data.wishes||[],function(x){return x.title||x.id;}]
+        ];
+        for (const group of groups) {
+          const match=(group[1]||[]).find(function(x){return String(group[2](x)||"").trim().toLowerCase()===wanted;});
+          if(match){row.targetType=group[0];row.targetId=match.id;break;}
+        }
+      }
+    });
+
+    SCHEMAS.forEach(function(schema) {
+      (data[schema.key]||[]).forEach(function(row) {
+        Object.keys(row).filter(function(key){return key.indexOf("__display_")===0;}).forEach(function(key){delete row[key];});
+      });
+    });
+  }
+
   function workbookToData(workbook) {
     const data = { isDemo:false, sourceName:source.fileName || "Excel-källa" };
     SCHEMAS.forEach(function(schema) {
-      data[schema.key] = normalizeRows(rowsFromSheet(workbook, schema.sheet));
+      data[schema.key] = schemaRowsFromSheet(workbook, schema);
     });
+    ensureStableIds(data);
+    resolveHumanRelations(data);
 
-    const plans = normalizeRows(rowsFromSheet(workbook, "Budgetplaner"));
-    const targets = normalizeRows(rowsFromSheet(workbook, "Budgetmål"));
-    const lines = normalizeRows(rowsFromSheet(workbook, "Budgetrader"));
+    function budgetRows(sheet, columns) {
+      const rows=normalizeRows(rowsFromSheet(workbook,sheet));
+      return rows.map(function(row) {
+        const out={};
+        columns.forEach(function(column) {
+          const field=column[0], label=column[1];
+          out[field]=Object.prototype.hasOwnProperty.call(row,label) ? row[label] : (row[field] == null ? "" : row[field]);
+        });
+        return out;
+      });
+    }
+
+    const plans = budgetRows("Budgetplaner",[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"]]);
+    const targets = budgetRows("Budgetmål",[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]);
+    const lines = budgetRows("Budgetrader",[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["contractId","_contractId"],["propertyId","_propertyId"],["amount","Belopp"]]);
+
     data.budgetPlans = plans.map(function(plan) {
       const year = Number(plan.year) || plan.year;
       const planTargets = {};
@@ -204,12 +355,8 @@
         if (x.note) notes[x.category] = x.note;
       });
       return {
-        year: year,
-        status: plan.status || "",
-        createdAt: plan.createdAt || "",
-        lockedAt: plan.lockedAt || "",
-        notes: notes,
-        targets: planTargets,
+        year: year, status: plan.status || "", createdAt: plan.createdAt || "", lockedAt: plan.lockedAt || "",
+        notes: notes, targets: planTargets,
         lines: lines.filter(function(x){ return String(x.year) === String(year); }).map(function(x) {
           return {
             category:x.category || "", sub:x.sub || "", source:x.source || "",
@@ -221,50 +368,107 @@
     return data;
   }
 
-  function sheetFromRows(rows, fields) {
-    const safeRows = (rows || []).map(function(row) {
-      const out = {};
-      fields.forEach(function(field) { out[field] = row[field] == null ? "" : row[field]; });
+  function displayValue(schema, label, row, data) {
+    const properties=data.properties||[], contracts=data.contracts||[], organizations=data.organizations||[], people=data.people||[];
+    if (label==="Fastighet") return propertyDisplay(properties.find(function(x){return x.id===row.propertyId;}));
+    if (label==="Avtal") return contractDisplay(contracts.find(function(x){return x.id===row.contractId;}));
+    if (label==="Hyresgäst") return orgDisplay(organizations.find(function(x){return x.id===row.tenantOrgId;}));
+    if (label==="Fastighetsägare") return orgDisplay(organizations.find(function(x){return x.id===row.ownerOrgId;})) || row.owner || "";
+    if (label==="Organisation") return orgDisplay(organizations.find(function(x){return x.id===row.organizationId;}));
+    if (label==="Område") return unitDisplay(row.unitId);
+    if (label==="Ansvarig") return personDisplay(people.find(function(x){return x.id===row.responsiblePersonId;}));
+    if (label==="Person") return personDisplay(people.find(function(x){return x.id===row.personId;}));
+    if (label==="Från person") return personDisplay(people.find(function(x){return x.id===row.fromPersonId;}));
+    if (label==="Till person") return personDisplay(people.find(function(x){return x.id===row.toPersonId;}));
+    if (label==="Mål") {
+      const lookups=[
+        [properties,propertyDisplay],[contracts,contractDisplay],
+        [data.projects||[],function(x){return x.name||x.id;}],[data.maintenance||[],function(x){return x.title||x.id;}],
+        [data.driftIssues||[],function(x){return x.title||x.id;}],[data.wishes||[],function(x){return x.title||x.id;}]
+      ];
+      for (const lookup of lookups) {
+        const found=(lookup[0]||[]).find(function(x){return x.id===row.targetId;});
+        if(found) return lookup[1](found);
+      }
+      return row.targetId || "";
+    }
+    return "";
+  }
+
+  function sheetFromSchema(schema, rows, data) {
+    const visible = schema.columns.filter(function(column){return !column[2];});
+    const hidden = schema.columns.filter(function(column){return Boolean(column[2]);});
+    const headers = visible.map(function(column){return column[1];})
+      .concat(schema.display || [])
+      .concat(hidden.map(function(column){return column[1];}));
+
+    const excelRows=(rows||[]).map(function(row) {
+      const out={};
+      visible.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : row[column[0]];});
+      (schema.display||[]).forEach(function(label){out[label]=displayValue(schema,label,row,data);});
+      hidden.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : row[column[0]];});
       return out;
     });
-    if (safeRows.length) return XLSX.utils.json_to_sheet(safeRows, { header:fields });
-    return XLSX.utils.aoa_to_sheet([fields]);
+
+    const ws=excelRows.length ? XLSX.utils.json_to_sheet(excelRows,{header:headers}) : XLSX.utils.aoa_to_sheet([headers]);
+    const visibleCount=visible.length+(schema.display||[]).length;
+    ws["!cols"]=headers.map(function(header,index){
+      return { hidden:index>=visibleCount, wch:index>=visibleCount?14:Math.max(12,Math.min(28,String(header).length+4)) };
+    });
+    ws["!autofilter"]={ref:ws["!ref"] || "A1:A1"};
+    return ws;
+  }
+
+  function simpleSheet(rows, columns) {
+    const headers=columns.map(function(column){return column[1];});
+    const excelRows=(rows||[]).map(function(row){
+      const out={};
+      columns.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : row[column[0]];});
+      return out;
+    });
+    const ws=excelRows.length ? XLSX.utils.json_to_sheet(excelRows,{header:headers}) : XLSX.utils.aoa_to_sheet([headers]);
+    ws["!cols"]=columns.map(function(column){
+      return {hidden:Boolean(column[2]),wch:column[2]?14:Math.max(12,Math.min(28,String(column[1]).length+4))};
+    });
+    ws["!autofilter"]={ref:ws["!ref"] || "A1:A1"};
+    return ws;
   }
 
   function dataToWorkbook(data) {
+    ensureStableIds(data);
     const workbook = XLSX.utils.book_new();
     const metadata = [
       ["Lokalblick modellversion", MODEL_VERSION],
       ["Skapad", new Date().toISOString()],
       ["Källa", data && data.sourceName ? data.sourceName : "Lokalblick Excel-källa"],
-      ["Princip", "Stabila ID:n används för relationer och säker återkoppling"]
+      ["Så används filen", "Synliga kolumner är för användaren. Kolumner som börjar med _ är tekniska ID:n och är dolda i Excel."],
+      ["ID", "Lokalblick skapar och behåller stabila ID:n automatiskt. Ändra dem inte manuellt."]
     ];
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(metadata), "Lokalblick");
 
     SCHEMAS.forEach(function(schema) {
-      XLSX.utils.book_append_sheet(workbook, sheetFromRows((data && data[schema.key]) || [], schema.fields), schema.sheet);
+      XLSX.utils.book_append_sheet(workbook, sheetFromSchema(schema,(data&&data[schema.key])||[],data), schema.sheet);
     });
 
     const plans = (data && data.budgetPlans) || [];
-    XLSX.utils.book_append_sheet(workbook, sheetFromRows(plans.map(function(plan) {
-      return { year:plan.year, status:plan.status || "", createdAt:plan.createdAt || "", lockedAt:plan.lockedAt || "" };
-    }), ["year","status","createdAt","lockedAt"]), "Budgetplaner");
+    XLSX.utils.book_append_sheet(workbook, simpleSheet(plans.map(function(plan) {
+      return {year:plan.year,status:plan.status||"",createdAt:plan.createdAt||"",lockedAt:plan.lockedAt||""};
+    }),[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"]]),"Budgetplaner");
 
-    const targetRows = [];
-    const lineRows = [];
+    const targetRows=[], lineRows=[];
     plans.forEach(function(plan) {
-      Object.keys(plan.targets || {}).forEach(function(category) {
-        targetRows.push({ year:plan.year, category:category, amount:plan.targets[category], note:(plan.notes || {})[category] || "" });
+      Object.keys(plan.targets||{}).forEach(function(category) {
+        targetRows.push({year:plan.year,category:category,amount:plan.targets[category],note:(plan.notes||{})[category]||""});
       });
-      (plan.lines || []).forEach(function(line) {
+      (plan.lines||[]).forEach(function(line) {
         lineRows.push({
-          year:plan.year, category:line.category || "", sub:line.sub || "", source:line.source || "",
-          contractId:line.contractId || "", propertyId:line.propertyId || "", amount:Number(line.amount) || 0
+          year:plan.year,category:line.category||"",sub:line.sub||"",source:line.source||"",
+          contractId:line.contractId||"",propertyId:line.propertyId||"",amount:Number(line.amount)||0
         });
       });
     });
-    XLSX.utils.book_append_sheet(workbook, sheetFromRows(targetRows, ["year","category","amount","note"]), "Budgetmål");
-    XLSX.utils.book_append_sheet(workbook, sheetFromRows(lineRows, ["year","category","sub","source","contractId","propertyId","amount"]), "Budgetrader");
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(targetRows,[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]),"Budgetmål");
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["contractId","_contractId",true],["propertyId","_propertyId",true]]),"Budgetrader");
     return workbook;
   }
 
