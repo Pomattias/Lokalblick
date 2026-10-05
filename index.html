@@ -21,7 +21,43 @@
     .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}.search{min-width:240px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:white}.select{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:white}
     .section{display:none}.section.active{display:block}.empty{padding:36px;text-align:center;color:var(--muted)}.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}.statline{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #edf0f2}.statline:last-child{border-bottom:0}.big{font-size:22px;font-weight:800}
     .loadnote{padding:10px 12px;border-radius:10px;background:#eef5fb;color:#315f86;font-size:12px;margin-bottom:14px}.footer-note{margin-top:22px;color:var(--muted);font-size:11px}
-    @media(max-width:900px){.shell{grid-template-columns:1fr}.nav{display:flex;overflow:auto;gap:4px;border-right:0;border-bottom:1px solid var(--line);padding:9px}.nav button{white-space:nowrap;width:auto}.topbar{padding:12px 14px}.source{display:none}main{padding:16px}.title-row{flex-direction:column}.kpis{grid-template-columns:repeat(2,1fr)}.grid2,.split{grid-template-columns:1fr}.bar-row{grid-template-columns:95px 1fr 42px}.hint{text-align:left}}
+    .mobile-control{display:none}
+    @media(max-width:900px){
+      .shell{grid-template-columns:1fr}
+      .nav{display:none}
+      .topbar{padding:11px 14px}
+      .brand{font-size:15px}.mark{width:32px;height:32px;border-radius:9px}
+      .source{display:none}
+      main{padding:12px 12px 24px}
+      .mobile-control{display:block;margin:0 -2px 14px;padding:12px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 20px rgba(27,39,51,.06)}
+      .mobile-filter-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+      .mobile-filter-chip,.mobile-content-chip,.mobile-sub-chip{border:1px solid var(--line);background:#f8fafb;color:#35404b;border-radius:11px;min-height:42px;padding:8px 9px;font-weight:750;cursor:pointer}
+      .mobile-filter-chip{min-width:0;text-align:left}
+      .mobile-filter-label{display:block;font-size:9px;line-height:1.05;text-transform:uppercase;letter-spacing:.055em;color:#7a8590;margin-bottom:3px}
+      .mobile-filter-value{display:block;font-size:12px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .mobile-filter-chip.selected{border-color:#9bb5cc;background:#eef4f9;color:var(--blue)}
+      .mobile-search-wrap{position:relative;margin-top:8px}
+      .mobile-search-wrap:before{content:"⌕";position:absolute;left:12px;top:50%;transform:translateY(-52%);color:#7d8791;font-size:18px;pointer-events:none}
+      .mobile-search{width:100%;border:1px solid var(--line);border-radius:11px;background:#f8fafb;padding:11px 12px 11px 37px;outline:none}
+      .mobile-search:focus{border-color:#9bb5cc;background:#fff;box-shadow:0 0 0 3px rgba(47,110,165,.09)}
+      .mobile-content-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:12px;padding-top:12px;border-top:1px solid #e8ecef}
+      .mobile-content-chip{text-align:center;background:#fff}
+      .mobile-content-chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
+      .mobile-sub-row{display:none;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:7px}
+      .mobile-sub-row.visible{display:grid}
+      .mobile-sub-chip{min-height:38px;padding:7px 5px;text-align:center;font-size:12px;background:#f4f7f9}
+      .mobile-sub-chip.active{background:#e8f0f7;border-color:#a9bfd2;color:var(--blue)}
+      .title-row{flex-direction:column;gap:10px;margin-bottom:12px}
+      .title{font-size:25px}.eyebrow{font-size:10px}.sub{font-size:13px}
+      .kpis{grid-template-columns:repeat(2,1fr)}
+      .grid2,.split{grid-template-columns:1fr}
+      .bar-row{grid-template-columns:95px 1fr 42px}
+      .hint{text-align:left}
+      body.mobile-content-mode #dashboard,
+      body.mobile-content-mode #properties,
+      body.mobile-content-mode #people{display:none!important}
+      .footer-note{margin-top:14px}
+    }
   </style>
 </head>
 <body>
@@ -41,6 +77,33 @@
       <button data-page="people">Personer & ansvar</button>
     </nav>
     <main>
+      <div class="mobile-control" id="mobileControl" aria-label="Filtrering och innehåll">
+        <div class="mobile-filter-row">
+          <button class="mobile-filter-chip" type="button" data-mobile-filter="area">
+            <span class="mobile-filter-label">Område</span><span class="mobile-filter-value">Alla</span>
+          </button>
+          <button class="mobile-filter-chip" type="button" data-mobile-filter="owner">
+            <span class="mobile-filter-label">Ansvarig</span><span class="mobile-filter-value">Alla</span>
+          </button>
+          <button class="mobile-filter-chip" type="button" data-mobile-filter="property">
+            <span class="mobile-filter-label">Fastighet</span><span class="mobile-filter-value">Alla</span>
+          </button>
+        </div>
+        <div class="mobile-search-wrap">
+          <input id="mobileSearch" class="mobile-search" type="search" placeholder="Sök i vald vy…" autocomplete="off">
+        </div>
+        <div class="mobile-content-row" aria-label="Innehåll">
+          <button class="mobile-content-chip active" type="button" data-mobile-page="contracts">Hyra</button>
+          <button class="mobile-content-chip" type="button" data-mobile-page="projects">Projekt</button>
+          <button class="mobile-content-chip" type="button" data-mobile-page="running">Löpande</button>
+        </div>
+        <div class="mobile-sub-row" id="mobileSubRow" aria-label="Löpande">
+          <button class="mobile-sub-chip active" type="button" data-mobile-page="maintenance">Underhåll</button>
+          <button class="mobile-sub-chip" type="button" data-mobile-page="operations">Drift</button>
+          <button class="mobile-sub-chip" type="button" data-mobile-page="requests">Önskemål</button>
+        </div>
+      </div>
+
       <section id="dashboard" class="section active">
         <div class="title-row">
           <div><div class="eyebrow">Portföljöversikt</div><h1 class="title">Bestånd, arbete och behov</h1><div class="sub">LEB utgör basen. Projekt, UH, drift och personer kopplas som egna lager.</div></div>
@@ -80,6 +143,17 @@
       <section id="operations" class="section">
         <div class="title-row"><div><div class="eyebrow">Periodiserad data</div><h1 class="title">Drift</h1><div class="sub">Faktisk drift hålls separat från avtalets driftstillägg.</div></div></div>
         <div class="grid2"><div class="card"><div class="card-head"><div class="card-title">Drift per kostnadsslag</div></div><div class="card-body" id="operationBars"></div></div><div class="card"><div class="card-head"><div class="card-title">Nyckeltal</div></div><div class="card-body"><div class="statline"><span>Total drift</span><strong>9,8 mkr</strong></div><div class="statline"><span>Kr/kvm</span><strong>88 kr</strong></div><div class="statline"><span>Mot budget</span><strong>+2,1 %</strong></div></div></div></div>
+      </section>
+
+      <section id="requests" class="section">
+        <div class="title-row"><div><div class="eyebrow">Löpande ärenden</div><h1 class="title">Önskemål</h1><div class="sub">Önskemål och mindre beställningar samlade per fastighet, med status och ansvar.</div></div></div>
+        <div class="card">
+          <div class="card-body">
+            <div class="statline"><span>Inkomna önskemål</span><strong>12</strong></div>
+            <div class="statline"><span>Beställda</span><strong>5</strong></div>
+            <div class="statline"><span>Utförda</span><strong>7</strong></div>
+          </div>
+        </div>
       </section>
 
       <section id="people" class="section">
@@ -222,8 +296,71 @@ function renderPeople(){
 }
 function renderAll(){renderDashboard();renderProperties();renderContracts();renderProjects();renderMaintenance();renderOperations();renderPeople()}
 document.getElementById("propertySearch").addEventListener("input",renderProperties);document.getElementById("propertyType").addEventListener("change",renderProperties);document.getElementById("contractSearch").addEventListener("input",renderContracts);
-document.getElementById("nav").addEventListener("click",e=>{const b=e.target.closest("button[data-page]");if(!b)return;document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));document.getElementById(b.dataset.page).classList.add("active");window.scrollTo({top:0,behavior:"smooth"})});
+
+function showSection(page,scroll=true){
+  document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));
+  const target=document.getElementById(page);
+  if(target)target.classList.add("active");
+  document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
+  if(scroll)window.scrollTo({top:0,behavior:"smooth"});
+}
+document.getElementById("nav").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-page]");if(!b)return;
+  document.body.classList.remove("mobile-content-mode");
+  showSection(b.dataset.page);
+});
+
+const mobileControl=document.getElementById("mobileControl");
+const mobileSearch=document.getElementById("mobileSearch");
+const mobileSubRow=document.getElementById("mobileSubRow");
+let mobilePage="contracts";
+
+function setMobilePage(page){
+  document.body.classList.add("mobile-content-mode");
+  const isRunning=["maintenance","operations","requests"].includes(page)||page==="running";
+  if(page==="running")page=document.querySelector(".mobile-sub-chip.active")?.dataset.mobilePage||"maintenance";
+  mobilePage=page;
+  document.querySelectorAll(".mobile-content-chip").forEach(b=>{
+    const active=b.dataset.mobilePage===page || (b.dataset.mobilePage==="running"&&isRunning);
+    b.classList.toggle("active",active);
+  });
+  mobileSubRow.classList.toggle("visible",isRunning);
+  document.querySelectorAll(".mobile-sub-chip").forEach(b=>b.classList.toggle("active",b.dataset.mobilePage===page));
+  showSection(page,false);
+  applyMobileSearch();
+}
+
+function applyMobileSearch(){
+  const q=(mobileSearch.value||"").trim().toLowerCase();
+  const section=document.getElementById(mobilePage);
+  if(!section)return;
+  section.querySelectorAll("tbody tr").forEach(row=>{
+    row.style.display=!q||row.textContent.toLowerCase().includes(q)?"":"none";
+  });
+}
+
+mobileControl.addEventListener("click",e=>{
+  const filter=e.target.closest("[data-mobile-filter]");
+  if(filter){
+    document.querySelectorAll(".mobile-filter-chip").forEach(b=>b.classList.remove("selected"));
+    filter.classList.add("selected");
+    return;
+  }
+  const choice=e.target.closest("[data-mobile-page]");
+  if(choice)setMobilePage(choice.dataset.mobilePage);
+});
+mobileSearch.addEventListener("input",applyMobileSearch);
+
+function syncMobileMode(){
+  if(window.matchMedia("(max-width:900px)").matches){
+    setMobilePage(mobilePage);
+  }else{
+    document.body.classList.remove("mobile-content-mode");
+  }
+}
+window.addEventListener("resize",syncMobileMode);
 renderAll();
+syncMobileMode();
 </script>
 </body>
 </html>
