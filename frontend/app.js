@@ -1229,22 +1229,6 @@ function updateQuickScopeButtons() {
   });
 }
 
-function mobileScopePickerHtml() {
-  const cards = [{ id:"", name:"Alla" }].concat(ORG_UNITS.map(function(unit) {
-    return { id:unit.id, name:unit.name };
-  }));
-  return '<details class="mobile-scope-picker" id="mobile-scope-picker">' +
-    '<summary><span class="mobile-picker-kicker">Urval</span><strong id="mobile-scope-label">Alla fastigheter</strong><span class="mobile-picker-chevron">⌄</span></summary>' +
-    '<div class="mobile-scope-options">' +
-      cards.map(function(card) {
-        const contracts = card.id ? state.contracts.filter(function(c){return c.unitId===card.id;}) : state.contracts;
-        const properties = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
-        return '<button type="button" data-quick-unit="' + esc(card.id) + '">' +
-          '<span><strong>' + esc(card.name) + '</strong><small>' + properties + ' fastigheter · ' + contracts.length + ' avtal</small></span><span>→</span>' +
-        '</button>';
-      }).join("") +
-    '</div></details>';
-}
 function mobileModeChooserHtml(contracts) {
   const items = portfolioActivityItems(contracts);
   const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
@@ -1487,9 +1471,6 @@ function mobileContextHtml() {
   return "";
 }
 function updateMobilePortfolioSurfaces(contracts) {
-  const label=document.getElementById("mobile-scope-label");
-  if(label) label.textContent=portfolioScopeTitle();
-
   const modes=document.getElementById("mobile-content-tabs");
   if(modes) {
     modes.innerHTML=mobileModeChooserHtml(contracts);
@@ -1789,11 +1770,10 @@ function renderProperties() {
         '<div class="scope-heading"><span>Zooma in</span><small>Välj område eller gå vidare till en fastighet</small></div>' +
         '<div class="scope-grid">' + portfolioScopeCardsHtml() + '</div>' +
       '</div>' +
-      '<div class="mobile-only mobile-scope-wrap">' + mobileScopePickerHtml() + '</div>' +
+      '<div id="mobile-quick-summary" class="mobile-only">' + mobileQuickSummaryHtml(state.contracts) + '</div>' +
+      '<div id="mobile-scope-filters" class="mobile-only">' + mobileScopeFiltersHtml(filters) + '</div>' +
       '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" placeholder="Sök fastighet, avtal, kund eller person…">' +
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
-      '<div id="mobile-scope-filters" class="mobile-only">' + mobileScopeFiltersHtml(filters) + '</div>' +
-      '<div id="mobile-quick-summary" class="mobile-only">' + mobileQuickSummaryHtml(state.contracts) + '</div>' +
       '<div id="mobile-content-tabs" class="mobile-content-tabs mobile-only">' + mobileModeChooserHtml(state.contracts) + '</div>' +
       '<div class="mobile-only" id="mobile-context"></div>' +
       '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
@@ -2212,6 +2192,15 @@ function bindEditButtons() {
   });
 }
 function bindMobileScopeFilterControls() {
+  document.querySelectorAll(".mobile-filter-chip:not([data-mobile-chip-bound])").forEach(function(details) {
+    details.dataset.mobileChipBound="1";
+    details.addEventListener("toggle",function() {
+      if (!details.open) return;
+      document.querySelectorAll(".mobile-filter-chip[open]").forEach(function(other) {
+        if (other !== details) other.removeAttribute("open");
+      });
+    });
+  });
   document.querySelectorAll("[data-mobile-filter-id]:not([data-mobile-filter-bound])").forEach(function(button) {
     button.dataset.mobileFilterBound="1";
     button.addEventListener("click",function(event){
