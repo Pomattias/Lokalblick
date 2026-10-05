@@ -207,6 +207,13 @@
       message.indexOf("state had changed since it was read from disk") !== -1;
   }
 
+  function isBlockedWriteError(error) {
+    const message = String(error && error.message || "").toLowerCase();
+    return Boolean(error && error.name === "NoModificationAllowedError") ||
+      message.indexOf("being used by another process") !== -1 ||
+      message.indexOf("could not be modified") !== -1;
+  }
+
   async function pickFreshWriteHandle() {
     if (!window.showSaveFilePicker) throw new Error("Ny filkoppling kräver Edge eller Chrome.");
     return window.showSaveFilePicker({
@@ -678,6 +685,8 @@
     source.connected = true;
     source.dirty = false;
     source.pendingChanges = [];
+    source.writeRecoveryNeeded = false;
+    source.lastWriteError = "";
     source.lastRead = new Date();
     source.discovered = discoverWorkbook(workbook);
     await rememberHandle(handle, source.mode);
@@ -726,6 +735,8 @@
     source.connected = true;
     source.dirty = false;
     source.pendingChanges = [];
+    source.writeRecoveryNeeded = false;
+    source.lastWriteError = "";
     source.lastRead = new Date();
     source.discovered = discoverWorkbook(workbook);
     await rememberHandle(handle, source.mode);
@@ -776,6 +787,12 @@
         source.writeRecoveryNeeded = true;
         const friendly = new Error("Filkopplingen behöver förnyas. Dina ändringar ligger kvar i Lokalblick. Klicka på Spara till Excel igen och välj samma fil.");
         friendly.code = "LOKALBLICK_RESELECT_WRITE";
+        throw friendly;
+      }
+      if (isBlockedWriteError(error)) {
+        source.writeRecoveryNeeded = true;
+        const friendly = new Error("Excel-filen är låst för skrivning. Stäng filen i Excel och låt eventuell synkning bli klar. Klicka sedan på Spara till Excel igen.");
+        friendly.code = "LOKALBLICK_FILE_LOCKED";
         throw friendly;
       }
       throw error;
