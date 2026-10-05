@@ -10,15 +10,32 @@
     const bounds = [];
 
     (points || []).filter(validPoint).forEach(function(point) {
-      const marker = L.circleMarker(
-        [Number(point.latitude), Number(point.longitude)],
-        {
-          radius: 9,
-          weight: 3,
-          opacity: 1,
-          fillOpacity: 0.82
-        }
-      );
+      let marker;
+      if (Number.isFinite(Number(point.metricRatio))) {
+        const ratio=Math.max(0.04,Math.min(1,Number(point.metricRatio)||0));
+        const height=Math.round(18 + ratio * 64);
+        const label=String(point.metricLabel || "");
+        const icon=L.divIcon({
+          className:"lokalblick-map-bar-icon",
+          html:'<div class="lokalblick-map-bar-wrap" style="height:' + (height+22) + 'px">' +
+            '<span class="lokalblick-map-bar-label">' + label.replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch];}) + '</span>' +
+            '<span class="lokalblick-map-bar" style="height:' + height + 'px"></span>' +
+            '<span class="lokalblick-map-bar-dot"></span></div>',
+          iconSize:[52,height+22],
+          iconAnchor:[26,height+20]
+        });
+        marker=L.marker([Number(point.latitude), Number(point.longitude)], { icon:icon, riseOnHover:true });
+      } else {
+        marker = L.circleMarker(
+          [Number(point.latitude), Number(point.longitude)],
+          {
+            radius: 9,
+            weight: 3,
+            opacity: 1,
+            fillOpacity: 0.82
+          }
+        );
+      }
 
       if (point.popupHtml) {
         marker.bindPopup(point.popupHtml, {
