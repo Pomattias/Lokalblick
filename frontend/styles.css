@@ -5171,3 +5171,33 @@ button.property-control-card:hover {
     padding-inline:8px;
   }
 }
+
+
+/* 2026-10-05 planning audit trail */
+@media (max-width:700px) {
+  .plan-history {
+    display:grid;
+    gap:3px;
+    padding:7px 8px;
+    border:1px solid #e0e6ea;
+    border-radius:9px;
+    background:#fff;
+  }
+
+  .plan-history > span {
+    color:#74818a;
+    font-size:8px;
+    font-weight:850;
+  }
+
+  .plan-history small {
+    display:block;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:#687680;
+    font-size:8px;
+    line-height:1.35;
+  }
+}
