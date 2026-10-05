@@ -30,6 +30,7 @@
     dirty:false,
     lastRead:null,
     data:null,
+    baselineData:null,
     workbook:null,
     discovered:[],
     pendingChanges:[]
@@ -264,6 +265,7 @@
     source.mode = mode === "readwrite" ? "readwrite" : "read";
     source.workbook = workbook;
     source.data = workbookToData(workbook);
+    source.baselineData = clone(source.data);
     source.connected = true;
     source.dirty = false;
     source.pendingChanges = [];
@@ -311,6 +313,7 @@
     source.mode = mode === "readwrite" ? "readwrite" : "read";
     source.workbook = workbook;
     source.data = base;
+    source.baselineData = clone(base);
     source.connected = true;
     source.dirty = false;
     source.pendingChanges = [];
@@ -329,7 +332,7 @@
         const next = clone(data);
         next.isDemo = false;
         next.sourceName = source.fileName || "Excel-källa";
-        source.pendingChanges = diffData(source.data || {}, next);
+        source.pendingChanges = diffData(source.baselineData || {}, next);
         source.data = next;
         source.dirty = source.pendingChanges.length > 0;
         return clone(source.data);
@@ -349,6 +352,7 @@
     await writable.write(bytes);
     await writable.close();
     source.workbook = workbook;
+    source.baselineData = clone(source.data);
     source.dirty = false;
     source.pendingChanges = [];
     source.lastRead = new Date();
@@ -374,6 +378,7 @@
     source.dirty = false;
     source.lastRead = null;
     source.data = null;
+    source.baselineData = null;
     source.workbook = null;
     source.discovered = [];
     source.pendingChanges = [];
