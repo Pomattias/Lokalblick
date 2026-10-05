@@ -5246,3 +5246,14 @@ button.property-control-card:hover {
 @media(max-width:700px){
   .source-pending-button,.source-synced{margin-left:0}
 }
+
+
+.source-save-cluster{margin-left:auto;display:flex;align-items:center;gap:8px}
+.source-review-link{border:0;background:transparent;color:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px 4px}
+.source-save-button{border:1px solid #d89a00;background:#fff2b8;color:#6d5100;border-radius:999px;padding:8px 12px;font-weight:900;cursor:pointer;box-shadow:0 0 0 3px rgba(216,154,0,.10)}
+.source-save-button:hover{background:#ffe88a}
+.source-save-button:disabled{opacity:.65;cursor:wait}
+@media(max-width:700px){
+  .source-save-cluster{margin-left:0;width:100%;justify-content:space-between}
+  .source-save-button{padding:8px 11px}
+}
