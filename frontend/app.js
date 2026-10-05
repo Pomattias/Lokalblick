@@ -2382,6 +2382,7 @@ function apiSheetRows(discovered) {
 function renderApi() {
   const st=sourceStatus();
   const connected=st.connected;
+  const pending=st.pendingChanges || [];
   const remembered=st.remembered && !connected;
   const modeLabel=st.mode==="readwrite" ? "Läs + skriv" : "Endast läs";
   const statusLabel=connected ? "Ansluten" : remembered ? "Koppling sparad" : "Ej ansluten";
@@ -2389,7 +2390,7 @@ function renderApi() {
   const sourceName=st.fileName || "Ingen källa vald";
   return '<div class="section-stack api-page">' +
     '<section class="card pad api-hero"><div class="card-head"><div><span class="eyebrow">MER / API</span><h2>Datakällor</h2><p>Koppla Lokalblick till data där den redan finns. Lokal Excel läses och skrivs i webbläsaren; råfilen laddas inte upp.</p></div><span class="badge ' + statusClass + '">' + esc(statusLabel) + '</span></div>' +
-      '<div class="api-source-summary"><div><span>Källa</span><strong>' + esc(sourceName) + '</strong></div><div><span>Åtkomst</span><strong>' + esc(modeLabel) + '</strong></div><div><span>Senast läst</span><strong>' + (st.lastRead ? esc(new Date(st.lastRead).toLocaleString("sv-SE")) : "–") + '</strong></div><div><span>Ändringar</span><strong>' + (st.dirty ? "Ej skrivna" : "Synkron") + '</strong></div></div>' +
+      '<div class="api-source-summary"><div><span>Källa</span><strong>' + esc(sourceName) + '</strong></div><div><span>Åtkomst</span><strong>' + esc(modeLabel) + '</strong></div><div><span>Senast läst</span><strong>' + (st.lastRead ? esc(new Date(st.lastRead).toLocaleString("sv-SE")) : "–") + '</strong></div><div><span>Ändringar</span><strong>' + (st.dirty ? pending.length + " väntar" : "Synkron") + '</strong></div></div>' +
     '</section>' +
 
     '<div class="grid three-col api-source-grid">' +
@@ -2403,6 +2404,11 @@ function renderApi() {
 
     '<div class="grid two-col">' +
       card("Tabeller och fält", "Det här hittades i den valda Excel-källan.", apiSheetRows(st.discovered)) +
+      card("Väntande ändringar", pending.length ? pending.length + " ändringar väntar på att skrivas till Excel." : "Inga osparade ändringar.",
+        pending.length ? '<div class="api-change-list">' + pending.slice(0,20).map(function(change) {
+          const changedFields=(change.fields||[]).slice(0,4).join(", ");
+          return '<div class="api-change-row"><div><strong>' + esc(change.action + " · " + change.sheet) + '</strong><small>' + esc(change.id + (changedFields ? " · " + changedFields : "")) + '</small></div><span class="badge ' + (change.action==="Borttagen"?"red":change.action==="Skapad"?"green":"amber") + '">' + esc(change.action) + '</span></div>';
+        }).join("") + (pending.length>20?'<div class="muted">+'+(pending.length-20)+' fler ändringar</div>':'') + '</div>' : '<div class="empty">Ändringar du gör i Lokalblick visas här innan de skrivs till källan.</div>') +
       card("Spara till källan", "Lokalblick sparar först i arbetsytan. Skriv tillbaka är alltid ett aktivt val.",
         '<div class="section-stack"><div class="notice"><strong>Säker princip</strong><br>Stabila ID:n följer med varje rad, så ändringar kan kopplas tillbaka till rätt post.</div>' +
         '<div class="api-access-row"><span>Läge</span><strong>' + esc(modeLabel) + '</strong></div>' +
@@ -2410,7 +2416,7 @@ function renderApi() {
         '<div class="api-button-stack">' +
           (connected ? '<button type="button" class="button secondary" data-api-refresh>Hämta senaste</button>' : '') +
           (connected && st.mode==="read" ? '<button type="button" class="button secondary" data-api-mode="readwrite">Tillåt skrivning</button>' : '') +
-          (connected && st.mode==="readwrite" ? '<button type="button" class="button primary" data-api-write ' + (st.dirty ? '' : 'disabled') + '>Skriv ändringar till Excel</button>' : '') +
+          (connected && st.mode==="readwrite" ? '<button type="button" class="button primary" data-api-write ' + (st.dirty ? '' : 'disabled') + '>Skriv ' + pending.length + ' ändring' + (pending.length===1?'':'ar') + ' till Excel</button>' : '') +
           (st.remembered ? '<button type="button" class="button secondary" data-api-disconnect>Koppla bort</button>' : '') +
         '</div></div>') +
     '</div>' +
