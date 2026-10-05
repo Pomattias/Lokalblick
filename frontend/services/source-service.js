@@ -7,20 +7,50 @@
   const MODEL_VERSION = "1";
 
   const SCHEMAS = [
-    { sheet:"Fastigheter", key:"properties", fields:["id","type","address","designation","owner","manager","latitude","longitude"] },
-    { sheet:"Avtal", key:"contracts", fields:["id","propertyId","number","source","area","category","use","start","end","notice","annualRent","annualContractDrift","unitId","tenantOrgId","ownerOrgId","employees","users","rooms","commonArea","apartmentArea"] },
-    { sheet:"Organisationer", key:"organizations", fields:["id","name","type","ownerClass"] },
-    { sheet:"Personer", key:"people", fields:["id","name","organizationId","unitId","role","email"] },
-    { sheet:"Ansvar", key:"assignments", fields:["id","personId","targetType","targetId","role","fromDate","toDate","allocation"] },
-    { sheet:"Projekt", key:"projects", fields:["id","propertyId","contractId","name","description","status","phase","start","end","moveIn","budgetYear","budgetInvestigation","budgetExecution","budgetFurnishing","preliminaryCost","planningQuarter","planningMonth"] },
-    { sheet:"Underhåll", key:"maintenance", fields:["id","propertyId","contractId","title","year","cost","priority","status","planningQuarter","planningMonth"] },
-    { sheet:"Drift", key:"operations", fields:["id","propertyId","contractId","period","category","budget","actual"] },
-    { sheet:"Utredningar", key:"investigations", fields:["id","propertyId","contractId","title","year","cost","status"] },
-    { sheet:"Status", key:"maintenanceStatus", fields:["id","contractId","propertyId","category","assessedDate","status","priority","comment","actionNeed","budgetYear","estimatedCost","includeInBudget","responsiblePersonId","planningQuarter","planningMonth"] },
-    { sheet:"Driftärenden", key:"driftIssues", fields:["id","contractId","propertyId","category","title","description","createdDate","targetDate","decisionDate","completedDate","status","priority","responsiblePersonId","budgetYear","estimatedCost","finalCost","includeInBudget","planningQuarter","planningMonth"] },
-    { sheet:"Önskemål", key:"wishes", fields:["id","contractId","propertyId","category","title","description","createdDate","targetDate","decisionDate","completedDate","status","responsiblePersonId","budgetYear","budgetCategory","estimatedCost","finalCost","includeInBudget"] },
-    { sheet:"Ansvarshistorik", key:"assignmentChanges", fields:["id","targetType","targetId","fromPersonId","toPersonId","changedAt","changedBy"] }
+    { sheet:"Fastigheter", key:"properties", prefix:"FAST", columns:[
+      ["id","_id",true],["type","Typ"],["address","Adress"],["designation","Fastighetsbeteckning"],["owner","Fastighetsägare"],["manager","Förvaltare"],["latitude","Latitud"],["longitude","Longitud"]
+    ]},
+    { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
+      ["id","_id",true],["propertyId","_propertyId",true],["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["use","Verksamhet"],["start","Start"],["end","Slut"],["notice","Säg upp senast"],["annualRent","Årshyra"],["annualContractDrift","Avtalsdrift"],["unitId","_unitId",true],["tenantOrgId","_tenantOrgId",true],["ownerOrgId","_ownerOrgId",true],["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"]
+    ], display:["Fastighet","Hyresgäst","Fastighetsägare","Område"] },
+    { sheet:"Organisationer", key:"organizations", prefix:"ORG", columns:[
+      ["id","_id",true],["name","Företag"],["type","Typ"],["ownerClass","Ägarklass"]
+    ]},
+    { sheet:"Personer", key:"people", prefix:"P", columns:[
+      ["id","_id",true],["name","Namn"],["organizationId","_organizationId",true],["unitId","_unitId",true],["role","Roll"],["email","E-post"]
+    ], display:["Organisation","Område"] },
+    { sheet:"Ansvar", key:"assignments", prefix:"A", columns:[
+      ["id","_id",true],["personId","_personId",true],["targetType","_targetType",true],["targetId","_targetId",true],["role","Roll"],["fromDate","Från"],["toDate","Till"],["allocation","Omfattning %"]
+    ], display:["Person","Mål"] },
+    { sheet:"Projekt", key:"projects", prefix:"PR", columns:[
+      ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["name","Projekt"],["description","Beskrivning"],["status","Status"],["phase","Fas"],["start","Start"],["end","Slut"],["moveIn","Inflytt"],["budgetYear","Budgetår"],["budgetInvestigation","Utredning budget"],["budgetExecution","Genomförande budget"],["budgetFurnishing","Inredning budget"],["preliminaryCost","Prognos"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
+    ], display:["Fastighet","Avtal"] },
+    { sheet:"Underhåll", key:"maintenance", prefix:"UH", columns:[
+      ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["title","Åtgärd"],["year","Planår"],["cost","Kostnad"],["priority","Prioritet"],["status","Status"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
+    ], display:["Fastighet","Avtal"] },
+    { sheet:"Drift", key:"operations", prefix:"DR", columns:[
+      ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["period","År"],["category","Kategori"],["budget","Budget"],["actual","Utfall"]
+    ], display:["Fastighet","Avtal"] },
+    { sheet:"Utredningar", key:"investigations", prefix:"UTR", columns:[
+      ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["title","Utredning"],["year","År"],["cost","Kostnad"],["status","Status"]
+    ], display:["Fastighet","Avtal"] },
+    { sheet:"Status", key:"maintenanceStatus", prefix:"MS", columns:[
+      ["id","_id",true],["contractId","_contractId",true],["propertyId","_propertyId",true],["category","Kategori"],["assessedDate","Bedömd"],["status","Status"],["priority","Prioritet"],["comment","Kommentar"],["actionNeed","Åtgärdsbehov"],["budgetYear","Budgetår"],["estimatedCost","Bedömd kostnad"],["includeInBudget","Ta med i budget"],["responsiblePersonId","_responsiblePersonId",true],["planningQuarter","Kvartal"],["planningMonth","Månad"]
+    ], display:["Fastighet","Avtal","Ansvarig"] },
+    { sheet:"Driftärenden", key:"driftIssues", prefix:"DI", columns:[
+      ["id","_id",true],["contractId","_contractId",true],["propertyId","_propertyId",true],["category","Kategori"],["title","Ärende"],["description","Beskrivning"],["createdDate","Skapad"],["targetDate","Måldatum"],["decisionDate","Beslutsdatum"],["completedDate","Klardatum"],["status","Status"],["priority","Prioritet"],["responsiblePersonId","_responsiblePersonId",true],["budgetYear","Budgetår"],["estimatedCost","Bedömd kostnad"],["finalCost","Slutkostnad"],["includeInBudget","Ta med i budget"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
+    ], display:["Fastighet","Avtal","Ansvarig"] },
+    { sheet:"Önskemål", key:"wishes", prefix:"W", columns:[
+      ["id","_id",true],["contractId","_contractId",true],["propertyId","_propertyId",true],["category","Kategori"],["title","Önskemål"],["description","Beskrivning"],["createdDate","Skapad"],["targetDate","Måldatum"],["decisionDate","Beslutsdatum"],["completedDate","Klardatum"],["status","Status"],["responsiblePersonId","_responsiblePersonId",true],["budgetYear","Budgetår"],["budgetCategory","Budgetkategori"],["estimatedCost","Bedömd kostnad"],["finalCost","Slutkostnad"],["includeInBudget","Ta med i budget"]
+    ], display:["Fastighet","Avtal","Ansvarig"] },
+    { sheet:"Ansvarshistorik", key:"assignmentChanges", prefix:"AL", columns:[
+      ["id","_id",true],["targetType","_targetType",true],["targetId","_targetId",true],["fromPersonId","_fromPersonId",true],["toPersonId","_toPersonId",true],["changedAt","Ändrad"],["changedBy","Ändrad av"]
+    ], display:["Mål","Från person","Till person"] }
   ];
+
+  SCHEMAS.forEach(function(schema) {
+    schema.fields = schema.columns.map(function(column){ return column[0]; });
+  });
 
   const source = {
     handle:null,
