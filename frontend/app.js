@@ -667,7 +667,7 @@ function render() {
         '<div class="source-save-cluster"><button type="button" class="source-review-link" data-goto="api">Granska migrering</button><button type="button" class="source-save-button" data-goto="api">Skapa Lokalblick-fil →</button></div>'
       : "<strong>Datakälla aktiv</strong><span>" + esc(state.sourceName || "Importerad fil") + " · " + state.properties.length + " fastigheter · " + state.contracts.length + " objekt/avtal.</span>" +
         (pendingCount
-          ? '<div class="source-save-cluster"><button type="button" class="source-review-link" data-goto="api">' + pendingCount + ' ändring' + (pendingCount===1?'':'ar') + '</button><button type="button" class="source-save-button" data-source-save>💾 Spara till Excel</button></div>'
+          ? '<div class="source-save-cluster"><button type="button" class="source-review-link" data-goto="api">' + pendingCount + ' ändring' + (pendingCount===1?'':'ar') + '</button><button type="button" class="source-save-button" data-source-save>' + (sourceInfo && sourceInfo.writeRecoveryNeeded ? '↻ Välj fil och spara' : '💾 Spara till Excel') + '</button></div>'
           : '<span class="source-synced">✓ Sparat till Excel</span>');
   let html = "";
   if (currentView === "properties") html = renderProperties();
@@ -2121,7 +2121,7 @@ function renderApi() {
   const primarySave = migration
     ? (canSave ? '<button type="button" class="button primary api-device-save" data-api-create="current">Skapa Lokalblick-fil →</button>' : '')
     : connected && st.mode==="readwrite" && pending.length
-      ? '<button type="button" class="button primary api-device-save" data-api-write>💾 Spara ' + pending.length + ' till Excel</button>'
+      ? '<button type="button" class="button primary api-device-save" data-api-write>' + (st.writeRecoveryNeeded ? '↻ Välj fil och spara' : '💾 Spara ' + pending.length + ' till Excel') + '</button>'
       : connected && pending.length
         ? '<button type="button" class="button primary api-device-save" data-api-mode="readwrite">Tillåt skrivning</button>'
         : '';
@@ -2161,7 +2161,7 @@ function renderApi() {
     '<div class="api-button-stack">' +
       (connected ? '<button type="button" class="button secondary" data-api-refresh>Hämta senaste</button>' : '') +
       (connected && st.mode==="read" && !migration ? '<button type="button" class="button secondary" data-api-mode="readwrite">Tillåt skrivning</button>' : '') +
-      (connected && st.mode==="readwrite" ? '<button type="button" class="button primary" data-api-write ' + (st.dirty ? '' : 'disabled') + '>Skriv ' + pending.length + ' ändring' + (pending.length===1?'':'ar') + ' till Excel</button>' : '') +
+      (connected && st.mode==="readwrite" ? '<button type="button" class="button primary" data-api-write ' + (st.dirty ? '' : 'disabled') + '>' + (st.writeRecoveryNeeded ? '↻ Välj fil och spara' : 'Skriv ' + pending.length + ' ändring' + (pending.length===1?'':'ar') + ' till Excel') + '</button>' : '') +
       (st.remembered ? '<button type="button" class="button secondary" data-api-disconnect>Koppla bort</button>' : '') +
     '</div></div>';
 
@@ -2251,7 +2251,15 @@ function bindApiControls() {
     write.dataset.apiBound="1";
     write.addEventListener("click",async function(){
       try { await window.LokalblickSourceService.write(); render(); }
-      catch(error){ alert(error.message || String(error)); }
+      catch(error){
+        if (error && error.name==="AbortError") return;
+        if (error && (error.code==="LOKALBLICK_RESELECT_WRITE" || error.code==="LOKALBLICK_FILE_LOCKED")) {
+          render();
+          alert(error.message);
+          return;
+        }
+        alert(error.message || String(error));
+      }
     });
   }
   const disconnect=document.querySelector("[data-api-disconnect]");
@@ -2647,6 +2655,16 @@ function bindViewEvents() {
         await window.LokalblickSourceService.write();
         render();
       } catch (error) {
+        if (error && error.name==="AbortError") {
+          button.disabled=false;
+          button.textContent=original;
+          return;
+        }
+        if (error && (error.code==="LOKALBLICK_RESELECT_WRITE" || error.code==="LOKALBLICK_FILE_LOCKED")) {
+          render();
+          alert(error.message);
+          return;
+        }
         button.disabled=false;
         button.textContent=original;
         alert(error && error.message ? error.message : String(error));
