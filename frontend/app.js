@@ -733,7 +733,9 @@ function render() {
   banner.innerHTML = state.isDemo
     ? "<strong>Publik demo</strong><span>Endast syntetisk demodata. Ingen LEB-, person-, hyres- eller kostnadsdata från företaget får läsas in här.</span>"
     : "<strong>Datakälla aktiv</strong><span>" + esc(state.sourceName || "Importerad fil") + " · " + state.properties.length + " fastigheter · " + state.contracts.length + " objekt/avtal.</span>" +
-      (pendingCount ? '<button type="button" class="source-pending-button" data-goto="api">' + pendingCount + ' ändring' + (pendingCount===1?'':'ar') + ' väntar på Excel →</button>' : '<span class="source-synced">Synkron med källan</span>');
+      (pendingCount
+        ? '<div class="source-save-cluster"><button type="button" class="source-review-link" data-goto="api">' + pendingCount + ' ändring' + (pendingCount===1?'':'ar') + '</button><button type="button" class="source-save-button" data-source-save>💾 Spara till Excel</button></div>'
+        : '<span class="source-synced">✓ Sparat till Excel</span>');
   let html = "";
   if (currentView === "properties") html = renderProperties();
   else if (currentView === "map") html = renderMap();
@@ -2866,6 +2868,27 @@ function bindViewEvents() {
   });
   document.querySelectorAll("[data-goto]").forEach(function(button) {
     button.addEventListener("click", function() { currentView = button.dataset.goto; render(); });
+  });
+  document.querySelectorAll("[data-source-save]:not([data-source-save-bound])").forEach(function(button) {
+    button.dataset.sourceSaveBound="1";
+    button.addEventListener("click", async function() {
+      if (!window.LokalblickSourceService) return;
+      const original=button.textContent;
+      button.disabled=true;
+      button.textContent="Sparar…";
+      try {
+        let status=window.LokalblickSourceService.status();
+        if (status.mode !== "readwrite") {
+          await window.LokalblickSourceService.setMode("readwrite");
+        }
+        await window.LokalblickSourceService.write();
+        render();
+      } catch (error) {
+        button.disabled=false;
+        button.textContent=original;
+        alert(error && error.message ? error.message : String(error));
+      }
+    });
   });
   bindAddButtons();
   bindEditButtons();
