@@ -1,5 +1,5 @@
 // Public demo data adapter.
-// Production/Teams will replace this with an authenticated backend API adapter.
+// Production/Teams or local source adapters may replace window.LokalblickDataService at runtime.
 (function () {
   const DEMO_KEY = "lokalblick-public-demo-v1";
   const LEGACY_KEY = "lokalblick-v2";
@@ -8,11 +8,9 @@
     return JSON.parse(JSON.stringify(value));
   }
 
-  // The old prototype could locally import LEB. Never reuse that storage
-  // in the public demo after the frontend/backend split.
   try { localStorage.removeItem(LEGACY_KEY); } catch (_) {}
 
-  window.LokalblickDataService = {
+  const demoService = {
     mode: "demo",
 
     async load() {
@@ -48,4 +46,7 @@
       return clone(window.LokalblickDemoData);
     }
   };
+
+  window.LokalblickDemoDataService = demoService;
+  window.LokalblickDataService = demoService;
 })();
