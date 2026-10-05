@@ -25,6 +25,7 @@ const views = [
   { id: "map", label: "Karta", icon: "⌖", eyebrow: "GEOGRAFI" },
   { id: "budget", label: "Årsbudget", icon: "¤", eyebrow: "EKONOMI" },
   { id: "organisation", label: "Organisation", icon: "◎", eyebrow: "PERSONER & ANSVAR" },
+  { id: "api", label: "API", icon: "⌁", eyebrow: "MER · DATAKÄLLOR" },
   { id: "about", label: "Om", icon: "ⓘ", eyebrow: "SÄKERHET & ARKITEKTUR" }
 ];
 
@@ -735,6 +736,7 @@ function render() {
   else if (currentView === "map") html = renderMap();
   else if (currentView === "budget") html = renderBudget();
   else if (currentView === "organisation") html = renderOrganisation();
+  else if (currentView === "api") html = renderApi();
   else html = renderAbout();
   document.getElementById("content").innerHTML = html;
   bindViewEvents();
@@ -2366,6 +2368,131 @@ function renderBudget() {
 
   return '<div class="budget-page">' + mobileBudget + desktopBudget + '</div>';
 }
+
+function sourceStatus() {
+  return window.LokalblickSourceService ? window.LokalblickSourceService.status() : {connected:false,remembered:false,mode:"read",dirty:false,discovered:[]};
+}
+function apiSheetRows(discovered) {
+  if (!discovered || !discovered.length) return '<div class="empty">Ingen Excel-källa är ansluten ännu.</div>';
+  return '<div class="api-sheet-list">' + discovered.map(function(sheet) {
+    const fields=(sheet.fields||[]).slice(0,6).join(", ");
+    return '<div class="api-sheet-row"><div><strong>' + esc(sheet.name) + '</strong><small>' + esc(fields || "Tom tabell") + '</small></div><span>' + num(sheet.rows) + ' rader</span></div>';
+  }).join("") + '</div>';
+}
+function renderApi() {
+  const st=sourceStatus();
+  const connected=st.connected;
+  const remembered=st.remembered && !connected;
+  const modeLabel=st.mode==="readwrite" ? "Läs + skriv" : "Endast läs";
+  const statusLabel=connected ? "Ansluten" : remembered ? "Koppling sparad" : "Ej ansluten";
+  const statusClass=connected ? "green" : remembered ? "amber" : "";
+  const sourceName=st.fileName || "Ingen källa vald";
+  return '<div class="section-stack api-page">' +
+    '<section class="card pad api-hero"><div class="card-head"><div><span class="eyebrow">MER / API</span><h2>Datakällor</h2><p>Koppla Lokalblick till data där den redan finns. Lokal Excel läses och skrivs i webbläsaren; råfilen laddas inte upp.</p></div><span class="badge ' + statusClass + '">' + esc(statusLabel) + '</span></div>' +
+      '<div class="api-source-summary"><div><span>Källa</span><strong>' + esc(sourceName) + '</strong></div><div><span>Åtkomst</span><strong>' + esc(modeLabel) + '</strong></div><div><span>Senast läst</span><strong>' + (st.lastRead ? esc(new Date(st.lastRead).toLocaleString("sv-SE")) : "–") + '</strong></div><div><span>Ändringar</span><strong>' + (st.dirty ? "Ej skrivna" : "Synkron") + '</strong></div></div>' +
+    '</section>' +
+
+    '<div class="grid three-col api-source-grid">' +
+      '<section class="card pad"><div class="api-connector-icon">XL</div><h3>Excel på dator / nätverk</h3><p class="muted">Välj en befintlig Lokalblick-arbetsbok och bestäm om kopplingen får läsa eller läsa + skriva.</p>' +
+        '<div class="api-button-stack"><button type="button" class="button primary" data-api-connect="read">Koppla · läs</button><button type="button" class="button secondary" data-api-connect="readwrite">Koppla · läs + skriv</button>' +
+        (remembered ? '<button type="button" class="button secondary" data-api-reconnect>Återanslut sparad fil</button>' : '') + '</div></section>' +
+      '<section class="card pad"><div class="api-connector-icon">＋</div><h3>Skapa Excel-källa</h3><p class="muted">Lokalblick skapar rätt tabeller och fält. Du väljer själv filnamn, plats och om den ska fyllas med aktuell data eller vara tom.</p>' +
+        '<div class="api-button-stack"><button type="button" class="button primary" data-api-create="current">Skapa med aktuell data</button><button type="button" class="button secondary" data-api-create="blank">Skapa tom struktur</button></div></section>' +
+      '<section class="card pad"><div class="api-connector-icon">365</div><h3>OneDrive / SharePoint / API</h3><p class="muted">Nästa steg använder samma Lokalblick-modell via Microsoft 365 eller ett kundnära adapterlager.</p><button type="button" class="button secondary" disabled>Kommer senare</button></section>' +
+    '</div>' +
+
+    '<div class="grid two-col">' +
+      card("Tabeller och fält", "Det här hittades i den valda Excel-källan.", apiSheetRows(st.discovered)) +
+      card("Spara till källan", "Lokalblick sparar först i arbetsytan. Skriv tillbaka är alltid ett aktivt val.",
+        '<div class="section-stack"><div class="notice"><strong>Säker princip</strong><br>Stabila ID:n följer med varje rad, så ändringar kan kopplas tillbaka till rätt post.</div>' +
+        '<div class="api-access-row"><span>Läge</span><strong>' + esc(modeLabel) + '</strong></div>' +
+        '<div class="api-access-row"><span>Råfil uppladdad</span><strong>Nej</strong></div>' +
+        '<div class="api-button-stack">' +
+          (connected ? '<button type="button" class="button secondary" data-api-refresh>Hämta senaste</button>' : '') +
+          (connected && st.mode==="read" ? '<button type="button" class="button secondary" data-api-mode="readwrite">Tillåt skrivning</button>' : '') +
+          (connected && st.mode==="readwrite" ? '<button type="button" class="button primary" data-api-write ' + (st.dirty ? '' : 'disabled') + '>Skriv ändringar till Excel</button>' : '') +
+          (st.remembered ? '<button type="button" class="button secondary" data-api-disconnect>Koppla bort</button>' : '') +
+        '</div></div>') +
+    '</div>' +
+  '</div>';
+}
+async function reloadFromActiveSource() {
+  state = ensureShape(await window.LokalblickDataService.load());
+  render();
+}
+function bindApiControls() {
+  document.querySelectorAll("[data-api-connect]:not([data-api-bound])").forEach(function(button) {
+    button.dataset.apiBound="1";
+    button.addEventListener("click", async function() {
+      try {
+        const data=await window.LokalblickSourceService.connect(button.dataset.apiConnect);
+        state=ensureShape(data);
+        render();
+      } catch (error) {
+        if (error && error.name==="AbortError") return;
+        alert(error.message || String(error));
+      }
+    });
+  });
+  document.querySelectorAll("[data-api-create]:not([data-api-bound])").forEach(function(button) {
+    button.dataset.apiBound="1";
+    button.addEventListener("click", async function() {
+      try {
+        const blank=button.dataset.apiCreate==="blank";
+        const data=await window.LokalblickSourceService.createFile(state,"readwrite",blank);
+        state=ensureShape(data);
+        render();
+      } catch (error) {
+        if (error && error.name==="AbortError") return;
+        alert(error.message || String(error));
+      }
+    });
+  });
+  const reconnect=document.querySelector("[data-api-reconnect]");
+  if (reconnect && !reconnect.dataset.apiBound) {
+    reconnect.dataset.apiBound="1";
+    reconnect.addEventListener("click",async function(){
+      try { state=ensureShape(await window.LokalblickSourceService.reconnect()); render(); }
+      catch(error){ alert(error.message || String(error)); }
+    });
+  }
+  const refresh=document.querySelector("[data-api-refresh]");
+  if (refresh && !refresh.dataset.apiBound) {
+    refresh.dataset.apiBound="1";
+    refresh.addEventListener("click",async function(){
+      try { state=ensureShape(await window.LokalblickSourceService.reconnect()); render(); }
+      catch(error){ alert(error.message || String(error)); }
+    });
+  }
+  const mode=document.querySelector("[data-api-mode]");
+  if (mode && !mode.dataset.apiBound) {
+    mode.dataset.apiBound="1";
+    mode.addEventListener("click",async function(){
+      try { await window.LokalblickSourceService.setMode(mode.dataset.apiMode); render(); }
+      catch(error){ alert(error.message || String(error)); }
+    });
+  }
+  const write=document.querySelector("[data-api-write]");
+  if (write && !write.dataset.apiBound) {
+    write.dataset.apiBound="1";
+    write.addEventListener("click",async function(){
+      try { await window.LokalblickSourceService.write(); render(); }
+      catch(error){ alert(error.message || String(error)); }
+    });
+  }
+  const disconnect=document.querySelector("[data-api-disconnect]");
+  if (disconnect && !disconnect.dataset.apiBound) {
+    disconnect.dataset.apiBound="1";
+    disconnect.addEventListener("click",async function(){
+      try {
+        state=ensureShape(await window.LokalblickSourceService.disconnect());
+        currentView="api";
+        render();
+      } catch(error){ alert(error.message || String(error)); }
+    });
+  }
+}
+
 function renderAbout() {
   return '<div class="about-page">' +
     '<div class="about-intro">' +
@@ -2733,6 +2860,7 @@ function bindViewEvents() {
   });
   bindAddButtons();
   bindEditButtons();
+  if (currentView === "api") bindApiControls();
   ["portfolio-search", "filter-customer", "filter-unit", "filter-owner", "filter-our-person", "filter-tenant-person", "filter-owner-person"].forEach(function(id) {
     const control = document.getElementById(id);
     if (!control) return;
@@ -3485,6 +3613,9 @@ document.getElementById("editor-form").addEventListener("submit", async function
 });
 
 async function init() {
+  if (window.LokalblickSourceService) {
+    await window.LokalblickSourceService.restoreRemembered();
+  }
   await loadState();
   render();
 }
