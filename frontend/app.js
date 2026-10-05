@@ -637,8 +637,8 @@ function renderNav() {
 function mobileDockKey() {
   if (currentView === "budget") return "economy";
   if (currentView !== "properties") return "more";
-  if (portfolioExplorer.section === "properties" || portfolioExplorer.propertyId) return "properties";
   if (portfolioExplorer.section === "activities" || activitySections().includes(portfolioExplorer.section)) return "activities";
+  if (portfolioExplorer.section === "properties" || portfolioExplorer.propertyId) return "properties";
   return "home";
 }
 function closeMobileMoreSheet() {
@@ -649,6 +649,15 @@ function renderMobileDock() {
   const dock = document.getElementById("mobile-dock");
   if (!dock) return;
   const active = mobileDockKey();
+  if (window.matchMedia && window.matchMedia("(max-width: 700px)").matches) {
+    const title=document.getElementById("page-title");
+    if (title) {
+      title.textContent = active==="home" ? "Översikt" :
+        active==="properties" ? (portfolioExplorer.propertyId ? portfolioScopeTitle() : "Fastigheter") :
+        active==="activities" ? "Aktiviteter" :
+        active==="economy" ? "Ekonomi" : (views.find(function(v){return v.id===currentView;})||{}).label || "Lokalblick";
+    }
+  }
   dock.querySelectorAll("[data-mobile-dock]").forEach(function(button) {
     button.classList.toggle("active", button.dataset.mobileDock === active);
     if (button.dataset.mobileBound) return;
@@ -669,7 +678,7 @@ function renderMobileDock() {
       const section = target === "properties" ? "properties" : target === "activities" ? "activities" : "overview";
       if (currentView === "properties") {
         portfolioExplorer.contractId = "";
-        if (target === "home") portfolioExplorer.propertyId = "";
+        if (target === "home" || target === "properties") portfolioExplorer.propertyId = "";
         portfolioExplorer.section = section;
         filterPropertyPortfolio();
         renderMobileDock();
