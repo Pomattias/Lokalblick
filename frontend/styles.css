@@ -5232,3 +5232,10 @@ button.property-control-card:hover {
   .api-button-stack .button{width:100%}
   .api-sheet-row{align-items:flex-start;flex-direction:column}
 }
+
+
+.api-change-list{display:flex;flex-direction:column;gap:8px}
+.api-change-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:var(--panel-soft,#f8fafb)}
+.api-change-row>div{min-width:0}
+.api-change-row strong{display:block}
+.api-change-row small{display:block;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
