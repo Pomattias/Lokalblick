@@ -638,12 +638,39 @@ function budgetYears() {
 }
 
 function renderNav() {
-  document.getElementById("main-nav").innerHTML = views.map(function(v) {
-    return '<button class="nav-button ' + (v.id === currentView ? "active" : "") + '" data-view="' + v.id + '">' +
+  const navItems = [
+    { id:"overview", label:"Översikt", icon:"⌂" },
+    { id:"map", label:"Karta", icon:"⌖" },
+    { id:"plan", label:"Planera", icon:"◫" },
+    { id:"budget", label:"Budget", icon:"¤" },
+    { id:"organisation", label:"Organisation", icon:"◎" },
+    { id:"api", label:"API", icon:"⌁" },
+    { id:"about", label:"Om", icon:"ⓘ" }
+  ];
+  const active = currentView==="properties" && portfolioExplorer.section==="activities"
+    ? "plan"
+    : currentView==="properties" ? "overview" : currentView;
+  document.getElementById("main-nav").innerHTML = navItems.map(function(v) {
+    return '<button class="nav-button ' + (v.id === active ? "active" : "") + '" data-desktop-nav="' + v.id + '">' +
       '<span class="nav-icon">' + v.icon + "</span><span>" + v.label + "</span></button>";
   }).join("");
-  document.querySelectorAll("[data-view]").forEach(function(btn) {
-    btn.addEventListener("click", function() { currentView = btn.dataset.view; render(); });
+  document.querySelectorAll("[data-desktop-nav]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      const target=btn.dataset.desktopNav;
+      if(target==="overview" || target==="plan") {
+        currentView="properties";
+        portfolioExplorer.contractId="";
+        if(target==="overview") {
+          portfolioExplorer.propertyId="";
+          portfolioExplorer.section="overview";
+        } else {
+          portfolioExplorer.section="activities";
+        }
+      } else {
+        currentView=target;
+      }
+      render();
+    });
   });
 }
 function mobileDockKey() {
@@ -1940,73 +1967,31 @@ function portfolioOverviewHtml(contracts) {
 }
 function renderProperties() {
   const filters=portfolioFilterOptions();
-  const propertyGroups=state.properties.map(function(p) {
-    const contracts=state.contracts.filter(function(c){return c.propertyId===p.id;});
-    const area=contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
-    const cost=contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
-    const owners=Array.from(new Set(contracts.map(function(c){return contractOwner(c,p);}).filter(Boolean)));
-    const units=Array.from(new Set(contracts.map(function(c){return unitName(c.unitId);}).filter(Boolean)));
-    const customers=Array.from(new Set(contracts.map(contractCustomer).filter(Boolean)));
-    return '<details class="property-group" data-property-id="' + esc(p.id) + '"><summary class="property-summary">' +
-      '<span class="property-summary-main"><strong>' + esc(p.address||"Adress saknas") + '</strong><span class="muted mono">' +
-      esc(p.id)+(p.designation?' · '+esc(p.designation):'') + '</span></span><span><small>Typ</small>' + statusBadge(p.type) +
-      '</span><span><small>Kund</small><strong>' + esc(customers.join(", ")||"–") + '</strong></span><span><small>Fastighetsägare</small><strong>' +
-      esc(owners.join(", ")||p.owner||"–") + '</strong></span><span><small>Avtal</small><strong>' + contracts.length +
-      '</strong></span><span><small>Area</small><strong>' + num(area) + ' kvm</strong></span><span><small>Hyra + drift</small><strong>' +
-      money(cost) + '</strong></span><span class="property-chevron">⌄</span></summary><div class="property-body">' +
-      '<div class="property-meta"><span><strong>Organisation</strong> ' + esc(units.join(", ")||"–") + '</span><span><strong>Fastighetsbeteckning</strong> ' +
-      esc(p.designation||"–") + '</span><span><strong>Förvaltare</strong> ' + esc(p.manager||"–") + '</span>' +
-      '<button type="button" class="inline-link" data-explorer-property="' + esc(p.id) + '">Öppna fastigheten →</button></div>' +
-      table(["Avtal","Kund","Organisation","Fastighetsägare","Area","Hyra + drift","Ansvarig hos oss","Kundansvarig","Ägaransvarig"],
-        contracts.map(function(c){return contractSummaryRow(c,p);})) + '</div></details>';
-  }).join("") || '<div class="empty">Ingen fastighetsdata.</div>';
-
   const advancedFilters =
-    '<details class="advanced-filters"><summary><span>Filter</span><span class="advanced-count">Kund · ägare · ansvariga</span></summary>' +
+    '<details class="advanced-filters unified-advanced-filters"><summary><span>Fler filter</span><span class="advanced-count">Kund · ägare · kontakter</span></summary>' +
       '<div class="advanced-filter-grid">' +
         '<select class="select" id="filter-customer">' + selectOptions(filters.customer,"Alla kunder") + '</select>' +
         '<select class="select" id="filter-owner">' + selectOptions(filters.owner,"Alla fastighetsägare") + '</select>' +
-        '<select class="select" id="filter-our-person">' + selectOptions(filters.ourPeople,"Ansvarig hos oss") + '</select>' +
         '<select class="select" id="filter-tenant-person">' + selectOptions(filters.tenantPeople,"Kundansvarig") + '</select>' +
         '<select class="select" id="filter-owner-person">' + selectOptions(filters.ownerPeople,"Ägaransvarig") + '</select>' +
       '</div></details>';
 
-  return '<div class="bestands-page">' +
-    '<section class="portfolio-hero">' +
-      '<div class="desktop-only">' +
-        '<div class="portfolio-hero-copy"><span class="portfolio-kicker">URVAL</span><h2 id="portfolio-scope-title">Alla fastigheter</h2>' +
-          '<p id="portfolio-scope-meta">' + state.properties.length + ' fastigheter · ' + state.contracts.length + ' avtal</p></div>' +
-        '<div class="scope-heading"><span>Zooma in</span><small>Välj område eller gå vidare till en fastighet</small></div>' +
-        '<div class="scope-grid">' + portfolioScopeCardsHtml() + '</div>' +
-      '</div>' +
-      '<div id="mobile-quick-summary" class="mobile-only">' + mobileQuickSummaryHtml(state.contracts) + '</div>' +
-      '<div id="mobile-scope-filters" class="mobile-only">' + mobileScopeFiltersHtml(filters) + '</div>' +
-      '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" placeholder="Sök fastighet, avtal, kund eller person…">' +
+  return '<div class="bestands-page unified-portfolio">' +
+    '<section class="portfolio-hero unified-portfolio-hero">' +
+      '<div id="mobile-quick-summary">' + mobileQuickSummaryHtml(state.contracts) + '</div>' +
+      '<div id="mobile-scope-filters">' + mobileScopeFiltersHtml(filters) + '</div>' +
+      '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" value="' + esc(portfolioFilters.q||"") + '" placeholder="Sök fastighet, avtal, kund eller person…">' +
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
-      '<div id="mobile-content-tabs" class="mobile-content-tabs mobile-only">' + mobileModeChooserHtml(state.contracts) + '</div>' +
-      '<div class="mobile-only" id="mobile-context"></div>' +
+      '<div id="mobile-content-tabs" class="mobile-content-tabs unified-content-tabs">' + mobileModeChooserHtml(state.contracts) + '</div>' +
+      '<div id="mobile-context"></div>' +
       '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
+      '<select id="filter-our-person" hidden>' + selectOptions(filters.ourPeople,"Alla ansvariga") + '</select>' +
       advancedFilters +
-      '<div class="filter-result desktop-only" id="portfolio-filter-result">' + state.properties.length + ' fastigheter · ' + state.contracts.length + ' avtal</div>' +
-      '<div class="portfolio-context desktop-only" id="portfolio-context"><span class="context-root">Alla</span></div>' +
     '</section>' +
 
-    '<section class="card pad bestands-shell desktop-only">' +
-      '<div id="property-persistent-context"></div>' +
-      '<div class="view-choice-head"><span>Visa</span><small>Sammanställning eller fördjupning</small></div>' +
-      '<div id="portfolio-content-tabs" role="tablist">' + portfolioContentTabsHtml(state.contracts) + '</div>' +
-      '<div class="bestands-content">' +
-        '<div class="property-tab-panel" id="overview-panel"><div id="portfolio-overview-content">' + portfolioOverviewHtml(state.contracts) + '</div></div>' +
-        '<div class="property-tab-panel" id="properties-panel" hidden>' + propertyGroups + '</div>' +
-        '<div class="property-tab-panel" id="contracts-panel" hidden><div class="content-action"><button class="button primary" data-add="object">Komplettera avtal</button></div>' +
-          table(["Avtal","Fastighet","Kund","Organisation","Fastighetsägare","Area","Avtalsperiod","Årshyra","Avtalsdrift","Summa","Anst./brukare/rum","Ytor","Ansvariga"],
-            state.contracts.map(detailedContractRow)) + '</div>' +
-        '<div class="property-tab-panel" id="activity-panel" hidden><div id="portfolio-activity-content"></div></div>' +
-      '</div></section>' +
-
-    '<section class="mobile-only mobile-workspace ' + (portfolioExplorer.section==="activities" ? "plan-visible" : "") + '">' +
+    '<section class="unified-workspace ' + (portfolioExplorer.section==="activities" ? "plan-visible" : "") + '">' +
       '<div id="mobile-property-persistent-context"></div>' +
-      '<div class="mobile-panels">' +
+      '<div class="mobile-panels unified-panels">' +
         '<div class="mobile-panel" id="mobile-overview-panel"><div id="mobile-overview-content">' + mobileOverviewHtml(state.contracts) + '</div></div>' +
         '<div class="mobile-panel" id="mobile-properties-panel" hidden><div id="mobile-properties-content">' + mobilePropertyCardsHtml(state.contracts) + '</div></div>' +
         '<div class="mobile-panel" id="mobile-contracts-panel" hidden><div id="mobile-contracts-content">' + mobileContractCardsHtml(state.contracts) + '</div></div>' +
@@ -2024,41 +2009,27 @@ function renderMap() {
     return Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude));
   });
   const missing = scopedProperties.length - mapped.length;
-  const units = Array.from(new Set(state.contracts.map(function(c) { return c.unitId; }).filter(Boolean)));
 
-  const mobileTop =
-    '<div class="mobile-map-top mobile-only">' +
+  const controls =
+    '<section class="unified-map-controls">' +
       '<div id="mobile-scope-filters">' + mobileScopeFiltersHtml(filters) + '</div>' +
       '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" value="' + esc(portfolioFilters.q||"") +
         '" placeholder="Sök fastighet, avtal, kund eller person…">' +
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
       '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla områden") + '</select>' +
       '<select id="filter-our-person" hidden>' + selectOptions(filters.ourPeople,"Alla ansvariga") + '</select>' +
-      '<div class="mobile-map-metrics" role="tablist" aria-label="Nyckeltal på karta">' +
+      '<div class="mobile-map-metrics unified-map-metrics" role="tablist" aria-label="Nyckeltal på karta">' +
         [["cost","kr"],["sqm","kr/kvm"],["users","kr/brukare"],["employees","kr/anställd"]].map(function(metric){
           return '<button type="button" data-map-metric="' + metric[0] + '" class="' + (mobileMapMetric===metric[0]?"active":"") +
             '" role="tab" aria-selected="' + (mobileMapMetric===metric[0]?"true":"false") + '">' + metric[1] + '</button>';
         }).join("") +
       '</div>' +
-    '</div>';
+      '<div class="unified-map-count">' + mapped.length + ' kartlagda' + (missing ? ' · ' + missing + ' saknar koordinat' : '') + '</div>' +
+    '</section>';
 
-  const desktopToolbar =
-    '<div class="toolbar map-toolbar desktop-only">' +
-      '<select class="select" id="map-type"><option value="">Alla fastigheter</option><option>Intern</option><option>Extern</option></select>' +
-      '<select class="select" id="map-unit"><option value="">Alla verksamhetsområden</option>' +
-        units.map(function(id) { return '<option value="' + esc(id) + '"' + (portfolioFilters.unit===id?' selected':'') + '>' + esc(unitName(id)) + '</option>'; }).join("") +
-      '</select>' +
-      '<span class="map-count">' + mapped.length + ' kartlagda' + (missing ? ' · ' + missing + ' saknar koordinat' : '') + '</span>' +
-    '</div>';
-
-  return '<div class="map-page">' + mobileTop +
-    '<div class="cross-view-scope desktop-only"><span>URVAL</span><strong>' + esc(portfolioScopeTitle()) +
-      '</strong><small>Karta, listor och ekonomi använder samma urval</small></div>' +
-    '<section class="card pad map-card">' +
-      '<div class="card-head desktop-only"><div><h2>Karta</h2><p>Välj område eller klicka på en fastighet. Samma urval följer med tillbaka till övriga Lokalblick.</p></div></div>' +
-      desktopToolbar +
+  return '<div class="map-page unified-map-page">' + controls +
+    '<section class="card map-card unified-map-card">' +
       '<div id="property-map" class="property-map" role="region" aria-label="Karta över fastigheter"></div>' +
-      '<div class="map-footnote desktop-only">Demokartan använder syntetiska koordinater. I företagsversionen hämtas koordinater via backend och godkänd karttjänst.</div>' +
     '</section></div>';
 }
 function mapPropertySummary(p) {
@@ -2333,7 +2304,7 @@ function renderBudget() {
     : '<button class="mobile-budget-action" id="mobile-budget-lock">Lås budget</button>';
 
   const mobileBudget =
-    '<section class="mobile-only mobile-budget-page">' +
+    '<section class="mobile-budget-page unified-budget-page">' +
       '<div class="mobile-budget-filters">' +
         '<div id="mobile-scope-filters">' + mobileScopeFiltersHtml(filters) + '</div>' +
         '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" value="' + esc(portfolioFilters.q||"") +
@@ -2358,20 +2329,7 @@ function renderBudget() {
       '</div>' +
     '</section>';
 
-  const scopeBridge = '<div class="cross-view-scope"><span>URVAL</span><strong>' + esc(portfolioScopeTitle()) + '</strong><small>' + scopedContracts.length + ' avtal följer med från Bestånd</small></div>';
-  const desktopBudget =
-    '<div class="desktop-only">' + scopeBridge + '<section class="budget-hero"><div><span class="portfolio-kicker">ÅRSBUDGET · BASLINJE · PROGNOS</span><h2>Budget ' +
-      selectedBudgetYear + '</h2><p>' + (scoped ? 'Ekonomin är filtrerad med samma urval som resten av Lokalblick.' : 'Detaljerna bygger budgeten. Justeringsposter gör beslutad ram tydlig utan att skriva över underlaget.') + '</p></div>' +
-      '<div class="budget-hero-actions">' + yearSelect + status + action + '</div></section><div class="budget-kpis">' +
-      kpi("Beslutad budget",money(budgetTotal),locked?"låst årsbaslinje":"arbetsbudget") +
-      kpi("Aktuell prognos",money(forecastTotal),"från dagens detaljposter") +
-      kpi("Utfall registrerat",money(actualTotal),"bokfört/rapporterat i Lokalblick") +
-      kpi("Prognosavvikelse",(variance>=0?"+":"") + money(variance),variance>0?"över budget":"inom budget") +
-      '</div><div class="budget-category-grid">' + categoryCards + '</div>' +
-      card("Budgetdetaljer","Låst budget består av importerade detaljposter plus explicita justeringsposter. Varje rad kan spåras till fastighet och källa.",
-        table(["Kategori","Detalj","Källa","Fastighet","När","Belopp"],detailRows)) + '</div>';
-
-  return '<div class="budget-page">' + mobileBudget + desktopBudget + '</div>';
+  return '<div class="budget-page unified-budget-shell">' + mobileBudget + '</div>';
 }
 
 function sourceStatus() {
