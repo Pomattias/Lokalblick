@@ -434,96 +434,6 @@ function annualPlanningYears() {
   state.driftIssues.forEach(function(x){ if(x.budgetYear) years.add(Number(x.budgetYear)); });
   return Array.from(years).filter(Boolean).sort(function(a,b){return a-b;});
 }
-function annualPlanDashboardHtml(contracts, context) {
-  const years = annualPlanningYears();
-  if (!years.includes(Number(maintenancePlanning.year))) maintenancePlanning.year = years[0] || (new Date().getFullYear()+1);
-  const year = Number(maintenancePlanning.year);
-  const mode = maintenancePlanning.mode === "month" ? "month" : "quarter";
-  const slotCount = mode === "month" ? 12 : 4;
-  const rows = annualPlanningItems(contracts).filter(function(item){return Number(item.year)===year;});
-  const slotTotals = Array.from({length:slotCount},function(){return {amount:0,count:0};});
-  const categoryTotals = {Underhåll:0,Projekt:0,Drift:0};
-  const propertyTotals = new Map();
-  let unplacedAmount=0, unplacedCount=0;
-
-  rows.forEach(function(item){
-    categoryTotals[item.category] = (categoryTotals[item.category]||0) + item.cost;
-    const property = state.properties.find(function(p){return p.id===item.propertyId;});
-    const propertyNameValue = property ? (property.address||property.id) : (item.propertyId||"Fastighetsnivå");
-    const prop = propertyTotals.get(item.propertyId||"NO_PROPERTY") || {label:propertyNameValue,amount:0,count:0,unplaced:0};
-    prop.amount += item.cost; prop.count += 1;
-    const period = planningPeriod(item.source);
-    const slot = mode === "month" ? period.month : period.quarter;
-    if(slot>=1 && slot<=slotCount) {
-      slotTotals[slot-1].amount += item.cost;
-      slotTotals[slot-1].count += 1;
-    } else {
-      unplacedAmount += item.cost; unplacedCount += 1; prop.unplaced += 1;
-    }
-    propertyTotals.set(item.propertyId||"NO_PROPERTY",prop);
-  });
-
-  const slotCards = slotTotals.map(function(slot,index){
-    const label = mode === "month" ? String(index+1) : "Q"+(index+1);
-    return '<div class="annual-slot-card"><span>' + label + '</span><strong>' + shortMoney(slot.amount) +
-      '</strong><small>' + slot.count + ' poster</small></div>';
-  }).join("");
-
-  const categoryCards = ["Underhåll","Projekt","Drift"].map(function(category){
-    const count = rows.filter(function(item){return item.category===category;}).length;
-    const cls = category==="Underhåll" ? "maintenance" : category==="Projekt" ? "project" : "drift";
-    return '<div class="annual-category-card ' + cls + '"><span>' + category +
-      '</span><strong>' + shortMoney(categoryTotals[category]||0) + '</strong><small>' + count + ' poster</small></div>';
-  }).join("");
-
-  const propertyRows = Array.from(propertyTotals.values()).sort(function(a,b){return b.amount-a.amount;}).slice(0,6).map(function(prop){
-    return '<div class="annual-property-row"><strong>' + esc(prop.label) + '</strong><span>' + prop.count +
-      ' poster</span><span>' + (prop.unplaced ? prop.unplaced + ' ej placerade' : 'planerad') + '</span><b>' +
-      shortMoney(prop.amount) + '</b></div>';
-  }).join("");
-
-  const itemRows = rows.slice(0, context==="property" ? 30 : 12).map(function(item){
-    const property = state.properties.find(function(p){return p.id===item.propertyId;});
-    const period = planningPeriod(item.source);
-    const buttons = Array.from({length:slotCount},function(_,index){
-      const slot=index+1;
-      const selected = mode==="month" ? period.month===slot : period.quarter===slot;
-      const coarse = mode==="month" && !period.month && period.quarter && Math.ceil(slot/3)===period.quarter;
-      return '<button type="button" class="annual-plan-cell ' + (selected?"selected ":"") + (coarse?"coarse ":"") +
-        '" data-annual-source="' + esc(item.sourceType) + '" data-annual-id="' + esc(item.id) + '" data-annual-slot="' + slot +
-        '" aria-label="Planera ' + esc(item.title) + ' till ' + (mode==="month"?"månad "+slot:"Q"+slot) + '">' +
-        (selected?"✓":coarse?"·":"") + '</button>';
-    }).join("");
-    return '<div class="annual-plan-row" style="--annual-slots:' + slotCount + '">' +
-      '<div class="annual-plan-item"><span class="annual-kind ' + (item.category==="Underhåll"?"maintenance":item.category==="Projekt"?"project":"drift") + '">' +
-      esc(item.category) + '</span><strong>' + esc(item.title) +
-      '</strong><small>' + esc(property ? (property.address||property.id) : (item.propertyId||"Fastighetsnivå")) +
-      ' · ' + shortMoney(item.cost) + '</small></div>' + buttons +
-      '<button type="button" class="annual-plan-clear" data-annual-clear="' + esc(item.id) + '" data-annual-source="' +
-      esc(item.sourceType) + '" aria-label="Rensa planering">×</button></div>';
-  }).join("");
-
-  const total = rows.reduce(function(sum,item){return sum+item.cost;},0);
-  return '<section class="annual-plan-dashboard ' + (context==="portfolio"?"portfolio":"property") + '">' +
-    '<div class="annual-plan-head"><div><span class="portfolio-kicker">' + (context==="portfolio"?"ÖVERGRIPANDE ÅRSPLAN":"FASTIGHETENS ÅRSPLAN") +
-      '</span><h3>Vad ska göras, när och för hur mycket?</h3><p>Underhåll, projekt och kostnadsatta driftåtgärder i samma plan. Klicka i tidslinjen för att flytta en post.</p></div>' +
-      '<div class="annual-plan-controls"><select class="select" data-annual-plan-year>' +
-        years.map(function(y){return '<option value="' + y + '"' + (y===year?" selected":"") + '>' + y + '</option>';}).join("") +
-      '</select><div class="planning-mode-toggle"><button type="button" data-annual-plan-mode="quarter" class="' + (mode==="quarter"?"active":"") +
-      '">Q1–Q4</button><button type="button" data-annual-plan-mode="month" class="' + (mode==="month"?"active":"") + '">1–12</button></div></div></div>' +
-    '<div class="annual-plan-kpis"><div><span>Årsvolym</span><strong>' + shortMoney(total) + '</strong><small>' + rows.length +
-      ' poster</small></div><div class="' + (unplacedCount?"attention":"") + '"><span>Ej placerat</span><strong>' +
-      shortMoney(unplacedAmount) + '</strong><small>' + unplacedCount + ' poster</small></div></div>' +
-    '<div class="annual-slot-grid">' + slotCards + '</div>' +
-    '<div class="annual-category-grid">' + categoryCards + '</div>' +
-    (context==="portfolio" ? '<div class="annual-property-list"><div class="annual-subhead"><strong>Störst planerad belastning per fastighet</strong><span>Topplista i aktuellt urval</span></div>' +
-      (propertyRows||'<div class="empty compact">Ingen planering ännu.</div>') + '</div>' : '') +
-    '<div class="annual-plan-scroll"><div class="annual-plan-board ' + mode + '">' +
-      '<div class="annual-plan-grid-head" style="--annual-slots:' + slotCount + '"><div>Post</div>' +
-        slotTotals.map(function(_,index){return '<div>' + (mode==="month"?(index+1):"Q"+(index+1)) + '</div>';}).join("") + '<div></div></div>' +
-      (itemRows || '<div class="empty compact">Inga poster för ' + year + '.</div>') +
-    '</div></div></section>';
-}
 function bindAnnualPlannerControls() {
   document.querySelectorAll("[data-annual-plan-year]:not([data-annual-bound])").forEach(function(select){
     select.dataset.annualBound="1";
@@ -614,16 +524,6 @@ function budgetRows(year, contracts) {
     rows.push({ category: x.budgetCategory, sub: x.category, source: "Önskemål: " + x.title, contractId: x.contractId, propertyId:x.propertyId, amount: Number(x.estimatedCost) });
   });
   return Array.isArray(contracts) ? budgetRowsForContracts(rows,contracts) : rows;
-}
-function budgetSummary(year) {
-  const cats = ["Hyra + drift", "Projekt", "Underhåll", "Driftkostnader", "Utredningar"];
-  const rows = budgetRows(year);
-  return cats.map(function(category) {
-    return {
-      category: category,
-      amount: rows.filter(function(r) { return r.category === category; }).reduce(function(sum, r) { return sum + r.amount; }, 0)
-    };
-  });
 }
 function budgetYears() {
   const years = new Set([new Date().getFullYear(), new Date().getFullYear() + 1, new Date().getFullYear() + 2]);
@@ -862,70 +762,6 @@ function portfolioFilterOptions() {
     properties: properties
   };
 }
-function contractSummaryRow(c, property) {
-  const total = totalContractCost(c);
-  return '<tr data-contract-id="' + esc(c.id) + '">' +
-    '<td><button type="button" class="table-link" data-explorer-contract="' + esc(c.id) + '"><strong>' + esc(c.number || c.id) + '</strong></button><div class="muted mono">' + esc(c.id) + '</div></td>' +
-    '<td>' + esc(contractCustomer(c)) + '</td>' +
-    '<td>' + esc(unitName(c.unitId)) + '</td>' +
-    '<td>' + esc(contractOwner(c, property)) + '</td>' +
-    '<td>' + num(c.area) + ' kvm</td>' +
-    '<td>' + money(total) + '</td>' +
-    '<td>' + esc(peopleText(c, "our")) + '</td>' +
-    '<td>' + esc(peopleText(c, "tenant")) + '</td>' +
-    '<td>' + esc(peopleText(c, "owner")) + '</td>' +
-  '</tr>';
-}
-function detailedContractRow(c) {
-  const property = state.properties.find(function(p) { return p.id === c.propertyId; });
-  const total = totalContractCost(c);
-  const commonPct = c.area ? Number(c.commonArea || 0) / Number(c.area) * 100 : 0;
-  const aptPct = c.area ? Number(c.apartmentArea || 0) / Number(c.area) * 100 : 0;
-  return '<tr data-contract-id="' + esc(c.id) + '">' +
-    '<td><button type="button" class="table-link" data-explorer-contract="' + esc(c.id) + '"><strong>' + esc(c.number || c.id) + '</strong></button><div class="muted mono">' + esc(c.id) + '</div></td>' +
-    '<td>' + esc(propertyName(c.propertyId)) + '</td>' +
-    '<td>' + esc(contractCustomer(c)) + '</td>' +
-    '<td>' + esc(unitName(c.unitId)) + '</td>' +
-    '<td>' + esc(contractOwner(c, property)) + '</td>' +
-    '<td>' + num(c.area) + ' kvm</td>' +
-    '<td>' + esc(c.start || "–") + ' → ' + esc(c.end || "–") + '<div class="muted">Säg upp ' + esc(c.notice || "–") + '</div></td>' +
-    '<td>' + money(c.annualRent) + '</td>' +
-    '<td>' + money(c.annualContractDrift) + '</td>' +
-    '<td>' + money(total) + '<div class="muted">' + (c.area && total ? num(total / c.area) + ' kr/kvm' : '–') + '</div></td>' +
-    '<td>' + (c.employees || "–") + ' / ' + (c.users || "–") + ' / ' + (c.rooms || "–") + '</td>' +
-    '<td>' + num(c.commonArea) + ' kvm (' + percent(commonPct) + ')<div class="muted">Lägenhet ' + num(c.apartmentArea) + ' kvm (' + percent(aptPct) + ')</div></td>' +
-    '<td><div><strong>Hos oss:</strong> ' + esc(peopleText(c, "our")) + '</div>' +
-      '<div><strong>Kund:</strong> ' + esc(peopleText(c, "tenant")) + '</div>' +
-      '<div><strong>Ägare:</strong> ' + esc(peopleText(c, "owner")) + '</div></td>' +
-  '</tr>';
-}
-function portfolioPatternRows(contracts, keyFn, labelFn, valueFn) {
-  const groups = new Map();
-  contracts.forEach(function(c) {
-    const key = keyFn(c) || "Ej satt";
-    const label = labelFn(c) || "Ej satt";
-    const value = Number(valueFn(c)) || 0;
-    const existing = groups.get(key) || { key: key, label: label, count: 0, value: 0 };
-    existing.count += 1;
-    existing.value += value;
-    groups.set(key, existing);
-  });
-  return Array.from(groups.values()).sort(function(a, b) {
-    return b.value - a.value || b.count - a.count || a.label.localeCompare(b.label, "sv");
-  });
-}
-function portfolioPatternHtml(title, subtitle, rows, formatter, filterId) {
-  const max = Math.max.apply(null, [1].concat(rows.map(function(row) { return row.value; })));
-  const body = rows.length ? rows.slice(0, 8).map(function(row) {
-    const width = row.value > 0 ? Math.max(3, row.value / max * 100) : 3;
-    return '<button type="button" class="pattern-row pattern-button" data-set-filter="' + esc(filterId) +
-      '" data-filter-value="' + esc(row.key) + '">' +
-      '<div class="pattern-row-head"><strong>' + esc(row.label) + '</strong><span>' + esc(formatter(row)) + '</span></div>' +
-      '<div class="pattern-track"><div class="pattern-fill" style="width:' + width + '%"></div></div>' +
-    '</button>';
-  }).join("") : '<div class="empty compact">Ingen data i urvalet.</div>';
-  return '<section class="pattern-card"><div class="pattern-head"><h3>' + esc(title) + '</h3><p>' + esc(subtitle) + '</p></div>' + body + '</section>';
-}
 function monthsUntil(dateValue) {
   if (!dateValue) return null;
   const date = new Date(dateValue + "T00:00:00");
@@ -1001,16 +837,6 @@ function portfolioActivityItems(contracts) {
   return items.sort(function(a, b) {
     return String(a.when || "9999").localeCompare(String(b.when || "9999")) || a.type.localeCompare(b.type, "sv");
   });
-}
-function activityGroupLabel(group) {
-  return {
-    project:"Projekt",
-    maintenance:"Underhåll",
-    drift:"Driftärenden",
-    wish:"Önskemål",
-    investigation:"Utredningar",
-    operations:"Driftkostnader"
-  }[group] || "Aktuellt";
 }
 function portfolioContentTabsHtml(contracts) {
   const items = portfolioActivityItems(contracts);
@@ -1213,24 +1039,6 @@ function portfolioContextHtml() {
     parts.push('<span>›</span><button type="button" data-clear-explorer="contract">' + esc(contract ? (contract.number||contract.id) : portfolioExplorer.contractId) + ' ×</button>');
   }
   return parts.join("");
-}
-
-function portfolioScopeCardsHtml() {
-  const allContracts = state.contracts;
-  const cards = [{ id:"", name:"Alla" }].concat(ORG_UNITS.map(function(unit) {
-    return { id:unit.id, name:unit.name };
-  }));
-  return cards.map(function(card) {
-    const contracts = card.id ? allContracts.filter(function(c){return c.unitId===card.id;}) : allContracts;
-    const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
-    const area = contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
-    const cost = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
-    return '<button type="button" class="scope-card ' + (!card.id ? "active" : "") + '" data-quick-unit="' + esc(card.id) + '">' +
-      '<span class="scope-card-label">' + esc(card.name) + '</span>' +
-      '<strong>' + propertyCount + ' fastigheter</strong>' +
-      '<small>' + num(area) + ' kvm · ' + money(cost) + '</small>' +
-    '</button>';
-  }).join("");
 }
 
 function portfolioScopeTitle() {
@@ -1796,106 +1604,6 @@ function propertyPersistentContextHtml(contracts) {
     '</div>' +
   '</section>';
 }
-function propertyAllSectionHtml(contracts, group, title, subtitle, addType) {
-  const groups = group === "drift" ? ["drift","operations"] : [group];
-  const items = portfolioActivityItems(contracts).filter(function(x){return groups.includes(x.group);});
-  const total = items.reduce(function(sum,x){return sum+(Number(x.cost)||0);},0);
-  const rows = items.slice(0,6).map(function(item){
-    const editType = activityEditorType(item);
-    return '<div class="property-work-row">' +
-      '<div class="property-work-main"><strong>' + esc(item.title||"–") + '</strong><span>' + esc(item.type) + (item.responsible ? ' · ' + esc(item.responsible) : '') + '</span></div>' +
-      '<div class="property-work-status">' + statusBadge(item.status) + '</div>' +
-      '<div class="property-work-time">' + esc(item.when||"–") + '</div>' +
-      '<div class="property-work-row-actions"><strong class="property-work-cost">' + money(item.cost) + '</strong>' +
-        (editType ? '<button type="button" class="inline-link compact-link" data-edit-type="' + editType + '" data-edit-id="' + esc(item.id) + '">Redigera</button>' : '') +
-      '</div>' +
-    '</div>';
-  }).join("");
-  const add = addType ? '<button class="button secondary" data-add="' + addType + '">+ Lägg till</button>' : "";
-  return '<section class="property-work-section"><div class="property-work-head"><div><span>' + esc(subtitle) + '</span><h3>' + esc(title) + '</h3></div>' +
-    '<div class="property-work-actions"><strong>' + money(total) + '</strong><button class="inline-link" type="button" data-portfolio-section="' + group + '">Visa allt →</button>' + add + '</div></div>' +
-    (rows || '<div class="empty compact">Inga poster ännu.</div>') + '</section>';
-}
-function propertyContractsSectionHtml(contracts) {
-  const total = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
-  const rows = contracts.map(function(c){
-    return '<div class="property-work-row"><div class="property-work-main"><strong>' + esc(c.number||c.id) + '</strong><span>' +
-      esc(contractCustomer(c)) + ' · ' + num(c.area) + ' kvm</span></div><div class="property-work-status">' +
-      statusBadge(activeInYear(c,new Date().getFullYear()) ? "Aktivt" : "Bevaka") + '</div><div class="property-work-time">' +
-      esc(c.end||"–") + '</div><div class="property-work-row-actions"><strong class="property-work-cost">' + money(totalContractCost(c)) + '/år</strong>' +
-      '<button type="button" class="inline-link compact-link" data-edit-type="object" data-edit-id="' + esc(c.id) + '">Redigera</button></div></div>';
-  }).join("");
-  return '<section class="property-work-section"><div class="property-work-head"><div><span>AVTAL & LOKALER</span><h3>Avtal</h3></div>' +
-    '<div class="property-work-actions"><strong>' + money(total) + '/år</strong><button class="inline-link" type="button" data-portfolio-section="contracts">Visa allt →</button></div></div>' +
-    (rows || '<div class="empty compact">Inga avtal ännu.</div>') + '</section>';
-}
-function propertyControlBoardHtml(contracts) {
-  const activity = portfolioActivityItems(contracts);
-  const planned = annualPlanningItems(contracts).filter(function(item) {
-    return Number(item.year) === Number(maintenancePlanning.year);
-  });
-  const property = state.properties.find(function(p) { return p.id === portfolioExplorer.propertyId; });
-  const groups = [
-    { key:"maintenance", label:"Underhåll", items:activity.filter(function(x){return x.group==="maintenance";}), plannedCategory:"Underhåll" },
-    { key:"project", label:"Projekt", items:activity.filter(function(x){return x.group==="project";}), plannedCategory:"Projekt" },
-    { key:"drift", label:"Drift", items:activity.filter(function(x){return x.group==="drift" || x.group==="operations";}), plannedCategory:"Drift" }
-  ];
-
-  function groupCard(group) {
-    const amount = group.items.reduce(function(sum,item){return sum+(Number(item.cost)||0);},0);
-    const attention = group.items.filter(function(item){
-      return /akut|hög|sen|beslut|åtgärdsbehov|risk|pågår|utreds/i.test(String(item.status||""));
-    }).length;
-    const unplaced = planned.filter(function(item){
-      if(item.category!==group.plannedCategory) return false;
-      const period=planningPeriod(item.source);
-      return !period.quarter && !period.month;
-    }).length;
-    const largest = group.items.slice().sort(function(a,b){return (Number(b.cost)||0)-(Number(a.cost)||0);})[0];
-    return '<button type="button" class="property-control-card" data-portfolio-section="' + group.key + '">' +
-      '<span class="property-control-kicker">' + group.label.toUpperCase() + '</span>' +
-      '<strong class="property-control-value">' + money(amount) + '</strong>' +
-      '<div class="property-control-metrics"><span><b>' + group.items.length + '</b> poster</span>' +
-        '<span class="' + (attention?"attention":"") + '"><b>' + attention + '</b> att följa</span>' +
-        '<span class="' + (unplaced?"attention":"") + '"><b>' + unplaced + '</b> ej placerade</span></div>' +
-      (largest ? '<small>Störst: ' + esc(largest.title||largest.type) + ' · ' + money(largest.cost) + '</small>' : '<small>Inga poster ännu</small>') +
-      '<span class="property-control-link">Visa underlaget →</span>' +
-    '</button>';
-  }
-
-  const annual = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
-  const contractWatch = contracts.map(function(c){
-    return {contract:c, months:monthsUntil(c.notice||c.end)};
-  }).filter(function(x){return x.months!=null && x.months>=0 && x.months<=12;});
-  const contractCard = '<button type="button" class="property-control-card" data-portfolio-section="contracts">' +
-    '<span class="property-control-kicker">AVTAL</span><strong class="property-control-value">' + money(annual) + '/år</strong>' +
-    '<div class="property-control-metrics"><span><b>' + contracts.length + '</b> avtal</span><span class="' + (contractWatch.length?"attention":"") +
-      '"><b>' + contractWatch.length + '</b> inom 12 mån</span></div>' +
-    '<small>' + num(contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0)) + ' kvm i fastigheten</small>' +
-    '<span class="property-control-link">Visa avtalen →</span></button>';
-
-  const contractPeople = Array.from(new Set(contracts.flatMap(function(c){
-    return contractPartyPeople(c,"our").map(function(p){return p.name;});
-  }).filter(Boolean)));
-  const activityPeople = Array.from(new Set(activity.map(function(item){return item.responsible;}).filter(Boolean)));
-  const people = Array.from(new Set(contractPeople.concat(activityPeople)));
-  const responsible = people.length ? people : (property && property.manager ? [property.manager] : []);
-  const responsibilityCard = '<section class="property-control-card responsibility">' +
-    '<span class="property-control-kicker">ANSVAR</span><strong class="property-control-value responsibility-value">' +
-      esc(responsible.length ? responsible.slice(0,2).join(", ") : "Ansvarig saknas") + '</strong>' +
-    '<div class="property-control-metrics"><span><b>' + responsible.length + '</b> ansvariga</span><span><b>' +
-      activity.filter(function(item){return item.responsible;}).length + '</b> kopplade poster</span></div>' +
-    '<small>' + (responsible.length ? 'Ansvar visas från avtal och kopplade arbetsobjekt.' : 'Lägg ansvar på avtal eller arbetsobjekt för tydlig uppföljning.') + '</small>' +
-    '<span class="property-control-link muted-control-link">Samma ansvar följer objekten</span></section>';
-
-  return '<section class="property-control-board">' +
-    '<div class="planning-section-head"><div><span>STYRBILD</span><h3>Kostnad, aktivitet och ansvar</h3>' +
-      '<p>Varje summa byggs av posterna i fastigheten. Klicka på ett block för att se och administrera underlaget.</p></div>' +
-      '<strong class="property-control-year">' + esc(maintenancePlanning.year) + '</strong></div>' +
-    '<div class="property-control-grid">' + groups.map(groupCard).join("") + contractCard + responsibilityCard + '</div>' +
-  '</section>';
-}
-
 function propertyWorkspaceHtml(contracts) {
   const cs = propertyContractsForContext(contracts);
   return '<div class="property-all-workspace">' +
