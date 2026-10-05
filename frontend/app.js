@@ -1238,39 +1238,56 @@ function updateQuickScopeButtons() {
 
 function mobileModeChooserHtml(contracts) {
   const items = portfolioActivityItems(contracts);
-  const counts = {
-    contracts: contracts.length,
-    project: items.filter(function(x){return x.group==="project";}).length,
-    maintenance: items.filter(function(x){return x.group==="maintenance";}).length,
-    drift: items.filter(function(x){return x.group==="drift" || x.group==="operations";}).length,
-    wish: items.filter(function(x){return x.group==="wish";}).length
-  };
-  const section = portfolioExplorer.section;
-  const runningSections = ["maintenance","drift","wish"];
-  const runningActive = runningSections.includes(section);
-  const runningTarget = runningActive ? section : "maintenance";
 
-  return '<div class="mobile-content-choice" role="tablist" aria-label="Visa">' +
-    '<div class="mobile-primary-content-row">' +
-      '<button type="button" class="mobile-primary-content-chip ' + (section==="contracts"?"active":"") +
-        '" data-portfolio-section="contracts" role="tab" aria-selected="' + (section==="contracts"?"true":"false") + '">' +
-        '<span>Hyra</span><small>' + counts.contracts + '</small></button>' +
-      '<button type="button" class="mobile-primary-content-chip ' + (section==="project"?"active":"") +
-        '" data-portfolio-section="project" role="tab" aria-selected="' + (section==="project"?"true":"false") + '">' +
-        '<span>Projekt</span><small>' + counts.project + '</small></button>' +
-      '<button type="button" class="mobile-primary-content-chip ' + (runningActive?"active":"") +
-        '" data-portfolio-section="' + runningTarget + '" role="tab" aria-selected="' + (runningActive?"true":"false") + '">' +
-        '<span>Löpande</span><small>' + (counts.maintenance+counts.drift+counts.wish) + '</small></button>' +
-    '</div>' +
-    (runningActive ?
-      '<div class="mobile-running-content-row" role="tablist" aria-label="Löpande">' +
-        '<button type="button" class="mobile-running-content-chip ' + (section==="maintenance"?"active":"") +
-          '" data-portfolio-section="maintenance"><span>Underhåll</span><small>' + counts.maintenance + '</small></button>' +
-        '<button type="button" class="mobile-running-content-chip ' + (section==="drift"?"active":"") +
-          '" data-portfolio-section="drift"><span>Drift</span><small>' + counts.drift + '</small></button>' +
-        '<button type="button" class="mobile-running-content-chip ' + (section==="wish"?"active":"") +
-          '" data-portfolio-section="wish"><span>Önskemål</span><small>' + counts.wish + '</small></button>' +
-      '</div>' : '') +
+  const rentByProperty = new Map();
+  contracts.forEach(function(contract) {
+    const propertyId = contract.propertyId || "NO_PROPERTY";
+    const property = state.properties.find(function(p){return p.id===contract.propertyId;});
+    const row = rentByProperty.get(propertyId) || {
+      label: property ? (property.address || property.designation || property.id) : (contract.propertyId || "Fastighet saknas"),
+      amount: 0
+    };
+    row.amount += Number(contract.annualRent) || 0;
+    rentByProperty.set(propertyId,row);
+  });
+
+  function moneyTotal(rows) {
+    return rows.reduce(function(sum,row){return sum+(Number(row.amount)||Number(row.cost)||0);},0);
+  }
+
+  function compactRows(rows, labelFn, amountFn) {
+    if (!rows.length) return '<div class="mobile-compact-empty">Inga poster i urvalet</div>';
+    return rows.map(function(row) {
+      return '<div class="mobile-compact-row"><span>' + esc(labelFn(row)) + '</span><strong>' +
+        money(amountFn(row)) + '</strong></div>';
+    }).join("");
+  }
+
+  function section(title, rows, total, labelFn, amountFn, extraClass) {
+    return '<details class="mobile-compact-section ' + (extraClass||"") + '">' +
+      '<summary><span class="mobile-compact-section-title">' + esc(title) + '</span>' +
+        '<span class="mobile-compact-section-total"><strong>' + money(total) + '</strong><small>' +
+          rows.length + (rows.length===1 ? ' post' : ' poster') + '</small></span><b>⌄</b></summary>' +
+      '<div class="mobile-compact-section-body">' + compactRows(rows,labelFn,amountFn) + '</div>' +
+    '</details>';
+  }
+
+  const rentRows = Array.from(rentByProperty.values()).sort(function(a,b){return b.amount-a.amount || a.label.localeCompare(b.label,"sv");});
+  const projects = items.filter(function(x){return x.group==="project";});
+  const maintenance = items.filter(function(x){return x.group==="maintenance";});
+  const drift = items.filter(function(x){return x.group==="drift" || x.group==="operations";});
+  const wishes = items.filter(function(x){return x.group==="wish";});
+
+  return '<div class="mobile-compact-accordion" aria-label="Ekonomi och aktiviteter i urvalet">' +
+    section("Hyra",rentRows,moneyTotal(rentRows),function(x){return x.label;},function(x){return x.amount;},"rent") +
+    section("Projekt",projects,projects.reduce(function(s,x){return s+(Number(x.cost)||0);},0),
+      function(x){return x.title || "Projekt";},function(x){return Number(x.cost)||0;},"project") +
+    section("Underhåll",maintenance,maintenance.reduce(function(s,x){return s+(Number(x.cost)||0);},0),
+      function(x){return x.title || x.type || "Underhåll";},function(x){return Number(x.cost)||0;},"maintenance") +
+    section("Drift",drift,drift.reduce(function(s,x){return s+(Number(x.cost)||0);},0),
+      function(x){return x.title || x.type || "Drift";},function(x){return Number(x.cost)||0;},"drift") +
+    section("Önskemål",wishes,wishes.reduce(function(s,x){return s+(Number(x.cost)||0);},0),
+      function(x){return x.title || x.type || "Önskemål";},function(x){return Number(x.cost)||0;},"wish") +
   '</div>';
 }
 function mobileFilterChoiceLabel(filterId, value) {
