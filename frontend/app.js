@@ -21,9 +21,9 @@ const DRIFT_ISSUE_CATEGORIES = [
 const demo = window.LokalblickDemoData;
 
 const views = [
-  { id: "properties", label: "Bestånd", icon: "▦", eyebrow: "URVAL · FASTIGHET · AVTAL · AKTUELLT" },
+  { id: "properties", label: "Översikt", icon: "⌂", eyebrow: "URVAL · FASTIGHET · AVTAL · AKTUELLT" },
   { id: "map", label: "Karta", icon: "⌖", eyebrow: "GEOGRAFI" },
-  { id: "budget", label: "Årsbudget", icon: "¤", eyebrow: "EKONOMI" },
+  { id: "budget", label: "Budget", icon: "¤", eyebrow: "EKONOMI" },
   { id: "organisation", label: "Organisation", icon: "◎", eyebrow: "PERSONER & ANSVAR" },
   { id: "api", label: "API", icon: "⌁", eyebrow: "MER · DATAKÄLLOR" },
   { id: "about", label: "Om", icon: "ⓘ", eyebrow: "SÄKERHET & ARKITEKTUR" }
@@ -751,8 +751,8 @@ function render() {
   }
   renderNav();
   const meta = views.find(function(v) { return v.id === currentView; });
-  document.getElementById("page-title").textContent = meta.label;
-  document.getElementById("page-eyebrow").textContent = meta.eyebrow;
+  document.getElementById("page-title").textContent = currentView==="properties" && portfolioExplorer.section==="activities" ? "Planera" : meta.label;
+  document.getElementById("page-eyebrow").textContent = currentView==="properties" && portfolioExplorer.section==="activities" ? "ANSVAR · PLANERING · ÅTGÄRD" : meta.eyebrow;
   const banner = document.getElementById("mode-banner");
   banner.className = "mode-banner " + (state.isDemo ? "demo" : "live");
   const sourceInfo = window.LokalblickSourceService ? window.LokalblickSourceService.status() : null;
@@ -2615,7 +2615,7 @@ function renderOrganisation() {
       (p.load > 100 ? "over" : "") + '" style="width:' + (Math.min(p.load, 130) / 1.3) +
       '%"></div></div><div class="bar-value">' + p.load + "%</div></div>";
   }).join("");
-  return '<div class="section-stack">' +
+  return '<div class="section-stack unified-organisation">' +
     card("Organisation per verksamhetsområde", "Objekt och våra personer kopplas till VÅRDBO, ORDBO, Myndighet/Stab eller Hälsa & Förebyggande.",
       table(["Organisation", "Objekt / avtal", "Area", "Hyra + drift", "Våra personer"], objectStats)) +
     '<div class="grid two-col">' +
