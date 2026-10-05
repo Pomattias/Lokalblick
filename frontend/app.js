@@ -333,7 +333,7 @@ function bindMaintenancePlannerControls() {
     year.dataset.planBound="1";
     year.addEventListener("change",function(){
       maintenancePlanning.year=Number(year.value);
-      if (currentView === "map") render(); else filterPropertyPortfolio();
+      if (currentView === "properties") filterPropertyPortfolio(); else render();
     });
   });
   document.querySelectorAll("[data-maintenance-plan-mode]:not([data-plan-bound])").forEach(function(button){
@@ -2048,6 +2048,7 @@ function budgetAdjustment(plan, category, baseAmount) {
   return (Number(plan.targets[category])||0) - baseAmount;
 }
 function renderBudget() {
+  const filters = portfolioFilterOptions();
   const scopedContracts = portfolioScopeContracts();
   const scoped = hasPortfolioScope();
   const liveRows = budgetRows(selectedBudgetYear, scopedContracts);
@@ -2067,9 +2068,10 @@ function renderBudget() {
   const variance = forecastTotal - budgetTotal;
   const locked = Boolean(plan && plan.status==="Låst");
 
-  const yearSelect = '<select class="select" id="budget-year">' + budgetYears().map(function(y) {
+  const yearOptions = budgetYears().map(function(y) {
     return '<option value="' + y + '"' + (Number(y)===Number(selectedBudgetYear) ? " selected" : "") + ">" + y + "</option>";
-  }).join("") + "</select>";
+  }).join("");
+  const yearSelect = '<select class="select" id="budget-year">' + yearOptions + "</select>";
 
   const categoryCards = baseSummary.map(function(base){
     const forecast = forecastSummary.find(function(x){return x.category===base.category;}) || {amount:0};
@@ -2106,20 +2108,86 @@ function renderBudget() {
       locked ? '<span class="budget-lock-note">Låst ' + esc(plan.lockedAt||"") + ' · används som baslinje för uppföljning</span>' :
       '<button class="button primary" id="budget-lock">Lås årsbudget</button>';
 
+  function mobileCategory(category) {
+    const base=baseSummary.find(function(x){return x.category===category;}) || {amount:0};
+    const forecast=forecastSummary.find(function(x){return x.category===category;}) || {amount:0};
+    const actual=actualSummary.find(function(x){return x.category===category;}) || {amount:0};
+    const target=Number(targets[category])||0;
+    const adjustment=target-base.amount;
+    const rows=baselineRows.filter(function(r){return r.category===category;});
+    const rowHtml=rows.length ? rows.map(function(r){
+      const address=budgetPropertyLabel(r);
+      const detail=r.source || r.sub || category;
+      const label=(address && address!=="–" ? address + " · " : "") + detail;
+      return '<div class="mobile-budget-detail-row"><span>' + esc(label) + '</span><strong>' + money(r.amount) + '</strong></div>';
+    }).join("") : '<div class="mobile-budget-empty">Inga budgetrader i urvalet</div>';
+
+    const adjustmentHtml = !scoped && !locked
+      ? '<label class="mobile-budget-adjustment"><span>Justering</span><input type="number" data-budget-adjustment="' + esc(category) +
+        '" value="' + adjustment + '"></label>'
+      : '<span class="mobile-budget-adjustment-readonly">Justering <strong>' + (adjustment>=0?"+":"") + money(adjustment) + '</strong></span>';
+
+    return '<details class="mobile-budget-category">' +
+      '<summary><span>' + esc(category) + '</span><strong>' + money(target) + '</strong><b>⌄</b></summary>' +
+      '<div class="mobile-budget-category-body">' +
+        '<div class="mobile-budget-category-stats">' +
+          '<span>Budget <strong>' + money(target) + '</strong></span>' +
+          '<span>Prognos <strong>' + money(forecast.amount) + '</strong></span>' +
+          '<span>Utfall <strong>' + money(actual.amount) + '</strong></span>' +
+        '</div>' +
+        '<div class="mobile-budget-category-underlay"><span>Underlag <strong>' + money(base.amount) + '</strong></span>' + adjustmentHtml + '</div>' +
+        '<div class="mobile-budget-detail-list">' + rowHtml + '</div>' +
+      '</div>' +
+    '</details>';
+  }
+
+  const mobileAction = scoped
+    ? '<span class="mobile-budget-status-note">Urvalsvy</span>'
+    : !plan ? '<button class="mobile-budget-action" id="mobile-budget-create">Skapa arbetsbudget</button>'
+    : locked ? '<span class="mobile-budget-status-note">Låst ' + esc(plan.lockedAt||"") + '</span>'
+    : '<button class="mobile-budget-action" id="mobile-budget-lock">Lås budget</button>';
+
+  const mobileBudget =
+    '<section class="mobile-only mobile-budget-page">' +
+      '<div class="mobile-budget-filters">' +
+        '<div id="mobile-scope-filters">' + mobileScopeFiltersHtml(filters) + '</div>' +
+        '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" value="' + esc(portfolioFilters.q||"") +
+          '" placeholder="Sök fastighet, avtal, kund eller person…">' +
+          '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
+        '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla områden") + '</select>' +
+        '<select id="filter-our-person" hidden>' + selectOptions(filters.ourPeople,"Alla ansvariga") + '</select>' +
+      '</div>' +
+      '<section class="mobile-budget-summary">' +
+        '<div class="mobile-budget-summary-head"><div><span>BUDGET</span><select class="mobile-budget-year" id="mobile-budget-year">' +
+          yearOptions + '</select></div><strong>' + money(budgetTotal) + '</strong></div>' +
+        '<div class="mobile-budget-summary-kpis">' +
+          '<div><span>Prognos</span><strong>' + money(forecastTotal) + '</strong></div>' +
+          '<div><span>Utfall</span><strong>' + money(actualTotal) + '</strong></div>' +
+          '<div class="' + (variance>0?"negative":"positive") + '"><span>Avvikelse</span><strong>' +
+            (variance>=0?"+":"") + money(variance) + '</strong></div>' +
+        '</div>' +
+        '<div class="mobile-budget-summary-status">' + status + mobileAction + '</div>' +
+      '</section>' +
+      '<div class="mobile-budget-categories">' +
+        budgetCategories().map(mobileCategory).join("") +
+      '</div>' +
+    '</section>';
+
   const scopeBridge = '<div class="cross-view-scope"><span>URVAL</span><strong>' + esc(portfolioScopeTitle()) + '</strong><small>' + scopedContracts.length + ' avtal följer med från Bestånd</small></div>';
-  return '<div class="budget-page">' + scopeBridge + '<section class="budget-hero"><div><span class="portfolio-kicker">ÅRSBUDGET · BASLINJE · PROGNOS</span><h2>Budget ' +
-    selectedBudgetYear + '</h2><p>' + (scoped ? 'Ekonomin är filtrerad med samma urval som resten av Lokalblick.' : 'Detaljerna bygger budgeten. Justeringsposter gör beslutad ram tydlig utan att skriva över underlaget.') + '</p></div>' +
-    '<div class="budget-hero-actions">' + yearSelect + status + action + '</div></section><div class="budget-kpis">' +
-    kpi("Beslutad budget",money(budgetTotal),locked?"låst årsbaslinje":"arbetsbudget") +
-    kpi("Aktuell prognos",money(forecastTotal),"från dagens detaljposter") +
-    kpi("Utfall registrerat",money(actualTotal),"bokfört/rapporterat i Lokalblick") +
-    kpi("Prognosavvikelse",(variance>=0?"+":"") + money(variance),variance>0?"över budget":"inom budget") +
-    '</div><div class="budget-category-grid">' + categoryCards + '</div>' +
-    card("Budgetdetaljer","Låst budget består av importerade detaljposter plus explicita justeringsposter. Varje rad kan spåras till fastighet och källa.",
-      table(["Kategori","Detalj","Källa","Fastighet","När","Belopp"],detailRows)) + '</div>';
+  const desktopBudget =
+    '<div class="desktop-only">' + scopeBridge + '<section class="budget-hero"><div><span class="portfolio-kicker">ÅRSBUDGET · BASLINJE · PROGNOS</span><h2>Budget ' +
+      selectedBudgetYear + '</h2><p>' + (scoped ? 'Ekonomin är filtrerad med samma urval som resten av Lokalblick.' : 'Detaljerna bygger budgeten. Justeringsposter gör beslutad ram tydlig utan att skriva över underlaget.') + '</p></div>' +
+      '<div class="budget-hero-actions">' + yearSelect + status + action + '</div></section><div class="budget-kpis">' +
+      kpi("Beslutad budget",money(budgetTotal),locked?"låst årsbaslinje":"arbetsbudget") +
+      kpi("Aktuell prognos",money(forecastTotal),"från dagens detaljposter") +
+      kpi("Utfall registrerat",money(actualTotal),"bokfört/rapporterat i Lokalblick") +
+      kpi("Prognosavvikelse",(variance>=0?"+":"") + money(variance),variance>0?"över budget":"inom budget") +
+      '</div><div class="budget-category-grid">' + categoryCards + '</div>' +
+      card("Budgetdetaljer","Låst budget består av importerade detaljposter plus explicita justeringsposter. Varje rad kan spåras till fastighet och källa.",
+        table(["Kategori","Detalj","Källa","Fastighet","När","Belopp"],detailRows)) + '</div>';
+
+  return '<div class="budget-page">' + mobileBudget + desktopBudget + '</div>';
 }
-
-
 function renderAbout() {
   return '<div class="about-page">' +
     '<div class="about-intro">' +
@@ -2300,7 +2368,7 @@ function bindMobileScopeFilterControls() {
         portfolioExplorer.contractId="";
         const propertyDetails=button.closest(".mobile-filter-chip");
         if(propertyDetails) propertyDetails.removeAttribute("open");
-        if (currentView === "map") render(); else filterPropertyPortfolio();
+        if (currentView === "properties") filterPropertyPortfolio(); else render();
         return;
       }
 
@@ -2312,7 +2380,7 @@ function bindMobileScopeFilterControls() {
       portfolioExplorer.contractId="";
       const details=button.closest(".mobile-filter-chip");
       if(details) details.removeAttribute("open");
-      if (currentView === "map") render(); else filterPropertyPortfolio();
+      if (currentView === "properties") filterPropertyPortfolio(); else render();
     });
   });
   document.querySelectorAll("[data-mobile-clear-scope]:not([data-mobile-filter-bound])").forEach(function(button) {
@@ -2327,7 +2395,7 @@ function bindMobileScopeFilterControls() {
       portfolioFilters.ourPerson="";
       portfolioExplorer.propertyId="";
       portfolioExplorer.contractId="";
-      if (currentView === "map") render(); else filterPropertyPortfolio();
+      if (currentView === "properties") filterPropertyPortfolio(); else render();
     });
   });
 }
@@ -2370,18 +2438,22 @@ function bindViewEvents() {
     });
     clearPortfolioFilters();
     portfolioExplorer = { propertyId: "", contractId: "", section: "overview" };
-    if (currentView === "map") render(); else filterPropertyPortfolio();
+    if (currentView === "properties") filterPropertyPortfolio(); else render();
   });
   bindPortfolioSectionControls();
   bindPortfolioExplorerControls();
   bindMobileScopeFilterControls();
   applyPortfolioSectionVisibility();
   if (currentView === "properties") filterPropertyPortfolio();
-  const by = document.getElementById("budget-year");
-  if (by) by.addEventListener("change", function() { selectedBudgetYear = Number(by.value); render(); });
+  ["budget-year","mobile-budget-year"].forEach(function(id){
+    const by = document.getElementById(id);
+    if (by) by.addEventListener("change", function() { selectedBudgetYear = Number(by.value); render(); });
+  });
 
-  const createBudget = document.getElementById("budget-create");
-  if (createBudget) createBudget.addEventListener("click", async function() {
+  ["budget-create","mobile-budget-create"].forEach(function(id){
+    const createBudget = document.getElementById(id);
+    if (!createBudget) return;
+    createBudget.addEventListener("click", async function() {
     if (hasPortfolioScope()) return;
     const rows = budgetRows(selectedBudgetYear).map(function(row){return Object.assign({},row);});
     const summary = summarizeBudgetRows(rows);
@@ -2391,6 +2463,7 @@ function bindViewEvents() {
     state.budgetPlans.push({year:selectedBudgetYear,status:"Arbetsbudget",createdAt:new Date().toISOString().slice(0,10),lockedAt:"",lines:rows,targets:targets,notes:{}});
     await saveState();
     render();
+    });
   });
 
   document.querySelectorAll("[data-budget-adjustment]").forEach(function(input) {
@@ -2406,16 +2479,19 @@ function bindViewEvents() {
     });
   });
 
-  const lockBudget = document.getElementById("budget-lock");
-  if (lockBudget) lockBudget.addEventListener("click", async function() {
-    if (hasPortfolioScope()) return;
-    const plan = budgetPlan(selectedBudgetYear);
-    if (!plan || plan.status==="Låst") return;
-    if (!confirm("Lås budget " + selectedBudgetYear + "? Budgeten blir baslinje för prognos och uppföljning.")) return;
-    plan.status = "Låst";
-    plan.lockedAt = new Date().toISOString().slice(0,10);
-    await saveState();
-    render();
+  ["budget-lock","mobile-budget-lock"].forEach(function(id){
+    const lockBudget = document.getElementById(id);
+    if (!lockBudget) return;
+    lockBudget.addEventListener("click", async function() {
+      if (hasPortfolioScope()) return;
+      const plan = budgetPlan(selectedBudgetYear);
+      if (!plan || plan.status==="Låst") return;
+      if (!confirm("Lås budget " + selectedBudgetYear + "? Budgeten blir baslinje för prognos och uppföljning.")) return;
+      plan.status = "Låst";
+      plan.lockedAt = new Date().toISOString().slice(0,10);
+      await saveState();
+      render();
+    });
   });
 }
 function syncPortfolioFiltersFromControls() {
