@@ -1286,7 +1286,7 @@ function mobileModeChooserHtml(contracts) {
   function activityLabel(item, fallback) {
     const property=state.properties.find(function(p){return p.id===item.propertyId;});
     const address=property ? (property.address || property.designation || property.id) : (item.propertyId || "");
-    return (item.title || item.type || fallback) + (address ? " · " + address : "");
+    return (address ? address + " · " : "") + (item.title || item.type || fallback);
   }
 
   if (portfolioExplorer.section === "activities") return "";
