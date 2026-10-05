@@ -1396,26 +1396,50 @@ function mobilePropertyCardsHtml(contracts) {
     if (!grouped.has(c.propertyId)) grouped.set(c.propertyId, []);
     grouped.get(c.propertyId).push(c);
   });
-  const cards = Array.from(grouped.entries()).map(function(entry) {
+
+  const rows = Array.from(grouped.entries()).map(function(entry) {
     const propertyId=entry[0], cs=entry[1];
     const property=state.properties.find(function(p){return p.id===propertyId;});
+    const address=property ? (property.address||property.designation||property.id) : propertyId;
+    const designation=property && property.designation ? property.designation : "";
+    const owner=property && property.owner ? property.owner : "–";
+    const manager=property && property.manager ? property.manager : "–";
     const area=cs.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
     const cost=cs.reduce(function(sum,c){return sum+totalContractCost(c);},0);
     const activities=portfolioActivityItems(cs);
     const maintenance=activities.filter(function(x){return x.group==="maintenance";}).length;
     const projects=activities.filter(function(x){return x.group==="project";}).length;
-    const issues=activities.filter(function(x){return x.group==="drift";}).length;
-    return '<button type="button" class="mobile-property-card" data-explorer-property="' + esc(propertyId) + '">' +
-      '<span class="mobile-card-main"><strong>' + esc(property ? (property.address||property.id) : propertyId) + '</strong>' +
-        '<small>' + esc(property && property.designation ? property.designation : propertyId) + '</small></span>' +
-      '<span class="mobile-card-stats"><span><strong>' + cs.length + '</strong><small>avtal</small></span>' +
-        '<span><strong>' + num(area) + '</strong><small>kvm</small></span>' +
-        '<span><strong>' + maintenance + '</strong><small>UH</small></span>' +
-        '<span><strong>' + projects + '</strong><small>projekt</small></span></span>' +
-      '<span class="mobile-card-foot"><span>' + money(cost) + '/år</span>' + (issues ? '<span class="mobile-alert">' + issues + ' ärenden</span>' : '') + '<strong>→</strong></span>' +
-    '</button>';
-  });
-  return cards.join("") || '<div class="empty">Inga fastigheter i urvalet.</div>';
+    const issues=activities.filter(function(x){return x.group==="drift" || x.group==="operations";}).length;
+    const wishes=activities.filter(function(x){return x.group==="wish";}).length;
+
+    return '<details class="property-compact-row">' +
+      '<summary>' +
+        '<span class="property-compact-title"><strong>' + esc(address) + '</strong>' +
+          '<small>' + esc(designation || (cs.length + (cs.length===1?" avtal":" avtal"))) + '</small></span>' +
+        '<span class="property-compact-kpis"><b>' + cs.length + '</b><small>avtal</small><b>' + num(area) + '</b><small>kvm</small></span>' +
+        '<span class="property-compact-cost"><strong>' + money(cost) + '</strong><small>/år</small></span>' +
+        '<span class="property-compact-chevron">⌄</span>' +
+      '</summary>' +
+      '<div class="property-compact-body">' +
+        '<div class="property-info-grid">' +
+          '<div><span>Fastighetsbeteckning</span><strong>' + esc(designation || "–") + '</strong></div>' +
+          '<div><span>Fastighetsägare</span><strong>' + esc(owner) + '</strong></div>' +
+          '<div><span>Förvaltare</span><strong>' + esc(manager) + '</strong></div>' +
+          '<div><span>Årskostnad</span><strong>' + money(cost) + '</strong></div>' +
+        '</div>' +
+        '<div class="property-activity-strip">' +
+          '<span><strong>' + maintenance + '</strong><small>UH</small></span>' +
+          '<span><strong>' + projects + '</strong><small>Projekt</small></span>' +
+          '<span><strong>' + issues + '</strong><small>Drift</small></span>' +
+          '<span><strong>' + wishes + '</strong><small>Önskemål</small></span>' +
+        '</div>' +
+        '<button type="button" class="property-open-button" data-explorer-property="' + esc(propertyId) + '">Öppna fastigheten <b>→</b></button>' +
+      '</div>' +
+    '</details>';
+  }).join("");
+
+  return '<section class="property-compact-list"><div class="property-list-head"><div><span>FASTIGHETER</span><h3>Fastigheter i urvalet</h3></div><strong>' + grouped.size + '</strong></div>' +
+    (rows || '<div class="empty">Inga fastigheter i urvalet.</div>') + '</section>';
 }
 function mobileContractCardsHtml(contracts) {
   return contracts.map(function(c) {
