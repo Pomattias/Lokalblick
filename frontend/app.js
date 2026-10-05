@@ -659,12 +659,16 @@ function render() {
   banner.className = "mode-banner " + (state.isDemo ? "demo" : "live");
   const sourceInfo = window.LokalblickSourceService ? window.LokalblickSourceService.status() : null;
   const pendingCount = sourceInfo && sourceInfo.pendingChanges ? sourceInfo.pendingChanges.length : 0;
+  const migrationSource = sourceInfo && sourceInfo.sourceKind === "migration";
   banner.innerHTML = state.isDemo
     ? "<strong>Demo</strong><span>Endast syntetisk data. Företagsdata ansluts säkert via Datakällor i en autentiserad miljö.</span>"
-    : "<strong>Datakälla aktiv</strong><span>" + esc(state.sourceName || "Importerad fil") + " · " + state.properties.length + " fastigheter · " + state.contracts.length + " objekt/avtal.</span>" +
-      (pendingCount
-        ? '<div class="source-save-cluster"><button type="button" class="source-review-link" data-goto="api">' + pendingCount + ' ändring' + (pendingCount===1?'':'ar') + '</button><button type="button" class="source-save-button" data-source-save>💾 Spara till Excel</button></div>'
-        : '<span class="source-synced">✓ Sparat till Excel</span>');
+    : migrationSource
+      ? "<strong>Migreringskälla</strong><span>" + esc(state.sourceName || "Befintlig Excel") + " · " + state.properties.length + " fastigheter · " + state.contracts.length + " avtal. Originalfilen skrivs inte om.</span>" +
+        '<div class="source-save-cluster"><button type="button" class="source-review-link" data-goto="api">Granska migrering</button><button type="button" class="source-save-button" data-goto="api">Skapa Lokalblick-fil →</button></div>'
+      : "<strong>Datakälla aktiv</strong><span>" + esc(state.sourceName || "Importerad fil") + " · " + state.properties.length + " fastigheter · " + state.contracts.length + " objekt/avtal.</span>" +
+        (pendingCount
+          ? '<div class="source-save-cluster"><button type="button" class="source-review-link" data-goto="api">' + pendingCount + ' ändring' + (pendingCount===1?'':'ar') + '</button><button type="button" class="source-save-button" data-source-save>💾 Spara till Excel</button></div>'
+          : '<span class="source-synced">✓ Sparat till Excel</span>');
   let html = "";
   if (currentView === "properties") html = renderProperties();
   else if (currentView === "map") html = renderMap();
