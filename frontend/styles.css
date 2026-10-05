@@ -3645,3 +3645,18 @@ button.property-control-card:hover {
     text-align:left;
   }
 }
+
+.shared-scope-link {
+  display:grid;
+  gap:2px;
+  justify-items:start;
+  text-align:left;
+}
+.shared-scope-link small {
+  color:var(--accent);
+  font-size:8px;
+  font-weight:800;
+}
+@media (max-width:700px) {
+  .shared-scope-link { min-height:38px; align-content:center; }
+}

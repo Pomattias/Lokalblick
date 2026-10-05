@@ -2076,7 +2076,7 @@ function renderOrganisation() {
       const org = state.organizations.find(function(o) { return o.id === p.organizationId; });
       return p.unitId === u.id && org && org.type === "our";
     });
-    return "<tr><td><strong>" + esc(u.name) + "</strong></td><td>" + cs.length + "</td><td>" +
+    return '<tr><td><button type="button" class="table-link shared-scope-link" data-shared-unit="' + esc(u.id) + '"><strong>' + esc(u.name) + '</strong><small>Visa i Bestånd →</small></button></td><td>' + cs.length + '</td><td>' +
       num(cs.reduce(function(sum, c) { return sum + (Number(c.area) || 0); }, 0)) + " kvm</td><td>" +
       money(cs.reduce(function(sum, c) { return sum + totalContractCost(c); }, 0)) + "</td><td>" + people.length + "</td></tr>";
   });
@@ -2086,7 +2086,7 @@ function renderOrganisation() {
     const projects = ass.filter(function(a) { return a.targetType === "project"; }).map(function(a) { return projectName(a.targetId); });
     const other = ass.filter(function(a) { return a.targetType !== "property" && a.targetType !== "object" && a.targetType !== "project"; }).map(function(a) { return targetName(a.targetType, a.targetId); });
     const load = personLoad(p.id);
-    return "<tr><td><strong>" + esc(p.name) + '</strong><div class="muted">' + esc(p.role || "") + "</div></td><td>" + esc(orgType(p.organizationId)) +
+    return '<tr><td><button type="button" class="table-link shared-scope-link" data-shared-person="' + esc(p.id) + '"><strong>' + esc(p.name) + '</strong><small>' + esc(p.role || "") + ' · Visa ansvar →</small></button></td><td>' + esc(orgType(p.organizationId)) +
       "</td><td>" + esc(orgName(p.organizationId)) + "</td><td>" + esc(unitName(p.unitId)) + "</td><td>" + esc(objects.join(", ") || "–") +
       "</td><td>" + esc(projects.join(", ") || "–") + "</td><td>" + esc(other.join(", ") || "–") + "</td><td>" + (load ? load + "%" : "–") + "</td></tr>";
   });
@@ -2143,6 +2143,26 @@ function bindEditButtons() {
 }
 function bindViewEvents() {
   applyPortfolioFiltersToControls();
+  document.querySelectorAll("[data-shared-unit]:not([data-shared-bound])").forEach(function(button) {
+    button.dataset.sharedBound="1";
+    button.addEventListener("click",function(){
+      clearPortfolioFilters();
+      portfolioFilters.unit=button.dataset.sharedUnit||"";
+      portfolioExplorer={propertyId:"",contractId:"",section:"overview"};
+      currentView="properties";
+      render();
+    });
+  });
+  document.querySelectorAll("[data-shared-person]:not([data-shared-bound])").forEach(function(button) {
+    button.dataset.sharedBound="1";
+    button.addEventListener("click",function(){
+      clearPortfolioFilters();
+      portfolioFilters.ourPerson=button.dataset.sharedPerson||"";
+      portfolioExplorer={propertyId:"",contractId:"",section:"overview"};
+      currentView="properties";
+      render();
+    });
+  });
   document.querySelectorAll("[data-goto]").forEach(function(button) {
     button.addEventListener("click", function() { currentView = button.dataset.goto; render(); });
   });
