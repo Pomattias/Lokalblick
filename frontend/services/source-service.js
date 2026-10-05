@@ -86,7 +86,9 @@
     discovered:[],
     pendingChanges:[],
     sourceKind:"canonical",
-    migrationReport:null
+    migrationReport:null,
+    writeRecoveryNeeded:false,
+    lastWriteError:""
   };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -196,6 +198,34 @@
       if (requestIt && handle.requestPermission) return await handle.requestPermission(opts);
     } catch (_) {}
     return "prompt";
+  }
+
+  function isStaleHandleError(error) {
+    const message = String(error && error.message || "").toLowerCase();
+    return Boolean(error && error.name === "InvalidStateError") ||
+      message.indexOf("state cached in an interface object") !== -1 ||
+      message.indexOf("state had changed since it was read from disk") !== -1;
+  }
+
+  async function pickFreshWriteHandle() {
+    if (!window.showSaveFilePicker) throw new Error("Ny filkoppling kräver Edge eller Chrome.");
+    return window.showSaveFilePicker({
+      suggestedName:source.fileName || "Lokalblick-data.xlsx",
+      types:[{ description:"Excel-arbetsbok", accept:{ "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"] } }]
+    });
+  }
+
+  async function writeBytes(handle, bytes) {
+    const writable = await handle.createWritable();
+    try {
+      await writable.write(bytes);
+      await writable.close();
+    } catch (error) {
+      if (writable.abort) {
+        try { await writable.abort(); } catch (_) {}
+      }
+      throw error;
+    }
   }
 
   function rowsFromSheet(workbook, sheet) {
@@ -684,9 +714,7 @@
     base.sourceName = handle.name || "Lokalblick-data.xlsx";
     const workbook = dataToWorkbook(base);
     const bytes = XLSX.write(workbook, { bookType:"xlsx", type:"array" });
-    const writable = await handle.createWritable();
-    await writable.write(bytes);
-    await writable.close();
+    await writeBytes(handle, bytes);
     source.handle = handle;
     source.fileName = handle.name || "Lokalblick-data.xlsx";
     source.mode = mode === "readwrite" ? "readwrite" : "read";
@@ -726,19 +754,44 @@
     if (!source.connected || !source.handle || !source.data) throw new Error("Ingen Excel-källa är ansluten.");
     if (source.sourceKind === "migration") throw new Error("Migreringskällan skrivs inte om. Skapa först en ny Lokalblick-fil under Datakällor.");
     if (source.mode !== "readwrite") throw new Error("Källan är ansluten som läsbar. Byt till Läs + skriv först.");
-    const access = await permission(source.handle, "readwrite", true);
-    if (access !== "granted") throw new Error("Skrivåtkomst godkändes inte.");
+
+    let handle = source.handle;
+    if (source.writeRecoveryNeeded) {
+      handle = await pickFreshWriteHandle();
+      const access = await permission(handle, "readwrite", true);
+      if (access !== "granted") throw new Error("Skrivåtkomst godkändes inte.");
+    } else {
+      const access = await permission(handle, "readwrite", true);
+      if (access !== "granted") throw new Error("Skrivåtkomst godkändes inte.");
+    }
+
     const workbook = dataToWorkbook(source.data);
     const bytes = XLSX.write(workbook, { bookType:"xlsx", type:"array" });
-    const writable = await source.handle.createWritable();
-    await writable.write(bytes);
-    await writable.close();
+
+    try {
+      await writeBytes(handle, bytes);
+    } catch (error) {
+      source.lastWriteError = error && error.message ? error.message : String(error);
+      if (isStaleHandleError(error)) {
+        source.writeRecoveryNeeded = true;
+        const friendly = new Error("Filkopplingen behöver förnyas. Dina ändringar ligger kvar i Lokalblick. Klicka på Spara till Excel igen och välj samma fil.");
+        friendly.code = "LOKALBLICK_RESELECT_WRITE";
+        throw friendly;
+      }
+      throw error;
+    }
+
+    source.handle = handle;
+    source.fileName = handle.name || source.fileName || "Lokalblick-data.xlsx";
     source.workbook = workbook;
     source.baselineData = clone(source.data);
     source.dirty = false;
     source.pendingChanges = [];
+    source.writeRecoveryNeeded = false;
+    source.lastWriteError = "";
     source.lastRead = new Date();
     source.discovered = discoverWorkbook(workbook);
+    await rememberHandle(handle, source.mode);
     return status();
   }
 
@@ -769,6 +822,8 @@
     source.pendingChanges = [];
     source.sourceKind = "canonical";
     source.migrationReport = null;
+    source.writeRecoveryNeeded = false;
+    source.lastWriteError = "";
     await forgetHandle();
     if (window.LokalblickDemoDataService) window.LokalblickDataService = window.LokalblickDemoDataService;
     return window.LokalblickDataService.load();
@@ -785,7 +840,9 @@
       discovered:clone(source.discovered || []),
       pendingChanges:clone(source.pendingChanges || []),
       sourceKind:source.sourceKind || "canonical",
-      migrationReport:clone(source.migrationReport || null)
+      migrationReport:clone(source.migrationReport || null),
+      writeRecoveryNeeded:Boolean(source.writeRecoveryNeeded),
+      lastWriteError:source.lastWriteError || ""
     };
   }
 
