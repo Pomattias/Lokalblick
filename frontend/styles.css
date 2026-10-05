@@ -6222,3 +6222,121 @@ button.property-control-card:hover {
     grid-template-columns:repeat(4,minmax(0,1fr));
   }
 }
+
+
+/* Tight inline overview: category -> property -> posts */
+.inline-overview{display:grid;gap:7px}
+.mobile-compact-section.inline-hierarchy{
+  border:1px solid #dfe5e8;
+  border-radius:12px;
+  background:#fff;
+  overflow:hidden;
+}
+.mobile-compact-section.inline-hierarchy>summary{
+  min-height:56px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto 16px;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  list-style:none;
+  cursor:pointer;
+}
+.mobile-compact-section.inline-hierarchy>summary::-webkit-details-marker{display:none}
+.mobile-compact-section.inline-hierarchy[open]>summary{background:#f8fafb;border-bottom:1px solid #edf0f2}
+.mobile-compact-section-title{font-size:12px;font-weight:850}
+.mobile-compact-section-total{display:grid;justify-items:end;gap:0}
+.mobile-compact-section-total strong{font-size:11px}
+.mobile-compact-section-total small{color:#7a8790;font-size:8px}
+.mobile-compact-section.inline-hierarchy>summary>b{color:#87939a;font-size:11px;transition:transform .14s ease}
+.mobile-compact-section.inline-hierarchy[open]>summary>b{transform:rotate(180deg)}
+.mobile-compact-section-body{display:grid}
+.mobile-inline-property{border-top:1px solid #edf0f2}
+.mobile-inline-property:first-child{border-top:0}
+.mobile-inline-property>summary{
+  min-height:48px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto 14px;
+  align-items:center;
+  gap:8px;
+  padding:8px 11px;
+  list-style:none;
+  cursor:pointer;
+}
+.mobile-inline-property>summary::-webkit-details-marker{display:none}
+.mobile-inline-property[open]>summary{background:#fbfcfd}
+.mobile-inline-property>summary>span{display:grid;gap:1px}
+.mobile-inline-property>summary strong{font-size:10px}
+.mobile-inline-property>summary small{color:#7a8790;font-size:7px}
+.mobile-inline-property>summary>b{font-size:9px;white-space:nowrap}
+.mobile-inline-property>summary>i{font-style:normal;color:#8b969d;font-size:9px;transition:transform .14s ease}
+.mobile-inline-property[open]>summary>i{transform:rotate(180deg)}
+.mobile-inline-property-body{display:grid;background:#f8fafb;border-top:1px solid #eef1f3}
+.mobile-inline-post{
+  min-height:44px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:8px;
+  padding:7px 11px;
+  border-bottom:1px solid #edf0f2;
+}
+.mobile-inline-post>span{display:grid;gap:1px}
+.mobile-inline-post strong{font-size:9px}
+.mobile-inline-post small{color:#7a8790;font-size:7px}
+.mobile-inline-post>b{font-size:9px;white-space:nowrap}
+.mobile-inline-post>button{
+  width:26px;height:26px;
+  border:0;border-radius:8px;
+  background:#eef2f4;
+  color:#5d6971;
+  font-weight:850;
+}
+.mobile-inline-open{
+  min-height:36px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:7px 11px;
+  border:0;
+  background:#edf4f3;
+  color:#28494f;
+  font-size:9px;
+  font-weight:850;
+  cursor:pointer;
+}
+.mobile-inline-empty{padding:12px;color:#7a8790;font-size:9px}
+
+.mobile-overview-action{margin-top:10px}
+.mobile-active-action{
+  width:100%;
+  min-height:68px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border:1px solid #9fb9b4;
+  border-radius:14px;
+  background:#203a3f;
+  color:#fff;
+  text-align:left;
+  box-shadow:0 5px 18px rgba(23,49,54,.12);
+}
+.mobile-active-action>span{display:grid;gap:1px}
+.mobile-active-action small{color:#b7cfcb;font-size:7px;font-weight:900;letter-spacing:.12em}
+.mobile-active-action strong{font-size:14px}
+.mobile-active-action em{color:#d9e7e4;font-size:9px;font-style:normal}
+.mobile-active-action>b{font-size:18px}
+
+@media(min-width:701px){
+  .inline-overview{max-width:980px}
+  .mobile-inline-property>summary{
+    grid-template-columns:minmax(260px,1fr) 130px 16px;
+  }
+  .mobile-inline-post{
+    grid-template-columns:minmax(0,1fr) 130px 30px;
+  }
+  .mobile-active-action{max-width:980px;min-height:72px}
+}
