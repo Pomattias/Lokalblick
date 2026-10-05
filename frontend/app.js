@@ -2428,7 +2428,18 @@ function bindViewEvents() {
   bindEditButtons();
   ["portfolio-search", "filter-customer", "filter-unit", "filter-owner", "filter-our-person", "filter-tenant-person", "filter-owner-person"].forEach(function(id) {
     const control = document.getElementById(id);
-    if (control && currentView !== "map") control.addEventListener(id === "portfolio-search" ? "input" : "change", filterPropertyPortfolio);
+    if (!control) return;
+    control.addEventListener(id === "portfolio-search" ? "input" : "change", function(){
+      if (currentView === "properties") {
+        filterPropertyPortfolio();
+      } else if (currentView === "map" && id === "portfolio-search") {
+        portfolioFilters.q=String(control.value||"").trim().toLowerCase();
+        if (window.LokalblickMapService) initPropertyMap();
+      } else {
+        syncPortfolioFiltersFromControls();
+        render();
+      }
+    });
   });
   const reset = document.getElementById("portfolio-filter-reset");
   if (reset) reset.addEventListener("click", function() {
