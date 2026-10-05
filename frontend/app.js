@@ -44,21 +44,25 @@ let portfolioFilters = {
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function ensureShape(data) {
   const base = clone(demo);
-  return Object.assign(base, data || {}, {
-    properties: (data && data.properties) || [],
-    contracts: (data && data.contracts) || [],
-    organizations: (data && data.organizations) || [],
-    people: (data && data.people) || [],
-    assignments: (data && data.assignments) || [],
-    projects: (data && data.projects) || [],
-    maintenance: (data && data.maintenance) || [],
-    operations: (data && data.operations) || [],
-    investigations: (data && data.investigations) || [],
-    maintenanceStatus: (data && data.maintenanceStatus) || [],
-    driftIssues: (data && data.driftIssues) || [],
-    wishes: (data && data.wishes) || [],
-    budgetPlans: (data && data.budgetPlans) || [],
-    assignmentChanges: (data && data.assignmentChanges) || []
+  const source = data || {};
+  function list(name) {
+    return Array.isArray(source[name]) ? source[name] : clone(base[name] || []);
+  }
+  return Object.assign(base, source, {
+    properties: list("properties"),
+    contracts: list("contracts"),
+    organizations: list("organizations"),
+    people: list("people"),
+    assignments: list("assignments"),
+    projects: list("projects"),
+    maintenance: list("maintenance"),
+    operations: list("operations"),
+    investigations: list("investigations"),
+    maintenanceStatus: list("maintenanceStatus"),
+    driftIssues: list("driftIssues"),
+    wishes: list("wishes"),
+    budgetPlans: list("budgetPlans"),
+    assignmentChanges: list("assignmentChanges")
   });
 }
 async function loadState() {
