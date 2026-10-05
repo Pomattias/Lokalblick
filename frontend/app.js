@@ -57,7 +57,8 @@ function ensureShape(data) {
     maintenanceStatus: (data && data.maintenanceStatus) || [],
     driftIssues: (data && data.driftIssues) || [],
     wishes: (data && data.wishes) || [],
-    budgetPlans: (data && data.budgetPlans) || []
+    budgetPlans: (data && data.budgetPlans) || [],
+    assignmentChanges: (data && data.assignmentChanges) || []
   });
 }
 async function loadState() {
@@ -1310,6 +1311,7 @@ function mobileModeChooserHtml(contracts) {
 }
 function mobileFilterChoiceLabel(filterId, value) {
   if (!value) return "";
+  if (filterId === "filter-our-person" && value === "__unassigned") return "Ej fördelat";
   if (filterId === "filter-unit") return unitName(value);
   if (filterId === "filter-our-person") return personName(value);
   if (filterId === "filter-property") {
@@ -1328,7 +1330,9 @@ function mobileFilterChoiceLabel(filterId, value) {
 }
 function mobileFilterChipHtml(filterId, label, options, selectedValue, allLabel) {
   const selectedLabel=mobileFilterChoiceLabel(filterId,selectedValue);
-  const rows=[{value:"",label:allLabel}].concat(options||[]);
+  const rows=[{value:"",label:allLabel}]
+    .concat(filterId==="filter-our-person" ? [{value:"__unassigned",label:"Ej fördelat"}] : [])
+    .concat(options||[]);
   return '<details class="mobile-filter-chip ' + (selectedValue?"active":"") + '">' +
     '<summary><span>' + esc(label) + '</span>' + (selectedLabel?'<strong>' + esc(selectedLabel) + '</strong>':'<strong>Alla</strong>') + '<b>⌄</b></summary>' +
     '<div class="mobile-filter-menu">' +
@@ -1520,9 +1524,10 @@ function mobilePlanningBoardHtml(contracts) {
   });
 
   function matchesPerson(row) {
-    if(!mobilePlanAssignee) return true;
-    if(mobilePlanAssignee==="__unassigned") return !row.responsibleId;
-    return row.responsibleId===mobilePlanAssignee;
+    const responsibleFilter=portfolioFilters.ourPerson||"";
+    if(!responsibleFilter) return true;
+    if(responsibleFilter==="__unassigned") return !row.responsibleId;
+    return row.responsibleId===responsibleFilter;
   }
   const visibleRows=rows.filter(matchesPerson);
   const unassigned=rows.filter(function(row){return !row.responsibleId;});
@@ -1560,6 +1565,13 @@ function mobilePlanningBoardHtml(contracts) {
       '<div class="plan-task-body"><label class="plan-owner-field"><span>Ansvarig</span>' +
         planningAssigneeSelect(row.kind,row.id,row.responsibleId,false) + '</label>' +
         planningControls(row) +
+        (function(){
+          const history=(state.assignmentChanges||[]).filter(function(h){return h.targetType===row.kind && h.targetId===row.id;}).slice(-3).reverse();
+          return history.length ? '<div class="plan-history"><span>Senaste ansvarbyten</span>' +
+            history.map(function(h){return '<small>' + esc(new Date(h.changedAt).toLocaleString("sv-SE")) + ' · ' +
+              esc(h.fromPersonId?personName(h.fromPersonId):"Ej fördelat") + ' → ' +
+              esc(h.toPersonId?personName(h.toPersonId):"Ej fördelat") + ' · ' + esc(h.changedBy) + '</small>';}).join("") + '</div>' : '';
+        })() +
         (row.kind==="wish" ? '<div class="plan-wish-actions"><span>Flytta till planering</span><div><button type="button" data-plan-wish-move="maintenance" data-plan-id="' +
           esc(row.id) + '">→ Underhåll</button><button type="button" data-plan-wish-move="drift" data-plan-id="' + esc(row.id) + '">→ Drift</button></div></div>' : '') +
       '</div></details>';
@@ -1582,14 +1594,11 @@ function mobilePlanningBoardHtml(contracts) {
 
   return '<div class="mobile-plan-board">' +
     '<section class="plan-alert ' + (unassigned.length?"active":"clear") + '">' +
-      '<details' + (unassigned.length?' open':'') + '><summary><span><small>EJ FÖRDELAT</small><strong>' +
+      '<details' + (unassigned.length?' open':'') + '><summary data-plan-show-unassigned><span><small>EJ FÖRDELAT</small><strong>' +
         (unassigned.length ? unassigned.length + ' uppgifter behöver ansvarig' : 'Allt är fördelat') + '</strong></span><b>⌄</b></summary>' +
         '<div class="plan-unassigned-list">' + (unassigned.length?unassignedList:'<div class="plan-empty">Inga ofördelade uppgifter i urvalet.</div>') + '</div></details>' +
     '</section>' +
-    '<section class="plan-person-filter"><label><span>Visa ansvarig</span><select id="plan-assignee-filter"><option value="">Alla ansvariga</option>' +
-      '<option value="__unassigned"' + (mobilePlanAssignee==="__unassigned"?' selected':'') + '>Ej fördelat</option>' +
-      people.map(function(p){return '<option value="' + esc(p.id) + '"' + (mobilePlanAssignee===p.id?' selected':'') + '>' + esc(p.name) + '</option>';}).join("") +
-      '</select></label><small>' + visibleRows.length + ' av ' + rows.length + ' uppgifter</small></section>' +
+
     '<div class="plan-groups">' +
       groupHtml("property","Fastigheter","Grundansvar för fastigheten") +
       groupHtml("project","Projekt","Projektansvar och genomförande") +
@@ -2566,14 +2575,17 @@ function bindMobileScopeFilterControls() {
 }
 
 function bindMobilePlanningControls() {
-  const personFilter=document.getElementById("plan-assignee-filter");
-  if(personFilter && !personFilter.dataset.planBound) {
-    personFilter.dataset.planBound="1";
-    personFilter.addEventListener("change",function(){
-      mobilePlanAssignee=personFilter.value||"";
+  document.querySelectorAll("[data-plan-show-unassigned]:not([data-plan-bound])").forEach(function(summary){
+    summary.dataset.planBound="1";
+    summary.addEventListener("click",function(event){
+      if (event.target.closest(".plan-unassigned-list")) return;
+      portfolioFilters.ourPerson="__unassigned";
+      const control=document.getElementById("filter-our-person");
+      if(control) control.value="__unassigned";
       filterPropertyPortfolio();
     });
-  }
+  });
+
 
   document.querySelectorAll("[data-plan-responsible]:not([data-plan-bound])").forEach(function(select){
     select.dataset.planBound="1";
@@ -2853,7 +2865,8 @@ function contractMatchesPortfolio(c, filters) {
   if (filters.customer && contractCustomerKey(c) !== filters.customer) return false;
   if (filters.unit && c.unitId !== filters.unit) return false;
   if (filters.owner && contractOwnerKey(c, property) !== filters.owner) return false;
-  if (filters.ourPerson && !contractPartyPeople(c, "our").some(function(p) { return p.id === filters.ourPerson; })) return false;
+  if (filters.ourPerson && filters.ourPerson !== "__unassigned" && !contractPartyPeople(c, "our").some(function(p) { return p.id === filters.ourPerson; })) return false;
+  if (filters.ourPerson === "__unassigned" && contractPartyPeople(c, "our").length) return false;
   if (filters.tenantPerson && !contractPartyPeople(c, "tenant").some(function(p) { return p.id === filters.tenantPerson; })) return false;
   if (filters.ownerPerson && !contractPartyPeople(c, "owner").some(function(p) { return p.id === filters.ownerPerson; })) return false;
   if (filters.q) {
@@ -3021,7 +3034,9 @@ function updatePortfolioSurfaces(contracts) {
 }
 function filterPropertyPortfolio() {
   const filters = portfolioFilterValues();
-  const matchedContracts = state.contracts.filter(function(c) { return contractMatchesPortfolio(c, filters); });
+  const contractFilters = Object.assign({},filters);
+  if (portfolioExplorer.section === "activities") contractFilters.ourPerson = "";
+  const matchedContracts = state.contracts.filter(function(c) { return contractMatchesPortfolio(c, contractFilters); });
   const matchedIds = new Set(matchedContracts.map(function(c) { return c.id; }));
   const matchedPropertyIds = new Set(matchedContracts.map(function(c) { return c.propertyId; }));
 
@@ -3288,16 +3303,41 @@ function nextId(prefix, list) {
   const max = Math.max.apply(null, [0].concat(list.map(function(x) { return Number(String(x.id).replace(/\D/g, "")) || 0; })));
   return prefix + (max + 1);
 }
+function currentActorLabel() {
+  if (state.currentUser && state.currentUser.name) return state.currentUser.name;
+  if (state.currentUser && state.currentUser.email) return state.currentUser.email;
+  return state.isDemo ? "Demoanvändare" : "Okänd användare";
+}
+function logAssignmentChange(targetType,targetId,fromPersonId,toPersonId) {
+  if ((fromPersonId||"") === (toPersonId||"")) return;
+  state.assignmentChanges = state.assignmentChanges || [];
+  state.assignmentChanges.push({
+    id: nextId("AL", state.assignmentChanges),
+    targetType: targetType,
+    targetId: targetId,
+    fromPersonId: fromPersonId || "",
+    toPersonId: toPersonId || "",
+    changedAt: new Date().toISOString(),
+    changedBy: currentActorLabel()
+  });
+}
 function syncResponsibleAssignment(targetType, targetId, personId, fromDate) {
   const today = new Date().toISOString().slice(0,10);
   const active = state.assignments.filter(function(a) {
     return a.targetType === targetType && a.targetId === targetId && !a.toDate;
   });
+  const current = active.find(function(a){return a.role==="Ansvarig";}) || active[0] || null;
+  const previousPersonId = current ? current.personId : "";
   const same = active.find(function(a) { return a.personId === personId; });
+
+  if ((previousPersonId||"") === (personId||"")) return;
+
   active.forEach(function(a) {
-    if (!personId || a.personId !== personId) a.toDate = today;
+    a.toDate = today;
   });
-  if (personId && !same) {
+
+  if (personId) {
+    const existingClosed = same && same.toDate;
     state.assignments.push({
       id: nextId("A", state.assignments),
       personId: personId,
@@ -3309,139 +3349,5 @@ function syncResponsibleAssignment(targetType, targetId, personId, fromDate) {
       allocation: 0
     });
   }
+  logAssignmentChange(targetType,targetId,previousPersonId,personId||"");
 }
-async function saveEditor(form) {
-  const data = Object.fromEntries(new FormData(form).entries());
-  const existing = editorRecord && editorRecord.type === editorType ? editorRecord.record : null;
-
-  if (editorType === "object") {
-    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
-    if (!c) return false;
-    ["annualRent", "annualContractDrift", "employees", "users", "rooms", "commonArea", "apartmentArea"].forEach(function(k) { c[k] = Number(data[k]) || 0; });
-    c.unitId = data.unitId || "";
-  } else if (editorType === "person") {
-    const target = existing || { id: nextId("P", state.people) };
-    Object.assign(target, data);
-    if (!existing) state.people.push(target);
-  } else if (editorType === "assignment") {
-    const target = existing || { id: nextId("A", state.assignments) };
-    Object.assign(target, data);
-    target.allocation = Number(data.allocation) || 0;
-    if (!existing) state.assignments.push(target);
-  } else if (editorType === "project") {
-    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
-    const target = existing || { id: nextId("PR", state.projects), planningQuarter:null, planningMonth:null };
-    const id = target.id, planningQuarter = target.planningQuarter, planningMonth = target.planningMonth;
-    Object.assign(target, data);
-    target.id = id;
-    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
-    ["budgetYear", "budgetInvestigation", "budgetExecution", "budgetFurnishing", "preliminaryCost"].forEach(function(k) { target[k] = Number(target[k]) || 0; });
-    target.planningQuarter = planningQuarter == null ? null : planningQuarter;
-    target.planningMonth = planningMonth == null ? null : planningMonth;
-    if (!existing) state.projects.push(target);
-  } else if (editorType === "maintenance") {
-    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
-    const target = existing || { id: nextId("UH", state.maintenance), planningQuarter:null, planningMonth:null };
-    const id = target.id, planningQuarter = target.planningQuarter, planningMonth = target.planningMonth;
-    Object.assign(target, data);
-    target.id = id;
-    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
-    target.year = Number(target.year) || null;
-    target.cost = Number(target.cost) || 0;
-    target.planningQuarter = planningQuarter == null ? null : planningQuarter;
-    target.planningMonth = planningMonth == null ? null : planningMonth;
-    if (!existing) state.maintenance.push(target);
-  } else if (editorType === "operation") {
-    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
-    const target = existing || { id: nextId("D", state.operations) };
-    const id = target.id;
-    Object.assign(target, data);
-    target.id = id;
-    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
-    target.period = Number(target.period) || null;
-    target.budget = Number(target.budget) || 0;
-    target.actual = Number(target.actual) || 0;
-    if (!existing) state.operations.push(target);
-  } else if (editorType === "investigation") {
-    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
-    const target = existing || { id: nextId("U", state.investigations) };
-    const id = target.id;
-    Object.assign(target, data);
-    target.id = id;
-    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
-    target.year = Number(target.year) || null;
-    target.cost = Number(target.cost) || 0;
-    if (!existing) state.investigations.push(target);
-  } else if (editorType === "maintenanceStatus") {
-    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
-    const target = existing || { id: nextId("MS", state.maintenanceStatus) };
-    const id = target.id;
-    Object.assign(target, data);
-    target.id = id;
-    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
-    target.budgetYear = Number(target.budgetYear) || null;
-    target.estimatedCost = Number(target.estimatedCost) || 0;
-    if (!existing) state.maintenanceStatus.push(target);
-    syncResponsibleAssignment("maintenanceStatus", target.id, target.responsiblePersonId || "", target.assessedDate || "");
-  } else if (editorType === "driftIssue") {
-    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
-    const target = existing || { id: nextId("DI", state.driftIssues), planningQuarter:null, planningMonth:null };
-    const id = target.id, planningQuarter = target.planningQuarter, planningMonth = target.planningMonth;
-    Object.assign(target, data);
-    target.id = id;
-    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
-    target.budgetYear = Number(target.budgetYear) || null;
-    target.estimatedCost = Number(target.estimatedCost) || 0;
-    target.finalCost = Number(target.finalCost) || 0;
-    target.planningQuarter = planningQuarter == null ? null : planningQuarter;
-    target.planningMonth = planningMonth == null ? null : planningMonth;
-    if (!existing) state.driftIssues.push(target);
-    syncResponsibleAssignment("driftIssue", target.id, target.responsiblePersonId || "", target.createdDate || "");
-  } else if (editorType === "wish") {
-    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
-    const target = existing || { id: nextId("W", state.wishes) };
-    const id = target.id;
-    Object.assign(target, data);
-    target.id = id;
-    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
-    target.budgetYear = Number(target.budgetYear) || null;
-    target.estimatedCost = Number(target.estimatedCost) || 0;
-    target.finalCost = Number(target.finalCost) || 0;
-    if (!existing) state.wishes.push(target);
-    syncResponsibleAssignment("wish", target.id, target.responsiblePersonId || "", target.createdDate || "");
-  }
-
-  editorRecord = null;
-  await saveState();
-  render();
-  return true;
-}
-
-// Real LEB import belongs to the authenticated backend.
-// The public GitHub Pages frontend contains no Excel/LEB import path.
-
-document.getElementById("clear-data").addEventListener("click", async function() {
-  if (confirm("Återställ publik demodata i denna webbläsare?")) {
-    state = ensureShape(await window.LokalblickDataService.reset());
-    currentView = "properties";
-    render();
-  }
-});
-document.getElementById("dialog-cancel").addEventListener("click", function() {
-  editorRecord = null;
-  document.getElementById("editor-dialog").close();
-});
-document.getElementById("editor-form").addEventListener("submit", async function(e) {
-  e.preventDefault();
-  if (await saveEditor(e.currentTarget)) {
-    document.getElementById("editor-dialog").close();
-    e.currentTarget.reset();
-  }
-});
-
-async function init() {
-  await loadState();
-  render();
-}
-
-init();
