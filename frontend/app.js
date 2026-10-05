@@ -21,7 +21,7 @@ const DRIFT_ISSUE_CATEGORIES = [
 const demo = window.LokalblickDemoData;
 
 const views = [
-  { id: "properties", label: "Översikt", icon: "⌂", eyebrow: "URVAL · FASTIGHET · AVTAL · AKTUELLT" },
+  { id: "properties", label: "Översikt", icon: "⌂", eyebrow: "BESTÅND" },
   { id: "map", label: "Karta", icon: "⌖", eyebrow: "GEOGRAFI" },
   { id: "budget", label: "Budget", icon: "¤", eyebrow: "EKONOMI" },
   { id: "organisation", label: "Organisation", icon: "◎", eyebrow: "PERSONER & ANSVAR" },
@@ -1462,11 +1462,12 @@ function mobileOverviewHtml(contracts) {
     const bb=/akut|hög|sen|risk|åtgärdsbehov|pågår/i.test(String(b.status||""))?1:0;
     return bb-aa || (Number(b.cost)||0)-(Number(a.cost)||0);
   }).slice(0,4);
-  return '<div class="mobile-kpi-grid">' +
-    '<button type="button" data-portfolio-section="properties"><span>Fastigheter</span><strong>' + propertyCount + '</strong><small>' + num(totalArea) + ' kvm</small></button>' +
-    '<button type="button" data-portfolio-section="activities"><span>Aktiva poster</span><strong>' + openItems.length + '</strong><small>' + money(plannedCost) + '</small></button>' +
-  '</div>' +
-  '<section class="mobile-shortcuts"><div class="mobile-section-title"><span>SE HELHETEN</span><h3>Välj vad du vill förstå</h3></div><div class="mobile-shortcut-grid">' +
+  return '<section class="overview-primary"><div class="mobile-section-title"><span>ÖVERBLICK</span><h3>Urvalet i korthet</h3></div>' +
+  '<div class="mobile-kpi-grid">' +
+    '<button type="button" class="overview-kpi-card" data-portfolio-section="properties"><span>Fastigheter</span><strong>' + propertyCount + '</strong><small>' + num(totalArea) + ' kvm i urvalet</small><b>Visa fastigheter →</b></button>' +
+    '<button type="button" class="overview-kpi-card attention" data-portfolio-section="activities"><span>Aktiva poster</span><strong>' + openItems.length + '</strong><small>' + money(plannedCost) + ' planerat</small><b>Visa aktiviteter →</b></button>' +
+  '</div></section>' +
+  '<section class="mobile-shortcuts"><div class="mobile-section-title"><span>FÖRDJUPA</span><h3>Vad vill du se?</h3></div><div class="mobile-shortcut-grid">' +
     '<button type="button" class="maintenance" data-portfolio-section="maintenance"><span class="mobile-shortcut-icon">⌁</span><strong>Underhåll</strong><b>' + groups.maintenance.length + '</b><small>' + money(groups.maintenance.reduce(function(s,x){return s+(Number(x.cost)||0);},0)) + '</small></button>' +
     '<button type="button" class="drift" data-portfolio-section="drift"><span class="mobile-shortcut-icon">⚙</span><strong>Drift</strong><b>' + groups.drift.length + '</b><small>' + money(groups.drift.reduce(function(s,x){return s+(Number(x.cost)||0);},0)) + '</small></button>' +
     '<button type="button" class="contracts" data-portfolio-section="contracts"><span class="mobile-shortcut-icon">▤</span><strong>Avtal</strong><b>' + contracts.length + '</b><small>' + due12 + ' inom 12 mån</small></button>' +
@@ -1982,7 +1983,7 @@ function renderProperties() {
       '<div id="mobile-scope-filters">' + mobileScopeFiltersHtml(filters) + '</div>' +
       '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" value="' + esc(portfolioFilters.q||"") + '" placeholder="Sök fastighet, avtal, kund eller person…">' +
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
-      '<div id="mobile-content-tabs" class="mobile-content-tabs unified-content-tabs">' + mobileModeChooserHtml(state.contracts) + '</div>' +
+      '<div id="mobile-content-tabs" class="mobile-content-tabs unified-content-tabs desktop-hide-summary">' + mobileModeChooserHtml(state.contracts) + '</div>' +
       '<div id="mobile-context"></div>' +
       '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
       '<select id="filter-our-person" hidden>' + selectOptions(filters.ourPeople,"Alla ansvariga") + '</select>' +
