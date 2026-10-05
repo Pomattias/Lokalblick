@@ -3355,3 +3355,138 @@ function syncResponsibleAssignment(targetType, targetId, personId, fromDate) {
   }
   logAssignmentChange(targetType,targetId,previousPersonId,personId||"");
 }
+async function saveEditor(form) {
+  const data = Object.fromEntries(new FormData(form).entries());
+  const existing = editorRecord && editorRecord.type === editorType ? editorRecord.record : null;
+
+  if (editorType === "object") {
+    const c = state.contracts.find(function(x) { return x.id === data.contractId; });
+    if (!c) return false;
+    ["annualRent", "annualContractDrift", "employees", "users", "rooms", "commonArea", "apartmentArea"].forEach(function(k) { c[k] = Number(data[k]) || 0; });
+    c.unitId = data.unitId || "";
+  } else if (editorType === "person") {
+    const target = existing || { id: nextId("P", state.people) };
+    Object.assign(target, data);
+    if (!existing) state.people.push(target);
+  } else if (editorType === "assignment") {
+    const target = existing || { id: nextId("A", state.assignments) };
+    Object.assign(target, data);
+    target.allocation = Number(data.allocation) || 0;
+    if (!existing) state.assignments.push(target);
+  } else if (editorType === "project") {
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("PR", state.projects), planningQuarter:null, planningMonth:null };
+    const id = target.id, planningQuarter = target.planningQuarter, planningMonth = target.planningMonth;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    ["budgetYear", "budgetInvestigation", "budgetExecution", "budgetFurnishing", "preliminaryCost"].forEach(function(k) { target[k] = Number(target[k]) || 0; });
+    target.planningQuarter = planningQuarter == null ? null : planningQuarter;
+    target.planningMonth = planningMonth == null ? null : planningMonth;
+    if (!existing) state.projects.push(target);
+  } else if (editorType === "maintenance") {
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("UH", state.maintenance), planningQuarter:null, planningMonth:null };
+    const id = target.id, planningQuarter = target.planningQuarter, planningMonth = target.planningMonth;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.year = Number(target.year) || null;
+    target.cost = Number(target.cost) || 0;
+    target.planningQuarter = planningQuarter == null ? null : planningQuarter;
+    target.planningMonth = planningMonth == null ? null : planningMonth;
+    if (!existing) state.maintenance.push(target);
+  } else if (editorType === "operation") {
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("D", state.operations) };
+    const id = target.id;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.period = Number(target.period) || null;
+    target.budget = Number(target.budget) || 0;
+    target.actual = Number(target.actual) || 0;
+    if (!existing) state.operations.push(target);
+  } else if (editorType === "investigation") {
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("U", state.investigations) };
+    const id = target.id;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.year = Number(target.year) || null;
+    target.cost = Number(target.cost) || 0;
+    if (!existing) state.investigations.push(target);
+  } else if (editorType === "maintenanceStatus") {
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("MS", state.maintenanceStatus) };
+    const id = target.id;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.budgetYear = Number(target.budgetYear) || null;
+    target.estimatedCost = Number(target.estimatedCost) || 0;
+    if (!existing) state.maintenanceStatus.push(target);
+    syncResponsibleAssignment("maintenanceStatus", target.id, target.responsiblePersonId || "", target.assessedDate || "");
+  } else if (editorType === "driftIssue") {
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("DI", state.driftIssues), planningQuarter:null, planningMonth:null };
+    const id = target.id, planningQuarter = target.planningQuarter, planningMonth = target.planningMonth;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.budgetYear = Number(target.budgetYear) || null;
+    target.estimatedCost = Number(target.estimatedCost) || 0;
+    target.finalCost = Number(target.finalCost) || 0;
+    target.planningQuarter = planningQuarter == null ? null : planningQuarter;
+    target.planningMonth = planningMonth == null ? null : planningMonth;
+    if (!existing) state.driftIssues.push(target);
+    syncResponsibleAssignment("driftIssue", target.id, target.responsiblePersonId || "", target.createdDate || "");
+  } else if (editorType === "wish") {
+    const contract = state.contracts.find(function(x) { return x.id === data.contractId; });
+    const target = existing || { id: nextId("W", state.wishes) };
+    const id = target.id;
+    Object.assign(target, data);
+    target.id = id;
+    target.propertyId = contract ? contract.propertyId : (target.propertyId || portfolioExplorer.propertyId || "");
+    target.budgetYear = Number(target.budgetYear) || null;
+    target.estimatedCost = Number(target.estimatedCost) || 0;
+    target.finalCost = Number(target.finalCost) || 0;
+    if (!existing) state.wishes.push(target);
+    syncResponsibleAssignment("wish", target.id, target.responsiblePersonId || "", target.createdDate || "");
+  }
+
+  editorRecord = null;
+  await saveState();
+  render();
+  return true;
+}
+
+// Real LEB import belongs to the authenticated backend.
+// The public GitHub Pages frontend contains no Excel/LEB import path.
+
+document.getElementById("clear-data").addEventListener("click", async function() {
+  if (confirm("Återställ publik demodata i denna webbläsare?")) {
+    state = ensureShape(await window.LokalblickDataService.reset());
+    currentView = "properties";
+    render();
+  }
+});
+document.getElementById("dialog-cancel").addEventListener("click", function() {
+  editorRecord = null;
+  document.getElementById("editor-dialog").close();
+});
+document.getElementById("editor-form").addEventListener("submit", async function(e) {
+  e.preventDefault();
+  if (await saveEditor(e.currentTarget)) {
+    document.getElementById("editor-dialog").close();
+    e.currentTarget.reset();
+  }
+});
+
+async function init() {
+  await loadState();
+  render();
+}
+
+init();
