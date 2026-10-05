@@ -728,9 +728,12 @@ function render() {
   document.getElementById("page-eyebrow").textContent = meta.eyebrow;
   const banner = document.getElementById("mode-banner");
   banner.className = "mode-banner " + (state.isDemo ? "demo" : "live");
+  const sourceInfo = window.LokalblickSourceService ? window.LokalblickSourceService.status() : null;
+  const pendingCount = sourceInfo && sourceInfo.pendingChanges ? sourceInfo.pendingChanges.length : 0;
   banner.innerHTML = state.isDemo
     ? "<strong>Publik demo</strong><span>Endast syntetisk demodata. Ingen LEB-, person-, hyres- eller kostnadsdata från företaget får läsas in här.</span>"
-    : "<strong>LEB-data aktiv</strong><span>" + esc(state.sourceName || "Importerad fil") + " · " + state.properties.length + " fastigheter · " + state.contracts.length + " objekt/avtal. Kompletteringar ligger kvar vid ny import.</span>";
+    : "<strong>Datakälla aktiv</strong><span>" + esc(state.sourceName || "Importerad fil") + " · " + state.properties.length + " fastigheter · " + state.contracts.length + " objekt/avtal.</span>" +
+      (pendingCount ? '<button type="button" class="source-pending-button" data-goto="api">' + pendingCount + ' ändring' + (pendingCount===1?'':'ar') + ' väntar på Excel →</button>' : '<span class="source-synced">Synkron med källan</span>');
   let html = "";
   if (currentView === "properties") html = renderProperties();
   else if (currentView === "map") html = renderMap();
