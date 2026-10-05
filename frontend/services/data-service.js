@@ -18,8 +18,19 @@
     async load() {
       try {
         const raw = localStorage.getItem(DEMO_KEY);
-        return raw ? JSON.parse(raw) : clone(window.LokalblickDemoData);
+        if (!raw) return clone(window.LokalblickDemoData);
+        const parsed = JSON.parse(raw);
+        const hasCoreDemoData =
+          parsed &&
+          Array.isArray(parsed.properties) && parsed.properties.length > 0 &&
+          Array.isArray(parsed.contracts) && parsed.contracts.length > 0;
+        if (!hasCoreDemoData) {
+          localStorage.removeItem(DEMO_KEY);
+          return clone(window.LokalblickDemoData);
+        }
+        return parsed;
       } catch (_) {
+        try { localStorage.removeItem(DEMO_KEY); } catch (_) {}
         return clone(window.LokalblickDemoData);
       }
     },
