@@ -4248,3 +4248,126 @@ button.property-control-card:hover {
     display:none !important;
   }
 }
+
+
+/* 2026-10-05 mobile map metrics + planning dock */
+@media (max-width:700px) {
+  .mobile-map-top {
+    display:grid;
+    gap:8px;
+    margin-bottom:8px;
+  }
+
+  .mobile-map-metrics {
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:5px;
+    width:100%;
+  }
+
+  .mobile-map-metrics button {
+    min-width:0;
+    min-height:34px;
+    padding:6px 4px;
+    border:1px solid #dce3e7;
+    border-radius:10px;
+    background:#fff;
+    color:#5e6d77;
+    font-size:9px;
+    font-weight:850;
+    white-space:nowrap;
+  }
+
+  .mobile-map-metrics button.active {
+    border-color:#255b88;
+    background:#eaf3f9;
+    color:#234f6d;
+  }
+
+  .map-card {
+    padding:0 !important;
+    overflow:hidden;
+    border-radius:15px;
+  }
+
+  .map-page .property-map {
+    height:calc(100vh - 300px);
+    min-height:420px;
+    border:0;
+    border-radius:15px;
+  }
+
+  .mobile-workspace {
+    display:none !important;
+  }
+
+  .mobile-workspace.plan-visible {
+    display:block !important;
+    margin-top:8px;
+  }
+
+  .mobile-workspace.plan-visible .mobile-panels {
+    margin-top:0;
+  }
+
+  .mobile-dock button span:last-child {
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+}
+
+.lokalblick-map-bar-icon {
+  background:transparent !important;
+  border:0 !important;
+}
+
+.lokalblick-map-bar-wrap {
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-end;
+  pointer-events:auto;
+}
+
+.lokalblick-map-bar-label {
+  position:absolute;
+  top:-2px;
+  left:50%;
+  transform:translate(-50%,-100%);
+  max-width:88px;
+  padding:2px 5px;
+  border-radius:7px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 2px 8px rgba(22,38,46,.14);
+  color:#26343c;
+  font-size:8px;
+  line-height:1;
+  font-weight:850;
+  white-space:nowrap;
+}
+
+.lokalblick-map-bar {
+  width:11px;
+  min-height:8px;
+  border-radius:7px 7px 2px 2px;
+  background:#255b88;
+  box-shadow:0 3px 9px rgba(37,91,136,.28);
+}
+
+.lokalblick-map-bar-dot {
+  width:7px;
+  height:7px;
+  margin-top:1px;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:#173e56;
+  box-shadow:0 1px 4px rgba(24,33,43,.22);
+}
+
+@media (max-width:380px) {
+  .mobile-map-metrics { gap:4px; }
+  .mobile-map-metrics button { font-size:8px; padding-inline:2px; }
+}
