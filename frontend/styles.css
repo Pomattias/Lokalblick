@@ -4733,3 +4733,441 @@ button.property-control-card:hover {
     width:78px;
   }
 }
+
+
+/* 2026-10-05 compact mobile planning responsibility board */
+@media (max-width:700px) {
+  .mobile-plan-board,
+  .plan-alert,
+  .plan-person-filter,
+  .plan-groups,
+  .plan-group,
+  .plan-task {
+    width:100%;
+    max-width:100%;
+    min-width:0;
+  }
+
+  .mobile-plan-board {
+    display:grid;
+    gap:8px;
+    overflow-x:hidden;
+  }
+
+  .plan-alert {
+    border:1px solid #ead7ae;
+    border-radius:14px;
+    background:#fff8ea;
+    overflow:hidden;
+  }
+
+  .plan-alert.clear {
+    border-color:#cfe1d3;
+    background:#f1f7f2;
+  }
+
+  .plan-alert details > summary {
+    min-height:54px;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 12px;
+    align-items:center;
+    gap:8px;
+    padding:9px 11px;
+    list-style:none;
+  }
+
+  .plan-alert details > summary::-webkit-details-marker { display:none; }
+
+  .plan-alert details > summary > span {
+    min-width:0;
+    display:grid;
+    gap:2px;
+  }
+
+  .plan-alert details > summary small {
+    color:#9a6b22;
+    font-size:7px;
+    font-weight:900;
+    letter-spacing:.11em;
+  }
+
+  .plan-alert.clear details > summary small { color:#4f7659; }
+
+  .plan-alert details > summary strong {
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:12px;
+  }
+
+  .plan-alert details > summary > b {
+    color:#9a7a47;
+    font-size:11px;
+  }
+
+  .plan-unassigned-list {
+    display:grid;
+    border-top:1px solid rgba(191,157,98,.24);
+  }
+
+  .plan-unassigned-row {
+    min-width:0;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(110px,145px);
+    align-items:center;
+    gap:8px;
+    padding:7px 10px;
+    border-bottom:1px solid rgba(191,157,98,.18);
+  }
+
+  .plan-unassigned-row:last-child { border-bottom:0; }
+
+  .plan-unassigned-row > span {
+    min-width:0;
+    display:grid;
+    gap:1px;
+  }
+
+  .plan-unassigned-row small,
+  .plan-task-main small {
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:#7e8a92;
+    font-size:8px;
+  }
+
+  .plan-unassigned-row strong {
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:10px;
+  }
+
+  .plan-assignee {
+    width:100%;
+    min-width:0;
+    height:36px;
+    padding:5px 24px 5px 8px;
+    border:1px solid #d8e0e5;
+    border-radius:9px;
+    background:#fff;
+    color:#26343c;
+    font-size:10px;
+    font-weight:700;
+  }
+
+  .plan-assignee.compact {
+    height:32px;
+    font-size:9px;
+  }
+
+  .plan-person-filter {
+    display:flex;
+    align-items:end;
+    justify-content:space-between;
+    gap:8px;
+    padding:9px 10px;
+    border:1px solid #dce3e7;
+    border-radius:13px;
+    background:#fff;
+  }
+
+  .plan-person-filter label {
+    flex:1 1 auto;
+    min-width:0;
+    display:grid;
+    gap:3px;
+  }
+
+  .plan-person-filter label > span {
+    color:#74818a;
+    font-size:8px;
+    font-weight:850;
+  }
+
+  .plan-person-filter select {
+    width:100%;
+    min-width:0;
+    height:34px;
+    padding:5px 26px 5px 8px;
+    border:1px solid #d8e0e5;
+    border-radius:9px;
+    background:#f8fafb;
+    font-size:10px;
+    font-weight:750;
+  }
+
+  .plan-person-filter > small {
+    flex:0 0 auto;
+    color:#7d8991;
+    font-size:8px;
+    white-space:nowrap;
+  }
+
+  .plan-groups {
+    display:grid;
+    gap:6px;
+  }
+
+  .plan-group {
+    border:1px solid #dce3e7;
+    border-radius:13px;
+    background:#fff;
+    overflow:hidden;
+  }
+
+  .plan-group > summary {
+    min-height:52px;
+    min-width:0;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto 12px;
+    align-items:center;
+    gap:8px;
+    padding:8px 10px;
+    list-style:none;
+  }
+
+  .plan-group > summary::-webkit-details-marker { display:none; }
+
+  .plan-group > summary > span:first-child {
+    min-width:0;
+    display:grid;
+    gap:2px;
+  }
+
+  .plan-group > summary strong {
+    font-size:12px;
+  }
+
+  .plan-group > summary small {
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:#7d8991;
+    font-size:8px;
+  }
+
+  .plan-group-count {
+    display:grid;
+    justify-items:end;
+    gap:1px;
+  }
+
+  .plan-group-count > strong {
+    font-size:12px;
+  }
+
+  .plan-group-count > b {
+    color:#a06423;
+    font-size:7px;
+    font-weight:800;
+    white-space:nowrap;
+  }
+
+  .plan-group > summary > i {
+    color:#8a969d;
+    font-style:normal;
+    font-size:11px;
+    transition:transform .15s ease;
+  }
+
+  .plan-group[open] > summary {
+    background:#f8fafb;
+    border-bottom:1px solid #e7ebee;
+  }
+
+  .plan-group[open] > summary > i { transform:rotate(180deg); }
+
+  .plan-group-body {
+    display:grid;
+  }
+
+  .plan-task {
+    border-bottom:1px solid #edf0f2;
+    background:#fff;
+  }
+
+  .plan-task:last-child { border-bottom:0; }
+
+  .plan-task.unassigned {
+    box-shadow:inset 3px 0 0 #d9a04b;
+  }
+
+  .plan-task > summary {
+    min-height:48px;
+    min-width:0;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto 12px;
+    align-items:center;
+    gap:7px;
+    padding:7px 9px;
+    list-style:none;
+  }
+
+  .plan-task > summary::-webkit-details-marker { display:none; }
+
+  .plan-task-main {
+    min-width:0;
+    display:grid;
+    gap:1px;
+  }
+
+  .plan-task-main strong {
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:10px;
+  }
+
+  .plan-task-owner {
+    max-width:120px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:#4c5a63;
+    font-size:9px;
+    font-weight:750;
+  }
+
+  .plan-task-owner.warn {
+    color:#a06423;
+  }
+
+  .plan-task > summary > b {
+    color:#8a969d;
+    font-size:10px;
+  }
+
+  .plan-task[open] > summary {
+    background:#fbfcfd;
+  }
+
+  .plan-task-body {
+    min-width:0;
+    display:grid;
+    gap:8px;
+    padding:9px 10px 10px;
+    border-top:1px solid #edf0f2;
+    background:#f8fafb;
+  }
+
+  .plan-owner-field,
+  .plan-date {
+    min-width:0;
+    display:grid;
+    gap:3px;
+  }
+
+  .plan-owner-field > span,
+  .plan-date > span,
+  .plan-schedule label > span,
+  .plan-wish-actions > span {
+    color:#74818a;
+    font-size:8px;
+    font-weight:850;
+  }
+
+  .plan-date input,
+  .plan-schedule select {
+    width:100%;
+    min-width:0;
+    height:34px;
+    padding:5px 8px;
+    border:1px solid #d8e0e5;
+    border-radius:9px;
+    background:#fff;
+    font-size:10px;
+  }
+
+  .plan-schedule {
+    min-width:0;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;
+  }
+
+  .plan-schedule label {
+    min-width:0;
+    display:grid;
+    gap:3px;
+  }
+
+  .plan-project-dates {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+    align-items:center;
+    gap:6px;
+    padding:7px 8px;
+    border-radius:9px;
+    background:#fff;
+    color:#5e6c75;
+    font-size:9px;
+    text-align:center;
+  }
+
+  .plan-project-dates span {
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .plan-project-dates b {
+    color:#8c989f;
+  }
+
+  .plan-wish-actions {
+    min-width:0;
+    display:grid;
+    gap:5px;
+  }
+
+  .plan-wish-actions > div {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:6px;
+  }
+
+  .plan-wish-actions button {
+    min-width:0;
+    min-height:34px;
+    padding:6px 7px;
+    border:1px solid #cfdbe1;
+    border-radius:9px;
+    background:#fff;
+    color:#31596e;
+    font-size:9px;
+    font-weight:850;
+  }
+
+  .plan-empty {
+    padding:10px;
+    color:#859098;
+    font-size:9px;
+  }
+}
+
+@media (max-width:380px) {
+  .plan-unassigned-row {
+    grid-template-columns:minmax(0,1fr) minmax(100px,125px);
+    gap:6px;
+    padding-inline:8px;
+  }
+
+  .plan-task-owner {
+    max-width:92px;
+    font-size:8px;
+  }
+
+  .plan-group > summary,
+  .plan-task > summary {
+    gap:6px;
+    padding-inline:8px;
+  }
+}
