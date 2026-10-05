@@ -2394,6 +2394,7 @@ function renderApi() {
   const statusClass=connected ? "green" : remembered ? "amber" : "";
   const sourceName=st.fileName || "Ingen källa vald";
   const compact=Boolean(window.matchMedia && window.matchMedia("(max-width: 700px)").matches);
+  const desktopOpen=compact ? "" : " open";
   const touch=Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
   const canOpen=Boolean(window.showOpenFilePicker);
   const canSave=Boolean(window.showSaveFilePicker);
@@ -2439,21 +2440,19 @@ function renderApi() {
       '<div class="api-device-bar"><span class="badge ' + deviceClass + '">' + esc(deviceLabel) + '</span>' + primarySave + '</div>' +
     '</section>' +
 
-    '<div class="api-source-grid">' +
-      '<section class="card pad api-source-card api-source-primary"><div class="api-card-top"><div class="api-connector-icon">XL</div><span class="mobile-only badge ' + deviceClass + '">' + (localFileReady?'Tillgänglig':'Begränsad') + '</span></div><h3>Excel på dator / nätverk</h3><p class="muted">Öppna en befintlig Lokalblick-fil och välj läs eller läs + skriv.</p>' + connectionActions + '</section>' +
-      '<section class="card pad api-source-card"><div class="api-connector-icon">＋</div><h3>Skapa Excel-källa</h3><p class="muted">Skapa rätt tabeller och fält. Du väljer själv filnamn och plats.</p>' + createActions + '</section>' +
-      '<section class="card pad api-source-card api-source-future"><div class="api-connector-icon">365</div><h3>OneDrive / SharePoint / API</h3><p class="muted">Gemensam källa via Microsoft 365 eller kundnära adapterlager.</p><button type="button" class="button secondary" disabled>Kommer senare</button></section>' +
-    '</div>' +
+    '<section class="api-connect-workspace">' +
+      '<div class="api-connect-main">' +
+        '<section class="card pad api-source-card api-source-primary"><div class="api-card-top"><div class="api-connector-icon">XL</div><span class="mobile-only badge ' + deviceClass + '">' + (localFileReady?'Tillgänglig':'Begränsad') + '</span></div><h3>Excel på dator / nätverk</h3><p class="muted">Öppna en befintlig Lokalblick-fil och välj läs eller läs + skriv.</p>' + connectionActions + '</section>' +
+        '<section class="card pad api-source-card"><div class="api-connector-icon">＋</div><h3>Skapa Excel-källa</h3><p class="muted">Skapa rätt tabeller och fält. Du väljer själv filnamn och plats.</p>' + createActions + '</section>' +
+      '</div>' +
+      '<section class="card pad api-source-card api-source-future"><div class="api-future-row"><div class="api-connector-icon">365</div><div><h3>OneDrive / SharePoint / API</h3><p class="muted">Gemensam källa via Microsoft 365 eller kundnära adapterlager.</p></div><button type="button" class="button secondary" disabled>Kommer senare</button></div></section>' +
+    '</section>' +
 
-    (compact
-      ? '<details class="card pad api-mobile-detail" ' + (pending.length?'open':'') + '><summary><span>Väntande ändringar</span><strong>' + pending.length + '</strong></summary><div class="api-detail-body">' + changesHtml + '</div></details>' +
-        '<details class="card pad api-mobile-detail"><summary><span>Tabeller och fält</span><strong>' + (st.discovered||[]).length + '</strong></summary><div class="api-detail-body">' + apiSheetRows(st.discovered) + '</div></details>' +
-        '<details class="card pad api-mobile-detail"><summary><span>Åtkomst & synk</span><strong>›</strong></summary><div class="api-detail-body">' + sourceActions + '</div></details>'
-      : '<div class="grid two-col api-detail-grid">' +
-          card("Tabeller och fält", "Det här hittades i den valda Excel-källan.", apiSheetRows(st.discovered)) +
-          card("Väntande ändringar", pending.length ? pending.length + " ändringar väntar på att skrivas till Excel." : "Inga osparade ändringar.", changesHtml) +
-          card("Spara till källan", "Lokalblick sparar först i arbetsytan. Skriv tillbaka är alltid ett aktivt val.", sourceActions) +
-        '</div>') +
+    '<section class="api-detail-workspace">' +
+      '<details class="card api-flow-detail api-changes-detail"' + desktopOpen + '><summary><span><small>1</small>Väntande ändringar</span><strong>' + pending.length + '</strong></summary><div class="api-detail-body">' + changesHtml + '</div></details>' +
+      '<details class="card api-flow-detail api-tables-detail"' + desktopOpen + '><summary><span><small>2</small>Tabeller och fält</span><strong>' + (st.discovered||[]).length + '</strong></summary><div class="api-detail-body">' + apiSheetRows(st.discovered) + '</div></details>' +
+      '<details class="card api-flow-detail api-access-detail"' + desktopOpen + '><summary><span><small>3</small>Åtkomst & synk</span><strong>›</strong></summary><div class="api-detail-body">' + sourceActions + '</div></details>' +
+    '</section>' +
   '</div>';
 }
 async function reloadFromActiveSource() {
