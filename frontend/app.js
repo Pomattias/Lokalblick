@@ -2435,6 +2435,10 @@ function bindViewEvents() {
       } else if (currentView === "map" && id === "portfolio-search") {
         portfolioFilters.q=String(control.value||"").trim().toLowerCase();
         if (window.LokalblickMapService) initPropertyMap();
+      } else if (currentView === "budget" && id === "portfolio-search") {
+        portfolioFilters.q=String(control.value||"").trim().toLowerCase();
+        clearTimeout(window.__lokalblickBudgetSearchTimer);
+        window.__lokalblickBudgetSearchTimer=setTimeout(function(){ render(); },220);
       } else {
         syncPortfolioFiltersFromControls();
         render();
