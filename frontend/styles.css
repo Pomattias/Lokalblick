@@ -5309,3 +5309,51 @@ button.property-control-card:hover {
   .api-change-row{align-items:flex-start}
   .api-access-row{padding:10px}
 }
+
+
+/* Unified API flow across devices */
+.api-connect-workspace{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.api-connect-main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.api-future-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px}
+.api-future-row .api-connector-icon{margin:0}
+.api-future-row h3{margin:0 0 3px}
+.api-future-row p{margin:0}
+.api-detail-workspace{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.api-flow-detail{overflow:hidden}
+.api-flow-detail>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;cursor:pointer;font-weight:850}
+.api-flow-detail>summary::-webkit-details-marker{display:none}
+.api-flow-detail>summary>span{display:flex;align-items:center;gap:9px}
+.api-flow-detail>summary small{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:var(--panel-soft,#f1f4f6);color:var(--muted);font-size:10px;font-weight:900}
+.api-flow-detail>summary>strong{min-width:28px;height:28px;border-radius:999px;background:var(--panel-soft,#f1f4f6);display:grid;place-items:center;font-size:12px}
+.api-flow-detail[open]>summary{border-bottom:1px solid var(--line)}
+.api-access-detail{grid-column:1 / -1}
+.api-wide .api-detail-body{padding:16px 18px 18px}
+
+@media(min-width:1101px){
+  .api-page{gap:14px}
+  .api-hero{padding:20px!important}
+  .api-connect-main{grid-template-columns:1.2fr .8fr}
+  .api-source-card{min-height:190px}
+  .api-source-primary{border-color:rgba(31,78,120,.22)}
+  .api-detail-workspace{grid-template-columns:1.15fr .85fr}
+  .api-access-detail{grid-column:1 / -1}
+  .api-change-list,.api-sheet-list{max-height:360px;overflow:auto;padding-right:2px}
+}
+
+@media(min-width:701px) and (max-width:1100px){
+  .api-connect-main{grid-template-columns:1fr 1fr}
+  .api-future-row{grid-template-columns:auto 1fr}
+  .api-future-row .button{grid-column:2}
+  .api-detail-workspace{grid-template-columns:1fr}
+  .api-access-detail{grid-column:auto}
+}
+
+@media(max-width:700px){
+  .api-connect-main{grid-template-columns:1fr}
+  .api-future-row{grid-template-columns:auto 1fr}
+  .api-future-row .button{grid-column:1 / -1;width:100%}
+  .api-detail-workspace{grid-template-columns:1fr;gap:10px}
+  .api-access-detail{grid-column:auto}
+  .api-flow-detail>summary{padding:14px 15px}
+  .api-wide .api-detail-body,.api-detail-body{padding:14px 15px 15px}
+}
