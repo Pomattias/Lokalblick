@@ -21,23 +21,14 @@
     .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}.search{min-width:240px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:white}.select{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:white}
     .section{display:none}.section.active{display:block}.empty{padding:36px;text-align:center;color:var(--muted)}.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}.statline{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #edf0f2}.statline:last-child{border-bottom:0}.big{font-size:22px;font-weight:800}
     .loadnote{padding:10px 12px;border-radius:10px;background:#eef5fb;color:#315f86;font-size:12px;margin-bottom:14px}.footer-note{margin-top:22px;color:var(--muted);font-size:11px}
-    .source-button{border:0;background:transparent;padding:7px 9px;border-radius:10px;cursor:pointer}.source-button:hover{background:#f3f6f8}
-    .api-hero{display:grid;grid-template-columns:1.25fr .75fr;gap:16px;margin:16px 0}.api-hero-main{padding:22px}.api-hero-main h2{margin:4px 0 7px;font-size:24px;letter-spacing:-.03em}.api-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px;font-size:12px;font-weight:750}.api-flow span{padding:7px 9px;border-radius:9px;background:#eef4f9;color:var(--blue)}.api-flow b{color:#9aa3ac}
-    .connector-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}.connector{border:1px solid var(--line);background:#fff;border-radius:14px;padding:16px;text-align:left;box-shadow:var(--shadow)}.connector-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.connector-icon{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:#eef4f9;color:var(--blue);font-weight:900}.connector h3{font-size:15px;margin:10px 0 5px}.connector p{font-size:12px;color:var(--muted);min-height:34px;margin:0 0 12px}.connector-actions{display:flex;gap:8px;flex-wrap:wrap}
-    .btn-secondary,.btn-ghost{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 11px;font-weight:750;cursor:pointer}.btn-secondary{background:var(--blue);border-color:var(--blue);color:#fff}.btn-ghost:hover{background:#f7f9fa}.btn-secondary:disabled,.btn-ghost:disabled{opacity:.45;cursor:not-allowed}
-    .status-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:800;background:#f1f3f5;color:#69737d}.status-chip.ok{background:#edf7ef;color:#3b7245}.status-chip.warn{background:#fff5df;color:#996313}.status-chip.off{background:#f1f3f5;color:#7d8791}.status-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
-    .source-detail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}.source-detail>div{padding:12px;border:1px solid #e7ebee;border-radius:11px;background:#fbfcfd}.source-detail small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}.source-detail strong{font-size:13px;word-break:break-word}.mapping-list{display:flex;flex-direction:column;gap:8px}.mapping-row{display:grid;grid-template-columns:90px 1fr auto;gap:10px;align-items:center;padding:9px 10px;border:1px solid #e7ebee;border-radius:10px}.mapping-row code{font-size:11px;color:#4d5965}.api-note{font-size:12px;color:var(--muted);line-height:1.5}.api-empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed #cfd6dc;border-radius:13px;background:#fbfcfd}
     .mobile-control{display:none}
     @media(max-width:900px){
       .shell{grid-template-columns:1fr}
       .nav{display:none}
       .topbar{padding:11px 14px}
       .brand{font-size:15px}.mark{width:32px;height:32px;border-radius:9px}
-      .source{display:flex;font-size:0}.source:after{content:"API";font-size:11px;font-weight:800;color:var(--blue)}
-      .source #sourceLabel{display:none}
+      .source{display:none}
       main{padding:12px 12px 24px}
-      .api-hero,.connector-grid{grid-template-columns:1fr}
-      .source-detail{grid-template-columns:repeat(2,1fr)}
       .mobile-control{display:block;margin:0 -2px 14px;padding:12px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 20px rgba(27,39,51,.06)}
       .mobile-filter-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
       .mobile-filter-chip,.mobile-content-chip,.mobile-sub-chip{border:1px solid var(--line);background:#f8fafb;color:#35404b;border-radius:11px;min-height:42px;padding:8px 9px;font-weight:750;cursor:pointer}
@@ -73,7 +64,7 @@
 <div class="app">
   <header class="topbar">
     <div class="brand"><div class="mark">L</div><div>Lokalblick <span style="font-weight:500;color:#8a949e">/ prototyp</span></div></div>
-    <button class="source source-button" id="sourceShortcut" type="button" title="Öppna Mer / API"><span class="dot"></span><span id="sourceLabel">Demodata · LEB kan importeras lokalt</span></button>
+    <div class="source"><span class="dot"></span><span id="sourceLabel">Demodata · LEB kan importeras lokalt</span></div>
   </header>
   <div class="shell">
     <nav class="nav" id="nav">
@@ -84,7 +75,6 @@
       <button data-page="maintenance">Underhåll</button>
       <button data-page="operations">Drift</button>
       <button data-page="people">Personer & ansvar</button>
-      <button data-page="api">Mer / API</button>
     </nav>
     <main>
       <div class="mobile-control" id="mobileControl" aria-label="Filtrering och innehåll">
@@ -166,68 +156,6 @@
         </div>
       </section>
 
-      <section id="api" class="section">
-        <div class="title-row">
-          <div><div class="eyebrow">Mer / API</div><h1 class="title">Datakällor</h1><div class="sub">Koppla Lokalblick till data där den redan finns. Källan är fortsatt master – Lokalblick läser, visar och kan skriva tillbaka med uttryckligt godkännande.</div></div>
-        </div>
-
-        <div class="api-hero">
-          <div class="card api-hero-main">
-            <div class="eyebrow">Princip</div>
-            <h2>Data stannar i källan</h2>
-            <div class="api-note">Lokal Excel läses direkt i webbläsaren. Ingen råfil laddas upp till Lokalblick. För framtida SharePoint och API-källor används ett adapterlager med samma datamodell.</div>
-            <div class="api-flow"><span>Källa</span><b>→</b><span>Koppling</span><b>→</b><span>Lokalblick</span><b>→</b><span>Vy / ändring</span><b>→</b><span>Källa</span></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><div><div class="card-title">Aktiv källa</div><div class="card-sub">Samma status visas i sidhuvudet</div></div><span id="apiSourceStatus" class="status-chip off"><span class="status-dot"></span>Ej ansluten</span></div>
-            <div class="card-body" id="apiSourceSummary"><div class="api-empty">Ingen extern datakälla är ansluten ännu.</div></div>
-          </div>
-        </div>
-
-        <div class="connector-grid">
-          <div class="connector">
-            <div class="connector-top"><div class="connector-icon">XL</div><span class="status-chip ok"><span class="status-dot"></span>Klar</span></div>
-            <h3>Excel på dator / nätverk</h3>
-            <p>Peka på en .xlsx-fil. Lokalblick läser tabeller och fält lokalt och kan begära skrivåtkomst till samma fil.</p>
-            <div class="connector-actions"><button class="btn-secondary" id="connectLocalExcel" type="button">Koppla Excel</button><button class="btn-ghost" id="reconnectLocalExcel" type="button" disabled>Återanslut</button></div>
-          </div>
-          <div class="connector">
-            <div class="connector-top"><div class="connector-icon">365</div><span class="status-chip warn"><span class="status-dot"></span>Nästa</span></div>
-            <h3>OneDrive / SharePoint</h3>
-            <p>Samma datamodell, men gemensam källa via Microsoft 365 och Graph när vi går från lokal test till fleranvändarläge.</p>
-            <div class="connector-actions"><button class="btn-ghost" type="button" disabled>Anslut Microsoft 365</button></div>
-          </div>
-          <div class="connector">
-            <div class="connector-top"><div class="connector-icon">{ }</div><span class="status-chip warn"><span class="status-dot"></span>Nästa</span></div>
-            <h3>REST API</h3>
-            <p>Koppla fastighets-, ekonomi- eller underhållssystem via ett adapterlager utan att bygga om Lokalblicks vyer.</p>
-            <div class="connector-actions"><button class="btn-ghost" type="button" disabled>Lägg till API</button></div>
-          </div>
-        </div>
-
-        <div class="grid2">
-          <div class="card">
-            <div class="card-head"><div><div class="card-title">Tabeller & fält</div><div class="card-sub">Vad Lokalblick hittat i den aktiva källan</div></div></div>
-            <div class="card-body" id="apiMapping"><div class="api-empty">Koppla en Excel-fil för att se upptäckta flikar, rader och fält.</div></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><div><div class="card-title">Åtkomst</div><div class="card-sub">Skrivning sker aldrig automatiskt</div></div></div>
-            <div class="card-body">
-              <div class="statline"><span>Läs data</span><strong id="apiReadAccess">Ej ansluten</strong></div>
-              <div class="statline"><span>Skriv tillbaka</span><strong id="apiWriteAccess">Ej ansluten</strong></div>
-              <div class="statline"><span>Ouppladdad råfil</span><strong class="pill green">Ja</strong></div>
-              <div class="connector-actions" style="margin-top:14px">
-                <button class="btn-ghost" id="refreshSource" type="button" disabled>Hämta senaste</button>
-                <button class="btn-ghost" id="requestWriteAccess" type="button" disabled>Begär skrivåtkomst</button>
-                <button class="btn-secondary" id="writeSource" type="button" disabled>Skriv tillbaka</button>
-              </div>
-              <div class="api-note" id="apiWriteNote" style="margin-top:10px">Skriv tillbaka aktiveras först när Lokalblick har en ändring som är kopplad till ett stabilt ID i källan.</div>
-            </div>
-          </div>
-        </div>
-        <input id="apiFallbackFile" type="file" accept=".xlsx,.xls,.xlsm" hidden>
-      </section>
-
       <section id="people" class="section">
         <div class="title-row"><div><div class="eyebrow">Organisation</div><h1 class="title">Personer & ansvar</h1><div class="sub">Personer kopplas till fastigheter, avtal och projekt via tilldelningar – inte som lösa kontaktfält.</div></div></div>
         <div class="grid2">
@@ -264,7 +192,6 @@ const demo = {
   ]
 };
 let state={properties:[],contracts:[],source:"demo"};
-let sourceState={handle:null,workbook:null,fileName:"",lastRead:null,writeAccess:false,dirty:false,analysis:null};
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function money(v){return new Intl.NumberFormat("sv-SE",{style:"currency",currency:"SEK",maximumFractionDigits:0}).format(v)}
@@ -310,149 +237,13 @@ function buildFromWorkbook(wb){
   renderAll();
 }
 
-function analyzeWorkbook(wb){
-  return wb.SheetNames.map(name=>{
-    const sheet=wb.Sheets[name];
-    const rows=XLSX.utils.sheet_to_json(sheet,{defval:""});
-    const fields=rows.length?Object.keys(rows[0]):[];
-    return {name,rows:rows.length,fields};
-  });
-}
-async function readWorkbookFile(file,handle=null){
-  const data=await file.arrayBuffer();
-  const wb=XLSX.read(data,{type:"array",cellDates:false});
-  sourceState.handle=handle;
-  sourceState.workbook=wb;
-  sourceState.fileName=file.name||"Excel";
-  sourceState.lastRead=new Date();
-  sourceState.analysis=analyzeWorkbook(wb);
-  sourceState.dirty=false;
-  buildFromWorkbook(wb);
-  await persistSourceHandle(handle);
-  renderApiSource();
-}
 async function handleFile(file){
   if(!file)return;
-  try{await readWorkbookFile(file,null)}
+  try{const data=await file.arrayBuffer(); const wb=XLSX.read(data,{type:"array",cellDates:false}); buildFromWorkbook(wb)}
   catch(e){alert("Kunde inte läsa filen: "+e.message)}
 }
 document.getElementById("fileInput").addEventListener("change",e=>handleFile(e.target.files[0]));
 document.querySelectorAll(".fileInputClone").forEach(el=>el.addEventListener("change",e=>handleFile(e.target.files[0])));
-
-function sourceDb(){
-  return new Promise((resolve,reject)=>{
-    const req=indexedDB.open("lokalblick-sources",1);
-    req.onupgradeneeded=()=>req.result.createObjectStore("sources");
-    req.onsuccess=()=>resolve(req.result);
-    req.onerror=()=>reject(req.error);
-  });
-}
-async function persistSourceHandle(handle){
-  if(!handle)return;
-  try{
-    const db=await sourceDb();
-    const tx=db.transaction("sources","readwrite");
-    tx.objectStore("sources").put(handle,"localExcel");
-  }catch(e){console.warn("Kunde inte spara filkopplingen lokalt",e)}
-}
-async function restoreSourceHandle(){
-  try{
-    const db=await sourceDb();
-    const tx=db.transaction("sources","readonly");
-    const req=tx.objectStore("sources").get("localExcel");
-    const handle=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)});
-    if(handle){sourceState.handle=handle;document.getElementById("reconnectLocalExcel").disabled=false;renderApiSource()}
-  }catch(e){console.warn("Ingen tidigare filkoppling kunde återställas",e)}
-}
-async function queryHandlePermission(handle,mode="read"){
-  if(!handle||!handle.queryPermission)return "unsupported";
-  try{return await handle.queryPermission({mode})}catch{return "prompt"}
-}
-async function requestHandlePermission(handle,mode="readwrite"){
-  if(!handle||!handle.requestPermission)return "unsupported";
-  try{return await handle.requestPermission({mode})}catch{return "denied"}
-}
-async function connectLocalExcel(){
-  try{
-    if(window.showOpenFilePicker){
-      const [handle]=await window.showOpenFilePicker({multiple:false,types:[{description:"Excel",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"],"application/vnd.ms-excel":[".xls"]}}]});
-      const file=await handle.getFile();
-      await readWorkbookFile(file,handle);
-      const wp=await queryHandlePermission(handle,"readwrite");
-      sourceState.writeAccess=wp==="granted";
-      renderApiSource();
-    }else{
-      document.getElementById("apiFallbackFile").click();
-    }
-  }catch(e){if(e?.name!=="AbortError")alert("Kunde inte koppla Excel-filen: "+e.message)}
-}
-async function reconnectLocalExcel(){
-  if(!sourceState.handle)return connectLocalExcel();
-  try{
-    let p=await queryHandlePermission(sourceState.handle,"read");
-    if(p!=="granted")p=await requestHandlePermission(sourceState.handle,"read");
-    if(p!=="granted")return;
-    const file=await sourceState.handle.getFile();
-    await readWorkbookFile(file,sourceState.handle);
-    sourceState.writeAccess=(await queryHandlePermission(sourceState.handle,"readwrite"))==="granted";
-    renderApiSource();
-  }catch(e){alert("Kunde inte återansluta källan: "+e.message)}
-}
-async function requestWriteAccess(){
-  if(!sourceState.handle){alert("Den här filen valdes via vanlig filuppladdning. Koppla den med 'Koppla Excel' i Edge/Chrome för beständig läs- och skrivåtkomst.");return}
-  const p=await requestHandlePermission(sourceState.handle,"readwrite");
-  sourceState.writeAccess=p==="granted";
-  renderApiSource();
-}
-async function refreshSource(){
-  if(sourceState.handle)return reconnectLocalExcel();
-  alert("Välj filen igen för att läsa senaste versionen.");
-}
-async function writeSource(){
-  if(!sourceState.handle||!sourceState.workbook||!sourceState.dirty)return;
-  const p=sourceState.writeAccess?"granted":await requestHandlePermission(sourceState.handle,"readwrite");
-  if(p!=="granted")return;
-  const bytes=XLSX.write(sourceState.workbook,{bookType:"xlsx",type:"array"});
-  const writable=await sourceState.handle.createWritable();
-  await writable.write(bytes);
-  await writable.close();
-  sourceState.dirty=false;sourceState.lastRead=new Date();renderApiSource();
-}
-function renderApiSource(){
-  const status=document.getElementById("apiSourceStatus");
-  const summary=document.getElementById("apiSourceSummary");
-  const mapping=document.getElementById("apiMapping");
-  const reconnect=document.getElementById("reconnectLocalExcel");
-  const refresh=document.getElementById("refreshSource");
-  const requestWrite=document.getElementById("requestWriteAccess");
-  const write=document.getElementById("writeSource");
-  if(sourceState.handle)reconnect.disabled=false;
-  if(!sourceState.workbook){
-    status.className="status-chip "+(sourceState.handle?"warn":"off");
-    status.innerHTML='<span class="status-dot"></span>'+(sourceState.handle?"Återanslut":"Ej ansluten");
-    if(sourceState.handle)summary.innerHTML='<div class="api-empty">En tidigare Excel-koppling finns sparad i webbläsaren. Klicka <b>Återanslut</b> för att ge filåtkomst igen.</div>';
-    return;
-  }
-  status.className="status-chip ok";status.innerHTML='<span class="status-dot"></span>Ansluten';
-  const rowCount=(sourceState.analysis||[]).reduce((n,x)=>n+x.rows,0);
-  summary.innerHTML='<div class="source-detail"><div><small>Fil</small><strong>'+esc(sourceState.fileName)+'</strong></div><div><small>Flikar</small><strong>'+(sourceState.analysis?.length||0)+'</strong></div><div><small>Rader</small><strong>'+rowCount+'</strong></div><div><small>Senast läst</small><strong>'+sourceState.lastRead.toLocaleTimeString("sv-SE",{hour:"2-digit",minute:"2-digit"})+'</strong></div></div><div class="api-note">Råfilen används lokalt i denna webbläsare. Lokalblick arbetar med den normaliserade modellen i minnet.</div>';
-  mapping.innerHTML='<div class="mapping-list">'+(sourceState.analysis||[]).map(x=>{
-    const expected=x.name==="SF"||x.name==="EXT";
-    return '<div class="mapping-row"><strong>'+esc(x.name)+'</strong><code>'+x.rows+' rader · '+esc(x.fields.slice(0,5).join(", ")+(x.fields.length>5?" …":""))+'</code><span class="pill '+(expected?"green":"")+'">'+(expected?"Kopplad":"Upptäckt")+'</span></div>'
-  }).join("")+'</div>';
-  document.getElementById("apiReadAccess").textContent="Lokal läsning";
-  document.getElementById("apiWriteAccess").textContent=sourceState.handle?(sourceState.writeAccess?"Tillåten":"Kräver godkännande"):"Ingen beständig filåtkomst";
-  refresh.disabled=false;
-  requestWrite.disabled=!sourceState.handle||sourceState.writeAccess;
-  write.disabled=!sourceState.handle||!sourceState.writeAccess||!sourceState.dirty;
-  document.getElementById("apiWriteNote").textContent=sourceState.dirty?"Det finns ändringar redo att skrivas tillbaka till källfilen.":"Inga osparade källändringar. Skrivning aktiveras först när en ändring har ett stabilt ID och kan uppdateras säkert.";
-}
-document.getElementById("connectLocalExcel").addEventListener("click",connectLocalExcel);
-document.getElementById("reconnectLocalExcel").addEventListener("click",reconnectLocalExcel);
-document.getElementById("requestWriteAccess").addEventListener("click",requestWriteAccess);
-document.getElementById("refreshSource").addEventListener("click",refreshSource);
-document.getElementById("writeSource").addEventListener("click",writeSource);
-document.getElementById("apiFallbackFile").addEventListener("change",async e=>{if(e.target.files[0])await readWorkbookFile(e.target.files[0],null)});
 
 function demoProperties(){return [
   {object:"1081",type:"Intern",address:"Västanväg 119",propertyDesignation:"Gräset 2",owner:"Stadsfastigheter",contracts:1,area:1348},
@@ -518,7 +309,6 @@ document.getElementById("nav").addEventListener("click",e=>{
   document.body.classList.remove("mobile-content-mode");
   showSection(b.dataset.page);
 });
-document.getElementById("sourceShortcut").addEventListener("click",()=>{document.body.classList.remove("mobile-content-mode");showSection("api")});
 
 const mobileControl=document.getElementById("mobileControl");
 const mobileSearch=document.getElementById("mobileSearch");
@@ -570,8 +360,6 @@ function syncMobileMode(){
 }
 window.addEventListener("resize",syncMobileMode);
 renderAll();
-renderApiSource();
-restoreSourceHandle();
 syncMobileMode();
 </script>
 </body>
