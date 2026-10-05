@@ -796,13 +796,20 @@ function portfolioFilterOptions() {
     tenantPeople = tenantPeople.concat(contractPartyPeople(c, "tenant").map(function(p) { return { value: p.id, label: p.name }; }));
     ownerPeople = ownerPeople.concat(contractPartyPeople(c, "owner").map(function(p) { return { value: p.id, label: p.name }; }));
   });
+  const properties = state.properties.map(function(p) {
+    return {
+      value:p.id,
+      label:p.address || p.designation || p.id
+    };
+  }).filter(function(p){return p.value;}).sort(function(a,b){return String(a.label).localeCompare(String(b.label),"sv");});
   return {
     customer: dedupeOptions(customer),
     unit: dedupeOptions(unit),
     owner: dedupeOptions(owner),
     ourPeople: dedupeOptions(ourPeople),
     tenantPeople: dedupeOptions(tenantPeople),
-    ownerPeople: dedupeOptions(ownerPeople)
+    ownerPeople: dedupeOptions(ownerPeople),
+    properties: properties
   };
 }
 function contractSummaryRow(c, property) {
@@ -1231,61 +1238,49 @@ function updateQuickScopeButtons() {
 
 function mobileModeChooserHtml(contracts) {
   const items = portfolioActivityItems(contracts);
-  const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
   const counts = {
-    overview:"",
-    properties:propertyCount,
-    contracts:contracts.length,
-    project:items.filter(function(x){return x.group==="project";}).length,
-    maintenance:items.filter(function(x){return x.group==="maintenance";}).length,
-    drift:items.filter(function(x){return x.group==="drift" || x.group==="operations";}).length,
-    wish:items.filter(function(x){return x.group==="wish";}).length
+    contracts: contracts.length,
+    project: items.filter(function(x){return x.group==="project";}).length,
+    maintenance: items.filter(function(x){return x.group==="maintenance";}).length,
+    drift: items.filter(function(x){return x.group==="drift" || x.group==="operations";}).length,
+    wish: items.filter(function(x){return x.group==="wish";}).length
   };
-  const propertyMode = Boolean(portfolioExplorer.propertyId);
-  const modes = propertyMode ? [
-    ["overview","Översikt"],
-    ["maintenance","Underhåll"],
-    ["project","Projekt"],
-    ["drift","Drift"],
-    ["wish","Önskemål"],
-    ["contracts","Avtal"]
-  ] : [
-    ["overview","Översikt"],
-    ["properties","Fastigheter"],
-    ["maintenance","Underhåll"],
-    ["project","Projekt"],
-    ["drift","Drift"],
-    ["contracts","Avtal"],
-    ["wish","Önskemål"]
-  ];
-  if (!propertyMode) {
-    return '<div class="mobile-large-chip-strip" role="tablist" aria-label="Visa">' +
-      modes.map(function(mode) {
-        const active=portfolioExplorer.section===mode[0];
-        return '<button type="button" class="mobile-large-chip ' + (active?"active":"") +
-          '" data-portfolio-section="' + mode[0] + '" role="tab" aria-selected="' + (active?"true":"false") + '">' +
-          '<span>' + esc(mode[1]) + '</span>' +
-          (counts[mode[0]]==="" ? '<small>Helhetsbild</small>' : '<strong>' + counts[mode[0]] + '</strong><small>i urvalet</small>') +
-        '</button>';
-      }).join("") +
-    '</div>';
-  }
-  return '<div class="mobile-perspective-strip" role="tablist" aria-label="Perspektiv">' +
-    modes.map(function(mode) {
-      const active=portfolioExplorer.section===mode[0];
-      return '<button type="button" class="mobile-perspective-pill ' + (active?"active":"") +
-        '" data-portfolio-section="' + mode[0] + '" role="tab" aria-selected="' + (active?"true":"false") + '">' +
-        '<span>' + esc(mode[1]) + '</span>' +
-        (counts[mode[0]]==="" ? "" : '<strong>' + counts[mode[0]] + '</strong>') +
-      '</button>';
-    }).join("") +
+  const section = portfolioExplorer.section;
+  const runningSections = ["maintenance","drift","wish"];
+  const runningActive = runningSections.includes(section);
+  const runningTarget = runningActive ? section : "maintenance";
+
+  return '<div class="mobile-content-choice" role="tablist" aria-label="Visa">' +
+    '<div class="mobile-primary-content-row">' +
+      '<button type="button" class="mobile-primary-content-chip ' + (section==="contracts"?"active":"") +
+        '" data-portfolio-section="contracts" role="tab" aria-selected="' + (section==="contracts"?"true":"false") + '">' +
+        '<span>Hyra</span><small>' + counts.contracts + '</small></button>' +
+      '<button type="button" class="mobile-primary-content-chip ' + (section==="project"?"active":"") +
+        '" data-portfolio-section="project" role="tab" aria-selected="' + (section==="project"?"true":"false") + '">' +
+        '<span>Projekt</span><small>' + counts.project + '</small></button>' +
+      '<button type="button" class="mobile-primary-content-chip ' + (runningActive?"active":"") +
+        '" data-portfolio-section="' + runningTarget + '" role="tab" aria-selected="' + (runningActive?"true":"false") + '">' +
+        '<span>Löpande</span><small>' + (counts.maintenance+counts.drift+counts.wish) + '</small></button>' +
+    '</div>' +
+    (runningActive ?
+      '<div class="mobile-running-content-row" role="tablist" aria-label="Löpande">' +
+        '<button type="button" class="mobile-running-content-chip ' + (section==="maintenance"?"active":"") +
+          '" data-portfolio-section="maintenance"><span>Underhåll</span><small>' + counts.maintenance + '</small></button>' +
+        '<button type="button" class="mobile-running-content-chip ' + (section==="drift"?"active":"") +
+          '" data-portfolio-section="drift"><span>Drift</span><small>' + counts.drift + '</small></button>' +
+        '<button type="button" class="mobile-running-content-chip ' + (section==="wish"?"active":"") +
+          '" data-portfolio-section="wish"><span>Önskemål</span><small>' + counts.wish + '</small></button>' +
+      '</div>' : '') +
   '</div>';
 }
-
 function mobileFilterChoiceLabel(filterId, value) {
   if (!value) return "";
   if (filterId === "filter-unit") return unitName(value);
   if (filterId === "filter-our-person") return personName(value);
+  if (filterId === "filter-property") {
+    const property=state.properties.find(function(p){return p.id===value;});
+    return property ? (property.address || property.designation || property.id) : value;
+  }
   if (filterId === "filter-owner") {
     const sample=state.contracts.find(function(c){
       const property=state.properties.find(function(p){return p.id===c.propertyId;});
@@ -1313,12 +1308,11 @@ function mobileFilterChipHtml(filterId, label, options, selectedValue, allLabel)
 }
 function mobileScopeFiltersHtml(filters) {
   return '<div class="mobile-scope-filter-row">' +
+    mobileFilterChipHtml("filter-unit","Område",filters.unit,portfolioFilters.unit,"Alla områden") +
     mobileFilterChipHtml("filter-our-person","Ansvarig",filters.ourPeople,portfolioFilters.ourPerson,"Alla ansvariga") +
-    mobileFilterChipHtml("filter-unit","Organisation",filters.unit,portfolioFilters.unit,"Alla organisationer") +
-    mobileFilterChipHtml("filter-owner","Fastighetsägare",filters.owner,portfolioFilters.owner,"Alla fastighetsägare") +
+    mobileFilterChipHtml("filter-property","Fastighet",filters.properties,portfolioExplorer.propertyId,"Alla fastigheter") +
   '</div>';
 }
-
 function mobilePropertyCardsHtml(contracts) {
   const grouped = new Map();
   contracts.forEach(function(c) {
@@ -2206,6 +2200,16 @@ function bindMobileScopeFilterControls() {
     button.addEventListener("click",function(event){
       event.preventDefault();
       event.stopPropagation();
+
+      if (button.dataset.mobileFilterId === "filter-property") {
+        portfolioExplorer.propertyId=button.dataset.mobileFilterValue||"";
+        portfolioExplorer.contractId="";
+        const propertyDetails=button.closest(".mobile-filter-chip");
+        if(propertyDetails) propertyDetails.removeAttribute("open");
+        filterPropertyPortfolio();
+        return;
+      }
+
       const control=document.getElementById(button.dataset.mobileFilterId);
       if (!control) return;
       control.value=button.dataset.mobileFilterValue||"";
