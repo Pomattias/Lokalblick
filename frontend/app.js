@@ -25,7 +25,7 @@ const views = [
   { id: "map", label: "Karta", icon: "⌖", eyebrow: "GEOGRAFI" },
   { id: "budget", label: "Budget", icon: "¤", eyebrow: "EKONOMI" },
   { id: "organisation", label: "Organisation", icon: "◎", eyebrow: "PERSONER & ANSVAR" },
-  { id: "api", label: "API", icon: "⌁", eyebrow: "MER · DATAKÄLLOR" },
+  { id: "api", label: "Datakällor", icon: "⌁", eyebrow: "DATA & KOPPLINGAR" },
   { id: "about", label: "Om", icon: "ⓘ", eyebrow: "SÄKERHET & ARKITEKTUR" }
 ];
 
@@ -638,34 +638,41 @@ function budgetYears() {
 }
 
 function renderNav() {
-  const navItems = [
-    { id:"overview", label:"Översikt", icon:"⌂" },
-    { id:"map", label:"Karta", icon:"⌖" },
-    { id:"plan", label:"Planera", icon:"◫" },
-    { id:"budget", label:"Budget", icon:"¤" },
-    { id:"organisation", label:"Organisation", icon:"◎" },
-    { id:"api", label:"API", icon:"⌁" },
-    { id:"about", label:"Om", icon:"ⓘ" }
+  const groups = [
+    {
+      label:"",
+      items:[
+        { id:"overview", label:"Översikt", icon:"⌂" },
+        { id:"plan", label:"Planera", icon:"◫" },
+        { id:"map", label:"Karta", icon:"⌖" },
+        { id:"budget", label:"Budget", icon:"¤" }
+      ]
+    },
+    {
+      label:"ADMINISTRATION",
+      items:[
+        { id:"organisation", label:"Organisation", icon:"◎" },
+        { id:"api", label:"Datakällor", icon:"⌁" },
+        { id:"about", label:"Om", icon:"ⓘ" }
+      ]
+    }
   ];
   const active = currentView==="properties" && portfolioExplorer.section==="activities"
     ? "plan"
     : currentView==="properties" ? "overview" : currentView;
-  document.getElementById("main-nav").innerHTML = navItems.map(function(v) {
-    return '<button class="nav-button ' + (v.id === active ? "active" : "") + '" data-desktop-nav="' + v.id + '">' +
-      '<span class="nav-icon">' + v.icon + "</span><span>" + v.label + "</span></button>";
+  document.getElementById("main-nav").innerHTML = groups.map(function(group) {
+    const label = group.label ? '<div class="nav-section-label">' + esc(group.label) + '</div>' : "";
+    return label + group.items.map(function(v) {
+      return '<button class="nav-button ' + (v.id === active ? "active" : "") + '" data-desktop-nav="' + v.id + '">' +
+        '<span class="nav-icon">' + v.icon + "</span><span>" + v.label + "</span></button>";
+    }).join("");
   }).join("");
   document.querySelectorAll("[data-desktop-nav]").forEach(function(btn) {
     btn.addEventListener("click", function() {
       const target=btn.dataset.desktopNav;
       if(target==="overview" || target==="plan") {
         currentView="properties";
-        portfolioExplorer.contractId="";
-        if(target==="overview") {
-          portfolioExplorer.propertyId="";
-          portfolioExplorer.section="overview";
-        } else {
-          portfolioExplorer.section="activities";
-        }
+        portfolioExplorer.section=target==="plan" ? "activities" : "overview";
       } else {
         currentView=target;
       }
@@ -722,13 +729,7 @@ function renderMobileDock() {
         return;
       }
       currentView = "properties";
-      portfolioExplorer.contractId = "";
-      if (target === "overview") {
-        portfolioExplorer.propertyId = "";
-        portfolioExplorer.section = "overview";
-      } else if (target === "plan") {
-        portfolioExplorer.section = "activities";
-      }
+      portfolioExplorer.section = target === "plan" ? "activities" : "overview";
       render();
     });
   });
@@ -758,7 +759,7 @@ function render() {
   const sourceInfo = window.LokalblickSourceService ? window.LokalblickSourceService.status() : null;
   const pendingCount = sourceInfo && sourceInfo.pendingChanges ? sourceInfo.pendingChanges.length : 0;
   banner.innerHTML = state.isDemo
-    ? "<strong>Publik demo</strong><span>Endast syntetisk demodata. Ingen LEB-, person-, hyres- eller kostnadsdata från företaget får läsas in här.</span>"
+    ? "<strong>Demo</strong><span>Endast syntetisk data. Företagsdata ansluts säkert via Datakällor i en autentiserad miljö.</span>"
     : "<strong>Datakälla aktiv</strong><span>" + esc(state.sourceName || "Importerad fil") + " · " + state.properties.length + " fastigheter · " + state.contracts.length + " objekt/avtal.</span>" +
       (pendingCount
         ? '<div class="source-save-cluster"><button type="button" class="source-review-link" data-goto="api">' + pendingCount + ' ändring' + (pendingCount===1?'':'ar') + '</button><button type="button" class="source-save-button" data-source-save>💾 Spara till Excel</button></div>'
@@ -1024,20 +1025,20 @@ function portfolioContentTabsHtml(contracts) {
     properties: propertyCount
   };
   const modes = propertyMode ? [
-    ["overview","Sammanställning","Översikt och allt som hör till fastigheten"],
+    ["overview","Översikt","Sammanfattning och allt som hör till fastigheten"],
     ["maintenance","Underhåll","Behov, planering och kostnad"],
     ["project","Projekt","Projekt, tid och budget"],
     ["drift","Drift","Driftkostnader och ärenden"],
     ["contracts","Avtal","Avtal, area och årskostnad"],
-    ["wish","Övrigt","Önskemål och övriga behov"]
+    ["wish","Önskemål","Önskemål och övriga behov"]
   ] : [
-    ["overview","Sammanställning","Översikt och alla poster i urvalet"],
+    ["overview","Översikt","Sammanfattning och alla poster i urvalet"],
     ["properties","Fastigheter","Fastigheterna i aktuellt urval"],
     ["maintenance","Underhåll","Behov, planering och kostnad"],
     ["project","Projekt","Projekt, tid och budget"],
     ["drift","Drift","Driftkostnader och ärenden"],
     ["contracts","Avtal","Avtal, area och ekonomi"],
-    ["wish","Övrigt","Önskemål och övriga behov"]
+    ["wish","Önskemål","Önskemål och övriga behov"]
   ];
   return '<div class="view-choice-bar">' + modes.map(function(mode) {
     const active = portfolioExplorer.section === mode[0];
@@ -1979,8 +1980,6 @@ function portfolioOverviewHtml(contracts) {
   }).length;
 
   return '<section class="summary-block">' +
-    '<div class="summary-block-head"><div><span class="portfolio-kicker">SAMMANSTÄLLNING</span><h3>' + esc(portfolioScopeTitle()) + '</h3>' +
-      '<p>Översikt först. Alla poster som bygger bilden ligger direkt under, med samma upplägg oavsett urval.</p></div></div>' +
     '<div class="overview-kpis compact">' +
       kpi("Fastigheter", num(propertyIds.size), "i aktuellt urval") +
       kpi("Avtal", num(contracts.length), "i aktuellt urval") +
@@ -1988,12 +1987,12 @@ function portfolioOverviewHtml(contracts) {
       kpi("Hyra + drift", money(totalCost), totalArea ? num(costPerSqm) + " kr/kvm" : "–") +
       kpi("Aktuella poster", num(activeWork), "underhåll · projekt · drift") +
     '</div></section>' +
-    '<div class="scope-details-intro"><div><span class="portfolio-kicker">ALLT I URVALET</span><h3>Från summa till post</h3></div>' +
-      '<p>Rubrikerna visar totalsumman. Under varje rubrik ligger alla poster som bygger summan.</p></div>' +
+    '<div class="scope-details-intro"><div><span class="portfolio-kicker">UNDERLAG</span><h3>Ekonomi och aktiviteter</h3></div></div>' +
     scopeAllSectionsHtml(contracts);
 }
 function renderProperties() {
   const filters=portfolioFilterOptions();
+  const initialContracts=portfolioScopeContracts();
   const advancedFilters =
     '<details class="advanced-filters unified-advanced-filters"><summary><span>Fler filter</span><span class="advanced-count">Kund · ägare · kontakter</span></summary>' +
       '<div class="advanced-filter-grid">' +
@@ -2005,23 +2004,40 @@ function renderProperties() {
 
   return '<div class="bestands-page unified-portfolio">' +
     '<section class="portfolio-hero unified-portfolio-hero">' +
-      '<div id="mobile-quick-summary">' + mobileQuickSummaryHtml(state.contracts) + '</div>' +
+      '<div id="mobile-quick-summary">' + mobileQuickSummaryHtml(initialContracts) + '</div>' +
       '<div id="mobile-scope-filters">' + mobileScopeFiltersHtml(filters) + '</div>' +
       '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" value="' + esc(portfolioFilters.q||"") + '" placeholder="Sök fastighet, avtal, kund eller person…">' +
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
-      '<div id="mobile-content-tabs" class="mobile-content-tabs unified-content-tabs desktop-hide-summary">' + mobileModeChooserHtml(state.contracts) + '</div>' +
+      '<div id="mobile-content-tabs" class="mobile-content-tabs unified-content-tabs desktop-hide-summary">' + mobileModeChooserHtml(initialContracts) + '</div>' +
       '<div id="mobile-context"></div>' +
       '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
       '<select id="filter-our-person" hidden>' + selectOptions(filters.ourPeople,"Alla ansvariga") + '</select>' +
       advancedFilters +
     '</section>' +
 
-    '<section class="unified-workspace ' + (portfolioExplorer.section==="activities" ? "plan-visible" : "") + '">' +
+    '<section class="portfolio-desktop-workspace" aria-label="Arbetsyta för aktuellt urval">' +
+      '<div class="desktop-scope-strip">' +
+        '<div class="desktop-scope-copy"><span class="portfolio-kicker">AKTUELLT URVAL</span><h2 id="portfolio-scope-title">' + esc(portfolioScopeTitle()) + '</h2><p id="portfolio-scope-meta"></p></div>' +
+        '<div id="portfolio-context" class="portfolio-context"></div>' +
+      '</div>' +
+      '<div id="property-persistent-context">' + propertyPersistentContextHtml(initialContracts) + '</div>' +
+      '<div id="portfolio-content-tabs" class="desktop-perspective-nav"' + (portfolioExplorer.section==="activities" ? ' hidden' : '') + '>' + portfolioContentTabsHtml(initialContracts) + '</div>' +
+      '<div class="desktop-detail-panels">' +
+        '<div id="overview-panel"><div id="portfolio-overview-content">' +
+          (portfolioExplorer.propertyId ? propertyWorkspaceHtml(initialContracts) : portfolioOverviewHtml(initialContracts)) +
+        '</div></div>' +
+        '<div id="properties-panel" hidden><div id="portfolio-properties-content">' + mobilePropertyCardsHtml(initialContracts) + '</div></div>' +
+        '<div id="contracts-panel" hidden><div id="portfolio-contracts-content">' + scopeContractsSectionHtml(initialContracts) + '</div></div>' +
+        '<div id="activity-panel" hidden><div id="portfolio-activity-content"></div></div>' +
+      '</div>' +
+    '</section>' +
+
+    '<section class="portfolio-mobile-workspace ' + (portfolioExplorer.section==="activities" ? "plan-visible" : "") + '">' +
       '<div id="mobile-property-persistent-context"></div>' +
       '<div class="mobile-panels unified-panels">' +
-        '<div class="mobile-panel" id="mobile-overview-panel"><div id="mobile-overview-content">' + mobileOverviewHtml(state.contracts) + '</div></div>' +
-        '<div class="mobile-panel" id="mobile-properties-panel" hidden><div id="mobile-properties-content">' + mobilePropertyCardsHtml(state.contracts) + '</div></div>' +
-        '<div class="mobile-panel" id="mobile-contracts-panel" hidden><div id="mobile-contracts-content">' + mobileContractCardsHtml(state.contracts) + '</div></div>' +
+        '<div class="mobile-panel" id="mobile-overview-panel"><div id="mobile-overview-content">' + mobileOverviewHtml(initialContracts) + '</div></div>' +
+        '<div class="mobile-panel" id="mobile-properties-panel" hidden><div id="mobile-properties-content">' + mobilePropertyCardsHtml(initialContracts) + '</div></div>' +
+        '<div class="mobile-panel" id="mobile-contracts-panel" hidden><div id="mobile-contracts-content">' + mobileContractCardsHtml(initialContracts) + '</div></div>' +
         '<div class="mobile-panel" id="mobile-activity-panel" hidden><div id="mobile-activity-content"></div></div>' +
       '</div>' +
     '</section>' +
@@ -2420,7 +2436,7 @@ function renderApi() {
     '</div></div>';
 
   return '<div class="section-stack api-page ' + (compact?'api-compact':'api-wide') + '">' +
-    '<section class="card pad api-hero"><div class="api-hero-head"><div><span class="eyebrow">MER / API</span><h2>Datakällor</h2><p>Koppla Lokalblick till data där den redan finns.</p></div><span class="badge ' + statusClass + '">' + esc(statusLabel) + '</span></div>' +
+    '<section class="card pad api-hero"><div class="api-hero-head"><div><span class="eyebrow">DATA & KOPPLINGAR</span><h2>Datakällor</h2><p>Välj var Lokalblick ska läsa data. Samma urval och arbetsflöden fungerar oavsett källa.</p></div><span class="badge ' + statusClass + '">' + esc(statusLabel) + '</span></div>' +
       '<div class="api-source-summary"><div><span>Källa</span><strong>' + esc(sourceName) + '</strong></div><div><span>Åtkomst</span><strong>' + esc(modeLabel) + '</strong></div><div class="api-summary-secondary"><span>Senast läst</span><strong>' + (st.lastRead ? esc(new Date(st.lastRead).toLocaleString("sv-SE")) : "–") + '</strong></div><div><span>Ändringar</span><strong>' + (st.dirty ? pending.length + " väntar" : "Synkron") + '</strong></div></div>' +
       '<div class="api-device-bar"><span class="badge ' + deviceClass + '">' + esc(deviceLabel) + '</span>' + primarySave + '</div>' +
     '</section>' +
@@ -2430,7 +2446,10 @@ function renderApi() {
         '<section class="card pad api-source-card api-source-primary"><div class="api-card-top"><div class="api-connector-icon">XL</div><span class="mobile-only badge ' + deviceClass + '">' + (localFileReady?'Tillgänglig':'Begränsad') + '</span></div><h3>Excel på dator / nätverk</h3><p class="muted">Öppna en befintlig Lokalblick-fil och välj läs eller läs + skriv.</p>' + connectionActions + '</section>' +
         '<section class="card pad api-source-card"><div class="api-connector-icon">＋</div><h3>Skapa Excel-källa</h3><p class="muted">Skapa rätt tabeller och fält. Du väljer själv filnamn och plats.</p>' + createActions + '</section>' +
       '</div>' +
-      '<section class="card pad api-source-card api-source-future"><div class="api-future-row"><div class="api-connector-icon">365</div><div><h3>OneDrive / SharePoint / API</h3><p class="muted">Gemensam källa via Microsoft 365 eller kundnära adapterlager.</p></div><button type="button" class="button secondary" disabled>Kommer senare</button></div></section>' +
+      '<div class="api-production-sources">' +
+        '<section class="card pad api-source-card api-source-future"><div class="api-future-row"><div class="api-connector-icon">365</div><div><h3>Microsoft 365</h3><p class="muted">SharePoint, Lists eller Dataverse via Lokalblicks autentiserade backend.</p><span class="api-source-state">Företagsmiljö · backendanslutning</span></div></div></section>' +
+        '<section class="card pad api-source-card api-source-future"><div class="api-future-row"><div class="api-connector-icon">↔</div><div><h3>Externt system / API</h3><p class="muted">Fastighets-, ekonomi- eller verksamhetssystem kopplas via en adapter. Nycklar och hemligheter stannar på serversidan.</p><span class="api-source-state">Adapterklar arkitektur</span></div></div></section>' +
+      '</div>' +
     '</section>' +
 
     '<section class="api-detail-workspace">' +
@@ -3068,7 +3087,7 @@ function applyPortfolioSectionVisibility() {
   if (overview) overview.hidden = section !== "overview";
   if (properties) properties.hidden = section !== "properties";
   if (contracts) contracts.hidden = section !== "contracts";
-  if (activity) activity.hidden = section === "activities" || !activitySections().includes(section);
+  if (activity) activity.hidden = !activitySections().includes(section);
 
   const mobileOverview = document.getElementById("mobile-overview-panel");
   const mobileProperties = document.getElementById("mobile-properties-panel");
@@ -3177,11 +3196,19 @@ function updatePortfolioSurfaces(contracts) {
     bindPortfolioSectionControls();
   }
 
+  const properties = document.getElementById("portfolio-properties-content");
+  if (properties) properties.innerHTML = mobilePropertyCardsHtml(contracts);
+
+  const agreements = document.getElementById("portfolio-contracts-content");
+  if (agreements) agreements.innerHTML = scopeContractsSectionHtml(contracts);
+
   const activity = document.getElementById("portfolio-activity-content");
   if (activity) {
-    activity.innerHTML = activitySections().includes(portfolioExplorer.section)
-      ? portfolioActivityGroupedHtml(contracts, portfolioExplorer.section)
-      : "";
+    activity.innerHTML = portfolioExplorer.section === "activities"
+      ? mobilePlanningBoardHtml(contracts)
+      : activitySections().includes(portfolioExplorer.section)
+        ? portfolioActivityGroupedHtml(contracts, portfolioExplorer.section)
+        : "";
   }
 
   const context = document.getElementById("portfolio-context");
