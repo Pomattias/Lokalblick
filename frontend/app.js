@@ -55,6 +55,7 @@ function ensureShape(data) {
     organizations: list("organizations"),
     people: list("people"),
     assignments: list("assignments"),
+    activities: list("activities"),
     projects: list("projects"),
     maintenance: list("maintenance"),
     operations: list("operations"),
@@ -2102,6 +2103,8 @@ function renderApi() {
   const statusLabel=connected ? "Ansluten" : remembered ? "Koppling sparad" : "Ej ansluten";
   const statusClass=connected ? "green" : remembered ? "amber" : "";
   const sourceName=st.fileName || "Ingen källa vald";
+  const migration=st.sourceKind==="migration";
+  const migrationReport=st.migrationReport || null;
   const compact=Boolean(window.matchMedia && window.matchMedia("(max-width: 700px)").matches);
   const desktopOpen=compact ? "" : " open";
   const touch=Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
@@ -2111,11 +2114,13 @@ function renderApi() {
   const deviceLabel=localFileReady ? (touch ? "Stöds på denna enhet" : "Full lokal filåtkomst") : "Begränsad på denna enhet";
   const deviceClass=localFileReady ? "green" : "amber";
 
-  const primarySave = connected && st.mode==="readwrite" && pending.length
-    ? '<button type="button" class="button primary api-device-save" data-api-write>💾 Spara ' + pending.length + ' till Excel</button>'
-    : connected && pending.length
-      ? '<button type="button" class="button primary api-device-save" data-api-mode="readwrite">Tillåt skrivning</button>'
-      : '';
+  const primarySave = migration
+    ? (canSave ? '<button type="button" class="button primary api-device-save" data-api-create="current">Skapa Lokalblick-fil →</button>' : '')
+    : connected && st.mode==="readwrite" && pending.length
+      ? '<button type="button" class="button primary api-device-save" data-api-write>💾 Spara ' + pending.length + ' till Excel</button>'
+      : connected && pending.length
+        ? '<button type="button" class="button primary api-device-save" data-api-mode="readwrite">Tillåt skrivning</button>'
+        : '';
 
   const connectionActions = localFileReady
     ? '<div class="api-button-stack"><button type="button" class="button primary" data-api-connect="read">Koppla · läs</button><button type="button" class="button secondary" data-api-connect="readwrite">Koppla · läs + skriv</button>' +
@@ -2123,8 +2128,21 @@ function renderApi() {
     : '<div class="notice api-device-note"><strong>Lokal filkoppling är begränsad i denna webbläsare.</strong><br>För beständig läs/skriv-koppling använder du Edge eller Chrome med stöd för filåtkomst. OneDrive/SharePoint blir nästa fleranvändarväg.</div>';
 
   const createActions = canSave
-    ? '<div class="api-button-stack"><button type="button" class="button primary" data-api-create="current">Skapa med aktuell data</button><button type="button" class="button secondary" data-api-create="blank">Skapa tom struktur</button></div>'
+    ? '<div class="api-button-stack"><button type="button" class="button primary" data-api-create="current">' + (migration?'Skapa Lokalblick-fil av migrerad data':'Skapa med aktuell data') + '</button><button type="button" class="button secondary" data-api-create="blank">Skapa tom struktur</button></div>'
     : '<div class="notice api-device-note">Den här enheten kan inte välja en beständig lokal sparplats från webbläsaren.</div>';
+
+  const migrationHtml = migration && migrationReport
+    ? '<section class="card pad api-migration-card"><div class="card-head"><div><span class="eyebrow">MIGRERING</span><h2>Befintlig Excel → Lokalblick</h2><p>Källfilen läses som underlag men skrivs inte om. När kontrollen är klar skapar du en ny ren Lokalblick-fil.</p></div><span class="badge amber">Skrivskyddad källa</span></div>' +
+      '<div class="api-migration-stats">' +
+        '<div><span>Fastigheter</span><strong>' + num((migrationReport.counts||{}).properties||0) + '</strong></div>' +
+        '<div><span>Avtal</span><strong>' + num((migrationReport.counts||{}).contracts||0) + '</strong></div>' +
+        '<div><span>Aktiviteter</span><strong>' + num((migrationReport.counts||{}).activities||0) + '</strong></div>' +
+        '<div><span>Behöver kontroll</span><strong>' + num(((migrationReport.counts||{}).unmatchedOrders||0)+((migrationReport.counts||{}).provisionalProperties||0)) + '</strong></div>' +
+      '</div>' +
+      ((migrationReport.warnings||[]).length ? '<div class="api-migration-warnings">' + migrationReport.warnings.map(function(w){return '<span>⚠ ' + esc(w) + '</span>';}).join('') + '</div>' : '<div class="notice"><strong>✓ Migreringen ser komplett ut.</strong></div>') +
+      (canSave ? '<button type="button" class="button primary api-migration-create" data-api-create="current">Skapa ny Lokalblick-fil av denna data</button>' : '') +
+    '</section>'
+    : '';
 
   const changesHtml = pending.length ? '<div class="api-change-list">' + pending.slice(0,20).map(function(change) {
     const changedFields=(change.fields||[]).slice(0,4).join(", ");
@@ -2138,7 +2156,7 @@ function renderApi() {
     '<div class="api-access-row"><span>Råfil uppladdad</span><strong>Nej</strong></div>' +
     '<div class="api-button-stack">' +
       (connected ? '<button type="button" class="button secondary" data-api-refresh>Hämta senaste</button>' : '') +
-      (connected && st.mode==="read" ? '<button type="button" class="button secondary" data-api-mode="readwrite">Tillåt skrivning</button>' : '') +
+      (connected && st.mode==="read" && !migration ? '<button type="button" class="button secondary" data-api-mode="readwrite">Tillåt skrivning</button>' : '') +
       (connected && st.mode==="readwrite" ? '<button type="button" class="button primary" data-api-write ' + (st.dirty ? '' : 'disabled') + '>Skriv ' + pending.length + ' ändring' + (pending.length===1?'':'ar') + ' till Excel</button>' : '') +
       (st.remembered ? '<button type="button" class="button secondary" data-api-disconnect>Koppla bort</button>' : '') +
     '</div></div>';
@@ -2149,6 +2167,7 @@ function renderApi() {
       '<div class="api-device-bar"><span class="badge ' + deviceClass + '">' + esc(deviceLabel) + '</span>' + primarySave + '</div>' +
     '</section>' +
 
+    migrationHtml +
     '<section class="api-connect-workspace">' +
       '<div class="api-connect-main">' +
         '<section class="card pad api-source-card api-source-primary"><div class="api-card-top"><div class="api-connector-icon">XL</div><span class="mobile-only badge ' + deviceClass + '">' + (localFileReady?'Tillgänglig':'Begränsad') + '</span></div><h3>Excel på dator / nätverk</h3><p class="muted">Öppna en befintlig Lokalblick-fil och välj läs eller läs + skriv.</p>' + connectionActions + '</section>' +
