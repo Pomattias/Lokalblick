@@ -5239,3 +5239,10 @@ button.property-control-card:hover {
 .api-change-row>div{min-width:0}
 .api-change-row strong{display:block}
 .api-change-row small{display:block;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+
+.source-pending-button{margin-left:auto;border:1px solid currentColor;background:transparent;color:inherit;border-radius:999px;padding:7px 10px;font-weight:800;cursor:pointer}
+.source-synced{margin-left:auto;font-weight:800;opacity:.78}
+@media(max-width:700px){
+  .source-pending-button,.source-synced{margin-left:0}
+}
