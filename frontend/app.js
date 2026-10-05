@@ -33,6 +33,7 @@ let currentView = "properties";
 let selectedBudgetYear = new Date().getFullYear() + 1;
 let maintenancePlanning = { year: new Date().getFullYear() + 1, mode: "quarter" };
 let mobileMapMetric = "cost";
+let mobilePlanAssignee = "";
 let editorType = null;
 let editorRecord = null;
 let portfolioExplorer = { propertyId: "", contractId: "", section: "overview" };
@@ -110,6 +111,10 @@ function targetName(type, id) {
   if (type === "property") return propertyName(id);
   if (type === "object") return contractName(id);
   if (type === "project") return projectName(id);
+  if (type === "maintenance") {
+    const x = state.maintenance.find(function(r) { return r.id === id; });
+    return x ? x.title : id;
+  }
   if (type === "driftIssue") {
     const x = state.driftIssues.find(function(r) { return r.id === id; });
     return x ? x.title : id;
@@ -1434,6 +1439,166 @@ function mobileOverviewHtml(contracts) {
     }).join("") : '<div class="empty compact">Inget kräver särskild uppmärksamhet just nu.</div>') +
   '</section>';
 }
+
+function internalPeopleForPlanning() {
+  return state.people.filter(function(p) {
+    const org=state.organizations.find(function(o){return o.id===p.organizationId;});
+    return org && org.type==="our";
+  }).sort(function(a,b){return String(a.name).localeCompare(String(b.name),"sv");});
+}
+function activeResponsibleId(targetType,targetId,fallbackId) {
+  const active=state.assignments.find(function(a){
+    return a.targetType===targetType && a.targetId===targetId && !a.toDate && a.role==="Ansvarig";
+  }) || state.assignments.find(function(a){
+    return a.targetType===targetType && a.targetId===targetId && !a.toDate;
+  });
+  return active ? active.personId : (fallbackId||"");
+}
+function planningPropertyAddress(propertyId) {
+  const p=state.properties.find(function(x){return x.id===propertyId;});
+  return p ? (p.address||p.designation||p.id) : (propertyId||"Fastighetsnivå");
+}
+function planningAssigneeSelect(targetType,targetId,selectedId,compact) {
+  const people=internalPeopleForPlanning();
+  return '<select class="' + (compact?"plan-assignee compact":"plan-assignee") + '" data-plan-responsible="' + esc(targetType) +
+    '" data-plan-id="' + esc(targetId) + '">' +
+    '<option value="">Ej fördelat</option>' +
+    people.map(function(p){return '<option value="' + esc(p.id) + '"' + (p.id===selectedId?' selected':'') + '>' + esc(p.name) + '</option>';}).join("") +
+  '</select>';
+}
+function mobilePlanningBoardHtml(contracts) {
+  const contractIds=new Set(contracts.map(function(c){return c.id;}));
+  const propertyIds=new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean));
+  function inScope(item) {
+    return (item.contractId && contractIds.has(item.contractId)) || (!item.contractId && item.propertyId && propertyIds.has(item.propertyId));
+  }
+  const rows=[];
+
+  propertyIds.forEach(function(propertyId){
+    const p=state.properties.find(function(x){return x.id===propertyId;});
+    if(!p) return;
+    rows.push({
+      kind:"property", group:"property", id:p.id, propertyId:p.id,
+      title:p.address||p.designation||p.id, subtitle:p.designation||"Fastighet",
+      responsibleId:activeResponsibleId("property",p.id,"")
+    });
+  });
+  state.projects.filter(function(x){return inScope(x) && x.status!=="Klar";}).forEach(function(x){
+    rows.push({
+      kind:"project", group:"project", id:x.id, propertyId:x.propertyId, source:x,
+      title:x.name||"Projekt", subtitle:x.phase||x.status||"Projekt",
+      responsibleId:activeResponsibleId("project",x.id,"")
+    });
+  });
+  state.maintenance.filter(function(x){return inScope(x) && x.status!=="Klar";}).forEach(function(x){
+    rows.push({
+      kind:"maintenance", group:"maintenance", id:x.id, propertyId:x.propertyId, source:x,
+      title:x.title||"Underhåll", subtitle:(x.year?String(x.year)+" · ":"")+(x.priority||x.status||""),
+      responsibleId:activeResponsibleId("maintenance",x.id,"")
+    });
+  });
+  state.maintenanceStatus.filter(function(x){return inScope(x) && !/Bra/i.test(String(x.status||""));}).forEach(function(x){
+    rows.push({
+      kind:"maintenanceStatus", group:"maintenance", id:x.id, propertyId:x.propertyId, source:x,
+      title:x.category+(x.actionNeed?" · "+x.actionNeed:""), subtitle:x.status||x.priority||"Underhåll",
+      responsibleId:activeResponsibleId("maintenanceStatus",x.id,x.responsiblePersonId||"")
+    });
+  });
+  state.driftIssues.filter(function(x){return inScope(x) && x.status!=="Klar";}).forEach(function(x){
+    rows.push({
+      kind:"driftIssue", group:"drift", id:x.id, propertyId:x.propertyId, source:x,
+      title:x.title||"Driftärende", subtitle:x.targetDate||x.status||"Drift",
+      responsibleId:activeResponsibleId("driftIssue",x.id,x.responsiblePersonId||"")
+    });
+  });
+  state.wishes.filter(function(x){return inScope(x) && x.status!=="Klart" && x.status!=="Avslaget";}).forEach(function(x){
+    rows.push({
+      kind:"wish", group:"wish", id:x.id, propertyId:x.propertyId, source:x,
+      title:x.title||"Önskemål", subtitle:x.category||x.status||"Önskemål",
+      responsibleId:activeResponsibleId("wish",x.id,x.responsiblePersonId||"")
+    });
+  });
+
+  function matchesPerson(row) {
+    if(!mobilePlanAssignee) return true;
+    if(mobilePlanAssignee==="__unassigned") return !row.responsibleId;
+    return row.responsibleId===mobilePlanAssignee;
+  }
+  const visibleRows=rows.filter(matchesPerson);
+  const unassigned=rows.filter(function(row){return !row.responsibleId;});
+  const people=internalPeopleForPlanning();
+
+  function planningControls(row) {
+    if(row.kind==="maintenance" || row.kind==="maintenanceStatus") {
+      const source=row.source||{};
+      const year=row.kind==="maintenanceStatus" ? source.budgetYear : source.year;
+      const quarter=Number(source.planningQuarter)||0;
+      const years=maintenancePlanningYears();
+      return '<div class="plan-schedule"><label><span>Planår</span><select data-plan-year="' + esc(row.kind) + '" data-plan-id="' + esc(row.id) + '">' +
+        '<option value="">Ej planerat</option>' + years.map(function(y){return '<option value="' + y + '"' + (Number(year)===Number(y)?' selected':'') + '>' + y + '</option>';}).join("") +
+        '</select></label><label><span>Kvartal</span><select data-plan-quarter="' + esc(row.kind) + '" data-plan-id="' + esc(row.id) + '">' +
+        '<option value="">Ej placerad</option>' + [1,2,3,4].map(function(q){return '<option value="' + q + '"' + (quarter===q?' selected':'') + '>Q' + q + '</option>';}).join("") +
+        '</select></label></div>';
+    }
+    if(row.kind==="driftIssue") {
+      return '<label class="plan-date"><span>Tidplan</span><input type="date" data-plan-date="driftIssue" data-plan-id="' + esc(row.id) +
+        '" value="' + esc((row.source&&row.source.targetDate)||"") + '"></label>';
+    }
+    if(row.kind==="project") {
+      return '<div class="plan-project-dates"><span>' + esc((row.source&&row.source.start)||"Start ej satt") + '</span><b>→</b><span>' +
+        esc((row.source&&row.source.end)||"Slut ej satt") + '</span></div>';
+    }
+    return "";
+  }
+
+  function rowHtml(row) {
+    const address=planningPropertyAddress(row.propertyId);
+    const person=row.responsibleId ? personName(row.responsibleId) : "Ej fördelat";
+    return '<details class="plan-task ' + (!row.responsibleId?"unassigned":"") + '">' +
+      '<summary><span class="plan-task-main"><small>' + esc(address) + '</small><strong>' + esc(row.title) + '</strong></span>' +
+        '<span class="plan-task-owner ' + (!row.responsibleId?"warn":"") + '">' + esc(person) + '</span><b>⌄</b></summary>' +
+      '<div class="plan-task-body"><label class="plan-owner-field"><span>Ansvarig</span>' +
+        planningAssigneeSelect(row.kind,row.id,row.responsibleId,false) + '</label>' +
+        planningControls(row) +
+        (row.kind==="wish" ? '<div class="plan-wish-actions"><span>Flytta till planering</span><div><button type="button" data-plan-wish-move="maintenance" data-plan-id="' +
+          esc(row.id) + '">→ Underhåll</button><button type="button" data-plan-wish-move="drift" data-plan-id="' + esc(row.id) + '">→ Drift</button></div></div>' : '') +
+      '</div></details>';
+  }
+
+  function groupHtml(group,title,description) {
+    const groupRows=visibleRows.filter(function(row){return row.group===group;});
+    const unassignedCount=groupRows.filter(function(row){return !row.responsibleId;}).length;
+    return '<details class="plan-group">' +
+      '<summary><span><strong>' + esc(title) + '</strong><small>' + esc(description) + '</small></span>' +
+        '<span class="plan-group-count"><strong>' + groupRows.length + '</strong>' + (unassignedCount?'<b>' + unassignedCount + ' ej fördelade</b>':'') + '</span><i>⌄</i></summary>' +
+      '<div class="plan-group-body">' + (groupRows.length?groupRows.map(rowHtml).join(""):'<div class="plan-empty">Inga poster i urvalet</div>') + '</div>' +
+    '</details>';
+  }
+
+  const unassignedList=unassigned.slice(0,12).map(function(row){
+    return '<div class="plan-unassigned-row"><span><small>' + esc(planningPropertyAddress(row.propertyId)) + '</small><strong>' + esc(row.title) + '</strong></span>' +
+      planningAssigneeSelect(row.kind,row.id,"",true) + '</div>';
+  }).join("");
+
+  return '<div class="mobile-plan-board">' +
+    '<section class="plan-alert ' + (unassigned.length?"active":"clear") + '">' +
+      '<details' + (unassigned.length?' open':'') + '><summary><span><small>EJ FÖRDELAT</small><strong>' +
+        (unassigned.length ? unassigned.length + ' uppgifter behöver ansvarig' : 'Allt är fördelat') + '</strong></span><b>⌄</b></summary>' +
+        '<div class="plan-unassigned-list">' + (unassigned.length?unassignedList:'<div class="plan-empty">Inga ofördelade uppgifter i urvalet.</div>') + '</div></details>' +
+    '</section>' +
+    '<section class="plan-person-filter"><label><span>Visa ansvarig</span><select id="plan-assignee-filter"><option value="">Alla ansvariga</option>' +
+      '<option value="__unassigned"' + (mobilePlanAssignee==="__unassigned"?' selected':'') + '>Ej fördelat</option>' +
+      people.map(function(p){return '<option value="' + esc(p.id) + '"' + (mobilePlanAssignee===p.id?' selected':'') + '>' + esc(p.name) + '</option>';}).join("") +
+      '</select></label><small>' + visibleRows.length + ' av ' + rows.length + ' uppgifter</small></section>' +
+    '<div class="plan-groups">' +
+      groupHtml("property","Fastigheter","Grundansvar för fastigheten") +
+      groupHtml("project","Projekt","Projektansvar och genomförande") +
+      groupHtml("maintenance","Underhåll","Längre planering · år och kvartal") +
+      groupHtml("drift","Drift","Kortare planering · datum och åtgärd") +
+      groupHtml("wish","Önskemål","Bedöm, fördela eller flytta till planering") +
+    '</div>' +
+  '</div>';
+}
 function mobileActivitiesHubHtml(contracts) {
   const items = portfolioActivityItems(contracts).filter(function(x){return ["maintenance","project","drift","operations","wish"].includes(x.group);});
   const categories = [
@@ -2399,6 +2564,132 @@ function bindMobileScopeFilterControls() {
     });
   });
 }
+
+function bindMobilePlanningControls() {
+  const personFilter=document.getElementById("plan-assignee-filter");
+  if(personFilter && !personFilter.dataset.planBound) {
+    personFilter.dataset.planBound="1";
+    personFilter.addEventListener("change",function(){
+      mobilePlanAssignee=personFilter.value||"";
+      filterPropertyPortfolio();
+    });
+  }
+
+  document.querySelectorAll("[data-plan-responsible]:not([data-plan-bound])").forEach(function(select){
+    select.dataset.planBound="1";
+    select.addEventListener("change",async function(){
+      const type=select.dataset.planResponsible;
+      const id=select.dataset.planId;
+      const personId=select.value||"";
+      syncResponsibleAssignment(type,id,personId,"");
+      if(type==="maintenanceStatus") {
+        const x=state.maintenanceStatus.find(function(r){return r.id===id;});
+        if(x) x.responsiblePersonId=personId;
+      } else if(type==="driftIssue") {
+        const x=state.driftIssues.find(function(r){return r.id===id;});
+        if(x) x.responsiblePersonId=personId;
+      } else if(type==="wish") {
+        const x=state.wishes.find(function(r){return r.id===id;});
+        if(x) x.responsiblePersonId=personId;
+      }
+      await saveState();
+      filterPropertyPortfolio();
+    });
+  });
+
+  document.querySelectorAll("[data-plan-year]:not([data-plan-bound])").forEach(function(select){
+    select.dataset.planBound="1";
+    select.addEventListener("change",async function(){
+      const type=select.dataset.planYear, id=select.dataset.planId;
+      const item=planningSource(type,id);
+      if(!item) return;
+      const value=Number(select.value)||null;
+      if(type==="maintenanceStatus") item.budgetYear=value;
+      else item.year=value;
+      await saveState();
+      filterPropertyPortfolio();
+    });
+  });
+
+  document.querySelectorAll("[data-plan-quarter]:not([data-plan-bound])").forEach(function(select){
+    select.dataset.planBound="1";
+    select.addEventListener("change",async function(){
+      const type=select.dataset.planQuarter, id=select.dataset.planId;
+      const item=planningSource(type,id);
+      if(!item) return;
+      item.planningQuarter=Number(select.value)||null;
+      item.planningMonth=null;
+      await saveState();
+      filterPropertyPortfolio();
+    });
+  });
+
+  document.querySelectorAll("[data-plan-date]:not([data-plan-bound])").forEach(function(input){
+    input.dataset.planBound="1";
+    input.addEventListener("change",async function(){
+      const item=state.driftIssues.find(function(x){return x.id===input.dataset.planId;});
+      if(!item) return;
+      item.targetDate=input.value||"";
+      if(input.value && !item.budgetYear) item.budgetYear=Number(input.value.slice(0,4))||null;
+      await saveState();
+      filterPropertyPortfolio();
+    });
+  });
+
+  document.querySelectorAll("[data-plan-wish-move]:not([data-plan-bound])").forEach(function(button){
+    button.dataset.planBound="1";
+    button.addEventListener("click",async function(){
+      const wish=state.wishes.find(function(x){return x.id===button.dataset.planId;});
+      if(!wish) return;
+      const today=new Date().toISOString().slice(0,10);
+      const personId=activeResponsibleId("wish",wish.id,wish.responsiblePersonId||"");
+      if(button.dataset.planWishMove==="maintenance") {
+        const target={
+          id:nextId("UH",state.maintenance),
+          title:wish.title||wish.category||"Önskemål",
+          contractId:wish.contractId||"",
+          propertyId:wish.propertyId||"",
+          year:Number(wish.budgetYear)||new Date().getFullYear()+1,
+          priority:"Medel",
+          status:"Identifierad",
+          cost:Number(wish.estimatedCost)||0,
+          planningQuarter:null,
+          planningMonth:null
+        };
+        state.maintenance.push(target);
+        if(personId) syncResponsibleAssignment("maintenance",target.id,personId,today);
+      } else {
+        const target={
+          id:nextId("DI",state.driftIssues),
+          contractId:wish.contractId||"",
+          propertyId:wish.propertyId||"",
+          category:DRIFT_ISSUE_CATEGORIES.includes(wish.category)?wish.category:"Övrigt",
+          title:wish.title||wish.category||"Önskemål",
+          description:wish.description||"",
+          createdDate:today,
+          targetDate:wish.targetDate||"",
+          decisionDate:"",
+          completedDate:"",
+          status:"Nytt",
+          priority:"Medel",
+          responsiblePersonId:personId,
+          budgetYear:Number(wish.budgetYear)||null,
+          estimatedCost:Number(wish.estimatedCost)||0,
+          finalCost:0,
+          includeInBudget:wish.includeInBudget||"Nej",
+          planningQuarter:null,
+          planningMonth:null
+        };
+        state.driftIssues.push(target);
+        if(personId) syncResponsibleAssignment("driftIssue",target.id,personId,today);
+      }
+      wish.status="Klart";
+      wish.completedDate=today;
+      await saveState();
+      filterPropertyPortfolio();
+    });
+  });
+}
 function bindViewEvents() {
   applyPortfolioFiltersToControls();
   document.querySelectorAll("[data-shared-unit]:not([data-shared-bound])").forEach(function(button) {
@@ -2596,7 +2887,7 @@ function applyPortfolioSectionVisibility() {
   if (mobileOverview) mobileOverview.hidden = section !== "overview";
   if (mobileProperties) mobileProperties.hidden = section !== "properties";
   if (mobileContracts) mobileContracts.hidden = section !== "contracts";
-  if (mobileActivity) mobileActivity.hidden = !activitySections().includes(section);
+  if (mobileActivity) mobileActivity.hidden = !(section === "activities" || activitySections().includes(section));
 }
 function bindPortfolioSectionControls() {
   document.querySelectorAll("[data-portfolio-section]:not([data-section-bound])").forEach(function(button) {
@@ -2713,7 +3004,7 @@ function updatePortfolioSurfaces(contracts) {
   const mobileActivity = document.getElementById("mobile-activity-content");
   if (mobileActivity) {
     mobileActivity.innerHTML = portfolioExplorer.section === "activities"
-      ? mobileActivitiesHubHtml(contracts)
+      ? mobilePlanningBoardHtml(contracts)
       : activitySections().includes(portfolioExplorer.section)
         ? portfolioActivityGroupedHtml(contracts, portfolioExplorer.section)
         : "";
@@ -2725,6 +3016,7 @@ function updatePortfolioSurfaces(contracts) {
   bindEditButtons();
   bindMaintenancePlannerControls();
   bindAnnualPlannerControls();
+  bindMobilePlanningControls();
   applyPortfolioSectionVisibility();
 }
 function filterPropertyPortfolio() {
@@ -2781,7 +3073,7 @@ const fieldTemplates = {
   ],
   assignment: [
     ["personId", "Person", "person", "", true],
-    ["targetType", "Typ", "select", "property|object|project|driftIssue|wish|maintenanceStatus", true],
+    ["targetType", "Typ", "select", "property|object|project|maintenance|driftIssue|wish|maintenanceStatus", true],
     ["targetId", "Mål-ID", "target", "", true],
     ["role", "Roll i uppdraget", "text", "", true],
     ["fromDate", "Från", "date", "", false],
