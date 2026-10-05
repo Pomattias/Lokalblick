@@ -2393,38 +2393,67 @@ function renderApi() {
   const statusLabel=connected ? "Ansluten" : remembered ? "Koppling sparad" : "Ej ansluten";
   const statusClass=connected ? "green" : remembered ? "amber" : "";
   const sourceName=st.fileName || "Ingen källa vald";
-  return '<div class="section-stack api-page">' +
-    '<section class="card pad api-hero"><div class="card-head"><div><span class="eyebrow">MER / API</span><h2>Datakällor</h2><p>Koppla Lokalblick till data där den redan finns. Lokal Excel läses och skrivs i webbläsaren; råfilen laddas inte upp.</p></div><span class="badge ' + statusClass + '">' + esc(statusLabel) + '</span></div>' +
-      '<div class="api-source-summary"><div><span>Källa</span><strong>' + esc(sourceName) + '</strong></div><div><span>Åtkomst</span><strong>' + esc(modeLabel) + '</strong></div><div><span>Senast läst</span><strong>' + (st.lastRead ? esc(new Date(st.lastRead).toLocaleString("sv-SE")) : "–") + '</strong></div><div><span>Ändringar</span><strong>' + (st.dirty ? pending.length + " väntar" : "Synkron") + '</strong></div></div>' +
+  const compact=Boolean(window.matchMedia && window.matchMedia("(max-width: 700px)").matches);
+  const touch=Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  const canOpen=Boolean(window.showOpenFilePicker);
+  const canSave=Boolean(window.showSaveFilePicker);
+  const localFileReady=canOpen && canSave;
+  const deviceLabel=localFileReady ? (touch ? "Stöds på denna enhet" : "Full lokal filåtkomst") : "Begränsad på denna enhet";
+  const deviceClass=localFileReady ? "green" : "amber";
+
+  const primarySave = connected && st.mode==="readwrite" && pending.length
+    ? '<button type="button" class="button primary api-device-save" data-api-write>💾 Spara ' + pending.length + ' till Excel</button>'
+    : connected && pending.length
+      ? '<button type="button" class="button primary api-device-save" data-api-mode="readwrite">Tillåt skrivning</button>'
+      : '';
+
+  const connectionActions = localFileReady
+    ? '<div class="api-button-stack"><button type="button" class="button primary" data-api-connect="read">Koppla · läs</button><button type="button" class="button secondary" data-api-connect="readwrite">Koppla · läs + skriv</button>' +
+      (remembered ? '<button type="button" class="button secondary" data-api-reconnect>Återanslut sparad fil</button>' : '') + '</div>'
+    : '<div class="notice api-device-note"><strong>Lokal filkoppling är begränsad i denna webbläsare.</strong><br>För beständig läs/skriv-koppling använder du Edge eller Chrome med stöd för filåtkomst. OneDrive/SharePoint blir nästa fleranvändarväg.</div>';
+
+  const createActions = canSave
+    ? '<div class="api-button-stack"><button type="button" class="button primary" data-api-create="current">Skapa med aktuell data</button><button type="button" class="button secondary" data-api-create="blank">Skapa tom struktur</button></div>'
+    : '<div class="notice api-device-note">Den här enheten kan inte välja en beständig lokal sparplats från webbläsaren.</div>';
+
+  const changesHtml = pending.length ? '<div class="api-change-list">' + pending.slice(0,20).map(function(change) {
+    const changedFields=(change.fields||[]).slice(0,4).join(", ");
+    return '<div class="api-change-row"><div><strong>' + esc(change.action + " · " + change.sheet) + '</strong><small>' + esc(change.id + (changedFields ? " · " + changedFields : "")) + '</small></div><span class="badge ' + (change.action==="Borttagen"?"red":change.action==="Skapad"?"green":"amber") + '">' + esc(change.action) + '</span></div>';
+  }).join("") + (pending.length>20?'<div class="muted">+'+(pending.length-20)+' fler ändringar</div>':'') + '</div>' :
+    '<div class="empty">Ändringar du gör i Lokalblick visas här innan de skrivs till källan.</div>';
+
+  const sourceActions =
+    '<div class="section-stack"><div class="notice"><strong>Säker princip</strong><br>Stabila ID:n följer med varje rad. Skrivning sker först när du aktivt väljer att spara.</div>' +
+    '<div class="api-access-row"><span>Läge</span><strong>' + esc(modeLabel) + '</strong></div>' +
+    '<div class="api-access-row"><span>Råfil uppladdad</span><strong>Nej</strong></div>' +
+    '<div class="api-button-stack">' +
+      (connected ? '<button type="button" class="button secondary" data-api-refresh>Hämta senaste</button>' : '') +
+      (connected && st.mode==="read" ? '<button type="button" class="button secondary" data-api-mode="readwrite">Tillåt skrivning</button>' : '') +
+      (connected && st.mode==="readwrite" ? '<button type="button" class="button primary" data-api-write ' + (st.dirty ? '' : 'disabled') + '>Skriv ' + pending.length + ' ändring' + (pending.length===1?'':'ar') + ' till Excel</button>' : '') +
+      (st.remembered ? '<button type="button" class="button secondary" data-api-disconnect>Koppla bort</button>' : '') +
+    '</div></div>';
+
+  return '<div class="section-stack api-page ' + (compact?'api-compact':'api-wide') + '">' +
+    '<section class="card pad api-hero"><div class="api-hero-head"><div><span class="eyebrow">MER / API</span><h2>Datakällor</h2><p>Koppla Lokalblick till data där den redan finns.</p></div><span class="badge ' + statusClass + '">' + esc(statusLabel) + '</span></div>' +
+      '<div class="api-source-summary"><div><span>Källa</span><strong>' + esc(sourceName) + '</strong></div><div><span>Åtkomst</span><strong>' + esc(modeLabel) + '</strong></div><div class="api-summary-secondary"><span>Senast läst</span><strong>' + (st.lastRead ? esc(new Date(st.lastRead).toLocaleString("sv-SE")) : "–") + '</strong></div><div><span>Ändringar</span><strong>' + (st.dirty ? pending.length + " väntar" : "Synkron") + '</strong></div></div>' +
+      '<div class="api-device-bar"><span class="badge ' + deviceClass + '">' + esc(deviceLabel) + '</span>' + primarySave + '</div>' +
     '</section>' +
 
-    '<div class="grid three-col api-source-grid">' +
-      '<section class="card pad"><div class="api-connector-icon">XL</div><h3>Excel på dator / nätverk</h3><p class="muted">Välj en befintlig Lokalblick-arbetsbok och bestäm om kopplingen får läsa eller läsa + skriva.</p>' +
-        '<div class="api-button-stack"><button type="button" class="button primary" data-api-connect="read">Koppla · läs</button><button type="button" class="button secondary" data-api-connect="readwrite">Koppla · läs + skriv</button>' +
-        (remembered ? '<button type="button" class="button secondary" data-api-reconnect>Återanslut sparad fil</button>' : '') + '</div></section>' +
-      '<section class="card pad"><div class="api-connector-icon">＋</div><h3>Skapa Excel-källa</h3><p class="muted">Lokalblick skapar rätt tabeller och fält. Du väljer själv filnamn, plats och om den ska fyllas med aktuell data eller vara tom.</p>' +
-        '<div class="api-button-stack"><button type="button" class="button primary" data-api-create="current">Skapa med aktuell data</button><button type="button" class="button secondary" data-api-create="blank">Skapa tom struktur</button></div></section>' +
-      '<section class="card pad"><div class="api-connector-icon">365</div><h3>OneDrive / SharePoint / API</h3><p class="muted">Nästa steg använder samma Lokalblick-modell via Microsoft 365 eller ett kundnära adapterlager.</p><button type="button" class="button secondary" disabled>Kommer senare</button></section>' +
+    '<div class="api-source-grid">' +
+      '<section class="card pad api-source-card api-source-primary"><div class="api-card-top"><div class="api-connector-icon">XL</div><span class="mobile-only badge ' + deviceClass + '">' + (localFileReady?'Tillgänglig':'Begränsad') + '</span></div><h3>Excel på dator / nätverk</h3><p class="muted">Öppna en befintlig Lokalblick-fil och välj läs eller läs + skriv.</p>' + connectionActions + '</section>' +
+      '<section class="card pad api-source-card"><div class="api-connector-icon">＋</div><h3>Skapa Excel-källa</h3><p class="muted">Skapa rätt tabeller och fält. Du väljer själv filnamn och plats.</p>' + createActions + '</section>' +
+      '<section class="card pad api-source-card api-source-future"><div class="api-connector-icon">365</div><h3>OneDrive / SharePoint / API</h3><p class="muted">Gemensam källa via Microsoft 365 eller kundnära adapterlager.</p><button type="button" class="button secondary" disabled>Kommer senare</button></section>' +
     '</div>' +
 
-    '<div class="grid two-col">' +
-      card("Tabeller och fält", "Det här hittades i den valda Excel-källan.", apiSheetRows(st.discovered)) +
-      card("Väntande ändringar", pending.length ? pending.length + " ändringar väntar på att skrivas till Excel." : "Inga osparade ändringar.",
-        pending.length ? '<div class="api-change-list">' + pending.slice(0,20).map(function(change) {
-          const changedFields=(change.fields||[]).slice(0,4).join(", ");
-          return '<div class="api-change-row"><div><strong>' + esc(change.action + " · " + change.sheet) + '</strong><small>' + esc(change.id + (changedFields ? " · " + changedFields : "")) + '</small></div><span class="badge ' + (change.action==="Borttagen"?"red":change.action==="Skapad"?"green":"amber") + '">' + esc(change.action) + '</span></div>';
-        }).join("") + (pending.length>20?'<div class="muted">+'+(pending.length-20)+' fler ändringar</div>':'') + '</div>' : '<div class="empty">Ändringar du gör i Lokalblick visas här innan de skrivs till källan.</div>') +
-      card("Spara till källan", "Lokalblick sparar först i arbetsytan. Skriv tillbaka är alltid ett aktivt val.",
-        '<div class="section-stack"><div class="notice"><strong>Säker princip</strong><br>Stabila ID:n följer med varje rad, så ändringar kan kopplas tillbaka till rätt post.</div>' +
-        '<div class="api-access-row"><span>Läge</span><strong>' + esc(modeLabel) + '</strong></div>' +
-        '<div class="api-access-row"><span>Råfil uppladdad</span><strong>Nej</strong></div>' +
-        '<div class="api-button-stack">' +
-          (connected ? '<button type="button" class="button secondary" data-api-refresh>Hämta senaste</button>' : '') +
-          (connected && st.mode==="read" ? '<button type="button" class="button secondary" data-api-mode="readwrite">Tillåt skrivning</button>' : '') +
-          (connected && st.mode==="readwrite" ? '<button type="button" class="button primary" data-api-write ' + (st.dirty ? '' : 'disabled') + '>Skriv ' + pending.length + ' ändring' + (pending.length===1?'':'ar') + ' till Excel</button>' : '') +
-          (st.remembered ? '<button type="button" class="button secondary" data-api-disconnect>Koppla bort</button>' : '') +
-        '</div></div>') +
-    '</div>' +
+    (compact
+      ? '<details class="card pad api-mobile-detail" ' + (pending.length?'open':'') + '><summary><span>Väntande ändringar</span><strong>' + pending.length + '</strong></summary><div class="api-detail-body">' + changesHtml + '</div></details>' +
+        '<details class="card pad api-mobile-detail"><summary><span>Tabeller och fält</span><strong>' + (st.discovered||[]).length + '</strong></summary><div class="api-detail-body">' + apiSheetRows(st.discovered) + '</div></details>' +
+        '<details class="card pad api-mobile-detail"><summary><span>Åtkomst & synk</span><strong>›</strong></summary><div class="api-detail-body">' + sourceActions + '</div></details>'
+      : '<div class="grid two-col api-detail-grid">' +
+          card("Tabeller och fält", "Det här hittades i den valda Excel-källan.", apiSheetRows(st.discovered)) +
+          card("Väntande ändringar", pending.length ? pending.length + " ändringar väntar på att skrivas till Excel." : "Inga osparade ändringar.", changesHtml) +
+          card("Spara till källan", "Lokalblick sparar först i arbetsytan. Skriv tillbaka är alltid ett aktivt val.", sourceActions) +
+        '</div>') +
   '</div>';
 }
 async function reloadFromActiveSource() {
