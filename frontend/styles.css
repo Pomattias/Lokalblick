@@ -3762,7 +3762,7 @@ button.property-control-card:hover {
 
   #mobile-scope-filters {
     display:block !important;
-    margin-bottom:9px;
+    margin-bottom:7px;
   }
   .mobile-scope-filter-row {
     display:flex;
@@ -3919,7 +3919,19 @@ button.property-control-card:hover {
     font-weight:800;
   }
 
-  /* The three explicit scope chips replace the old generic mobile filter drawer. */
+  /* Mobile keeps one clear selection control plus three cross-cutting filter chips. */
   .advanced-filters { display:none !important; }
-  .mobile-scope-wrap { display:none !important; }
+  .mobile-scope-wrap {
+    display:block !important;
+    margin:0 0 8px;
+  }
+  .mobile-scope-picker > summary {
+    border:1px solid #b9cbd6;
+    background:#f8fbfd;
+    box-shadow:0 3px 12px rgba(24,33,43,.04);
+  }
+  .mobile-scope-picker > summary .mobile-picker-kicker { color:#52758b; }
+  #mobile-quick-summary { margin:0 0 10px; }
+  #mobile-quick-summary .mobile-home-hero { margin:0; }
+  .mobile-content-tabs { margin:0 0 8px !important; }
 }

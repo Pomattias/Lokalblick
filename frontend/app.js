@@ -1327,22 +1327,11 @@ function mobileFilterChipHtml(filterId, label, options, selectedValue, allLabel)
       }).join("") +
     '</div></details>';
 }
-function mobileScopeFiltersHtml(filters, contracts) {
-  const active=[
-    portfolioFilters.ourPerson ? "Ansvarig: " + mobileFilterChoiceLabel("filter-our-person",portfolioFilters.ourPerson) : "",
-    portfolioFilters.unit ? "Organisation: " + mobileFilterChoiceLabel("filter-unit",portfolioFilters.unit) : "",
-    portfolioFilters.owner ? "Fastighetsägare: " + mobileFilterChoiceLabel("filter-owner",portfolioFilters.owner) : ""
-  ].filter(Boolean);
-  const propertyCount=new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
+function mobileScopeFiltersHtml(filters) {
   return '<div class="mobile-scope-filter-row">' +
     mobileFilterChipHtml("filter-our-person","Ansvarig",filters.ourPeople,portfolioFilters.ourPerson,"Alla ansvariga") +
     mobileFilterChipHtml("filter-unit","Organisation",filters.unit,portfolioFilters.unit,"Alla organisationer") +
     mobileFilterChipHtml("filter-owner","Fastighetsägare",filters.owner,portfolioFilters.owner,"Alla fastighetsägare") +
-  '</div>' +
-  '<div class="mobile-filter-state ' + (active.length?"active":"") + '">' +
-    '<div><span>' + (active.length?"VALT URVAL":"URVAL") + '</span><strong>' + esc(active.length?active.join(" · "):"Alla fastigheter") + '</strong>' +
-    '<small>' + propertyCount + ' fastigheter · ' + contracts.length + ' avtal</small></div>' +
-    (active.length?'<button type="button" data-mobile-clear-scope>Rensa</button>':'') +
   '</div>';
 }
 
@@ -1385,10 +1374,21 @@ function mobileContractCardsHtml(contracts) {
     '</button>';
   }).join("") || '<div class="empty">Inga avtal i urvalet.</div>';
 }
-function mobileOverviewHtml(contracts) {
+function mobileQuickSummaryHtml(contracts) {
   const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
   const totalArea = contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
   const annualContracts = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
+  return '<section class="mobile-home-hero">' +
+    '<div class="mobile-home-hero-copy"><span>AKTUELLT URVAL</span><h2>' + esc(portfolioScopeTitle()) + '</h2><p>' +
+      propertyCount + ' fastigheter · ' + contracts.length + ' avtal · ' + num(totalArea) + ' kvm</p></div>' +
+    '<div class="mobile-home-hero-value"><span>Årskostnad avtal</span><strong>' + money(annualContracts) +
+      '</strong><small>Hyra + avtalsdrift</small></div>' +
+  '</section>';
+}
+
+function mobileOverviewHtml(contracts) {
+  const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
+  const totalArea = contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
   const items = portfolioActivityItems(contracts);
   const groups = {
     maintenance: items.filter(function(x){return x.group==="maintenance";}),
@@ -1407,11 +1407,7 @@ function mobileOverviewHtml(contracts) {
     const bb=/akut|hög|sen|risk|åtgärdsbehov|pågår/i.test(String(b.status||""))?1:0;
     return bb-aa || (Number(b.cost)||0)-(Number(a.cost)||0);
   }).slice(0,4);
-  return '<section class="mobile-home-hero">' +
-    '<div class="mobile-home-hero-copy"><span>AKTUELLT URVAL</span><h2>' + esc(portfolioScopeTitle()) + '</h2><p>' + propertyCount + ' fastigheter · ' + contracts.length + ' avtal · ' + num(totalArea) + ' kvm</p></div>' +
-    '<div class="mobile-home-hero-value"><span>Årskostnad avtal</span><strong>' + money(annualContracts) + '</strong><small>Hyra + avtalsdrift</small></div>' +
-  '</section>' +
-  '<div class="mobile-kpi-grid">' +
+  return '<div class="mobile-kpi-grid">' +
     '<button type="button" data-portfolio-section="properties"><span>Fastigheter</span><strong>' + propertyCount + '</strong><small>' + num(totalArea) + ' kvm</small></button>' +
     '<button type="button" data-portfolio-section="activities"><span>Aktiva poster</span><strong>' + openItems.length + '</strong><small>' + money(plannedCost) + '</small></button>' +
   '</div>' +
@@ -1502,9 +1498,12 @@ function updateMobilePortfolioSurfaces(contracts) {
 
   const mobileFilters=document.getElementById("mobile-scope-filters");
   if(mobileFilters) {
-    mobileFilters.innerHTML=mobileScopeFiltersHtml(portfolioFilterOptions(),contracts);
+    mobileFilters.innerHTML=mobileScopeFiltersHtml(portfolioFilterOptions());
     bindMobileScopeFilterControls();
   }
+
+  const quickSummary=document.getElementById("mobile-quick-summary");
+  if(quickSummary) quickSummary.innerHTML=mobileQuickSummaryHtml(contracts);
 
   const overview=document.getElementById("mobile-overview-content");
   if(overview) overview.innerHTML=portfolioExplorer.propertyId ? mobilePropertyOverviewHtml(contracts) : mobileOverviewHtml(contracts);
@@ -1790,10 +1789,12 @@ function renderProperties() {
         '<div class="scope-heading"><span>Zooma in</span><small>Välj område eller gå vidare till en fastighet</small></div>' +
         '<div class="scope-grid">' + portfolioScopeCardsHtml() + '</div>' +
       '</div>' +
+      '<div class="mobile-only mobile-scope-wrap">' + mobileScopePickerHtml() + '</div>' +
       '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" placeholder="Sök fastighet, avtal, kund eller person…">' +
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
+      '<div id="mobile-scope-filters" class="mobile-only">' + mobileScopeFiltersHtml(filters) + '</div>' +
+      '<div id="mobile-quick-summary" class="mobile-only">' + mobileQuickSummaryHtml(state.contracts) + '</div>' +
       '<div id="mobile-content-tabs" class="mobile-content-tabs mobile-only">' + mobileModeChooserHtml(state.contracts) + '</div>' +
-      '<div id="mobile-scope-filters" class="mobile-only">' + mobileScopeFiltersHtml(filters,state.contracts) + '</div>' +
       '<div class="mobile-only" id="mobile-context"></div>' +
       '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
       advancedFilters +
