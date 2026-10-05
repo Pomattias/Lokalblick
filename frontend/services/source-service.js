@@ -31,10 +31,63 @@
     lastRead:null,
     data:null,
     workbook:null,
-    discovered:[]
+    discovered:[],
+    pendingChanges:[]
   };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
+
+  function rowKey(row, index) {
+    return row && row.id ? String(row.id) : "rad-" + (index + 1);
+  }
+
+  function comparableRow(row) {
+    const out = {};
+    Object.keys(row || {}).sort().forEach(function(key) {
+      const value = row[key];
+      if (value !== undefined) out[key] = value;
+    });
+    return out;
+  }
+
+  function diffLists(before, after, schema) {
+    const oldRows = Array.isArray(before) ? before : [];
+    const newRows = Array.isArray(after) ? after : [];
+    const oldMap = new Map(oldRows.map(function(row, i){ return [rowKey(row,i), row]; }));
+    const newMap = new Map(newRows.map(function(row, i){ return [rowKey(row,i), row]; }));
+    const changes = [];
+
+    newMap.forEach(function(row, id) {
+      if (!oldMap.has(id)) {
+        changes.push({ sheet:schema.sheet, key:schema.key, id:id, action:"Skapad", fields:[], before:null, after:clone(row) });
+        return;
+      }
+      const oldRow = oldMap.get(id);
+      const fields = Array.from(new Set(Object.keys(oldRow || {}).concat(Object.keys(row || {})))).filter(function(field) {
+        return JSON.stringify((oldRow || {})[field] ?? null) !== JSON.stringify((row || {})[field] ?? null);
+      });
+      if (fields.length) {
+        changes.push({ sheet:schema.sheet, key:schema.key, id:id, action:"Ändrad", fields:fields, before:clone(oldRow), after:clone(row) });
+      }
+    });
+    oldMap.forEach(function(row, id) {
+      if (!newMap.has(id)) changes.push({ sheet:schema.sheet, key:schema.key, id:id, action:"Borttagen", fields:[], before:clone(row), after:null });
+    });
+    return changes;
+  }
+
+  function diffData(before, after) {
+    let changes = [];
+    SCHEMAS.forEach(function(schema) {
+      changes = changes.concat(diffLists((before || {})[schema.key], (after || {})[schema.key], schema));
+    });
+    const oldPlans = (before && before.budgetPlans) || [];
+    const newPlans = (after && after.budgetPlans) || [];
+    if (JSON.stringify(oldPlans) !== JSON.stringify(newPlans)) {
+      changes.push({ sheet:"Budget", key:"budgetPlans", id:"budget", action:"Ändrad", fields:["budgetPlans"], before:null, after:null });
+    }
+    return changes;
+  }
 
   function openDb() {
     return new Promise(function(resolve, reject) {
@@ -213,6 +266,7 @@
     source.data = workbookToData(workbook);
     source.connected = true;
     source.dirty = false;
+    source.pendingChanges = [];
     source.lastRead = new Date();
     source.discovered = discoverWorkbook(workbook);
     await rememberHandle(handle, source.mode);
@@ -259,6 +313,7 @@
     source.data = base;
     source.connected = true;
     source.dirty = false;
+    source.pendingChanges = [];
     source.lastRead = new Date();
     source.discovered = discoverWorkbook(workbook);
     await rememberHandle(handle, source.mode);
@@ -271,10 +326,12 @@
       mode:"local-excel",
       async load() { return clone(source.data || {}); },
       async save(data) {
-        source.data = clone(data);
-        source.data.isDemo = false;
-        source.data.sourceName = source.fileName || "Excel-källa";
-        source.dirty = true;
+        const next = clone(data);
+        next.isDemo = false;
+        next.sourceName = source.fileName || "Excel-källa";
+        source.pendingChanges = diffData(source.data || {}, next);
+        source.data = next;
+        source.dirty = source.pendingChanges.length > 0;
         return clone(source.data);
       },
       async reset() { return clone(source.data || {}); }
@@ -293,6 +350,7 @@
     await writable.close();
     source.workbook = workbook;
     source.dirty = false;
+    source.pendingChanges = [];
     source.lastRead = new Date();
     source.discovered = discoverWorkbook(workbook);
     return status();
@@ -318,6 +376,7 @@
     source.data = null;
     source.workbook = null;
     source.discovered = [];
+    source.pendingChanges = [];
     await forgetHandle();
     if (window.LokalblickDemoDataService) window.LokalblickDataService = window.LokalblickDemoDataService;
     return window.LokalblickDataService.load();
@@ -331,7 +390,8 @@
       mode:source.mode,
       dirty:source.dirty,
       lastRead:source.lastRead,
-      discovered:clone(source.discovered || [])
+      discovered:clone(source.discovered || []),
+      pendingChanges:clone(source.pendingChanges || [])
     };
   }
 
