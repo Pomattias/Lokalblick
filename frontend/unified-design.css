@@ -600,3 +600,61 @@ tr:hover td{background:#fafcfb}
   position:relative;
   z-index:1;
 }
+
+
+/* Scope title now lives in the page header */
+.portfolio-context-only:empty{display:none}
+.portfolio-context-only{
+  margin:0 0 8px;
+  min-height:0;
+}
+
+/* Compact overview KPI chips */
+.overview-kpis.compact.portfolio-kpi-chips{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:7px;
+}
+.overview-kpis.compact.portfolio-kpi-chips .kpi{
+  min-width:0;
+  min-height:76px;
+  padding:10px 11px;
+}
+.overview-kpis.compact.portfolio-kpi-chips .kpi-label{
+  font-size:8.5px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.overview-kpis.compact.portfolio-kpi-chips .kpi-value{
+  margin-top:4px;
+  font-size:17px;
+  line-height:1.12;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.overview-kpis.compact.portfolio-kpi-chips .kpi-foot{
+  margin-top:4px;
+  font-size:8.5px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+@media(max-width:1280px) and (min-width:701px){
+  .overview-kpis.compact.portfolio-kpi-chips{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+}
+
+@media(max-width:700px){
+  .overview-kpis.compact.portfolio-kpi-chips{
+    display:flex;
+    overflow-x:auto;
+    gap:7px;
+  }
+  .overview-kpis.compact.portfolio-kpi-chips .kpi{
+    flex:0 0 145px;
+  }
+}
