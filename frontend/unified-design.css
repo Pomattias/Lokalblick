@@ -1009,3 +1009,24 @@ tr:hover td{background:#fafcfb}
     grid-template-columns:repeat(4,minmax(0,1fr));
   }
 }
+
+
+/* Contract PDF links */
+#portfolio-overview-content .contract-scope-section .scope-tight-avtal{
+  display:flex;align-items:center;gap:5px;
+}
+.scope-contract-document,
+.contract-document-button{
+  flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:20px;padding:2px 5px;border:1px solid var(--line);
+  border-radius:6px;background:var(--panel-soft);color:var(--accent-strong);
+  font-size:7px;font-weight:900;line-height:1;cursor:pointer;
+}
+.scope-contract-document:hover,
+.contract-document-button:hover{background:var(--accent-soft);border-color:var(--accent)}
+.object-editor-contract-id{justify-content:space-between;gap:8px}
+.object-editor-contract-id>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.editor-dialog.contract-editor .contract-document-button{
+  min-height:20px!important;height:20px!important;padding:2px 5px!important;font-size:6.5px!important;
+}
