@@ -3628,7 +3628,9 @@ function openEditor(type, recordId) {
     }).join("");
   
   }
-  document.getElementById("editor-dialog").showModal();
+  const editorDialog=document.getElementById("editor-dialog");
+  editorDialog.classList.toggle("contract-editor",type==="object"&&Boolean(existing));
+  editorDialog.showModal();
 }
 function nextId(prefix, list) {
   const max = Math.max.apply(null, [0].concat(list.map(function(x) { return Number(String(x.id).replace(/\D/g, "")) || 0; })));
