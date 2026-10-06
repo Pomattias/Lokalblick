@@ -216,9 +216,12 @@
       var m=norm(headerRow[rentCurrent]).match(/(20\d\d)/);
       if(m) targetYear=Number(m[1]);
     }
-    var genericBaseYear=findCol(headers,["Basår","Basar"]);
-    var genericBaseIndex=findCol(headers,["Bastal","Basindex","Bas index"]);
-    var genericShare=findCol(headers,["Index procent","Indexprocent","Index %"]);
+    var genericBaseYear=findCol(headers,["Basår","Basar"],0);
+    var genericBaseYear2=findCol(headers,["Basår","Basar"],1);
+    var genericBaseIndex=findCol(headers,["Bastal","Basindex","Bas index"],0);
+    var genericBaseIndex2=findCol(headers,["Bastal","Basindex","Bas index"],1);
+    var genericShare=findCol(headers,["Index procent","Indexprocent","Index %"],0);
+    var genericShare2=findCol(headers,["Index procent","Indexprocent","Index %"],1);
     return {
       targetYear:targetYear,
       rentCurrent:rentCurrent,
@@ -230,9 +233,9 @@
       rentBaseYear:(findCol(headers,["Hyra basår","Hyra basar","Basår hyra","Basar hyra"])>=0?findCol(headers,["Hyra basår","Hyra basar","Basår hyra","Basar hyra"]):genericBaseYear),
       rentBaseIndex:(findCol(headers,["Hyra bastal","Bastal hyra","Hyra basindex"])>=0?findCol(headers,["Hyra bastal","Bastal hyra","Hyra basindex"]):genericBaseIndex),
       rentShare:(findCol(headers,["Hyra index procent","Index procent hyra","Hyra index %"])>=0?findCol(headers,["Hyra index procent","Index procent hyra","Hyra index %"]):genericShare),
-      additionBaseYear:(findCol(headers,["Tillägg basår","Tillagg basar","Basår tillägg","Basar tillagg"])>=0?findCol(headers,["Tillägg basår","Tillagg basar","Basår tillägg","Basar tillagg"]):genericBaseYear),
-      additionBaseIndex:(findCol(headers,["Tillägg bastal","Tillagg bastal","Bastal tillägg","Bastal tillagg"])>=0?findCol(headers,["Tillägg bastal","Tillagg bastal","Bastal tillägg","Bastal tillagg"]):genericBaseIndex),
-      additionShare:(findCol(headers,["Tillägg index procent","Tillagg index procent","Index procent tillägg","Index procent tillagg"])>=0?findCol(headers,["Tillägg index procent","Tillagg index procent","Index procent tillägg","Index procent tillagg"]):genericShare)
+      additionBaseYear:(findCol(headers,["Tillägg basår","Tillagg basar","Basår tillägg","Basar tillagg"])>=0?findCol(headers,["Tillägg basår","Tillagg basar","Basår tillägg","Basar tillagg"]):(genericBaseYear2>=0?genericBaseYear2:genericBaseYear)),
+      additionBaseIndex:(findCol(headers,["Tillägg bastal","Tillagg bastal","Bastal tillägg","Bastal tillagg"])>=0?findCol(headers,["Tillägg bastal","Tillagg bastal","Bastal tillägg","Bastal tillagg"]):(genericBaseIndex2>=0?genericBaseIndex2:genericBaseIndex)),
+      additionShare:(findCol(headers,["Tillägg index procent","Tillagg index procent","Index procent tillägg","Index procent tillagg"])>=0?findCol(headers,["Tillägg index procent","Tillagg index procent","Index procent tillägg","Index procent tillagg"]):(genericShare2>=0?genericShare2:genericShare))
     };
   }
 
