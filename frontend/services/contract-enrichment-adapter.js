@@ -345,20 +345,24 @@
 
       var targetYear=Number(r.targetYear)||0;
       var currentIndex=targetYear ? indexValue(data.indexSeries,targetYear) : 0;
+      var rentBaseIndex=Number(r.rentBaseIndex)||indexValue(data.indexSeries,r.rentBaseYear);
+      var additionBaseIndex=Number(r.additionBaseIndex)||indexValue(data.indexSeries,r.additionBaseYear);
+      if(rentBaseIndex && !c.rentBaseIndex) c.rentBaseIndex=rentBaseIndex;
+      if(additionBaseIndex && !c.additionBaseIndex) c.additionBaseIndex=additionBaseIndex;
       if(targetYear && currentIndex){
-        if(r.baseRent && r.rentBaseIndex){
-          c.calculatedAnnualRent=Math.round(indexedAmount(r.baseRent,r.rentBaseIndex,r.rentIndexPercent,currentIndex));
+        if(r.baseRent && rentBaseIndex){
+          c.calculatedAnnualRent=Math.round(indexedAmount(r.baseRent,rentBaseIndex,r.rentIndexPercent,currentIndex));
           c.rentIndexCurrent=currentIndex;
           c.rentCalculationYear=targetYear;
           c.rentCalculationVariance=Math.round(toleranceDiff(r.annualRent,c.calculatedAnnualRent));
         }
-        if(r.baseAdditions && r.additionBaseIndex){
-          c.calculatedAnnualAdditions=Math.round(indexedAmount(r.baseAdditions,r.additionBaseIndex,r.additionIndexPercent,currentIndex));
+        if(r.baseAdditions && additionBaseIndex){
+          c.calculatedAnnualAdditions=Math.round(indexedAmount(r.baseAdditions,additionBaseIndex,r.additionIndexPercent,currentIndex));
           c.additionIndexCurrent=currentIndex;
           c.additionCalculationYear=targetYear;
           c.additionCalculationVariance=Math.round(toleranceDiff(r.annualAdditions,c.calculatedAnnualAdditions));
         }
-      } else if(targetYear && (r.rentBaseIndex || r.additionBaseIndex)) {
+      } else if(targetYear && (rentBaseIndex || additionBaseIndex || r.rentBaseYear || r.additionBaseYear)) {
         report.warnings.push("KPI oktober "+targetYear+" saknas för indexberäkning.");
       }
 
@@ -383,13 +387,17 @@
       if(!year) return;
       var current=indexValue(series,year);
       if(!current){missing++;return;}
-      if(Number(c.baseRent)&&Number(c.rentBaseIndex)){
-        c.calculatedAnnualRent=Math.round(indexedAmount(c.baseRent,c.rentBaseIndex,c.rentIndexPercent,current));
+      var rentBase=Number(c.rentBaseIndex)||indexValue(series,c.rentBaseYear);
+      var additionBase=Number(c.additionBaseIndex)||indexValue(series,c.additionBaseYear);
+      if(rentBase && !Number(c.rentBaseIndex)) c.rentBaseIndex=rentBase;
+      if(additionBase && !Number(c.additionBaseIndex)) c.additionBaseIndex=additionBase;
+      if(Number(c.baseRent)&&rentBase){
+        c.calculatedAnnualRent=Math.round(indexedAmount(c.baseRent,rentBase,c.rentIndexPercent,current));
         c.rentIndexCurrent=current;c.rentCalculationYear=year;
         c.rentCalculationVariance=Math.round(toleranceDiff(c.annualRent,c.calculatedAnnualRent));recalculated++;
       }
-      if(Number(c.baseAdditions)&&Number(c.additionBaseIndex)){
-        c.calculatedAnnualAdditions=Math.round(indexedAmount(c.baseAdditions,c.additionBaseIndex,c.additionIndexPercent,current));
+      if(Number(c.baseAdditions)&&additionBase){
+        c.calculatedAnnualAdditions=Math.round(indexedAmount(c.baseAdditions,additionBase,c.additionIndexPercent,current));
         c.additionIndexCurrent=current;c.additionCalculationYear=year;
         c.additionCalculationVariance=Math.round(toleranceDiff(c.annualAdditions,c.calculatedAnnualAdditions));recalculated++;
       }
