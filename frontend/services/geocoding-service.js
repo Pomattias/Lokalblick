@@ -1,0 +1,142 @@
+// Backend-owned address -> coordinate enrichment.
+// Public/demo data is never sent to the geocoder.
+(function () {
+  const DEFAULT_LOCAL_API = "http://127.0.0.1:8787";
+  const REQUEST_TIMEOUT_MS = 2500;
+  const BATCH_SIZE = 100;
+
+  function apiBaseUrl() {
+    const configured = window.LokalblickRuntime && window.LokalblickRuntime.apiBaseUrl;
+    if (configured) return String(configured).replace(/\/$/, "");
+    if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
+      return "";
+    }
+    return DEFAULT_LOCAL_API;
+  }
+
+  function validCoordinate(value) {
+    return Number.isFinite(Number(value));
+  }
+
+  function fetchWithTimeout(url, options) {
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+    return fetch(url, Object.assign({}, options || {}, { signal: controller.signal }))
+      .finally(function () { clearTimeout(timer); });
+  }
+
+  async function health() {
+    const response = await fetchWithTimeout(apiBaseUrl() + "/api/health", { cache: "no-store" });
+    if (!response.ok) return { ok: false, configured: false };
+    const payload = await response.json();
+    return {
+      ok: Boolean(payload && payload.ok),
+      configured: Boolean(payload && payload.geocoding && payload.geocoding.configured),
+      provider: payload && payload.geocoding ? payload.geocoding.provider : ""
+    };
+  }
+
+  async function enrichData(data) {
+    if (!data || data.isDemo || !Array.isArray(data.properties) || !data.properties.length) return data;
+
+    const properties = data.properties.map(function (property) {
+      return {
+        id: property.id,
+        sourceId: property.sourceId || "",
+        address: property.address || "",
+        latitude: validCoordinate(property.latitude) ? Number(property.latitude) : null,
+        longitude: validCoordinate(property.longitude) ? Number(property.longitude) : null
+      };
+    }).filter(function (property) {
+      return property.id && property.address;
+    });
+
+    if (!properties.length) return data;
+
+    let status;
+    try {
+      status = await health();
+    } catch (error) {
+      window.LokalblickGeocodingStatus = { available: false, message: "Lokalblick backend svarar inte ännu." };
+      return data;
+    }
+
+    if (!status.ok || !status.configured) {
+      window.LokalblickGeocodingStatus = {
+        available: false,
+        configured: Boolean(status && status.configured),
+        message: status && status.ok ? "Azure Maps är inte konfigurerat." : "Lokalblick backend svarar inte ännu."
+      };
+      return data;
+    }
+
+    const allResults = [];
+    for (let offset = 0; offset < properties.length; offset += BATCH_SIZE) {
+      const batch = properties.slice(offset, offset + BATCH_SIZE);
+      const response = await fetchWithTimeout(apiBaseUrl() + "/api/geocode", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ properties: batch })
+      });
+      const payload = await response.json().catch(function () { return {}; });
+      if (!response.ok) {
+        const message = payload && payload.error ? payload.error : "Geokodningen misslyckades.";
+        const error = new Error(message);
+        error.code = payload && payload.code ? payload.code : "GEOCODING_ERROR";
+        throw error;
+      }
+      allResults.push.apply(allResults, Array.isArray(payload.results) ? payload.results : []);
+    }
+
+    const byId = new Map(allResults.map(function (result) { return [String(result.id), result]; }));
+    data.properties.forEach(function (property) {
+      const result = byId.get(String(property.id));
+      if (!result) return;
+      property.geocodeStatus = result.status || "";
+      property.geocodeConfidence = result.confidence || "";
+      property.geocodeProvider = result.provider || "";
+      property.geocodeMatchCode = result.matchCode || "";
+      property.geocodedAddress = result.address || property.address || "";
+      property.geocodedAt = result.geocodedAt || null;
+      if (validCoordinate(result.latitude) && validCoordinate(result.longitude)) {
+        property.latitude = Number(result.latitude);
+        property.longitude = Number(result.longitude);
+      }
+    });
+
+    window.LokalblickGeocodingStatus = {
+      available: true,
+      configured: true,
+      provider: status.provider || "azure-maps",
+      total: allResults.length,
+      matched: allResults.filter(function (item) { return item.status === "matched"; }).length,
+      review: allResults.filter(function (item) { return item.status === "review"; }).length,
+      notFound: allResults.filter(function (item) { return item.status === "not_found"; }).length
+    };
+    return data;
+  }
+
+  function decorate(service) {
+    if (!service || service.__lokalblickGeocodingWrapped) return service;
+    const originalLoad = service.load.bind(service);
+    service.load = async function () {
+      const data = await originalLoad();
+      return enrichData(data);
+    };
+    Object.defineProperty(service, "__lokalblickGeocodingWrapped", { value: true, enumerable: false });
+    return service;
+  }
+
+  let current = decorate(window.LokalblickDataService);
+  Object.defineProperty(window, "LokalblickDataService", {
+    configurable: true,
+    get: function () { return current; },
+    set: function (next) { current = decorate(next); }
+  });
+
+  window.LokalblickGeocodingService = {
+    health: health,
+    enrichData: enrichData,
+    getApiBaseUrl: apiBaseUrl
+  };
+})();
