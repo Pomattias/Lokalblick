@@ -70,7 +70,7 @@ function isEditAvailable(){
 function canEdit(){return accessMode==="edit"||accessMode==="admin";} function canAdmin(){return accessMode==="admin"&&isAdminAvailable();}
 function accessModeBarHtml(){const e=isEditAvailable(),a=isAdminAvailable();return '<div class="access-mode-bar" aria-label="Arbetsläge"><div class="access-mode-copy"><span>ARBETSLÄGE</span><strong>'+(accessMode==="admin"?"Administration":accessMode==="edit"?"Redigera data":"Läs")+'</strong><small>'+(accessMode==="admin"?"Behörigheter, datakällor och systeminställningar":accessMode==="edit"?"Ändringar sparas och dokumenteras i historiken":"Säkert läsläge – inget kan ändras")+'</small></div><div class="access-mode-actions"><button type="button" class="access-mode-button '+(accessMode==="read"?"active":"")+'" data-access-mode="read">Läs</button>'+(e?'<button type="button" class="access-mode-button '+(accessMode==="edit"?"active":"")+'" data-access-mode="edit">Redigera</button>':"")+(a?'<button type="button" class="access-mode-button admin '+(accessMode==="admin"?"active":"")+'" data-access-mode="admin">Admin</button>':"")+'<button type="button" class="access-history-button" data-open-history>Historik</button></div></div>';}
 function setAccessMode(m){if(m==="admin"&&!isAdminAvailable())m="read";if(m==="edit"&&!isEditAvailable())m="read";accessMode=m;if(m!=="admin"&&["organisation","api","about"].includes(currentView))currentView="properties";}
-function applyAccessModeToUi(){const e='[data-add],[data-edit-type],[data-plan-responsible],[data-plan-year],[data-plan-quarter],[data-plan-date],[data-plan-wish-move],[data-annual-slot],[data-annual-clear],[data-budget-adjustment],[data-budget-toggle],[id="budget-create"],[id="mobile-budget-create"],[id="budget-lock"],[id="mobile-budget-lock"]';document.querySelectorAll(e).forEach(x=>{const ok=canEdit();x.disabled=!ok;x.classList.toggle("access-disabled",!ok);});const a='[data-api-connect],[data-api-create],[data-api-mode],[data-api-write],[data-api-disconnect],[data-api-reconnect],[data-api-refresh]';document.querySelectorAll(a).forEach(x=>{const ok=canAdmin();x.disabled=!ok;x.classList.toggle("access-disabled",!ok);});}
+function applyAccessModeToUi(){const e='[data-add],[data-edit-type],[data-plan-responsible],[data-plan-year],[data-plan-quarter],[data-plan-date],[data-plan-wish-move],[data-annual-slot],[data-annual-clear],[data-budget-adjustment],[data-budget-preliminary-index],[data-budget-toggle],[id="budget-create"],[id="mobile-budget-create"],[id="budget-lock"],[id="mobile-budget-lock"]';document.querySelectorAll(e).forEach(x=>{const ok=canEdit();x.disabled=!ok;x.classList.toggle("access-disabled",!ok);});const a='[data-api-connect],[data-api-create],[data-api-mode],[data-api-write],[data-api-disconnect],[data-api-reconnect],[data-api-refresh]';document.querySelectorAll(a).forEach(x=>{const ok=canAdmin();x.disabled=!ok;x.classList.toggle("access-disabled",!ok);});}
 function bindAccessModeControls(){document.querySelectorAll("[data-access-mode]:not([data-access-bound])").forEach(b=>{b.dataset.accessBound="1";b.addEventListener("click",()=>{setAccessMode(b.dataset.accessMode||"read");render();});});document.querySelectorAll("[data-open-history]:not([data-access-bound])").forEach(b=>{b.dataset.accessBound="1";b.addEventListener("click",()=>showHistory("",""));});applyAccessModeToUi();}
 function formatAuditValue(v){if(v==null||v==="")return "–";if(typeof v==="object"){try{return JSON.stringify(v);}catch(_){return "–";}}return String(v);}
 function showHistory(type,id){const col=type?auditCollectionForType(type):"",all=(state.auditLog||[]).slice().reverse(),rows=col&&id?all.filter(h=>h.collection===col&&String(h.recordId)===String(id)):all.slice(0,120);let d=document.getElementById("history-dialog");if(!d){d=document.createElement("dialog");d.id="history-dialog";d.className="history-dialog";document.body.appendChild(d);}const title=col&&id?auditTypeLabel(col)+" · "+id:"Ändringshistorik";d.innerHTML='<form method="dialog"><div class="history-head"><div><span>HISTORIK</span><h2>'+esc(title)+'</h2><p>'+(col&&id?"Alla registrerade ändringar för posten.":"Senaste ändringar i Lokalblick.")+'</p></div><button class="icon-button" value="cancel" aria-label="Stäng">×</button></div><div class="history-list">'+(rows.length?rows.map(h=>'<article class="history-entry"><div class="history-entry-top"><strong>'+esc(h.action)+'</strong><span>'+esc(new Date(h.at).toLocaleString("sv-SE"))+'</span></div><div class="history-entry-meta">'+esc(h.by||"Okänd")+' · '+esc(h.type||h.collection)+' · '+esc(h.recordId||"")+'</div>'+((h.fields||[]).length?'<ul>'+h.fields.map(f=>'<li><strong>'+esc(f.label||f.field)+'</strong><span>'+esc(formatAuditValue(f.from))+' → '+esc(formatAuditValue(f.to))+'</span></li>').join("")+'</ul>':"")+'</article>').join(""):'<div class="empty">Ingen historik registrerad ännu.</div>')+'</div><div class="dialog-actions"><button class="button secondary" value="cancel">Stäng</button></div></form>';d.showModal();}
@@ -2126,6 +2126,20 @@ function renderBudget() {
     return '<option value="' + y + '"' + (Number(y)===Number(selectedBudgetYear) ? " selected" : "") + ">" + y + "</option>";
   }).join("");
   const yearSelect = '<select class="select" id="budget-year">' + yearOptions + "</select>";
+  const budgetIndexYear=Number(selectedBudgetYear)-1;
+  const knownBudgetIndex=indexSeriesValue(budgetIndexYear);
+  const preliminaryBudgetIndex=plan ? Number(plan.preliminaryIndex)||0 : 0;
+  const budgetIndexHtml =
+    '<div class="budget-index-assumption">' +
+      '<div><span>HYRESINDEX</span><strong>Oktober '+budgetIndexYear+'</strong><small>Används för '+selectedBudgetYear+' års hyra</small></div>' +
+      (knownBudgetIndex
+        ? '<div class="budget-index-value"><span class="badge green">Känd KPI</span><strong>'+esc(new Intl.NumberFormat("sv-SE",{maximumFractionDigits:2}).format(knownBudgetIndex))+'</strong></div>'
+        : plan && !locked
+          ? '<label><span>Preliminärt index</span><input type="number" step="0.01" data-budget-preliminary-index value="'+esc(preliminaryBudgetIndex||"")+'" placeholder="Ange indextal"><small>Samma indexserie som avtalens bastal</small></label>'
+          : plan
+            ? '<div class="budget-index-value"><span class="badge amber">Preliminärt</span><strong>'+(preliminaryBudgetIndex?esc(new Intl.NumberFormat("sv-SE",{maximumFractionDigits:2}).format(preliminaryBudgetIndex)):"Saknas")+'</strong></div>'
+            : '<div class="budget-index-value"><span class="badge amber">Saknas</span><small>Skapa arbetsbudget för att ange preliminärt index</small></div>') +
+    '</div>';
 
   const categoryCards = baseSummary.map(function(base){
     const forecast = forecastSummary.find(function(x){return x.category===base.category;}) || {amount:0};
@@ -2217,6 +2231,7 @@ function renderBudget() {
       '<section class="mobile-budget-summary">' +
         '<div class="mobile-budget-summary-head"><div><span>BUDGET</span><select class="mobile-budget-year" id="mobile-budget-year">' +
           yearOptions + '</select></div><strong>' + money(budgetTotal) + '</strong></div>' +
+        budgetIndexHtml +
         '<div class="mobile-budget-summary-kpis">' +
           '<div><span>Prognos</span><strong>' + money(forecastTotal) + '</strong></div>' +
           '<div><span>Utfall</span><strong>' + money(actualTotal) + '</strong></div>' +
@@ -2950,9 +2965,19 @@ function bindViewEvents() {
     const targets = {};
     summary.forEach(function(row){targets[row.category]=row.amount;});
     state.budgetPlans = state.budgetPlans || [];
-    state.budgetPlans.push({year:selectedBudgetYear,status:"Arbetsbudget",createdAt:new Date().toISOString().slice(0,10),lockedAt:"",lines:rows,targets:targets,notes:{}});
+    state.budgetPlans.push({year:selectedBudgetYear,status:"Arbetsbudget",createdAt:new Date().toISOString().slice(0,10),lockedAt:"",preliminaryIndex:0,lines:rows,targets:targets,notes:{}});
     await saveState();
     render();
+    });
+  });
+
+  document.querySelectorAll("[data-budget-preliminary-index]").forEach(function(input) {
+    input.addEventListener("change", async function() {
+      const plan=budgetPlan(selectedBudgetYear);
+      if(!plan || plan.status==="Låst") return;
+      plan.preliminaryIndex=Number(input.value)||0;
+      await saveState();
+      render();
     });
   });
 
