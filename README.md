@@ -4,40 +4,43 @@ Lokalblick är en styrningsapp för LEB-baserad fastighets- och avtalsdata med �
 
 ## Arkitektur
 
-Projektet är nu delat i två tydliga lager:
-
-```
+```text
 frontend/
-  index.html
-  app.js
-  styles.css
-  data/demo-data.js
-  services/data-service.js
-  services/m365-api-service.js
+  UI, tabeller, diagram, formulär
+  services/data-service.js       <- demo/local Excel-adapter
+  services/geocoding-service.js <- backendägd koordinatberikning
 
 backend/
-  README.md
-  api/openapi.yaml
-  src/data-repository.js
+  server.mjs                     <- lokal company-runtime på 127.0.0.1:8787
+  api/openapi.yaml               <- API-kontrakt
+  src/data-repository.js         <- provider-neutral data boundary
+  src/geocoding-service.js       <- Azure Maps adapter
+  src/coordinate-store.js        <- backendägt koordinatoverlay
 ```
 
-### Frontend
+### Geokodning
+
+Riktiga fastighetsadresser geokodas inte i den publika frontend-klienten. I company-runtime går adressen till den lokala Lokalblick-backenden, som återanvänder sparad koordinat när adressen är oförändrad och annars geokodar via Azure Maps. Koordinaterna sparas i backendens coordinate overlay.
+
+Azure Maps batch-geokodning stöder upp till 100 adresser per synkront anrop, så Lokalblick delar större importer i block om 100.
+
+### Lokal company-runtime
+
+Starta på Windows 365:
+
+```powershell
+npm run company
+```
+
+Öppna sedan `http://127.0.0.1:8787`.
+
+Sätt `AZURE_MAPS_SUBSCRIPTION_KEY` i den lokala miljön. Den riktiga nyckeln ska aldrig läggas i GitHub. För produktion bör backend gå över till Microsoft Entra ID/managed identity.
+
+## Frontend
 
 Frontend innehåller UI, tabeller, diagram, formulär och verksamhetslogik.
 
-Den publika GitHub Pages-versionen använder **endast syntetisk demodata**. Den har ingen Excel-/LEB-import och får inte användas med verklig företagsdata.
-
-### Backend
-
-Backend är säkerhets- och datagränsen för den framtida företagsversionen. Den ska:
-
-- autentisera användaren med Microsoft Entra ID
-- kontrollera behörighet
-- läsa och skriva SharePoint / Microsoft Lists / Dataverse
-- hämta aktuell LEB-fil från företagets SharePoint server-side
-- normalisera SF + EXT utan att råfilen går genom den publika klienten
-- bevara kompletteringar och ansvarshistorik
-- bygga årsbudget från avtal och tidsatta behov
+Den publika Vercel/GitHub-versionen använder endast syntetisk demodata som standard. Verklig företagsdata och hemligheter ska stanna bakom den lokala/autentiserade backend-gränsen.
 
 ## Nuvarande funktioner
 
@@ -54,22 +57,18 @@ Backend är säkerhets- och datagränsen för den framtida företagsversionen. D
 
 ## Miljöer
 
-**Publik demo:** GitHub Pages, endast demodata.
+**Publik demo:** GitHub Pages/Vercel, endast demodata.
 
-**Företagsversion / Teams:** samma frontend, men med `m365-api-service`, Entra ID och företagets backend/M365-lagring.
+**Företagsversion:** samma frontend, men med lokal/autentiserad backend, Entra ID och företagets M365-lagring.
 
 Se även `ARCHITECTURE.md` och `backend/README.md`.
-
 
 ## Om-flik och säkerhetsgräns
 
 Appens **Om**-flik visar användaren vad som kan vara publikt och vad som ska stanna i kundens skyddade hemmamiljö. Lokalblicks frontend kan vara internetåtkomlig, medan masterdata, råfiler, API-nycklar och systemhemligheter hålls bakom ett autentiserat API/connector-lager.
 
-
 ## Persistensprincip
 
 **Backend äger all beständig data.**
 
-I riktig drift används frontend bara för visning och redigering. När användaren sparar går ändringen via Lokalblick API och lagras på backend. Frontend får endast hålla tillfälligt, osparat UI-state.
-
-Browserlagring får endast användas i den publika syntetiska demon.
+LEB/Excel är master för källdata. Backend äger Lokalblicks kompletteringar och overlays, inklusive geokoordinater. Excel skrivs aldrig automatiskt om.
