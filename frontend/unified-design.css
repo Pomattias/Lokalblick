@@ -670,3 +670,47 @@ tr:hover td{background:#fafcfb}
     min-width:0;
   }
 }
+
+
+/* Secondary contract enrichment sources */
+.api-enrichment-card{display:grid;gap:12px}
+.api-enrichment-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.api-enrichment-actions>div{
+  display:grid;
+  align-content:start;
+  gap:6px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--panel-soft);
+}
+.api-enrichment-actions strong{font-size:11px}
+.api-enrichment-actions span,.api-enrichment-actions small{font-size:9px;color:var(--muted);line-height:1.4}
+.api-enrichment-actions .button{justify-self:start;margin-top:2px}
+.api-enrichment-report{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.api-enrichment-report>div{
+  display:grid;
+  gap:2px;
+  padding:9px 10px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:#fff;
+}
+.api-enrichment-report span{font-size:8px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.api-enrichment-report strong{font-size:17px}
+.api-enrichment-review{border:1px solid var(--line);border-radius:9px;background:#fff}
+.api-enrichment-review>summary{padding:8px 10px;font-size:9px;font-weight:850;cursor:pointer}
+.api-enrichment-review>div{padding:0 10px 8px;border-top:1px solid var(--line)}
+.api-enrichment-review p{margin:7px 0 0;font-size:9px;color:var(--muted)}
+.api-index-report{margin:0}
+@media(max-width:700px){
+  .api-enrichment-actions,.api-enrichment-report{grid-template-columns:1fr}
+}
