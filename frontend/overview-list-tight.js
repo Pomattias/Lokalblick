@@ -175,6 +175,11 @@
       doc.title=row.dataset.contractDocumentName||'Öppna hyresavtal';
       doc.setAttribute('aria-label','Öppna hyresavtal ' + contractNumber);
       doc.textContent='PDF';
+      doc.addEventListener('click',function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        if(window.LokalblickOpenContractDocument) window.LokalblickOpenContractDocument(documentUrl);
+      });
       contractCell.appendChild(doc);
     }
     appendCell(row, 'kvm', area ? numberFormat.format(area) : '–', false, area || '');
