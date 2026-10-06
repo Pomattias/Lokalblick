@@ -188,11 +188,47 @@ function personLoad(personId) {
     return sum + (Number(a.allocation) || 0);
   }, 0);
 }
+function indexSeriesValue(year) {
+  const rows=(state.indexSeries||[]).filter(function(x){return Number(x.year)===Number(year);});
+  if(!rows.length) return 0;
+  const october=rows.find(function(x){return Number(x.month)===10 || String(x.period||"").toLowerCase()==="oktober";});
+  return Number((october||rows[0]).value)||0;
+}
+function calculateIndexedAmount(baseAmount,baseIndex,indexShare,currentIndex) {
+  const base=Number(baseAmount)||0, bastal=Number(baseIndex)||0, share=Number(indexShare)||0, index=Number(currentIndex)||0;
+  if(!base || !bastal || !index) return 0;
+  return Math.max(base, base * (1 + share * ((index-bastal)/bastal)));
+}
+function contractIndexedComponent(c, kind, targetYear, preliminaryIndex) {
+  const isAddition=kind==="addition";
+  const base=Number(isAddition?c.baseAdditions:c.baseRent)||0;
+  const bastal=Number(isAddition?c.additionBaseIndex:c.rentBaseIndex)||0;
+  const share=Number(isAddition?c.additionIndexPercent:c.rentIndexPercent)||0;
+  const sourceAmount=Number(isAddition?c.annualAdditions:c.annualRent)||0;
+  const indexYear=Number(targetYear)-1;
+  const known=indexSeriesValue(indexYear);
+  const usedIndex=known || Number(preliminaryIndex)||0;
+  const amount=calculateIndexedAmount(base,bastal,share,usedIndex);
+  return {
+    amount:amount||sourceAmount,
+    calculated:Boolean(amount),
+    preliminary:Boolean(amount && !known && usedIndex),
+    knownIndex:known,
+    usedIndex:usedIndex,
+    indexYear:indexYear,
+    sourceAmount:sourceAmount,
+    base:base,bastal:bastal,share:share
+  };
+}
+function contractAnnualValues(c,targetYear,preliminaryIndex) {
+  const rent=contractIndexedComponent(c,"rent",targetYear,preliminaryIndex);
+  const addition=contractIndexedComponent(c,"addition",targetYear,preliminaryIndex);
+  const media=Number(c.annualContractDrift)||0;
+  const tax=Number(c.annualPropertyTax)||0;
+  return {rent:rent,addition:addition,media:media,tax:tax,total:rent.amount+addition.amount+media+tax};
+}
 function totalContractCost(c) {
-  return (Number(c.annualRent) || 0) +
-    (Number(c.annualAdditions) || 0) +
-    (Number(c.annualContractDrift) || 0) +
-    (Number(c.annualPropertyTax) || 0);
+  return contractAnnualValues(c,new Date().getFullYear(),0).total;
 }
 function projectBudgetTotal(p) {
   return (Number(p.budgetInvestigation) || 0) + (Number(p.budgetExecution) || 0) + (Number(p.budgetFurnishing) || 0);
@@ -529,12 +565,17 @@ function bindAnnualPlannerControls() {
 function budgetIncluded(item){if(!item)return true;if(item.budgetIncluded===false)return false;if(item.includeInBudget==="Nej")return false;return true;}
 function budgetRows(year, contracts) {
   const rows = [];
+  const plan=budgetPlan(year);
+  const preliminaryIndex=plan ? Number(plan.preliminaryIndex)||0 : 0;
   state.contracts.filter(function(c) { return activeInYear(c, year); }).forEach(function(c) {
     const factor = contractYearFactor(c, year);
-    const amount = totalContractCost(c) * factor;
+    const values=contractAnnualValues(c,year,preliminaryIndex);
+    const amount = values.total * factor;
+    const indexMode=(values.rent.preliminary||values.addition.preliminary) ? " · preliminärt index" :
+      ((values.rent.calculated||values.addition.calculated) ? " · KPI-beräknat" : "");
     if (amount > 0) rows.push({
       category: "Hyra + drift",
-      sub: factor < 0.999 ? "Avtal · periodiserat " + percent(factor * 100) : "Avtal",
+      sub: (factor < 0.999 ? "Avtal · periodiserat " + percent(factor * 100) : "Avtal") + indexMode,
       source: c.number || c.id,
       contractId: c.id,
       propertyId: c.propertyId,
@@ -1737,16 +1778,19 @@ function scopeContractsSectionHtml(contracts) {
     const property = state.properties.find(function(p){return p.id===c.propertyId;});
     const designation = property ? (property.designation || property.sourceId || "–") : "–";
     const address = property ? (property.address || "–") : "–";
-    const currentRent = Number(c.annualRent) || Number(c.calculatedAnnualRent) || 0;
-    const currentAdditions = Number(c.annualAdditions) || Number(c.calculatedAnnualAdditions) || 0;
-    const currentRentPerSqm = Number(c.rentPerSqm) || ((Number(c.area)||0) ? currentRent / Number(c.area) : 0);
+    const currentValues=contractAnnualValues(c,new Date().getFullYear(),0);
+    const currentRent=currentValues.rent.amount;
+    const currentAdditions=currentValues.addition.amount;
+    const currentRentPerSqm=(Number(c.area)||0) ? currentRent / Number(c.area) : (Number(c.rentPerSqm)||0);
     return '<div class="scope-list-row contract-scope-row"' +
       ' data-contract-designation="' + esc(designation) + '"' +
       ' data-contract-address="' + esc(address) + '"' +
       ' data-contract-number="' + esc(c.number||"") + '"' +
       ' data-contract-area="' + esc(Number(c.area)||0) + '"' +
       ' data-contract-rent="' + esc(currentRent) + '"' +
+      ' data-contract-rent-calculated="' + (currentValues.rent.calculated ? "1" : "0") + '"' +
       ' data-contract-additions="' + esc(currentAdditions) + '"' +
+      ' data-contract-additions-calculated="' + (currentValues.addition.calculated ? "1" : "0") + '"' +
       ' data-contract-rent-sqm="' + esc(currentRentPerSqm) + '"' +
       ' data-contract-end="' + esc(c.end||"") + '"' +
       ' data-contract-notice="' + esc(c.notice||"") + '">' +
