@@ -64,7 +64,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .main{min-width:0}
 .topbar{
   min-height:82px;
-  padding:18px 28px 10px;
+  padding:18px 20px 10px;
   max-width:calc(var(--content-max) + 56px);
   margin:0 auto;
 }
@@ -73,7 +73,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .topbar-actions{gap:7px}
 .content{
   width:100%;max-width:var(--content-max);
-  margin:0 auto;padding:8px 28px 44px;
+  margin:0 auto;padding:8px 20px 44px;
 }
 .mode-banner{
   max-width:var(--content-max);
@@ -656,5 +656,17 @@ tr:hover td{background:#fafcfb}
   }
   .overview-kpis.compact.portfolio-kpi-chips .kpi{
     flex:0 0 145px;
+  }
+}
+
+/* Let overview tables use the available desktop width */
+@media(min-width:701px){
+  .portfolio-desktop-workspace,
+  .desktop-detail-panels,
+  #overview-panel,
+  #portfolio-overview-content{
+    width:100%;
+    max-width:none;
+    min-width:0;
   }
 }
