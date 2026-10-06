@@ -130,6 +130,16 @@ function esc(v) {
 async function openContractDocument(raw) {
   raw=String(raw||"").trim();
   if(!raw) return;
+  if(/^embedded:\/\//i.test(raw)){
+    const key=raw.replace(/^embedded:\/\//i,"");
+    const cached=window.LokalblickContractDocumentCache&&window.LokalblickContractDocumentCache[key];
+    if(cached){
+      window.open(cached,"_blank","noopener");
+      return;
+    }
+    alert("PDF-filen är inbäddad i käll-Excel. Läs in avtalsfilen via Berika avtal från Excel igen för att öppna dokumentet.");
+    return;
+  }
   const isWeb=/^https?:\/\//i.test(raw);
   let target=raw;
   if(/^\\\\/.test(target)) target="file://"+target.replace(/^\\\\/,"").replace(/\\/g,"/");
@@ -2355,7 +2365,9 @@ function renderApi() {
         '<div><strong>KPI / indexserie</strong><span>Läser År + Oktober/KPI/Indextal och räknar hyra och tillägg separat från respektive bastal och indexandel.</span>' +
           (canOpen ? '<button type="button" class="button secondary" data-api-index-import ' + (!connected || !state.contracts.length ? 'disabled' : '') + '>Läs in KPI-serie</button>' : '<small>Edge/Chrome krävs för filval.</small>') + '</div>' +
       '</div>' +
-      (enrichmentReport ? '<div class="api-enrichment-report"><div><span>Matchade</span><strong>' + num((enrichmentReport.counts||{}).matched||0) + '</strong></div><div><span>PDF-länkar</span><strong>' + num((enrichmentReport.counts||{}).documents||0) + '</strong></div><div><span>Kontroll</span><strong>' + num((enrichmentReport.counts||{}).needsReview||0) + '</strong></div><div><span>Ej matchade</span><strong>' + num((enrichmentReport.counts||{}).unmatched||0) + '</strong></div><div><span>Avvikelser</span><strong>' + num((enrichmentReport.counts||{}).discrepancies||0) + '</strong></div></div>' : '') +
+      (enrichmentReport ? '<div class="api-enrichment-report"><div><span>Matchade</span><strong>' + num((enrichmentReport.counts||{}).matched||0) + '</strong></div><div><span>PDF-dokument</span><strong>' + num((enrichmentReport.counts||{}).documents||0) + '</strong><small>' +
+          num((enrichmentReport.counts||{}).linkedDocuments||0) + ' länkade · ' +
+          num((enrichmentReport.counts||{}).embeddedDocuments||0) + ' inbäddade</small></div><div><span>Kontroll</span><strong>' + num((enrichmentReport.counts||{}).needsReview||0) + '</strong></div><div><span>Ej matchade</span><strong>' + num((enrichmentReport.counts||{}).unmatched||0) + '</strong></div><div><span>Avvikelser</span><strong>' + num((enrichmentReport.counts||{}).discrepancies||0) + '</strong></div></div>' : '') +
       (enrichmentReport && (((enrichmentReport.needsReview||[]).length)||((enrichmentReport.unmatched||[]).length)||((enrichmentReport.discrepancies||[]).length)) ?
         '<details class="api-enrichment-review"><summary>Visa poster som behöver kontrolleras</summary><div>' +
           (enrichmentReport.needsReview||[]).slice(0,8).map(function(x){return '<p><strong>Osäker match</strong> · rad ' + esc(x.sourceRow) + ' · ' + esc(x.number||x.designation||x.address||"–") + '</p>';}).join('') +
