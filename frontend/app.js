@@ -3480,57 +3480,92 @@ function openEditor(type, recordId) {
     const additionPct=(Number(existing.additionIndexPercent)||0)*100;
     const unitValue=existing.unitId||"";
     const contractLabel=(existing.number||existing.id)+" · "+propertyName(existing.propertyId);
+    const yn=function(name,label){
+      const value=String(existing[name]||"");
+      return '<label><span>'+label+'</span><select name="'+name+'"><option value="">–</option><option value="Ja"'+(value==="Ja"?' selected':'')+'>Ja</option><option value="Nej"'+(value==="Nej"?' selected':'')+'>Nej</option></select></label>';
+    };
     document.getElementById("dialog-fields").innerHTML =
-      '<div class="object-editor-shell">' +
+      '<div class="object-editor-shell object-editor-compact">' +
         '<div class="object-editor-top">' +
           '<input type="hidden" name="contractId" value="' + esc(existing.id) + '">' +
           '<div class="field"><label>Objekt / avtal</label><div class="object-editor-readonly">' + esc(contractLabel) + '</div></div>' +
           '<div class="field"><label>Verksamhetsområde</label><select name="unitId">' +
             '<option value="">–</option>' + ORG_UNITS.map(function(u){return '<option value="'+esc(u.id)+'"'+(u.id===unitValue?' selected':'')+'>'+esc(u.name)+'</option>';}).join('') +
           '</select></div>' +
+          '<div class="field"><label>Verksamhet</label><input name="use" value="'+esc(existing.use||"")+'"></div>' +
+          '<div class="field"><label>Avtalstyp</label><input name="category" value="'+esc(existing.category||"")+'"></div>' +
         '</div>' +
-        '<section class="index-editor-card" data-index-section="rent">' +
-          '<div class="index-editor-head"><div><span>HYRA</span><h3>Indexberäkning av årshyra</h3></div><span class="badge green">Beräknad</span></div>' +
-          '<div class="index-input-grid">' +
-            '<label><span>Grundhyra</span><input data-index-input name="baseRent" type="number" step="0.01" value="'+esc(existing.baseRent||0)+'"></label>' +
-            '<label><span>Basår</span><input data-index-input name="rentBaseYear" type="number" step="1" value="'+esc(existing.rentBaseYear||"")+'"></label>' +
-            '<label><span>Bastal</span><input data-index-input name="rentBaseIndex" type="number" step="0.01" value="'+esc(existing.rentBaseIndex||"")+'"></label>' +
-            '<label><span>Index %</span><input data-index-input name="rentIndexPercentPct" type="number" step="0.01" value="'+esc(rentPct||"")+'"></label>' +
-          '</div>' +
-          '<div class="index-result-grid">' +
-            '<div><span>KPI oktober '+indexYear+'</span><strong data-index-value="rent">'+(knownIndex?esc(new Intl.NumberFormat("sv-SE",{maximumFractionDigits:2}).format(knownIndex)):"Saknas")+'</strong><small>'+(knownIndex?"Känd KPI":"Läs in KPI-serie")+'</small></div>' +
-            '<div class="index-result-primary"><span>Årshyra '+currentYear+'</span><strong data-index-result="rent">–</strong><small>Beräknad</small></div>' +
-            '<div><span>Källvärde</span><strong>'+money(existing.annualRent||0)+'</strong><small>Från avtalsfil</small></div>' +
-          '</div>' +
-        '</section>' +
-        '<section class="index-editor-card" data-index-section="addition">' +
-          '<div class="index-editor-head"><div><span>TILLÄGG</span><h3>Indexberäkning av tillägg</h3></div><span class="badge green">Beräknad</span></div>' +
-          '<div class="index-input-grid">' +
-            '<label><span>Grundtillägg</span><input data-index-input name="baseAdditions" type="number" step="0.01" value="'+esc(existing.baseAdditions||0)+'"></label>' +
-            '<label><span>Basår</span><input data-index-input name="additionBaseYear" type="number" step="1" value="'+esc(existing.additionBaseYear||"")+'"></label>' +
-            '<label><span>Bastal</span><input data-index-input name="additionBaseIndex" type="number" step="0.01" value="'+esc(existing.additionBaseIndex||"")+'"></label>' +
-            '<label><span>Index %</span><input data-index-input name="additionIndexPercentPct" type="number" step="0.01" value="'+esc(additionPct||"")+'"></label>' +
-          '</div>' +
-          '<div class="index-result-grid">' +
-            '<div><span>KPI oktober '+indexYear+'</span><strong data-index-value="addition">'+(knownIndex?esc(new Intl.NumberFormat("sv-SE",{maximumFractionDigits:2}).format(knownIndex)):"Saknas")+'</strong><small>'+(knownIndex?"Känd KPI":"Läs in KPI-serie")+'</small></div>' +
-            '<div class="index-result-primary"><span>Tillägg '+currentYear+'</span><strong data-index-result="addition">–</strong><small>Beräknat</small></div>' +
-            '<div><span>Källvärde</span><strong>'+money(existing.annualAdditions||0)+'</strong><small>Från avtalsfil</small></div>' +
-          '</div>' +
-        '</section>' +
-        '<section class="object-editor-secondary">' +
-          '<div class="object-editor-section-head"><span>ÖVRIGA AVTALSKOSTNADER</span></div>' +
-          '<div class="index-input-grid">' +
-            '<label><span>Media per år</span><input name="annualContractDrift" type="number" step="1" value="'+esc(existing.annualContractDrift||0)+'"></label>' +
-            '<label><span>F-skatt per år</span><input name="annualPropertyTax" type="number" step="1" value="'+esc(existing.annualPropertyTax||0)+'"></label>' +
-          '</div>' +
-        '</section>' +
-        '<section class="object-editor-secondary">' +
-          '<div class="object-editor-section-head"><span>AVTALSVILLKOR</span></div>' +
-          '<div class="index-input-grid">' +
-            '<label><span>Uppsägningstid månader</span><input name="noticePeriodMonths" type="number" step="1" value="'+esc(existing.noticePeriodMonths||0)+'"></label>' +
-            '<label><span>Förlängningstid månader</span><input name="renewalPeriodMonths" type="number" step="1" value="'+esc(existing.renewalPeriodMonths||0)+'"></label>' +
-          '</div>' +
-        '</section>' +
+
+        '<div class="object-editor-main-grid">' +
+          '<section class="index-editor-card" data-index-section="rent">' +
+            '<div class="index-editor-head"><div><span>HYRA</span><h3>Årshyra</h3></div><span class="badge green">Beräknad</span></div>' +
+            '<div class="index-input-grid compact">' +
+              '<label><span>Grundhyra</span><input data-index-input name="baseRent" type="number" step="0.01" value="'+esc(existing.baseRent||0)+'"></label>' +
+              '<label><span>Basår</span><input data-index-input name="rentBaseYear" type="number" step="1" value="'+esc(existing.rentBaseYear||"")+'"></label>' +
+              '<label><span>Bastal</span><input data-index-input name="rentBaseIndex" type="number" step="0.01" value="'+esc(existing.rentBaseIndex||"")+'"></label>' +
+              '<label><span>Index %</span><input data-index-input name="rentIndexPercentPct" type="number" step="0.01" value="'+esc(rentPct||"")+'"></label>' +
+            '</div>' +
+            '<div class="index-result-line">' +
+              '<span>KPI okt '+indexYear+' <strong>'+(knownIndex?esc(new Intl.NumberFormat("sv-SE",{maximumFractionDigits:2}).format(knownIndex)):"saknas")+'</strong></span>' +
+              '<span class="index-result-primary">Årshyra '+currentYear+' <strong data-index-result="rent">–</strong><small>Beräknad</small></span>' +
+              '<span>Källa <strong>'+money(existing.annualRent||0)+'</strong></span>' +
+            '</div>' +
+          '</section>' +
+
+          '<section class="index-editor-card" data-index-section="addition">' +
+            '<div class="index-editor-head"><div><span>TILLÄGG</span><h3>Årligt tillägg</h3></div><span class="badge green">Beräknad</span></div>' +
+            '<div class="index-input-grid compact">' +
+              '<label><span>Grundtillägg</span><input data-index-input name="baseAdditions" type="number" step="0.01" value="'+esc(existing.baseAdditions||0)+'"></label>' +
+              '<label><span>Basår</span><input data-index-input name="additionBaseYear" type="number" step="1" value="'+esc(existing.additionBaseYear||"")+'"></label>' +
+              '<label><span>Bastal</span><input data-index-input name="additionBaseIndex" type="number" step="0.01" value="'+esc(existing.additionBaseIndex||"")+'"></label>' +
+              '<label><span>Index %</span><input data-index-input name="additionIndexPercentPct" type="number" step="0.01" value="'+esc(additionPct||"")+'"></label>' +
+            '</div>' +
+            '<div class="index-result-line">' +
+              '<span>KPI okt '+indexYear+' <strong>'+(knownIndex?esc(new Intl.NumberFormat("sv-SE",{maximumFractionDigits:2}).format(knownIndex)):"saknas")+'</strong></span>' +
+              '<span class="index-result-primary">Tillägg '+currentYear+' <strong data-index-result="addition">–</strong><small>Beräknat</small></span>' +
+              '<span>Källa <strong>'+money(existing.annualAdditions||0)+'</strong></span>' +
+            '</div>' +
+          '</section>' +
+
+          '<section class="object-editor-secondary contract-terms-card">' +
+            '<div class="object-editor-section-head"><span>AVTAL</span></div>' +
+            '<div class="object-editor-fields compact-five">' +
+              '<label><span>Area kvm</span><input name="area" type="number" step="0.01" value="'+esc(existing.area||0)+'"></label>' +
+              '<label><span>Fr.o.m.</span><input name="start" type="date" value="'+esc(existing.start||"")+'"></label>' +
+              '<label><span>T.o.m.</span><input name="end" type="date" value="'+esc(existing.end||"")+'"></label>' +
+              '<label><span>Sägs upp senast</span><input name="notice" type="date" value="'+esc(existing.notice||"")+'"></label>' +
+              '<label><span>Uppsägning mån</span><input name="noticePeriodMonths" type="number" step="1" value="'+esc(existing.noticePeriodMonths||0)+'"></label>' +
+              '<label><span>Förlängning mån</span><input name="renewalPeriodMonths" type="number" step="1" value="'+esc(existing.renewalPeriodMonths||0)+'"></label>' +
+              '<label><span>Ursprunglig avtalstid</span><input name="originalTerm" value="'+esc(existing.originalTerm||"")+'"></label>' +
+              '<label><span>Media/år</span><input name="annualContractDrift" type="number" step="1" value="'+esc(existing.annualContractDrift||0)+'"></label>' +
+              '<label><span>F-skatt/år</span><input name="annualPropertyTax" type="number" step="1" value="'+esc(existing.annualPropertyTax||0)+'"></label>' +
+              '<label><span>kr/kvm</span><div class="calculated-field">'+num((Number(existing.area)||0)?contractAnnualValues(existing,currentYear,0).rent.amount/Number(existing.area):0)+' <small>Beräknad</small></div></label>' +
+            '</div>' +
+          '</section>' +
+
+          '<section class="object-editor-secondary source-fields-card">' +
+            '<div class="object-editor-section-head"><span>KÄLLA & EKONOMI</span></div>' +
+            '<div class="object-editor-fields compact-five">' +
+              '<label><span>Kstl drift</span><input name="costCenterOperations" value="'+esc(existing.costCenterOperations||"")+'"></label>' +
+              '<label><span>Kstl lokaler</span><input name="costCenterPremises" value="'+esc(existing.costCenterPremises||"")+'"></label>' +
+              '<label><span>Objekt i Ekot</span><input name="ekotObject" value="'+esc(existing.ekotObject||"")+'"></label>' +
+              '<label><span>Anställda</span><input name="employees" type="number" step="1" value="'+esc(existing.employees||0)+'"></label>' +
+              '<label><span>Brukare</span><input name="users" type="number" step="1" value="'+esc(existing.users||0)+'"></label>' +
+              '<label><span>Rum</span><input name="rooms" type="number" step="1" value="'+esc(existing.rooms||0)+'"></label>' +
+              '<label><span>Allmän yta</span><input name="commonArea" type="number" step="0.01" value="'+esc(existing.commonArea||0)+'"></label>' +
+              '<label><span>Lägenhetsyta</span><input name="apartmentArea" type="number" step="0.01" value="'+esc(existing.apartmentArea||0)+'"></label>' +
+              '<label class="field-span-2"><span>Kommentar</span><input name="comment" value="'+esc(existing.comment||"")+'"></label>' +
+            '</div>' +
+          '</section>' +
+
+          '<section class="object-editor-secondary media-card">' +
+            '<div class="object-editor-section-head"><span>MEDIA INGÅR</span></div>' +
+            '<div class="object-editor-fields compact-eight">' +
+              yn("mediaWaste","Sopor") + yn("mediaElectricity","El") + yn("mediaWater","VA") + yn("mediaHeating","Värme") +
+              yn("mediaHotWater","VV") + yn("mediaVentilation","Vent") + yn("mediaOutdoor","Utem.") + yn("mediaPropertyTax","F-skatt") +
+            '</div>' +
+          '</section>' +
+        '</div>' +
       '</div>';
 
     function refreshIndexPreview(){
@@ -3655,7 +3690,7 @@ async function saveEditor(form) {
   if (editorType === "object") {
     const c = state.contracts.find(function(x) { return x.id === data.contractId; });
     if (!c) return false;
-    ["annualContractDrift","annualPropertyTax","baseRent","rentBaseYear","rentBaseIndex","baseAdditions","additionBaseYear","additionBaseIndex","noticePeriodMonths","renewalPeriodMonths","employees","users","rooms","commonArea","apartmentArea"].forEach(function(k) {
+    ["annualContractDrift","annualPropertyTax","baseRent","rentBaseYear","rentBaseIndex","baseAdditions","additionBaseYear","additionBaseIndex","area","noticePeriodMonths","renewalPeriodMonths","employees","users","rooms","commonArea","apartmentArea"].forEach(function(k) {
       if(Object.prototype.hasOwnProperty.call(data,k)) c[k] = Number(data[k]) || 0;
     });
     if(Object.prototype.hasOwnProperty.call(data,"rentIndexPercentPct")) c.rentIndexPercent=(Number(data.rentIndexPercentPct)||0)/100;
@@ -3675,6 +3710,9 @@ async function saveEditor(form) {
       c.additionIndexYear=live.addition.indexYear;
       c.additionCalculationYear=new Date().getFullYear();
     }
+    ["use","category","start","end","notice","originalTerm","costCenterOperations","costCenterPremises","ekotObject","comment","mediaWaste","mediaElectricity","mediaWater","mediaHeating","mediaHotWater","mediaVentilation","mediaOutdoor","mediaPropertyTax"].forEach(function(k){
+      if(Object.prototype.hasOwnProperty.call(data,k)) c[k]=data[k]||"";
+    });
     c.unitId = data.unitId || "";
   } else if (editorType === "person") {
     const target = existing || { id: nextId("P", state.people) };
