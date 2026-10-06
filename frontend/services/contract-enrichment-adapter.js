@@ -134,6 +134,105 @@
     }
     return fallback;
   }
+
+  function documentKey(v){
+    var s=text(v);
+    try{s=decodeURIComponent(s);}catch(_){}
+    s=(s.split(/[\\/]/).pop()||s).replace(/[?#].*$/,"");
+    return s.replace(/\.pdf$/i,"").replace(/[^a-z0-9åäö]/gi,"").toUpperCase();
+  }
+  function candidateName(v){
+    var s=text(v);
+    try{s=decodeURIComponent(s);}catch(_){}
+    return (s.split(/[\\/]/).pop()||s).replace(/[?#].*$/,"");
+  }
+  function scanRelationshipTargets(zip){
+    var out=[];
+    Object.keys(zip||{}).forEach(function(path){
+      if(!/\.rels$/i.test(path)) return;
+      var xml="";
+      try{xml=fflate.strFromU8(zip[path]);}catch(_){return;}
+      var re=/<Relationship\b([^>]+?)\/?>/gi,m;
+      while((m=re.exec(xml))){
+        var attrs=m[1]||"";
+        var tm=attrs.match(/\bTarget="([^"]+)"/i);
+        if(!tm) continue;
+        var mm=attrs.match(/\bTargetMode="([^"]+)"/i);
+        var typ=attrs.match(/\bType="([^"]+)"/i);
+        var target=tm[1].replace(/&amp;/g,"&");
+        var external=Boolean(mm&&/external/i.test(mm[1]));
+        var type=typ?typ[1]:"";
+        if(external || /\.pdf(?:[?#].*)?$/i.test(target) || /hyperlink|oleObject/i.test(type)){
+          out.push({target:target,name:candidateName(target),key:documentKey(target),kind:external?"linked":"relationship",source:path});
+        }
+      }
+    });
+    return out;
+  }
+  function pdfNamesFromBinary(bytes){
+    var values=[],ascii="";
+    function add(s){
+      s=String(s||"").trim();
+      if(/\.pdf\b/i.test(s)&&values.indexOf(s)<0) values.push(s);
+    }
+    for(var i=0;i<bytes.length;i++){
+      var b=bytes[i];
+      if(b>=32&&b<=126) ascii+=String.fromCharCode(b);
+      else { if(ascii.length>=5) add(ascii); ascii=""; }
+    }
+    if(ascii.length>=5) add(ascii);
+    var wide="";
+    for(var j=0;j+1<bytes.length;j+=2){
+      var code=bytes[j]|(bytes[j+1]<<8);
+      if(code>=32&&code<=126) wide+=String.fromCharCode(code);
+      else { if(wide.length>=5) add(wide); wide=""; }
+    }
+    if(wide.length>=5) add(wide);
+    return values.map(candidateName).filter(Boolean);
+  }
+  function rawPdfBytes(bytes){
+    var start=-1,end=-1;
+    for(var i=0;i+4<bytes.length;i++){
+      if(bytes[i]===37&&bytes[i+1]===80&&bytes[i+2]===68&&bytes[i+3]===70&&bytes[i+4]===45){start=i;break;}
+    }
+    if(start<0) return null;
+    for(var j=bytes.length-5;j>=start;j--){
+      if(bytes[j]===37&&bytes[j+1]===37&&bytes[j+2]===69&&bytes[j+3]===79&&bytes[j+4]===70){end=j+5;break;}
+    }
+    return bytes.slice(start,end>0?end:bytes.length);
+  }
+  function scanWorkbookDocuments(arrayBuffer){
+    var result={linked:[],embedded:[],all:[]};
+    if(!arrayBuffer || !window.fflate) return result;
+    var zip;
+    try{zip=fflate.unzipSync(new Uint8Array(arrayBuffer));}catch(_){return result;}
+    scanRelationshipTargets(zip).forEach(function(item){
+      if(item.key){result.linked.push(item);result.all.push(item);}
+    });
+    Object.keys(zip).filter(function(path){return /^xl\/embeddings\/.+\.bin$/i.test(path);}).forEach(function(path){
+      var bytes=zip[path],names=pdfNamesFromBinary(bytes),pdf=rawPdfBytes(bytes);
+      names.forEach(function(name){
+        var key=documentKey(name);
+        if(!key) return;
+        var item={target:"",name:name,key:key,kind:"embedded",source:path,hasPdfBytes:Boolean(pdf)};
+        result.embedded.push(item);result.all.push(item);
+        if(pdf){
+          window.LokalblickContractDocumentCache=window.LokalblickContractDocumentCache||{};
+          try{window.LokalblickContractDocumentCache[key]=URL.createObjectURL(new Blob([pdf],{type:"application/pdf"}));}catch(_){}
+        }
+      });
+    });
+    return result;
+  }
+  function findWorkbookDocument(catalog,number){
+    var key=documentKey(number);
+    if(!key) return null;
+    var all=(catalog&&catalog.all)||[];
+    var exact=all.filter(function(x){return x.key===key;});
+    if(exact.length) return exact[0];
+    var near=all.filter(function(x){return x.key&&x.key.length>=6&&key.length>=6&&(x.key.indexOf(key)>=0||key.indexOf(x.key)>=0);});
+    return near.length===1?near[0]:null;
+  }
   function detectHeader(workbook){
     var best=null;
     (workbook.SheetNames||[]).forEach(function(name){
