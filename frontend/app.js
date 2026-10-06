@@ -1735,10 +1735,10 @@ function scopeContractsSectionHtml(contracts) {
   const total = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
   const rows = contracts.map(function(c) {
     const property = state.properties.find(function(p){return p.id===c.propertyId;});
-    const designation = property ? (property.designation || property.id || "–") : "–";
+    const designation = property ? (property.designation || property.sourceId || "–") : "–";
     const address = property ? (property.address || "–") : "–";
-    const currentRent = Number(c.annualRent) || 0;
-    const currentAdditions = Number(c.annualAdditions) || 0;
+    const currentRent = Number(c.annualRent) || Number(c.calculatedAnnualRent) || 0;
+    const currentAdditions = Number(c.annualAdditions) || Number(c.calculatedAnnualAdditions) || 0;
     const currentRentPerSqm = Number(c.rentPerSqm) || ((Number(c.area)||0) ? currentRent / Number(c.area) : 0);
     return '<div class="scope-list-row contract-scope-row"' +
       ' data-contract-designation="' + esc(designation) + '"' +
