@@ -43,6 +43,27 @@ let portfolioFilters = {
 };
 
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+let auditBaseline = null;
+let accessMode = "read";
+const AUDIT_COLLECTIONS = [["properties","Fastighet"],["contracts","Avtal"],["organizations","Organisation"],["people","Person"],["assignments","Tilldelning"],["projects","Projekt"],["maintenance","Underhåll"],["operations","Driftkostnad"],["investigations","Utredning"],["maintenanceStatus","Underhållsstatus"],["driftIssues","Driftärende"],["wishes","Önskemål"],["budgetPlans","Budget"]];
+const AUDIT_FIELD_LABELS={name:"Namn",title:"Rubrik",status:"Status",priority:"Prioritet",responsiblePersonId:"Ansvarig",contractId:"Avtal",propertyId:"Fastighet",unitId:"Verksamhetsområde",createdDate:"Upplagt",createdAt:"Tillagd",updatedAt:"Senast ändrad",year:"År",budgetYear:"Budgetår",cost:"Kostnad",estimatedCost:"Bedömd kostnad",finalCost:"Slutkostnad",includeInBudget:"Till budget",budgetIncluded:"Ingår i budget",budgetCategory:"Budgetkategori",start:"Start",end:"Slut",decisionDate:"Beslutat",completedDate:"Klart",targetDate:"Tidplan",description:"Beskrivning",phase:"Skede",annualRent:"Årshyra",annualContractDrift:"Avtalsdrift",actual:"Utfall",budget:"Budget",period:"Period",category:"Kategori",customer:"Kund",number:"Avtalsnummer",area:"Area"};
+function auditCollectionForType(type){const m={object:"contracts",person:"people",assignment:"assignments",project:"projects",maintenance:"maintenance",operation:"operations",investigation:"investigations",maintenanceStatus:"maintenanceStatus",driftIssue:"driftIssues",wish:"wishes"};return m[type]||type;}
+function auditTypeLabel(collection){const h=AUDIT_COLLECTIONS.find(x=>x[0]===collection);return h?h[1]:collection;}
+function auditComparable(record){const c=clone(record||{});delete c.createdAt;delete c.createdBy;delete c.updatedAt;delete c.updatedBy;return c;}
+function auditDiff(a,b){const keys=new Set(Object.keys(a||{}).concat(Object.keys(b||{})));return Array.from(keys).filter(k=>JSON.stringify((a||{})[k])!==JSON.stringify((b||{})[k])).map(k=>({field:k,label:AUDIT_FIELD_LABELS[k]||k,from:a[k]==null?"":a[k],to:b[k]==null?"":b[k]})).slice(0,30);}
+function ensureAuditMetadata(data){const now=new Date().toISOString(),actor=currentActorLabel();AUDIT_COLLECTIONS.forEach(p=>(Array.isArray(data[p[0]])?data[p[0]]:[]).forEach(r=>{if(!r.createdAt)r.createdAt=now;if(!r.createdBy)r.createdBy=actor;}));data.auditLog=Array.isArray(data.auditLog)?data.auditLog:[];return data;}
+function recordAuditChanges(){if(!auditBaseline){auditBaseline=clone(state);return;}ensureAuditMetadata(state);const now=new Date().toISOString(),actor=currentActorLabel();state.auditLog=Array.isArray(state.auditLog)?state.auditLog:[];AUDIT_COLLECTIONS.forEach(function(p){const col=p[0],before=Array.isArray(auditBaseline[col])?auditBaseline[col]:[],after=Array.isArray(state[col])?state[col]:[],bm=new Map(before.map(r=>[String(r.id),r])),am=new Map(after.map(r=>[String(r.id),r]));after.forEach(function(r){const id=String(r.id||""),old=bm.get(id);if(!old){if(!r.createdAt)r.createdAt=now;if(!r.createdBy)r.createdBy=actor;state.auditLog.push({id:nextId("H",state.auditLog),at:now,by:actor,action:"Skapad",collection:col,type:p[1],recordId:id,fields:[]});return;}const fields=auditDiff(auditComparable(old),auditComparable(r));if(!fields.length)return;r.updatedAt=now;r.updatedBy=actor;state.auditLog.push({id:nextId("H",state.auditLog),at:now,by:actor,action:"Ändrad",collection:col,type:p[1],recordId:id,fields});});before.forEach(function(r){const id=String(r.id||"");if(!am.has(id))state.auditLog.push({id:nextId("H",state.auditLog),at:now,by:actor,action:"Raderad",collection:col,type:p[1],recordId:id,fields:[]});});});if(state.auditLog.length>5000)state.auditLog=state.auditLog.slice(-5000);}
+function resetAuditBaseline(){ensureAuditMetadata(state);auditBaseline=clone(state);}
+function isAdminAvailable(){if(state&&state.isDemo)return true;const u=state&&state.currentUser?state.currentUser:{},r=String(u.role||u.permission||"");return Boolean(u.isAdmin||u.canAdmin||(u.permissions&&u.permissions.admin)||/admin|administratör/i.test(r));}
+function isEditAvailable(){if(state&&state.isDemo)return true;const u=state&&state.currentUser?state.currentUser:{},r=String(u.role||u.permission||"");return Boolean(u.canEdit||(u.permissions&&u.permissions.edit)||/admin|administratör|arbeta|edit/i.test(r));}
+function canEdit(){return accessMode==="edit"||accessMode==="admin";} function canAdmin(){return accessMode==="admin"&&isAdminAvailable();}
+function accessModeBarHtml(){const e=isEditAvailable(),a=isAdminAvailable();return '<div class="access-mode-bar" aria-label="Arbetsläge"><div class="access-mode-copy"><span>ARBETSLÄGE</span><strong>'+(accessMode==="admin"?"Administration":accessMode==="edit"?"Redigera data":"Läs")+'</strong><small>'+(accessMode==="admin"?"Behörigheter, datakällor och systeminställningar":accessMode==="edit"?"Ändringar sparas och dokumenteras i historiken":"Säkert läsläge – inget kan ändras")+'</small></div><div class="access-mode-actions"><button type="button" class="access-mode-button '+(accessMode==="read"?"active":"")+'" data-access-mode="read">Läs</button>'+(e?'<button type="button" class="access-mode-button '+(accessMode==="edit"?"active":"")+'" data-access-mode="edit">Redigera</button>':"")+(a?'<button type="button" class="access-mode-button admin '+(accessMode==="admin"?"active":"")+'" data-access-mode="admin">Admin</button>':"")+'<button type="button" class="access-history-button" data-open-history>Historik</button></div></div>';}
+function setAccessMode(m){if(m==="admin"&&!isAdminAvailable())m="read";if(m==="edit"&&!isEditAvailable())m="read";accessMode=m;if(m!=="admin"&&["organisation","api","about"].includes(currentView))currentView="properties";}
+function applyAccessModeToUi(){const e='[data-add],[data-edit-type],[data-plan-responsible],[data-plan-year],[data-plan-quarter],[data-plan-date],[data-plan-wish-move],[data-annual-slot],[data-annual-clear],[data-budget-adjustment],[data-budget-toggle],[id="budget-create"],[id="mobile-budget-create"],[id="budget-lock"],[id="mobile-budget-lock"]';document.querySelectorAll(e).forEach(x=>{const ok=canEdit();x.disabled=!ok;x.classList.toggle("access-disabled",!ok);});const a='[data-api-connect],[data-api-create],[data-api-mode],[data-api-write],[data-api-disconnect],[data-api-reconnect],[data-api-refresh],[data-source-save]';document.querySelectorAll(a).forEach(x=>{const ok=canAdmin();x.disabled=!ok;x.classList.toggle("access-disabled",!ok);});}
+function bindAccessModeControls(){document.querySelectorAll("[data-access-mode]:not([data-access-bound])").forEach(b=>{b.dataset.accessBound="1";b.addEventListener("click",()=>{setAccessMode(b.dataset.accessMode||"read");render();});});document.querySelectorAll("[data-open-history]:not([data-access-bound])").forEach(b=>{b.dataset.accessBound="1";b.addEventListener("click",()=>showHistory("",""));});applyAccessModeToUi();}
+function formatAuditValue(v){if(v==null||v==="")return "–";if(typeof v==="object"){try{return JSON.stringify(v);}catch(_){return "–";}}return String(v);}
+function showHistory(type,id){const col=type?auditCollectionForType(type):"",all=(state.auditLog||[]).slice().reverse(),rows=col&&id?all.filter(h=>h.collection===col&&String(h.recordId)===String(id)):all.slice(0,120);let d=document.getElementById("history-dialog");if(!d){d=document.createElement("dialog");d.id="history-dialog";d.className="history-dialog";document.body.appendChild(d);}const title=col&&id?auditTypeLabel(col)+" · "+id:"Ändringshistorik";d.innerHTML='<form method="dialog"><div class="history-head"><div><span>HISTORIK</span><h2>'+esc(title)+'</h2><p>'+(col&&id?"Alla registrerade ändringar för posten.":"Senaste ändringar i Lokalblick.")+'</p></div><button class="icon-button" value="cancel" aria-label="Stäng">×</button></div><div class="history-list">'+(rows.length?rows.map(h=>'<article class="history-entry"><div class="history-entry-top"><strong>'+esc(h.action)+'</strong><span>'+esc(new Date(h.at).toLocaleString("sv-SE"))+'</span></div><div class="history-entry-meta">'+esc(h.by||"Okänd")+' · '+esc(h.type||h.collection)+' · '+esc(h.recordId||"")+'</div>'+((h.fields||[]).length?'<ul>'+h.fields.map(f=>'<li><strong>'+esc(f.label||f.field)+'</strong><span>'+esc(formatAuditValue(f.from))+' → '+esc(formatAuditValue(f.to))+'</span></li>').join("")+'</ul>':"")+'</article>').join(""):'<div class="empty">Ingen historik registrerad ännu.</div>')+'</div><div class="dialog-actions"><button class="button secondary" value="cancel">Stäng</button></div></form>';d.showModal();}
 function ensureShape(data) {
   const base = clone(demo);
   const source = data || {};
@@ -64,7 +85,8 @@ function ensureShape(data) {
     driftIssues: list("driftIssues"),
     wishes: list("wishes"),
     budgetPlans: list("budgetPlans"),
-    assignmentChanges: list("assignmentChanges")
+    assignmentChanges: list("assignmentChanges"),
+    auditLog: list("auditLog")
   });
 }
 async function enrichConnectedData(data) {
@@ -77,10 +99,14 @@ async function enrichConnectedData(data) {
 }
 async function loadState() {
   state = ensureShape(await enrichConnectedData(await window.LokalblickDataService.load()));
+  resetAuditBaseline();
   return state;
 }
 async function saveState() {
+  ensureAuditMetadata(state);
+  recordAuditChanges();
   state = ensureShape(await window.LokalblickDataService.save(state));
+  resetAuditBaseline();
   return state;
 }
 function money(n) { return new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 0 }).format(Number(n) || 0) + " kr"; }
@@ -487,6 +513,7 @@ function bindAnnualPlannerControls() {
     });
   });
 }
+function budgetIncluded(item){if(!item)return true;if(item.budgetIncluded===false)return false;if(item.includeInBudget==="Nej")return false;return true;}
 function budgetRows(year, contracts) {
   const rows = [];
   state.contracts.filter(function(c) { return activeInYear(c, year); }).forEach(function(c) {
@@ -498,40 +525,32 @@ function budgetRows(year, contracts) {
       source: c.number || c.id,
       contractId: c.id,
       propertyId: c.propertyId,
+      sourceType:"contract", sourceId:c.id,
       amount: amount
     });
   });
   state.projects.filter(function(p) { return Number(p.budgetYear) === Number(year); }).forEach(function(p) {
     const investigation = Number(p.budgetInvestigation) || 0;
     const project = (Number(p.budgetExecution) || 0) + (Number(p.budgetFurnishing) || 0);
-    if (investigation > 0) rows.push({ category: "Utredningar", sub: "Projektutredning", source: p.name, contractId: p.contractId, propertyId:p.propertyId, amount: investigation, timing: maintenanceTimingLabel(p) });
-    if (project > 0) rows.push({ category: "Projekt", sub: "Genomförande + inredning", source: p.name, contractId: p.contractId, propertyId:p.propertyId, amount: project, timing: maintenanceTimingLabel(p) });
+    if (!budgetIncluded(p)) return;
+    if (investigation > 0) rows.push({category:"Utredningar",sub:"Projektutredning",source:p.name,contractId:p.contractId,propertyId:p.propertyId,sourceType:"project",sourceId:p.id,amount:investigation,timing:maintenanceTimingLabel(p)});
+    if (project > 0) rows.push({category:"Projekt",sub:"Genomförande + inredning",source:p.name,contractId:p.contractId,propertyId:p.propertyId,sourceType:"project",sourceId:p.id,amount:project,timing:maintenanceTimingLabel(p)});
   });
   state.maintenance.filter(function(u) { return Number(u.year) === Number(year) && Number(u.cost) > 0; }).forEach(function(u) {
-    rows.push({ category: "Underhåll", sub: u.title, source: u.title, contractId: u.contractId, propertyId:u.propertyId, amount: Number(u.cost), timing: maintenanceTimingLabel(u) });
+    if (!budgetIncluded(u)) return;
+    rows.push({category:"Underhåll",sub:u.title,source:u.title,contractId:u.contractId,propertyId:u.propertyId,sourceType:"maintenance",sourceId:u.id,amount:Number(u.cost),timing:maintenanceTimingLabel(u)});
   });
   state.operations.filter(function(o) { return Number(o.period) === Number(year) && Number(o.budget) > 0; }).forEach(function(o) {
-    rows.push({ category: "Driftkostnader", sub: o.category, source: o.category, contractId: o.contractId, propertyId:o.propertyId, amount: Number(o.budget) });
+    if (!budgetIncluded(o)) return;
+    rows.push({category:"Driftkostnader",sub:o.category,source:o.category,contractId:o.contractId,propertyId:o.propertyId,sourceType:"operation",sourceId:o.id,amount:Number(o.budget)});
   });
   state.investigations.filter(function(u) { return Number(u.year) === Number(year) && Number(u.cost) > 0; }).forEach(function(u) {
-    rows.push({ category: "Utredningar", sub: u.title, source: u.title, contractId: u.contractId, propertyId:u.propertyId, amount: Number(u.cost) });
+    if (!budgetIncluded(u)) return;
+    rows.push({category:"Utredningar",sub:u.title,source:u.title,contractId:u.contractId,propertyId:u.propertyId,sourceType:"investigation",sourceId:u.id,amount:Number(u.cost)});
   });
-  state.maintenanceStatus.filter(function(x) {
-    return x.includeInBudget === "Ja" && Number(x.budgetYear) === Number(year) && Number(x.estimatedCost) > 0;
-  }).forEach(function(x) {
-    rows.push({ category: "Underhåll", sub: x.category, source: "Status: " + x.category, contractId: x.contractId, propertyId:x.propertyId, amount: Number(x.estimatedCost), timing: maintenanceTimingLabel(x) });
-  });
-  state.driftIssues.filter(function(x) {
-    return x.includeInBudget === "Ja" && Number(x.budgetYear) === Number(year) && Number(x.estimatedCost) > 0 && x.status !== "Klar";
-  }).forEach(function(x) {
-    rows.push({ category: "Driftkostnader", sub: x.category, source: "Ärende: " + x.title, contractId: x.contractId, propertyId:x.propertyId, amount: Number(x.estimatedCost), timing: maintenanceTimingLabel(x) });
-  });
-  state.wishes.filter(function(x) {
-    return x.includeInBudget === "Ja" && x.budgetCategory && x.budgetCategory !== "Ej budget" &&
-      Number(x.budgetYear) === Number(year) && Number(x.estimatedCost) > 0 && x.status !== "Avslaget";
-  }).forEach(function(x) {
-    rows.push({ category: x.budgetCategory, sub: x.category, source: "Önskemål: " + x.title, contractId: x.contractId, propertyId:x.propertyId, amount: Number(x.estimatedCost) });
-  });
+  state.maintenanceStatus.filter(function(x){return budgetIncluded(x)&&x.includeInBudget==="Ja"&&Number(x.budgetYear)===Number(year)&&Number(x.estimatedCost)>0;}).forEach(function(x){rows.push({category:"Underhåll",sub:x.category,source:"Status: "+x.category,contractId:x.contractId,propertyId:x.propertyId,sourceType:"maintenanceStatus",sourceId:x.id,amount:Number(x.estimatedCost),timing:maintenanceTimingLabel(x)});});
+  state.driftIssues.filter(function(x){return budgetIncluded(x)&&x.includeInBudget==="Ja"&&Number(x.budgetYear)===Number(year)&&Number(x.estimatedCost)>0&&x.status!=="Klar";}).forEach(function(x){rows.push({category:"Driftkostnader",sub:x.category,source:"Ärende: "+x.title,contractId:x.contractId,propertyId:x.propertyId,sourceType:"driftIssue",sourceId:x.id,amount:Number(x.estimatedCost),timing:maintenanceTimingLabel(x)});});
+  state.wishes.filter(function(x){return budgetIncluded(x)&&x.includeInBudget==="Ja"&&x.budgetCategory&&x.budgetCategory!=="Ej budget"&&Number(x.budgetYear)===Number(year)&&Number(x.estimatedCost)>0&&x.status!=="Avslaget";}).forEach(function(x){rows.push({category:x.budgetCategory,sub:x.category,source:"Önskemål: "+x.title,contractId:x.contractId,propertyId:x.propertyId,sourceType:"wish",sourceId:x.id,amount:Number(x.estimatedCost)});});
   return Array.isArray(contracts) ? budgetRowsForContracts(rows,contracts) : rows;
 }
 function budgetYears() {
@@ -570,6 +589,7 @@ function renderNav() {
     ? "plan"
     : currentView==="properties" ? "overview" : currentView;
   document.getElementById("main-nav").innerHTML = groups.map(function(group) {
+    if (group.label === "ADMINISTRATION" && !canAdmin()) return "";
     const label = group.label ? '<div class="nav-section-label">' + esc(group.label) + '</div>' : "";
     return label + group.items.map(function(v) {
       return '<button class="nav-button ' + (v.id === active ? "active" : "") + '" data-desktop-nav="' + v.id + '">' +
@@ -804,7 +824,7 @@ function portfolioActivityItems(contracts) {
   const items = [];
   state.projects.filter(inScope).forEach(function(x) {
     items.push({ group:"project", type:"Projekt", id:x.id, title:x.name, propertyId:x.propertyId, contractId:x.contractId,
-      status:x.status, when:x.end || x.start || "", cost:Number(x.preliminaryCost)||projectBudgetTotal(x),
+      status:x.status, when:x.end || x.start || "", addedAt:x.createdAt||"", updatedAt:x.updatedAt||"", cost:Number(x.preliminaryCost)||projectBudgetTotal(x),
       responsible:responsibleFromAssignments("project", x.id),
       detail:[["Skede",x.phase||"–"],["Planering",maintenanceTimingLabel(x)],["Start",x.start||"–"],["Slut",x.end||"–"],["Inflyttning",x.moveIn||"–"],
         ["Beskrivning",x.description||""],["Budget utredning",money(x.budgetInvestigation)],["Budget genomförande",money(x.budgetExecution)],
@@ -812,26 +832,26 @@ function portfolioActivityItems(contracts) {
   });
   state.maintenance.filter(inScope).forEach(function(x) {
     items.push({ group:"maintenance", type:"Underhåll", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
-      status:x.status || x.priority, when:x.year ? String(x.year) : "", cost:Number(x.cost)||0, responsible:"",
+      status:x.status || x.priority, when:x.year ? String(x.year) : "", addedAt:x.createdAt||"", updatedAt:x.updatedAt||"", cost:Number(x.cost)||0, responsible:"",
       detail:[["Planår",x.year||"–"],["Planering",maintenanceTimingLabel(x)],["Prioritet",x.priority||"–"],["Status",x.status||"–"],["Kostnad",money(x.cost)]] });
   });
   state.maintenanceStatus.filter(inScope).forEach(function(x) {
     items.push({ group:"maintenance", type:"Underhållsstatus", id:x.id, title:x.category + (x.actionNeed ? " · " + x.actionNeed : ""),
-      propertyId:x.propertyId, contractId:x.contractId, status:x.status, when:x.assessedDate || "", cost:Number(x.estimatedCost)||0,
+      propertyId:x.propertyId, contractId:x.contractId, status:x.status, when:x.assessedDate || "", addedAt:x.createdAt||"", updatedAt:x.updatedAt||"", cost:Number(x.estimatedCost)||0,
       responsible:personName(x.responsiblePersonId),
       detail:[["Bedömd",x.assessedDate||"–"],["Planering",maintenanceTimingLabel(x)],["Prioritet",x.priority||"–"],["Åtgärdsbehov",x.actionNeed||""],
         ["Kommentar",x.comment||""],["Budgetår",x.budgetYear||"–"],["Till årsbudget",x.includeInBudget||"–"]] });
   });
   state.driftIssues.filter(inScope).forEach(function(x) {
     items.push({ group:"drift", type:"Driftärende", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
-      status:x.status, when:x.targetDate || x.createdDate || "", cost:Number(x.finalCost)||Number(x.estimatedCost)||0,
+      status:x.status, when:x.targetDate || x.createdDate || "", addedAt:x.createdAt||x.createdDate||"", updatedAt:x.updatedAt||"", cost:Number(x.finalCost)||Number(x.estimatedCost)||0,
       responsible:personName(x.responsiblePersonId),
       detail:[["Kategori",x.category||"–"],["Planering",maintenanceTimingLabel(x)],["Prioritet",x.priority||"–"],["Upplagt",x.createdDate||"–"],["Tidplan",x.targetDate||"–"],
         ["Beskrivning",x.description||""],["Bedömd kostnad",money(x.estimatedCost)],["Slutkostnad",money(x.finalCost)]] });
   });
   state.wishes.filter(inScope).forEach(function(x) {
     items.push({ group:"wish", type:"Önskemål", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
-      status:x.status, when:x.targetDate || x.createdDate || "", cost:Number(x.finalCost)||Number(x.estimatedCost)||0,
+      status:x.status, when:x.targetDate || x.createdDate || "", addedAt:x.createdAt||x.createdDate||"", updatedAt:x.updatedAt||"", cost:Number(x.finalCost)||Number(x.estimatedCost)||0,
       responsible:personName(x.responsiblePersonId),
       detail:[["Kategori",x.category||"–"],["Upplagt",x.createdDate||"–"],["Tidplan",x.targetDate||"–"],["Beslutat",x.decisionDate||"–"],
         ["Klart",x.completedDate||"–"],["Beskrivning",x.description||""],["Budgetkategori",x.budgetCategory||"–"],
@@ -839,12 +859,12 @@ function portfolioActivityItems(contracts) {
   });
   state.investigations.filter(inScope).forEach(function(x) {
     items.push({ group:"investigation", type:"Utredning", id:x.id, title:x.title, propertyId:x.propertyId, contractId:x.contractId,
-      status:x.status, when:x.year ? String(x.year) : "", cost:Number(x.cost)||0, responsible:"",
+      status:x.status, when:x.year ? String(x.year) : "", addedAt:x.createdAt||"", updatedAt:x.updatedAt||"", cost:Number(x.cost)||0, responsible:"",
       detail:[["År",x.year||"–"],["Status",x.status||"–"],["Kostnad",money(x.cost)]] });
   });
   state.operations.filter(inScope).forEach(function(x) {
     items.push({ group:"operations", type:"Driftkostnad", id:x.id, title:x.category, propertyId:x.propertyId, contractId:x.contractId,
-      status:"Budget / utfall", when:x.period ? String(x.period) : "", cost:Number(x.actual)||Number(x.budget)||0, responsible:"",
+      status:"Budget / utfall", when:x.period ? String(x.period) : "", addedAt:x.createdAt||"", updatedAt:x.updatedAt||"", cost:Number(x.actual)||Number(x.budget)||0, responsible:"",
       detail:[["År",x.period||"–"],["Kostnadsslag",x.category||"–"],["Budget",money(x.budget)],["Utfall",money(x.actual)]] });
   });
   return items.sort(function(a, b) {
@@ -1643,6 +1663,7 @@ function scopeActivitySectionHtml(contracts, group, title, addType) {
       '</span></div>' +
       '<div class="scope-list-status">' + statusBadge(item.status) + '</div>' +
       '<div class="scope-list-time">' + esc(item.when||"–") + '</div>' +
+      '<div class="scope-list-added">' + esc((item.addedAt||"").slice(0,10) || "–") + '</div>' +
       '<div class="scope-list-value"><strong>' + money(item.cost) + '</strong>' +
         (editType ? '<button type="button" class="inline-link compact-link" data-edit-type="' + editType + '" data-edit-id="' + esc(item.id) + '">Redigera</button>' : '') +
       '</div>' +
@@ -1669,6 +1690,7 @@ function scopeContractsSectionHtml(contracts) {
           esc(property.address||property.id) + '</button>' : '') + ' · ' + num(c.area) + ' kvm</span></div>' +
       '<div class="scope-list-status">' + statusBadge(activeInYear(c,new Date().getFullYear()) ? "Aktivt" : "Bevaka") + '</div>' +
       '<div class="scope-list-time">' + esc(c.end||"–") + '</div>' +
+      '<div class="scope-list-added">' + esc((c.createdAt||"").slice(0,10) || "–") + '</div>' +
       '<div class="scope-list-value"><strong>' + money(totalContractCost(c)) + '/år</strong>' +
         '<button type="button" class="inline-link compact-link" data-edit-type="object" data-edit-id="' + esc(c.id) + '">Redigera</button></div>' +
     '</div>';
@@ -1737,6 +1759,7 @@ function renderProperties() {
     '</section>' +
 
     '<section class="portfolio-desktop-workspace" aria-label="Arbetsyta för aktuellt urval">' +
+      '<div id="portfolio-access-mode">' + accessModeBarHtml() + '</div>' +
       '<div class="desktop-scope-strip">' +
         '<div class="desktop-scope-copy"><span class="portfolio-kicker">AKTUELLT URVAL</span><h2 id="portfolio-scope-title">' + esc(portfolioScopeTitle()) + '</h2><p id="portfolio-scope-meta"></p></div>' +
         '<div id="portfolio-context" class="portfolio-context"></div>' +
@@ -1974,7 +1997,7 @@ function renderBudget() {
   const liveRows = budgetRows(selectedBudgetYear, scopedContracts);
   const plan = budgetPlan(selectedBudgetYear);
   const rawBaselineRows = plan && Array.isArray(plan.lines) && plan.lines.length ? plan.lines : budgetRows(selectedBudgetYear);
-  const baselineRows = scoped ? budgetRowsForContracts(rawBaselineRows, scopedContracts) : rawBaselineRows;
+  const baselineRows = (scoped ? budgetRowsForContracts(rawBaselineRows, scopedContracts) : rawBaselineRows).filter(function(r){return r.included!==false;});
   const baseSummary = summarizeBudgetRows(baselineRows);
   const forecastSummary = summarizeBudgetRows(liveRows);
   const actualSummary = budgetActualSummary(selectedBudgetYear, scopedContracts);
@@ -2011,8 +2034,9 @@ function renderBudget() {
   }).join("");
 
   const detailRows = baselineRows.map(function(r){
-    return '<tr><td>' + esc(r.category) + '</td><td>' + esc(r.sub||"") + '</td><td>' + esc(r.source||"") + '</td><td>' +
-      esc(budgetPropertyLabel(r)) + '</td><td>' + esc(budgetTimingLabel(r,selectedBudgetYear)) + '</td><td>' + money(r.amount) + '</td></tr>';
+    const removable=r.sourceType&&r.sourceType!=="contract";
+    const action=removable?'<button type="button" class="budget-row-action" data-budget-toggle="exclude" data-budget-source-type="'+esc(r.sourceType)+'" data-budget-source-id="'+esc(r.sourceId||"")+'">Ta bort</button>':'<span class="budget-row-fixed">Fast</span>';
+    return '<tr><td>'+esc(r.category)+'</td><td>'+esc(r.sub||"")+'</td><td>'+esc(r.source||"")+'</td><td>'+esc(budgetPropertyLabel(r))+'</td><td>'+esc(budgetTimingLabel(r,selectedBudgetYear))+'</td><td>'+money(r.amount)+'</td><td>'+action+'</td></tr>';
   });
   if (!scoped) baseSummary.forEach(function(base){
     const adjustment=budgetAdjustment(plan,base.category,base.amount);
@@ -2021,6 +2045,7 @@ function renderBudget() {
       (adjustment>=0?"+":"") + money(adjustment) + '</td></tr>');
   });
 
+  const excludedBudgetItems=[];function pushExcluded(collection,type){(state[collection]||[]).forEach(function(x){if(budgetIncluded(x))return;const y=Number(x.budgetYear||x.year||x.period);if(y&&y!==Number(selectedBudgetYear))return;excludedBudgetItems.push({sourceType:type,sourceId:x.id,label:x.name||x.title||x.category||x.id,amount:Number(x.estimatedCost)||Number(x.cost)||Number(x.budget)||0});});}pushExcluded("projects","project");pushExcluded("maintenance","maintenance");pushExcluded("operations","operation");pushExcluded("investigations","investigation");pushExcluded("maintenanceStatus","maintenanceStatus");pushExcluded("driftIssues","driftIssue");pushExcluded("wishes","wish");const excludedHtml=excludedBudgetItems.length?'<details class="budget-excluded"><summary><span>Ej med i budgetunderlaget</span><strong>'+excludedBudgetItems.length+'</strong></summary><div>'+excludedBudgetItems.map(function(x){return '<div class="budget-excluded-row"><span><strong>'+esc(x.label)+'</strong><small>'+esc(auditTypeLabel(auditCollectionForType(x.sourceType)))+'</small></span><button type="button" class="budget-row-action" data-budget-toggle="include" data-budget-source-type="'+esc(x.sourceType)+'" data-budget-source-id="'+esc(x.sourceId)+'">Ta med</button></div>';}).join("")+'</div></details>':"";
   const status = plan ? '<span class="budget-status ' + (locked?"locked":"draft") + '">' + esc(plan.status||"Arbetsbudget") + '</span>' : '<span class="budget-status draft">Ej skapad</span>';
   const action = scoped
     ? '<span class="budget-lock-note">Urvalsvy · budgeten administreras på hela beståndet</span>'
@@ -2039,7 +2064,8 @@ function renderBudget() {
       const address=budgetPropertyLabel(r);
       const detail=r.source || r.sub || category;
       const label=(address && address!=="–" ? address + " · " : "") + detail;
-      return '<div class="mobile-budget-detail-row"><span>' + esc(label) + '</span><strong>' + money(r.amount) + '</strong></div>';
+      const removable=r.sourceType&&r.sourceType!=="contract";
+      return '<div class="mobile-budget-detail-row"><span>'+esc(label)+'</span><strong>'+money(r.amount)+'</strong>'+(removable?'<button type="button" class="budget-row-action" data-budget-toggle="exclude" data-budget-source-type="'+esc(r.sourceType)+'" data-budget-source-id="'+esc(r.sourceId||"")+'">Ta bort</button>':"")+'</div>';
     }).join("") : '<div class="mobile-budget-empty">Inga budgetrader i urvalet</div>';
 
     const adjustmentHtml = !scoped && !locked
@@ -2437,7 +2463,7 @@ function renderOrganisation() {
 function bindAddButtons() {
   document.querySelectorAll("[data-add]:not([data-add-bound])").forEach(function(button) {
     button.dataset.addBound = "1";
-    button.addEventListener("click", function() { openEditor(button.dataset.add, ""); });
+    button.addEventListener("click", function() { if (!canEdit()) { alert("Slå på Redigera för att ändra data."); return; } openEditor(button.dataset.add, ""); });
   });
 }
 function bindEditButtons() {
@@ -2446,6 +2472,7 @@ function bindEditButtons() {
     button.addEventListener("click", function(event) {
       event.preventDefault();
       event.stopPropagation();
+      if (!canEdit()) { alert("Slå på Redigera för att ändra data."); return; }
       openEditor(button.dataset.editType, button.dataset.editId);
     });
   });
@@ -2689,6 +2716,11 @@ function bindViewEvents() {
   });
   bindAddButtons();
   bindEditButtons();
+  bindAccessModeControls();
+  document.querySelectorAll("[data-history-type][data-history-id]:not([data-history-bound])").forEach(function(button){
+    button.dataset.historyBound="1";
+    button.addEventListener("click",function(event){event.preventDefault();event.stopPropagation();showHistory(button.dataset.historyType,button.dataset.historyId);});
+  });
   if (currentView === "api") bindApiControls();
   ["portfolio-search", "filter-customer", "filter-unit", "filter-owner", "filter-our-person", "filter-tenant-person", "filter-owner-person"].forEach(function(id) {
     const control = document.getElementById(id);
@@ -2724,6 +2756,7 @@ function bindViewEvents() {
   bindMobileScopeFilterControls();
   applyPortfolioSectionVisibility();
   if (currentView === "properties") filterPropertyPortfolio();
+  document.querySelectorAll("[data-budget-toggle]:not([data-budget-bound])").forEach(function(button){button.dataset.budgetBound="1";button.addEventListener("click",async function(){if(!canEdit()){alert("Slå på Redigera för att ändra budgetunderlaget.");return;}const type=button.dataset.budgetSourceType,id=button.dataset.budgetSourceId,collection=auditCollectionForType(type),item=(state[collection]||[]).find(function(x){return String(x.id)===String(id);});if(!item)return;const include=button.dataset.budgetToggle==="include";item.budgetIncluded=include;if(Object.prototype.hasOwnProperty.call(item,"includeInBudget"))item.includeInBudget=include?"Ja":"Nej";const plan=budgetPlan(selectedBudgetYear);if(plan&&Array.isArray(plan.lines))plan.lines.forEach(function(line){if(line.sourceType===type&&String(line.sourceId)===String(id))line.included=include;});await saveState();render();});});
   ["budget-year","mobile-budget-year"].forEach(function(id){
     const by = document.getElementById(id);
     if (by) by.addEventListener("change", function() { selectedBudgetYear = Number(by.value); render(); });
@@ -3192,6 +3225,7 @@ function editorContextContractId(record) {
   return "";
 }
 function openEditor(type, recordId) {
+  if (!canEdit()) return;
   editorType = type;
   const existing = recordId ? editorRecordById(type, recordId) : null;
   editorRecord = existing ? { type:type, id:existing.id, record:existing } : null;
@@ -3321,6 +3355,7 @@ function syncResponsibleAssignment(targetType, targetId, personId, fromDate) {
   logAssignmentChange(targetType,targetId,previousPersonId,personId||"");
 }
 async function saveEditor(form) {
+  if (!canEdit()) return false;
   const data = Object.fromEntries(new FormData(form).entries());
   const existing = editorRecord && editorRecord.type === editorType ? editorRecord.record : null;
 
