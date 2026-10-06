@@ -72,3 +72,16 @@ Appens **Om**-flik visar användaren vad som kan vara publikt och vad som ska st
 **Backend äger all beständig data.**
 
 LEB/Excel är master för källdata. Backend äger Lokalblicks kompletteringar och overlays, inklusive geokoordinater. Excel skrivs aldrig automatiskt om.
+
+## Lokalblick V2 (separat migreringsversion)
+
+Se `docs/LOKALBLICK_V2.md` för inventering, bevarandegräns, målarkitektur och wireframes.
+
+- Publik/local demo: `npm run company`, öppna `http://127.0.0.1:8787/v2/index.html`.
+- Befintlig frontend finns kvar på `/index.html`, med länk till V2.
+- Lokal API-version: `npm run setup:company`, sedan `npm run company:api` och samma `/v2/index.html`. Den fungerande backendimplementationen från `copilot-backend` ligger isolerad i `backend/company/`. Den skriver kompletteringar till backendstore; INT/SF och EXT är read-only.
+- Kanonisk Excel: anslut arbetsfilen under Datakällor. Ändringar hålls pending tills **Spara till Excel** lyckas. Projekt-, underhålls-, drift- och önskemålslistor går via granskningskö.
+- `npm test` kör domän-, import-, binära Excel-roundtrip-, skrivfels- och API-persistenstester.
+- `npx playwright install chromium`, sedan `npm run test:browser` för desktop/mobil. En befintlig Chromium kan anges med `CHROMIUM_EXECUTABLE_PATH`.
+
+Verkliga arbetsfiler, dokument och företagsdata ska fortsatt ligga utanför repo. V2 är en stegvis migrering; den tidigare frontend behålls tills återstående specialflöden och verklig företagsanslutning verifierats.

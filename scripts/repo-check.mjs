@@ -33,7 +33,7 @@ function walk(dir) {
 
 const jsFiles = ["frontend", "backend"]
   .flatMap((dir) => walk(path.join(root, dir)))
-  .filter((file) => file.endsWith(".js"));
+  .filter((file) => /\.(js|mjs)$/.test(file));
 
 let failed = false;
 for (const file of jsFiles) {
@@ -59,7 +59,7 @@ if (tracked.status === 0) {
     .split(/\r?\n/)
     .filter(Boolean)
     .filter((file) =>
-      /(^|\/)\.env($|\.)/i.test(file) ||
+      (/(^|\/)\.env($|\.)/i.test(file) && !/(^|\/)\.env(?:\.[^.]+)*\.example$/i.test(file)) ||
       /\.(xlsx|xls|xlsm|sqlite|sqlite3|db)$/i.test(file) ||
       /(^|\/)(credentials|secrets)\.json$/i.test(file)
     );

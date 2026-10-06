@@ -132,10 +132,10 @@
   }
   function ensureContract(data,number,property,extra){
     const contractNo=text(number);
-    let c=data.contracts.find(function(x){return x.number===contractNo && contractNo;});
+    let c=data.contracts.find(function(x){return x.number===contractNo && contractNo && x.propertyId===(property?property.id:"") && x.sourceSheet===(extra||{}).sourceSheet && x.sourceRow===(extra||{}).sourceRow;});
     if(!c){
       const fallback=[property&&property.id,(extra||{}).sourceSheet,(extra||{}).sourceRow,(extra||{}).use,(extra||{}).area].filter(Boolean).join("|") || "contract";
-      c={id:"AVT|"+(contractNo||hash(fallback)),sourceId:contractNo,propertyId:property?property.id:"",number:contractNo,source:"",area:0,category:"",use:"",start:"",end:"",notice:"",annualRent:0,annualContractDrift:0,unitId:"",tenantOrgId:"",ownerOrgId:"",employees:0,users:0,rooms:0,commonArea:0,apartmentArea:0,sourceSheet:"",sourceRow:""};
+      c={id:"AVT|"+(contractNo ? contractNo+(data.contracts.some(function(x){return x.number===contractNo;})?"|"+hash((property&&property.id)+"|"+(extra||{}).sourceSheet+"|"+(extra||{}).sourceRow):"") : hash(fallback)),sourceId:contractNo,propertyId:property?property.id:"",number:contractNo,source:"",area:0,category:"",use:"",start:"",end:"",notice:"",annualRent:0,annualContractDrift:0,unitId:"",tenantOrgId:"",ownerOrgId:"",employees:0,users:0,rooms:0,commonArea:0,apartmentArea:0,sourceSheet:"",sourceRow:""};
       data.contracts.push(c);
     }
     Object.keys(extra||{}).forEach(function(k){ if(extra[k]!=="" && extra[k]!=null) c[k]=extra[k]; });
@@ -234,9 +234,9 @@
     ensureOrg(data,"Vår organisation","our","");
     const report={profile:"HVOF v1",sourceKind:"migration",warnings:[],unmatchedOrders:[],provisionalProperties:[],counts:{}};
 
-    // Primary source: Lokallista. SF/EXT are only fallback if Lokallista is absent.
-    let localRows=rows(workbook,"Lokallista",0);
-    if(!localRows.length) localRows=rows(workbook,"INT",0).concat(rows(workbook,"SF",0)).concat(rows(workbook,"EXT",0));
+    // Primary identity: INT/SF + EXT. Lokallista is only a legacy fallback.
+    let localRows=rows(workbook,"INT",0).concat(rows(workbook,"SF",0)).concat(rows(workbook,"EXT",0));
+    if(!localRows.length) localRows=rows(workbook,"Lokallista",0);
     localRows.forEach(function(item){
       const r=item.row,h=item.headers;
       const sourceObject=text(cell(r,h,["Förvaltningsobjekt"]));

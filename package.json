@@ -6,10 +6,23 @@
   "description": "Lokalblick repository tooling and preflight checks",
   "scripts": {
     "check": "node scripts/repo-check.mjs",
-    "test": "node scripts/repo-check.mjs",
-    "company": "node backend/server.mjs"
+    "test": "node --test tests/*.test.js backend/company-test/*.test.js && node scripts/repo-check.mjs",
+    "company": "node backend/server.mjs",
+    "company:api": "node backend/company/server.js",
+    "setup:company": "node scripts/setup-company.mjs",
+    "test:browser": "node scripts/browser-check.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1",
+    "xlsx": "^0.18.5"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   }
 }

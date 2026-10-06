@@ -7,13 +7,13 @@ Arbetsbranch: `refactor/lokalblick-v2`. Main och utveckling ska inte ändras.
 
 Det finns två parallella implementationer som ännu inte integrerats:
 
-| Del | Utveckling | Copilot-backend |
-| --- | --- | --- |
-| Runtime | backend/server.mjs, statiska filer + health/geocode | backend/src/server.js, loopback + bootstrap/workspace/entity/source |
-| Data service | demo eller browser-local Excel | server ersätter /services/data-service.js med company-api |
-| Excel | source-service.js, SheetJS, File System Access | local-company-source-adapter.js, ExcelJS, SF/EXT read-only |
-| Persistens | pendingChanges → explicit write() → Lokalblick-data modell 3 | JSON-store utanför repo, atomiska writes, master + overlays |
-| Kontrakt | backend/api/openapi.yaml, delvis deklarerat men ej implementerat | docs/BACKEND_FRONTEND_CONTRACT.md, fungerande API |
+| Del          | Utveckling                                                       | Copilot-backend                                                     |
+| ------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Runtime      | backend/server.mjs, statiska filer + health/geocode              | backend/src/server.js, loopback + bootstrap/workspace/entity/source |
+| Data service | demo eller browser-local Excel                                   | server ersätter /services/data-service.js med company-api           |
+| Excel        | source-service.js, SheetJS, File System Access                   | local-company-source-adapter.js, ExcelJS, SF/EXT read-only          |
+| Persistens   | pendingChanges → explicit write() → Lokalblick-data modell 3     | JSON-store utanför repo, atomiska writes, master + overlays         |
+| Kontrakt     | backend/api/openapi.yaml, delvis deklarerat men ej implementerat | docs/BACKEND_FRONTEND_CONTRACT.md, fungerande API                   |
 
 `AGENTS.md` finns inte i utveckling. Copilot-instruktionerna beskriver backend-arbetsströmmen; denna produktombyggnad följer användarens uttryckliga branch- och fullstackuppdrag.
 
@@ -44,13 +44,13 @@ Historiken visar separata tillägg för tät avtalslista, indexkontroller, preli
 
 ## 4. Minimal målstruktur
 
-| Lager | Ägare | Gräns |
-| --- | --- | --- |
-| Sources | befintlig source-service / company backend | raw workbook/bytes och handles stannar lokalt |
-| Adapters | befintliga parsers + normaliserad granskningspipeline | records, suggestions, conflicts, provenance |
-| Model | frontend/v2/model.js | stabila ID:n, relationer, delat urval, inga Excelkolumnnamn |
-| Calculations | frontend/domain/calculations.js | rena funktioner; inget window/state/DOM |
-| Presentation | frontend/v2/{app,views,editor,styles} | samma snapshot, ett filter, radlistor och inline-detalj |
+| Lager        | Ägare                                                 | Gräns                                                       |
+| ------------ | ----------------------------------------------------- | ----------------------------------------------------------- |
+| Sources      | befintlig source-service / company backend            | raw workbook/bytes och handles stannar lokalt               |
+| Adapters     | befintliga parsers + normaliserad granskningspipeline | records, suggestions, conflicts, provenance                 |
+| Model        | frontend/v2/model.js                                  | stabila ID:n, relationer, delat urval, inga Excelkolumnnamn |
+| Calculations | frontend/domain/calculations.js                       | rena funktioner; inget window/state/DOM                     |
+| Presentation | frontend/v2/{app,views,editor,styles}                 | samma snapshot, ett filter, radlistor och inline-detalj     |
 
 Datatransport används via befintlig `LokalblickDataService.load/save` och `LokalblickSourceService`. Inga nya UI-ramverk eller komponentbibliotek krävs. Tilläggsmetadata sparas i en separat kompatibel Excel-flik; gamla flikar och ID:n behålls.
 
@@ -62,19 +62,19 @@ Den fungerande company-backenden integreras som en separat runtime, utan att byt
 
 ## 6. Risker och beslut
 
-| Risk | Åtgärd / verifiering |
-| --- | --- |
-| Backend saknas i utveckling | importera fungerande implementation separat; kör dess befintliga tester |
-| Data tappas vid writeback | binary XLSX roundtrip för relationer, aktiviteter, provenance, konflikter, budget och historik |
-| Osäker matchning skriver fel avtal | exact unique endast; granskning med explicit val |
-| KPI-serier kan ha olika bas | beräkna bara med jämförbar serie; märk Behöver kontroll vid känd konflikt, ingen hårdkodad kalendergräns |
-| Endast annat månadsindex finns | välj uttryckligen oktober, aldrig årets första rad |
-| Browser-import på företagets API-runtime | stäng av direkt filkoppling där; behåll backend som persistensägare |
-| Excel låst/stale handle | pending changes bevaras vid fel, ingen falsk sparindikering |
-| Aktiviteter och legacy-arrayer dubblerar kostnad | samma ID:n och kompatibilitetsmodell, budget räknar en gång |
-| Budget låst men detaljer ändras | snapshot och mål orörda, prognos separat |
-| Dokument kräver företagsåtkomst | resolver skiljer öppningsbar URL, lokal referens och återanslutningsbehov |
-| CDN/importbibliotek | inga externa rådataanrop, versionslåsta bibliotek; separat arbete för helt offline drift |
+| Risk                                             | Åtgärd / verifiering                                                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Backend saknas i utveckling                      | importera fungerande implementation separat; kör dess befintliga tester                                  |
+| Data tappas vid writeback                        | binary XLSX roundtrip för relationer, aktiviteter, provenance, konflikter, budget och historik           |
+| Osäker matchning skriver fel avtal               | exact unique endast; granskning med explicit val                                                         |
+| KPI-serier kan ha olika bas                      | beräkna bara med jämförbar serie; märk Behöver kontroll vid känd konflikt, ingen hårdkodad kalendergräns |
+| Endast annat månadsindex finns                   | välj uttryckligen oktober, aldrig årets första rad                                                       |
+| Browser-import på företagets API-runtime         | stäng av direkt filkoppling där; behåll backend som persistensägare                                      |
+| Excel låst/stale handle                          | pending changes bevaras vid fel, ingen falsk sparindikering                                              |
+| Aktiviteter och legacy-arrayer dubblerar kostnad | samma ID:n och kompatibilitetsmodell, budget räknar en gång                                              |
+| Budget låst men detaljer ändras                  | snapshot och mål orörda, prognos separat                                                                 |
+| Dokument kräver företagsåtkomst                  | resolver skiljer öppningsbar URL, lokal referens och återanslutningsbehov                                |
+| CDN/importbibliotek                              | inga externa rådataanrop, versionslåsta bibliotek; separat arbete för helt offline drift                 |
 
 `npm test` på basen kör endast syntax/preflight och misslyckas redan eftersom .env.example felaktigt flaggas som hemlighet. Detta behöver korrigeras och kompletteras med riktiga domän-/roundtriptester.
 
@@ -92,13 +92,13 @@ Den fungerande company-backenden integreras som en separat runtime, utan att byt
 
 Gemensamt: navigation på desktop; fem val i mobilens botten. En filterrad: Ansvarig · Organisation · Fastighetsägare, sök därunder på mobil. Aktuellt urval följer användaren. Global sparstatus visar osparade rader och Spara till Excel eller backendstatus.
 
-| Vy | Överst | Radlista | Öppnad rad / åtgärd |
-| --- | --- | --- | --- |
-| Översikt | Aktuellt urval; hyra, projekt, löpande; behöver hanteras | fastighet/adress, avtal, area, årskostnad | samma fastighetskontext under raden, välj perspektiv |
-| Fastighet | adress, organisation, total area/kostnad | Avtal · Projekt · Underhåll · Drift · Önskemål | inline-detalj; kompakt edit-panel med sektioner |
-| Avtal | antal, total hyra/area, datakvalitet | nr, adress, area, hyra/tillägg, status | Villkor · Index · Dokument · Källa; beräknat märkt, råvärden redigerbara |
-| Planera | ej fördelat som åtgärd, år | fastighet/aktivitet, ansvarig, status, period, kostnad | ändra ansvar/kvartal/månad; logga person/tid; flytta önskemål |
-| Budget | år, preliminärt oktoberindex, budget/prognos/utfall | kategori, underlag, justering, budget, prognos | expandera exakt underlagsrader; skapa/lås snapshot |
-| Datakällor | kanonisk arbetsfil + sparstatus | källa, typ, antal, senaste import, konflikter | anslut read-only underlag → granskningskö → acceptera → spara arbetsfil |
+| Vy         | Överst                                                   | Radlista                                               | Öppnad rad / åtgärd                                                      |
+| ---------- | -------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Översikt   | Aktuellt urval; hyra, projekt, löpande; behöver hanteras | fastighet/adress, avtal, area, årskostnad              | samma fastighetskontext under raden, välj perspektiv                     |
+| Fastighet  | adress, organisation, total area/kostnad                 | Avtal · Projekt · Underhåll · Drift · Önskemål         | inline-detalj; kompakt edit-panel med sektioner                          |
+| Avtal      | antal, total hyra/area, datakvalitet                     | nr, adress, area, hyra/tillägg, status                 | Villkor · Index · Dokument · Källa; beräknat märkt, råvärden redigerbara |
+| Planera    | ej fördelat som åtgärd, år                               | fastighet/aktivitet, ansvarig, status, period, kostnad | ändra ansvar/kvartal/månad; logga person/tid; flytta önskemål            |
+| Budget     | år, preliminärt oktoberindex, budget/prognos/utfall      | kategori, underlag, justering, budget, prognos         | expandera exakt underlagsrader; skapa/lås snapshot                       |
+| Datakällor | kanonisk arbetsfil + sparstatus                          | källa, typ, antal, senaste import, konflikter          | anslut read-only underlag → granskningskö → acceptera → spara arbetsfil  |
 
 Mobil: samma rader med sekundär information under huvudtext, inga desktop-tabeller som krymps till oläslighet. Editor har Villkor/Ekonomi/Index/Övrigt som sektioner, inte en lång modal. Alla fält nås via sektionerna; beräknade värden visas separat.

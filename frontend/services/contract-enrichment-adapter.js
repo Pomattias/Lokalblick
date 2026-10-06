@@ -314,36 +314,11 @@
     }).sort(function(a,b){return b.score-a.score;});
     if(!scored.length || scored[0].score<55) return {contract:null,method:"Poäng",score:scored.length?scored[0].score:0,candidates:scored.slice(0,3).map(function(x){return x.contract.id;})};
     if(scored[1] && scored[1].score>=scored[0].score-8) return {contract:null,method:"Poäng",score:scored[0].score,ambiguous:true,candidates:scored.slice(0,3).map(function(x){return x.contract.id;})};
-    return {contract:scored[0].contract,method:"Poäng",score:scored[0].score,reasons:scored[0].reasons};
+    return {contract:null,method:"Poäng",score:scored[0].score,ambiguous:true,candidates:scored.slice(0,3).map(function(x){return x.contract.id;})};
   }
 
-  function indexValue(series,year){
-    year=Number(year)||0;
-    var rows=(series||[]).filter(function(x){return Number(x.year)===year;});
-    if(!rows.length) return 0;
-    var october=rows.find(function(x){return Number(x.month)===10 || norm(x.period)==="oktober";});
-    return Number((october||rows[0]).value)||0;
-  }
-  function indexedAmount(baseAmount,baseIndex,indexShare,currentIndex){
-    baseAmount=Number(baseAmount)||0;baseIndex=Number(baseIndex)||0;indexShare=Number(indexShare)||0;currentIndex=Number(currentIndex)||0;
-    if(!baseAmount || !baseIndex || !currentIndex) return 0;
-    var calculated=baseAmount * (1 + indexShare * ((currentIndex-baseIndex)/baseIndex));
-    return Math.max(baseAmount,calculated);
-  }
-  function varianceTooLarge(actual,calculated){
-    actual=Number(actual)||0;calculated=Number(calculated)||0;
-    if(!actual || !calculated) return false;
-    return Math.abs(actual-calculated) > Math.max(100,Math.abs(actual)*0.005);
-  }
-  function crossesKpiBaseChange(baseYear,indexYear){
-    return Number(baseYear)>0 && Number(baseYear)<=2025 && Number(indexYear)>=2026;
-  }
-  function toleranceDiff(actual,calculated){
-    actual=Number(actual)||0;calculated=Number(calculated)||0;
-    if(!actual||!calculated) return 0;
-    return actual-calculated;
-  }
-
+  function indexValue(series,year){ return Number(window.LokalblickCalculations.october(series,year)?.value)||0; }
+  function indexedAmount(baseAmount,baseIndex,indexShare,currentIndex){ return window.LokalblickCalculations.indexedAmount(baseAmount,baseIndex,indexShare,currentIndex); }
   function parseIndexWorkbook(workbook,fileName){
     var rows=[];
     (workbook.SheetNames||[]).forEach(function(name){
@@ -478,6 +453,7 @@
         return;
       }
       var c=match.contract;
+      var before=clone(c);
       var property=(data.properties||[]).find(function(p){return p.id===c.propertyId;});
       if(r.area && c.area && Math.abs(Number(r.area)-Number(c.area))>Math.max(1,Number(c.area)*0.01)){
         report.discrepancies.push({contractId:c.id,field:"area",primary:c.area,enrichment:r.area,sourceRow:r.sourceRow});
@@ -513,57 +489,25 @@
         contractDocumentKind:r.documentKind||"",
         enrichmentSource:fileName||"",enrichmentSourceRow:r.sourceRow,enrichmentTargetYear:r.targetYear||0
       };
-      Object.keys(values).forEach(function(key){ if(values[key]!=="" && values[key]!=null && values[key]!==0) c[key]=values[key]; });
-
-      var targetYear=Number(r.targetYear)||0;
-      var indexYear=targetYear ? targetYear-1 : 0;
-      var currentIndex=indexYear ? indexValue(data.indexSeries,indexYear) : 0;
-      var explicitRentBase=Number(r.rentBaseIndex)||0;
-      var explicitAdditionBase=Number(r.additionBaseIndex)||0;
-      var rentBaseIndex=explicitRentBase||indexValue(data.indexSeries,r.rentBaseYear);
-      var additionBaseIndex=explicitAdditionBase||indexValue(data.indexSeries,r.additionBaseYear);
-      c.derivedRentBaseIndex = !explicitRentBase && rentBaseIndex ? rentBaseIndex : 0;
-      c.derivedAdditionBaseIndex = !explicitAdditionBase && additionBaseIndex ? additionBaseIndex : 0;
-      c.rentCalculationStatus = explicitRentBase ? "Bastal från avtal" : (rentBaseIndex ? "Preliminär · bastal härlett från basår" : "Bastal saknas");
-      c.additionCalculationStatus = explicitAdditionBase ? "Bastal från avtal" : (additionBaseIndex ? "Preliminär · bastal härlett från basår" : "Bastal saknas");
-
-      var rentCrossesBase=crossesKpiBaseChange(r.rentBaseYear,indexYear);
-      var additionCrossesBase=crossesKpiBaseChange(r.additionBaseYear,indexYear);
-      if(rentCrossesBase || additionCrossesBase){
-        if(rentCrossesBase) c.rentCalculationStatus="Kan ej beräknas · KPI-basbyte";
-        if(additionCrossesBase) c.additionCalculationStatus="Kan ej beräknas · KPI-basbyte";
-        report.warnings.push("KPI byter basår från 2026. Äldre bastal måste räknas om innan index för "+indexYear+" kan jämföras.");
-      }
-      if(!explicitRentBase && rentBaseIndex) report.warnings.push("Minst ett hyresavtal saknar explicit bastal. Lokalblick visar då endast en preliminär kontroll från Basår.");
-      if(!explicitAdditionBase && additionBaseIndex && r.baseAdditions) report.warnings.push("Minst ett tillägg saknar explicit bastal. Lokalblick visar då endast en preliminär kontroll från Basår.");
-
-      if(targetYear && currentIndex){
-        if(r.baseRent && rentBaseIndex && !rentCrossesBase){
-          c.calculatedAnnualRent=Math.round(indexedAmount(r.baseRent,rentBaseIndex,r.rentIndexPercent,currentIndex));
-          c.rentIndexCurrent=currentIndex;
-          c.rentIndexYear=indexYear;
-          c.rentCalculationYear=targetYear;
-          c.rentCalculationVariance=Math.round(toleranceDiff(r.annualRent,c.calculatedAnnualRent));
-          if(varianceTooLarge(r.annualRent,c.calculatedAnnualRent)){
-            report.discrepancies.push({contractId:c.id,field:"hyresberäkning",primary:r.annualRent,enrichment:c.calculatedAnnualRent,sourceRow:r.sourceRow,
-              detail:"Grundhyra "+Math.round(r.baseRent)+" · bastal "+rentBaseIndex+" · indexandel "+Math.round((Number(r.rentIndexPercent)||0)*100)+"% · oktoberindex "+indexYear+" "+currentIndex});
-          }
+      Object.keys(values).forEach(function(key){
+        if(values[key]==="" || values[key]==null || values[key]===0)return;
+        if(!/^enrichment/.test(key) && c[key]!=="" && c[key]!=null && c[key]!==0 && c[key]!==values[key]) {
+          report.discrepancies.push({contractId:c.id,field:key,primary:c[key],enrichment:values[key],sourceRow:r.sourceRow});return;
         }
-        if(r.baseAdditions && additionBaseIndex && !additionCrossesBase){
-          c.calculatedAnnualAdditions=Math.round(indexedAmount(r.baseAdditions,additionBaseIndex,r.additionIndexPercent,currentIndex));
-          c.additionIndexCurrent=currentIndex;
-          c.additionIndexYear=indexYear;
-          c.additionCalculationYear=targetYear;
-          c.additionCalculationVariance=Math.round(toleranceDiff(r.annualAdditions,c.calculatedAnnualAdditions));
-          if(varianceTooLarge(r.annualAdditions,c.calculatedAnnualAdditions)){
-            report.discrepancies.push({contractId:c.id,field:"tilläggsberäkning",primary:r.annualAdditions,enrichment:c.calculatedAnnualAdditions,sourceRow:r.sourceRow,
-              detail:"Grundtillägg "+Math.round(r.baseAdditions)+" · bastal "+additionBaseIndex+" · indexandel "+Math.round((Number(r.additionIndexPercent)||0)*100)+"% · oktoberindex "+indexYear+" "+currentIndex});
-          }
-        }
-      } else if(targetYear && (rentBaseIndex || additionBaseIndex || r.rentBaseYear || r.additionBaseYear)) {
-        report.warnings.push("KPI oktober "+indexYear+" saknas för beräkning av "+targetYear+" års hyra.");
-      }
+        c[key]=values[key];
+      });
 
+      var targetYear=Number(c.enrichmentTargetYear)||Number(r.targetYear)||new Date().getFullYear();
+      ["rent","addition"].forEach(function(kind){
+        var result=window.LokalblickCalculations.component(c,kind,targetYear,0,data.indexSeries);
+        c[kind+"CalculationStatus"]=result.status;
+        if(result.calculated){c[kind==="rent"?"calculatedAnnualRent":"calculatedAnnualAdditions"]=Math.round(result.amount);c[kind+"IndexCurrent"]=result.usedIndex;c[kind+"IndexYear"]=result.indexYear;c[kind+"CalculationYear"]=targetYear;}
+        if(result.reason)report.warnings.push(result.reason+" · "+(c.number||c.id));
+      });
+
+      c.provenance=c.provenance||{};
+      Object.keys(c).filter(function(k){return k!=="provenance" && JSON.stringify(c[k])!==JSON.stringify(before[k]);}).forEach(function(k){c.provenance[k]={source:/^calculated/.test(k)?"calculated":fileName||hit.sheet,sheet:hit.sheet,row:r.sourceRow,value:c[k]};});
+      ["number","area","start","end","use"].forEach(function(k){if(!c.provenance[k])c.provenance[k]={source:c.source||c.sourceSheet||"INT/EXT",sheet:c.sourceSheet||"",row:c.sourceRow||"",value:c[k]};});
       report.matched.push({sourceRow:r.sourceRow,contractId:c.id,number:c.number||"",method:match.method,score:match.score,reasons:match.reasons||[]});
     });
 
@@ -585,43 +529,25 @@
       workbookDocumentCandidates:(documentCatalog.all||[]).length
     };
     report.warnings=Array.from(new Set(report.warnings));
+    data.sourceRegistry=data.sourceRegistry||[];
+    data.sourceRegistry.push({id:"source:"+(data.sourceRegistry.length+1),name:fileName||hit.sheet,kind:"contract-enrichment",importedAt:new Date().toISOString(),rows:rows.length});
+    data.importReview=data.importReview||[];
+    report.needsReview.concat(report.unmatched).forEach(function(item){data.importReview.push({id:"review:"+(data.importReview.length+1),kind:"match",source:fileName||hit.sheet,sheet:hit.sheet,row:item.sourceRow,candidates:item.candidates||[],record:rows.find(function(x){return x.sourceRow===item.sourceRow;}),status:"pending"});});
+    report.discrepancies.forEach(function(item){data.importReview.push({id:"review:"+(data.importReview.length+1),kind:"conflict",source:fileName||hit.sheet,sheet:hit.sheet,row:item.sourceRow,contractId:item.contractId,field:item.field,current:item.primary,proposed:item.enrichment,status:"pending"});});
     data.contractEnrichmentReport=clone(report);
     return {data:data,report:report};
   }
 
   function applyIndexSeries(baseData,series,fileName){
-    var data=clone(baseData||{});
-    data.indexSeries=series.slice();
-    var recalculated=0,missing=0;
+    var data=clone(baseData||{});data.indexSeries=series.slice();var recalculated=0,missing=0;
     (data.contracts||[]).forEach(function(c){
-      var year=Number(c.enrichmentTargetYear)||0;
-      if(!year) return;
-      var indexYear=year-1;
-      var current=indexValue(series,indexYear);
-      if(!current){missing++;return;}
-      var explicitRentBase=Number(c.rentBaseIndex)||0;
-      var explicitAdditionBase=Number(c.additionBaseIndex)||0;
-      var rentBase=explicitRentBase||indexValue(series,c.rentBaseYear);
-      var additionBase=explicitAdditionBase||indexValue(series,c.additionBaseYear);
-      c.derivedRentBaseIndex=!explicitRentBase&&rentBase?rentBase:0;
-      c.derivedAdditionBaseIndex=!explicitAdditionBase&&additionBase?additionBase:0;
-      c.rentCalculationStatus=explicitRentBase?"Bastal från avtal":(rentBase?"Preliminär · bastal härlett från basår":"Bastal saknas");
-      c.additionCalculationStatus=explicitAdditionBase?"Bastal från avtal":(additionBase?"Preliminär · bastal härlett från basår":"Bastal saknas");
-      if(crossesKpiBaseChange(c.rentBaseYear,indexYear)) c.rentCalculationStatus="Kan ej beräknas · KPI-basbyte";
-      if(crossesKpiBaseChange(c.additionBaseYear,indexYear)) c.additionCalculationStatus="Kan ej beräknas · KPI-basbyte";
-      if(Number(c.baseRent)&&rentBase&&!crossesKpiBaseChange(c.rentBaseYear,indexYear)){
-        c.calculatedAnnualRent=Math.round(indexedAmount(c.baseRent,rentBase,c.rentIndexPercent,current));
-        c.rentIndexCurrent=current;c.rentIndexYear=indexYear;c.rentCalculationYear=year;
-        c.rentCalculationVariance=Math.round(toleranceDiff(c.annualRent,c.calculatedAnnualRent));recalculated++;
-      }
-      if(Number(c.baseAdditions)&&additionBase&&!crossesKpiBaseChange(c.additionBaseYear,indexYear)){
-        c.calculatedAnnualAdditions=Math.round(indexedAmount(c.baseAdditions,additionBase,c.additionIndexPercent,current));
-        c.additionIndexCurrent=current;c.additionIndexYear=indexYear;c.additionCalculationYear=year;
-        c.additionCalculationVariance=Math.round(toleranceDiff(c.annualAdditions,c.calculatedAnnualAdditions));recalculated++;
-      }
+      var year=Number(c.enrichmentTargetYear)||new Date().getFullYear();
+      ["rent","addition"].forEach(function(kind){var result=window.LokalblickCalculations.component(c,kind,year,0,series);c[kind+"CalculationStatus"]=result.status;
+        if(result.calculated){c[kind==="rent"?"calculatedAnnualRent":"calculatedAnnualAdditions"]=Math.round(result.amount);c[kind+"IndexYear"]=result.indexYear;c[kind+"CalculationYear"]=year;recalculated++;}else if(result.base)missing++;
+      });
     });
     data.indexSourceName=fileName||"KPI";
-    return {data:data,report:{fileName:fileName||"",rows:series.length,recalculated:recalculated,missing:missing}};
+    return {data:data,report:{recalculated:recalculated,missing:missing,sourceRows:series.length,warnings:missing?["Oktoberindex eller avtalsvillkor saknas för vissa komponenter."]:[]}};
   }
 
   window.LokalblickContractEnrichmentAdapter={
@@ -631,6 +557,9 @@
     enrich:enrich,
     parseIndexWorkbook:parseIndexWorkbook,
     applyIndexSeries:applyIndexSeries,
+    parseRows:parseRows,
+    detectHeader:detectHeader,
+    matchContract:matchContract,
     indexedAmount:indexedAmount
   };
 })();
