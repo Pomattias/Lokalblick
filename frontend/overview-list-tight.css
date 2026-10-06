@@ -1,0 +1,175 @@
+/* Lokalblick – tight overview lists */
+
+/* The large KPI/chip summary remains generous; everything below becomes dense. */
+#portfolio-overview-content .scope-all-sections {
+  display: grid;
+  gap: 10px;
+}
+
+#portfolio-overview-content .scope-list-section {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+#portfolio-overview-content .scope-list-head {
+  min-height: 38px;
+  margin: 0;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f7f9f9;
+  border-bottom: 1px solid var(--line);
+}
+
+#portfolio-overview-content .scope-list-title {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 9px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+#portfolio-overview-content .scope-list-title span {
+  font-size: 11px;
+  font-weight: 850;
+}
+
+#portfolio-overview-content .scope-list-title strong {
+  font-size: 11px;
+  color: var(--accent);
+}
+
+#portfolio-overview-content .scope-list-title small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+#portfolio-overview-content .scope-add-button {
+  min-height: 26px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: 10px;
+}
+
+#portfolio-overview-content .scope-list-row {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: minmax(220px, 2.15fr) minmax(90px, .8fr) minmax(160px, 1.25fr) minmax(130px, 1fr) minmax(82px, .65fr) minmax(86px, .65fr) minmax(105px, .8fr) 58px;
+  gap: 0;
+  align-items: center;
+  padding: 5px 10px;
+  border-bottom: 1px solid #edf0f2;
+}
+
+#portfolio-overview-content .scope-list-row:last-child {
+  border-bottom: 0;
+}
+
+#portfolio-overview-content .scope-list-row:hover {
+  background: #fbfcfc;
+}
+
+#portfolio-overview-content .scope-tight-cell {
+  min-width: 0;
+  padding: 0 9px;
+  border-left: 1px solid #edf0f2;
+  font-size: 10px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#portfolio-overview-content .scope-tight-cell:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+#portfolio-overview-content .scope-tight-post {
+  font-size: 11px;
+}
+
+#portfolio-overview-content .scope-tight-post strong,
+#portfolio-overview-content .scope-tight-kostnad strong {
+  font-weight: 800;
+}
+
+#portfolio-overview-content .scope-tight-status {
+  white-space: normal;
+}
+
+#portfolio-overview-content .scope-tight-status .badge {
+  padding: 3px 6px;
+  font-size: 9px;
+}
+
+#portfolio-overview-content .scope-tight-kostnad {
+  text-align: right;
+}
+
+#portfolio-overview-content .scope-tight-action {
+  text-align: right;
+  overflow: visible;
+}
+
+#portfolio-overview-content .scope-tight-action .inline-link {
+  margin: 0;
+  font-size: 9px;
+}
+
+@media (max-width: 1180px) {
+  #portfolio-overview-content .scope-list-row {
+    grid-template-columns: minmax(180px, 1.8fr) minmax(80px, .7fr) minmax(130px, 1.1fr) minmax(110px, .9fr) 74px 78px 95px 52px;
+  }
+}
+
+@media (max-width: 900px) {
+  #portfolio-overview-content .scope-list-row {
+    grid-template-columns: minmax(180px, 2fr) minmax(90px, .8fr) minmax(120px, 1.2fr) 88px 82px;
+  }
+  #portfolio-overview-content .scope-tight-ansvarig,
+  #portfolio-overview-content .scope-tight-area,
+  #portfolio-overview-content .scope-tight-tid {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  #portfolio-overview-content .scope-list-head {
+    padding: 7px 9px;
+  }
+  #portfolio-overview-content .scope-list-title {
+    grid-template-columns: auto auto;
+  }
+  #portfolio-overview-content .scope-list-title small {
+    display: none;
+  }
+  #portfolio-overview-content .scope-list-row {
+    min-height: 44px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    padding: 6px 8px;
+  }
+  #portfolio-overview-content .scope-tight-typ,
+  #portfolio-overview-content .scope-tight-fastighet,
+  #portfolio-overview-content .scope-tight-kund,
+  #portfolio-overview-content .scope-tight-ansvarig,
+  #portfolio-overview-content .scope-tight-area,
+  #portfolio-overview-content .scope-tight-tid {
+    display: none;
+  }
+  #portfolio-overview-content .scope-tight-status {
+    padding: 0 6px;
+  }
+  #portfolio-overview-content .scope-tight-kostnad {
+    padding: 0 6px;
+  }
+}
