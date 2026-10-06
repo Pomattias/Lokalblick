@@ -67,8 +67,16 @@ function ensureShape(data) {
     assignmentChanges: list("assignmentChanges")
   });
 }
+async function enrichConnectedData(data) {
+  if (!data || data.isDemo || !window.LokalblickGeocodingService) return data;
+  try {
+    return await window.LokalblickGeocodingService.enrichData(data);
+  } catch (_) {
+    return data;
+  }
+}
 async function loadState() {
-  state = ensureShape(await window.LokalblickDataService.load());
+  state = ensureShape(await enrichConnectedData(await window.LokalblickDataService.load()));
   return state;
 }
 async function saveState() {
@@ -2191,7 +2199,7 @@ function renderApi() {
   '</div>';
 }
 async function reloadFromActiveSource() {
-  state = ensureShape(await window.LokalblickDataService.load());
+  state = ensureShape(await enrichConnectedData(await window.LokalblickDataService.load()));
   render();
 }
 function bindApiControls() {
@@ -2200,7 +2208,7 @@ function bindApiControls() {
     button.addEventListener("click", async function() {
       try {
         const data=await window.LokalblickSourceService.connect(button.dataset.apiConnect);
-        state=ensureShape(data);
+        state=ensureShape(await enrichConnectedData(data));
         render();
       } catch (error) {
         if (error && error.name==="AbortError") return;
@@ -2214,7 +2222,7 @@ function bindApiControls() {
       try {
         const blank=button.dataset.apiCreate==="blank";
         const data=await window.LokalblickSourceService.createFile(state,"readwrite",blank);
-        state=ensureShape(data);
+        state=ensureShape(await enrichConnectedData(data));
         render();
       } catch (error) {
         if (error && error.name==="AbortError") return;
@@ -2226,7 +2234,11 @@ function bindApiControls() {
   if (reconnect && !reconnect.dataset.apiBound) {
     reconnect.dataset.apiBound="1";
     reconnect.addEventListener("click",async function(){
-      try { state=ensureShape(await window.LokalblickSourceService.reconnect()); render(); }
+      try {
+        const data=await window.LokalblickSourceService.reconnect();
+        state=ensureShape(await enrichConnectedData(data));
+        render();
+      }
       catch(error){ alert(error.message || String(error)); }
     });
   }
