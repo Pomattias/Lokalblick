@@ -3,13 +3,16 @@ import {
   getStoredCoordinate,
   loadCoordinateStore,
   saveCoordinateStore,
-  upsertCoordinate
+  upsertCoordinate,
+  normalizeAddress
 } from "./coordinate-store.js";
 
 const PROVIDER = "azure-maps";
 const API_VERSION = "2026-01-01";
 const ENDPOINT = "https://atlas.microsoft.com";
 const MAX_BATCH_SIZE = 100;
+const NOT_FOUND_RETRY_MS = 24 * 60 * 60 * 1000;
+const ERROR_RETRY_MS = 60 * 60 * 1000;
 
 function configError() {
   const error = new Error("Azure Maps är inte konfigurerat. Sätt AZURE_MAPS_SUBSCRIPTION_KEY i backend-miljön.");
@@ -140,6 +143,16 @@ export function isGeocodingConfigured() {
   return Boolean(process.env.AZURE_MAPS_SUBSCRIPTION_KEY);
 }
 
+function cacheCanBeReused(entry) {
+  if (!entry) return false;
+  if (entry.status === "matched" || entry.status === "review") return true;
+  const updatedAt = entry.updatedAt || entry.geocodedAt;
+  const age = updatedAt ? Date.now() - new Date(updatedAt).getTime() : Infinity;
+  if (entry.status === "not_found") return age < NOT_FOUND_RETRY_MS;
+  if (entry.status === "error") return age < ERROR_RETRY_MS;
+  return false;
+}
+
 export async function geocodeProperties(input) {
   const properties = validateProperties(input);
   const store = await loadCoordinateStore();
@@ -148,26 +161,20 @@ export async function geocodeProperties(input) {
 
   for (const property of properties) {
     const cached = getCachedCoordinate(store, property);
-    if (cached && cached.status === "matched" && Number.isFinite(cached.latitude) && Number.isFinite(cached.longitude)) {
+    const stored = getStoredCoordinate(store, property.id);
+    const addressChanged = Boolean(stored && stored.geocodedAddressKey !== normalizeAddress(property.address));
+
+    if (cached && cacheCanBeReused(cached)) {
       results.push(Object.assign({}, cached, {
         id: property.id,
         sourceId: property.sourceId || cached.sourceId || "",
         address: property.address,
-        cached: true
-      }));
-      continue;
-    }
-    if (cached && cached.status === "review" && !Number.isFinite(property.latitude) && !Number.isFinite(property.longitude)) {
-      results.push(Object.assign({}, cached, {
-        id: property.id,
-        sourceId: property.sourceId || cached.sourceId || "",
-        address: property.address,
+        addressChanged: false,
         cached: true
       }));
       continue;
     }
 
-    const stored = getStoredCoordinate(store, property.id);
     if (Number.isFinite(property.latitude) && Number.isFinite(property.longitude) && !cached && !stored) {
       const seeded = {
         id: property.id,
@@ -182,17 +189,19 @@ export async function geocodeProperties(input) {
         geocodedAt: new Date().toISOString()
       };
       upsertCoordinate(store, property, seeded);
-      results.push(Object.assign({}, seeded, { cached: true }));
+      results.push(Object.assign({}, seeded, { cached: true, addressChanged: false }));
       continue;
     }
 
-    needsProvider.push(property);
+    needsProvider.push(Object.assign({}, property, { addressChanged }));
   }
 
   for (let offset = 0; offset < needsProvider.length; offset += MAX_BATCH_SIZE) {
     const chunk = needsProvider.slice(offset, offset + MAX_BATCH_SIZE);
     const providerResults = await callAzureBatch(chunk);
     providerResults.forEach((result) => {
+      const property = chunk.find((item) => item.id === result.id);
+      result.addressChanged = Boolean(property && property.addressChanged);
       upsertCoordinate(store, result, result);
       results.push(result);
     });
