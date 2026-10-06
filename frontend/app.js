@@ -1675,7 +1675,7 @@ function scopeActivitySectionHtml(contracts, group, title, addType) {
       '<span>' + esc(title) + '</span><strong>' + money(total) + '</strong><small>' + items.length + ' poster</small></button>' +
       (addType ? '<button type="button" class="scope-add-button" data-add="' + addType + '">+ Ny</button>' : '') +
     '</div>' +
-    (rows || '<div class="empty compact">Inga poster i urvalet.</div>') +
+    '<div class="scope-list-columns"><span>Post</span><span>Typ</span><span>Fastighet</span><span>Ansvarig</span><span>Status</span><span>Tid</span><span>Tillagd</span><span>Kostnad</span><span></span></div>' +    (rows || '<div class="empty compact">Inga poster i urvalet.</div>') +
   '</section>';
 }
 
@@ -1698,7 +1698,7 @@ function scopeContractsSectionHtml(contracts) {
   return '<section class="scope-list-section">' +
     '<div class="scope-list-head"><button type="button" class="scope-list-title" data-portfolio-section="contracts">' +
       '<span>Avtal</span><strong>' + money(total) + '/år</strong><small>' + contracts.length + ' avtal</small></button></div>' +
-    (rows || '<div class="empty compact">Inga avtal i urvalet.</div>') +
+    '<div class="scope-list-columns contract-columns"><span>Avtal</span><span>Kund</span><span>Fastighet</span><span>Area</span><span>Status</span><span>Slut</span><span>Tillagd</span><span>Kostnad</span><span></span></div>' +    (rows || '<div class="empty compact">Inga avtal i urvalet.</div>') +
   '</section>';
 }
 
@@ -1777,7 +1777,7 @@ function renderProperties() {
     '</section>' +
 
     '<section class="portfolio-mobile-workspace ' + (portfolioExplorer.section==="activities" ? "plan-visible" : "") + '">' +
-      '<div id="mobile-property-persistent-context"></div>' +
+      '<div id="portfolio-access-mode-mobile">' + accessModeBarHtml() + '</div><div id="mobile-property-persistent-context"></div>' +
       '<div class="mobile-panels unified-panels">' +
         '<div class="mobile-panel" id="mobile-overview-panel"><div id="mobile-overview-content">' + mobileOverviewHtml(initialContracts) + '</div></div>' +
         '<div class="mobile-panel" id="mobile-properties-panel" hidden><div id="mobile-properties-content">' + mobilePropertyCardsHtml(initialContracts) + '</div></div>' +
