@@ -447,7 +447,7 @@
     if(value==="" || value==null || value===0) return;
     if(target[key]==="" || target[key]==null || target[key]===0) target[key]=value;
   }
-  function enrich(workbook,baseData,fileName){
+  function enrich(workbook,baseData,fileName,arrayBuffer){
     var hit=detectHeader(workbook);
     if(!hit) throw new Error("Avtalsfilen känns inte igen. Kontrollera att rubriker som Fastighetsbeteckning, Adress, Avtalsnummer, Verksamhet och Hyresvärd finns.");
     var data=clone(baseData||{});
@@ -456,12 +456,21 @@
     data.organizations=Array.isArray(data.organizations)?data.organizations:[];
     data.indexSeries=Array.isArray(data.indexSeries)?data.indexSeries:[];
     var rows=parseRows(workbook,hit);
+    var documentCatalog=scanWorkbookDocuments(arrayBuffer);
     var report={
       profile:"Avtalsberikning v1",fileName:fileName||"",sheet:hit.sheet,sourceRows:rows.length,
       matched:[],needsReview:[],unmatched:[],discrepancies:[],warnings:[],reconciliation:{}
     };
 
     rows.forEach(function(r){
+      if(!r.documentUrl && r.number){
+        var workbookDocument=findWorkbookDocument(documentCatalog,r.number);
+        if(workbookDocument){
+          r.documentUrl=workbookDocument.target || ("embedded://"+workbookDocument.key);
+          r.documentName=workbookDocument.name || "";
+          r.documentKind=workbookDocument.kind || "";
+        }
+      }
       var match=matchContract(data,r);
       if(!match.contract){
         var entry={sourceRow:r.sourceRow,number:r.number,designation:r.designation,address:r.address,score:match.score||0,candidates:match.candidates||[]};
@@ -500,7 +509,8 @@
         mediaWaste:r.mediaWaste,mediaElectricity:r.mediaElectricity,mediaWater:r.mediaWater,mediaHeating:r.mediaHeating,
         mediaHotWater:r.mediaHotWater,mediaVentilation:r.mediaVentilation,mediaOutdoor:r.mediaOutdoor,mediaPropertyTax:r.mediaPropertyTax,
         contractDocumentUrl:r.documentUrl||"",
-        contractDocumentName:r.documentUrl ? ((function(url){try{return decodeURIComponent(String(url).split(/[\\/]/).pop()||"");}catch(_){return String(url).split(/[\\/]/).pop()||"";}})(r.documentUrl)) : "",
+        contractDocumentName:r.documentName || (r.documentUrl ? ((function(url){try{return decodeURIComponent(String(url).split(/[\\/]/).pop()||"");}catch(_){return String(url).split(/[\\/]/).pop()||"";}})(r.documentUrl)) : ""),
+        contractDocumentKind:r.documentKind||"",
         enrichmentSource:fileName||"",enrichmentSourceRow:r.sourceRow,enrichmentTargetYear:r.targetYear||0
       };
       Object.keys(values).forEach(function(key){ if(values[key]!=="" && values[key]!=null && values[key]!==0) c[key]=values[key]; });
@@ -563,7 +573,16 @@
       documents:report.matched.reduce(function(sum,item){
         var contract=data.contracts.find(function(c){return c.id===item.contractId;});
         return sum+(contract&&contract.contractDocumentUrl?1:0);
-      },0)
+      },0),
+      linkedDocuments:report.matched.reduce(function(sum,item){
+        var contract=data.contracts.find(function(c){return c.id===item.contractId;});
+        return sum+(contract&&contract.contractDocumentUrl&&!/^embedded:\/\//i.test(contract.contractDocumentUrl)?1:0);
+      },0),
+      embeddedDocuments:report.matched.reduce(function(sum,item){
+        var contract=data.contracts.find(function(c){return c.id===item.contractId;});
+        return sum+(contract&&/^embedded:\/\//i.test(contract.contractDocumentUrl||"")?1:0);
+      },0),
+      workbookDocumentCandidates:(documentCatalog.all||[]).length
     };
     report.warnings=Array.from(new Set(report.warnings));
     data.contractEnrichmentReport=clone(report);
