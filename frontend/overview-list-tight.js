@@ -13,7 +13,7 @@
       var isContracts = sectionTitle === 'avtal';
 
       var header = section.querySelector('.scope-list-columns');
-      if (header) {
+      if (header && header.dataset.tightColumns !== '1') {
         header.classList.remove('contract-columns');
         header.innerHTML = [
           'Fastighet',
@@ -24,6 +24,7 @@
           'Tid',
           'Tillagd'
         ].map(function (label) { return '<span>' + label + '</span>'; }).join('');
+        header.dataset.tightColumns = '1';
       }
 
       section.querySelectorAll('.scope-list-row').forEach(function (row) {
