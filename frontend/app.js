@@ -1733,13 +1733,26 @@ function scopeActivitySectionHtml(contracts, group, title, addType) {
 
 function scopeContractsSectionHtml(contracts) {
   const total = contracts.reduce(function(sum,c){return sum+totalContractCost(c);},0);
-  const multiProperty = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size > 1;
   const rows = contracts.map(function(c) {
     const property = state.properties.find(function(p){return p.id===c.propertyId;});
-    return '<div class="scope-list-row">' +
+    const designation = property ? (property.designation || property.id || "–") : "–";
+    const address = property ? (property.address || "–") : "–";
+    const currentRent = Number(c.annualRent) || 0;
+    const currentAdditions = Number(c.annualAdditions) || 0;
+    const currentRentPerSqm = Number(c.rentPerSqm) || ((Number(c.area)||0) ? currentRent / Number(c.area) : 0);
+    return '<div class="scope-list-row contract-scope-row"' +
+      ' data-contract-designation="' + esc(designation) + '"' +
+      ' data-contract-address="' + esc(address) + '"' +
+      ' data-contract-number="' + esc(c.number||"") + '"' +
+      ' data-contract-area="' + esc(Number(c.area)||0) + '"' +
+      ' data-contract-rent="' + esc(currentRent) + '"' +
+      ' data-contract-additions="' + esc(currentAdditions) + '"' +
+      ' data-contract-rent-sqm="' + esc(currentRentPerSqm) + '"' +
+      ' data-contract-end="' + esc(c.end||"") + '"' +
+      ' data-contract-notice="' + esc(c.notice||"") + '">' +
       '<div class="scope-list-main"><strong>' + esc(c.number||c.id) + '</strong><span>' + esc(contractCustomer(c)) +
-        (multiProperty && property ? ' · <button type="button" class="scope-inline-link" data-explorer-property="' + esc(property.id) + '">' +
-          esc(property.address||property.id) + '</button>' : '') + ' · ' + num(c.area) + ' kvm</span></div>' +
+        (property ? ' · <button type="button" class="scope-inline-link" data-explorer-property="' + esc(property.id) + '">' +
+          esc(address) + '</button>' : '') + ' · ' + num(c.area) + ' kvm</span></div>' +
       '<div class="scope-list-status">' + statusBadge(activeInYear(c,new Date().getFullYear()) ? "Aktivt" : "Bevaka") + '</div>' +
       '<div class="scope-list-time">' + esc(c.end||"–") + '</div>' +
       '<div class="scope-list-added">' + esc((c.createdAt||"").slice(0,10) || "–") + '</div>' +
@@ -1747,13 +1760,13 @@ function scopeContractsSectionHtml(contracts) {
         '<button type="button" class="inline-link compact-link" data-edit-type="object" data-edit-id="' + esc(c.id) + '">Redigera</button></div>' +
     '</div>';
   }).join("");
-  return '<section class="scope-list-section">' +
+  return '<section class="scope-list-section contract-scope-section">' +
     '<div class="scope-list-head"><button type="button" class="scope-list-title" data-portfolio-section="contracts">' +
       '<span>Avtal</span><strong>' + money(total) + '/år</strong><small>' + contracts.length + ' avtal</small></button></div>' +
-    '<div class="scope-list-columns contract-columns"><span>Avtal</span><span>Kund</span><span>Fastighet</span><span>Area</span><span>Status</span><span>Slut</span><span>Tillagd</span><span>Kostnad</span><span></span></div>' +    (rows || '<div class="empty compact">Inga avtal i urvalet.</div>') +
+    '<div class="scope-list-columns contract-columns"></div>' +
+    (rows || '<div class="empty compact">Inga avtal i urvalet.</div>') +
   '</section>';
 }
-
 function scopeAllSectionsHtml(contracts) {
   return '<div class="scope-all-sections">' +
     scopeContractsSectionHtml(contracts) +
