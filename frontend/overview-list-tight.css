@@ -91,3 +91,109 @@
 }
 
 @media(max-width:700px){#portfolio-overview-content .scope-list-columns{display:none}}
+
+
+/* Dedicated agreement table */
+#portfolio-overview-content .contract-scope-section{
+  overflow-x:auto;
+}
+#portfolio-overview-content .contract-scope-section .scope-list-head{
+  min-width:980px;
+}
+#portfolio-overview-content .contract-scope-section .scope-list-columns,
+#portfolio-overview-content .contract-scope-section .scope-list-row{
+  min-width:980px;
+  grid-template-columns:
+    minmax(105px,1.2fr)
+    minmax(155px,1.75fr)
+    minmax(120px,1.35fr)
+    minmax(58px,.55fr)
+    minmax(92px,.9fr)
+    minmax(84px,.82fr)
+    minmax(68px,.65fr)
+    minmax(88px,.82fr)
+    minmax(88px,.82fr)
+    minmax(72px,.62fr);
+}
+#portfolio-overview-content .contract-scope-section .scope-tight-cell{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#portfolio-overview-content .contract-scope-section .scope-tight-kvm,
+#portfolio-overview-content .contract-scope-section .scope-tight-hyra,
+#portfolio-overview-content .contract-scope-section .scope-tight-tillagg,
+#portfolio-overview-content .contract-scope-section .scope-tight-krkvm{
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+#portfolio-overview-content .contract-scope-section .scope-sort-button[data-sort-key="kvm"],
+#portfolio-overview-content .contract-scope-section .scope-sort-button[data-sort-key="hyra"],
+#portfolio-overview-content .contract-scope-section .scope-sort-button[data-sort-key="tillagg"],
+#portfolio-overview-content .contract-scope-section .scope-sort-button[data-sort-key="krkvm"]{
+  justify-content:flex-end;
+  text-align:right;
+}
+#portfolio-overview-content .contract-scope-section .scope-tight-avtal,
+#portfolio-overview-content .contract-scope-section .scope-tight-hyra,
+#portfolio-overview-content .contract-scope-section .scope-tight-tillagg,
+#portfolio-overview-content .contract-scope-section .scope-tight-krkvm{
+  font-weight:750;
+}
+#portfolio-overview-content .contract-scope-section .scope-tight-avtaltom,
+#portfolio-overview-content .contract-scope-section .scope-tight-uppsagning{
+  font-variant-numeric:tabular-nums;
+}
+#portfolio-overview-content .contract-scope-section .contract-filter-panel{
+  min-width:980px;
+  grid-template-columns:minmax(220px,1.5fr) minmax(150px,.8fr) minmax(150px,.8fr) auto;
+}
+@media(max-width:1180px){
+  #portfolio-overview-content .contract-scope-section .scope-list-columns,
+  #portfolio-overview-content .contract-scope-section .scope-list-row{
+    min-width:900px;
+    grid-template-columns:
+      minmax(95px,1.15fr)
+      minmax(140px,1.7fr)
+      minmax(108px,1.3fr)
+      54px
+      minmax(82px,.85fr)
+      minmax(76px,.78fr)
+      62px
+      82px
+      82px
+      48px;
+  }
+  #portfolio-overview-content .contract-scope-section .scope-list-head,
+  #portfolio-overview-content .contract-scope-section .contract-filter-panel{
+    min-width:900px;
+  }
+  #portfolio-overview-content .contract-scope-section .scope-row-edit-label{display:none}
+  #portfolio-overview-content .contract-scope-section .scope-edit-column-head{font-size:0}
+  #portfolio-overview-content .contract-scope-section .scope-edit-column-head::after{content:'✎';font-size:11px}
+}
+@media(max-width:700px){
+  #portfolio-overview-content .contract-scope-section .scope-list-columns{display:grid}
+  #portfolio-overview-content .contract-scope-section .scope-list-row{
+    grid-template-columns:
+      minmax(95px,1.15fr)
+      minmax(140px,1.7fr)
+      minmax(108px,1.3fr)
+      54px
+      minmax(82px,.85fr)
+      minmax(76px,.78fr)
+      62px
+      82px
+      82px
+      48px;
+    min-width:900px;
+  }
+  #portfolio-overview-content .contract-scope-section .scope-tight-fastighet,
+  #portfolio-overview-content .contract-scope-section .scope-tight-kostnad{
+    display:block;
+  }
+  #portfolio-overview-content .contract-scope-section .contract-filter-panel{
+    min-width:900px;
+    grid-template-columns:minmax(220px,1.5fr) minmax(150px,.8fr) minmax(150px,.8fr) auto;
+  }
+}
