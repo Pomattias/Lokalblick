@@ -47,7 +47,7 @@ details[open],
   z-index: 100;
 }
 
-/* Custom dropdown/menu surfaces should be allowed to escape their row. */
+/* Custom dropdown/menu surfaces keep their own positioning, but always layer above content. */
 .dropdown-menu,
 .dropdown-panel,
 .select-menu,
@@ -56,7 +56,6 @@ details[open],
 .filter-dropdown,
 .options-menu,
 [role="listbox"] {
-  position: relative;
   z-index: 101;
   max-width: none;
 }
@@ -70,11 +69,7 @@ details[open],
 }
 
 /* Tables and maps deliberately keep their own scrolling/clipping behaviour. */
-.table-wrap,
-.property-map,
-.leaflet-container,
-.bar-track,
-.pattern-track {
+.table-wrap {
   overflow: auto;
 }
 
