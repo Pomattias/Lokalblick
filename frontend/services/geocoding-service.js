@@ -2,7 +2,8 @@
 // Public/demo data is never sent to the geocoder.
 (function () {
   const DEFAULT_LOCAL_API = "http://127.0.0.1:8787";
-  const REQUEST_TIMEOUT_MS = 2500;
+  const HEALTH_TIMEOUT_MS = 1500;
+  const GEOCODE_TIMEOUT_MS = 65000;
   const BATCH_SIZE = 100;
 
   function apiBaseUrl() {
@@ -18,15 +19,19 @@
     return Number.isFinite(Number(value));
   }
 
-  function fetchWithTimeout(url, options) {
+  function fetchWithTimeout(url, options, timeoutMs) {
     const controller = new AbortController();
-    const timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(function () { controller.abort(); }, timeoutMs);
     return fetch(url, Object.assign({}, options || {}, { signal: controller.signal }))
       .finally(function () { clearTimeout(timer); });
   }
 
   async function health() {
-    const response = await fetchWithTimeout(apiBaseUrl() + "/api/health", { cache: "no-store" });
+    const response = await fetchWithTimeout(
+      apiBaseUrl() + "/api/health",
+      { cache: "no-store" },
+      HEALTH_TIMEOUT_MS
+    );
     if (!response.ok) return { ok: false, configured: false };
     const payload = await response.json();
     return {
@@ -71,21 +76,34 @@
     }
 
     const allResults = [];
-    for (let offset = 0; offset < properties.length; offset += BATCH_SIZE) {
-      const batch = properties.slice(offset, offset + BATCH_SIZE);
-      const response = await fetchWithTimeout(apiBaseUrl() + "/api/geocode", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ properties: batch })
-      });
-      const payload = await response.json().catch(function () { return {}; });
-      if (!response.ok) {
-        const message = payload && payload.error ? payload.error : "Geokodningen misslyckades.";
-        const error = new Error(message);
-        error.code = payload && payload.code ? payload.code : "GEOCODING_ERROR";
-        throw error;
+    try {
+      for (let offset = 0; offset < properties.length; offset += BATCH_SIZE) {
+        const batch = properties.slice(offset, offset + BATCH_SIZE);
+        const response = await fetchWithTimeout(
+          apiBaseUrl() + "/api/geocode",
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ properties: batch })
+          },
+          GEOCODE_TIMEOUT_MS
+        );
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok) {
+          const message = payload && payload.error ? payload.error : "Geokodningen misslyckades.";
+          const error = new Error(message);
+          error.code = payload && payload.code ? payload.code : "GEOCODING_ERROR";
+          throw error;
+        }
+        allResults.push.apply(allResults, Array.isArray(payload.results) ? payload.results : []);
       }
-      allResults.push.apply(allResults, Array.isArray(payload.results) ? payload.results : []);
+    } catch (error) {
+      window.LokalblickGeocodingStatus = {
+        available: false,
+        configured: true,
+        message: error && error.message ? error.message : "Geokodningen misslyckades."
+      };
+      return data;
     }
 
     const byId = new Map(allResults.map(function (result) { return [String(result.id), result]; }));
