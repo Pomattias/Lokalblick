@@ -46,6 +46,8 @@
         var value = row.querySelector('.scope-list-value');
         var valueStrong = value ? value.querySelector('strong') : null;
         var edit = value ? value.querySelector('.compact-link') : null;
+        var editType = edit ? edit.getAttribute('data-edit-type') : '';
+        var editId = edit ? edit.getAttribute('data-edit-id') : '';
 
         var cells = [
           ['post', title.textContent.trim(), false, true],
