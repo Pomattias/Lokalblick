@@ -165,7 +165,18 @@
     row.innerHTML = '';
     appendCell(row, 'fastighet', row.dataset.contractDesignation || '–', false);
     appendCell(row, 'adress', row.dataset.contractAddress || '–', false);
-    appendCell(row, 'avtal', contractNumber || '–', true);
+    var contractCell=appendCell(row, 'avtal', contractNumber || '–', true);
+    var documentUrl=row.dataset.contractDocumentUrl||'';
+    if(documentUrl && contractCell){
+      var doc=document.createElement('button');
+      doc.type='button';
+      doc.className='scope-contract-document';
+      doc.dataset.contractDocumentOpen=documentUrl;
+      doc.title=row.dataset.contractDocumentName||'Öppna hyresavtal';
+      doc.setAttribute('aria-label','Öppna hyresavtal ' + contractNumber);
+      doc.textContent='PDF';
+      contractCell.appendChild(doc);
+    }
     appendCell(row, 'kvm', area ? numberFormat.format(area) : '–', false, area || '');
     appendCell(row, 'hyra', rent ? numberFormat.format(rent) : '–', true, rent || '');
     appendCell(row, 'tillagg', additions ? numberFormat.format(additions) : '–', true, additions || '');
