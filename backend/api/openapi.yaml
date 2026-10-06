@@ -1,15 +1,57 @@
 openapi: 3.0.3
 info:
   title: Lokalblick API
-  version: 0.1.0
+  version: 0.2.0
   description: >
-    Contract between the Lokalblick frontend and the future authenticated
+    Contract between the Lokalblick frontend and the authenticated
     Microsoft 365 backend. No production secrets or data belong in GitHub.
 servers:
   - url: /api
 security:
   - entraBearer: []
 paths:
+  /health:
+    get:
+      summary: Health and backend capability check
+      security: []
+      responses:
+        "200":
+          description: Backend status
+  /geocode:
+    post:
+      summary: Resolve property addresses to coordinates
+      description: >
+        Backend-owned coordinate enrichment. The backend must reuse a stored
+        coordinate while the address is unchanged and re-geocode after an
+        address change. Requests are processed in batches of at most 100.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [properties]
+              properties:
+                properties:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                    required: [id, address]
+                    properties:
+                      id: { type: string }
+                      sourceId: { type: string }
+                      address: { type: string }
+                      latitude: { type: number, nullable: true }
+                      longitude: { type: number, nullable: true }
+      responses:
+        "200":
+          description: Geocoding results
+        "400":
+          description: Invalid request
+        "503":
+          description: Geocoding provider is not configured
   /workspace:
     patch:
       summary: Persist a frontend workspace change set
