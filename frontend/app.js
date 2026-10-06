@@ -189,7 +189,10 @@ function personLoad(personId) {
   }, 0);
 }
 function totalContractCost(c) {
-  return (Number(c.annualRent) || 0) + (Number(c.annualContractDrift) || 0);
+  return (Number(c.annualRent) || 0) +
+    (Number(c.annualAdditions) || 0) +
+    (Number(c.annualContractDrift) || 0) +
+    (Number(c.annualPropertyTax) || 0);
 }
 function projectBudgetTotal(p) {
   return (Number(p.budgetInvestigation) || 0) + (Number(p.budgetExecution) || 0) + (Number(p.budgetFurnishing) || 0);
@@ -2194,6 +2197,8 @@ function renderApi() {
   const sourceName=st.fileName || "Ingen källa vald";
   const migration=st.sourceKind==="migration";
   const migrationReport=st.migrationReport || null;
+  const enrichmentReport=st.enrichmentReport || null;
+  const indexReport=st.indexReport || null;
   const compact=Boolean(window.matchMedia && window.matchMedia("(max-width: 700px)").matches);
   const desktopOpen=compact ? "" : " open";
   const touch=Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
@@ -2239,6 +2244,27 @@ function renderApi() {
   }).join("") + (pending.length>20?'<div class="muted">+'+(pending.length-20)+' fler ändringar</div>':'') + '</div>' :
     '<div class="empty">Ändringar du gör i Lokalblick visas här innan de skrivs till källan.</div>';
 
+  const enrichmentHtml =
+    '<section class="card pad api-enrichment-card">' +
+      '<div class="card-head"><div><span class="eyebrow">KOMPLETTERANDE KÄLLOR</span><h2>Berika befintliga avtal</h2>' +
+        '<p>INT/EXT eller Lokalblick-filen behåller avtalsidentiteten. Kompletteringsfiler får bara fylla på eller uppdatera avtalsekonomi och villkor.</p></div>' +
+        '<span class="badge ' + (connected ? "green" : "amber") + '">' + (connected ? "Basdata aktiv" : "Koppla basdata först") + '</span></div>' +
+      '<div class="api-enrichment-actions">' +
+        '<div><strong>Avtalsregister</strong><span>Matchar först på avtalsnummer, därefter säkert på fastighet, adress, start, verksamhet, typ och area.</span>' +
+          (canOpen ? '<button type="button" class="button secondary" data-api-contract-enrich ' + (!state.contracts.length ? 'disabled' : '') + '>Berika avtal från Excel</button>' : '<small>Edge/Chrome krävs för filval.</small>') + '</div>' +
+        '<div><strong>KPI / indexserie</strong><span>Läser År + Oktober/KPI/Indextal och räknar hyra och tillägg separat från respektive bastal och indexandel.</span>' +
+          (canOpen ? '<button type="button" class="button secondary" data-api-index-import ' + (!state.contracts.length ? 'disabled' : '') + '>Läs in KPI-serie</button>' : '<small>Edge/Chrome krävs för filval.</small>') + '</div>' +
+      '</div>' +
+      (enrichmentReport ? '<div class="api-enrichment-report"><div><span>Matchade</span><strong>' + num((enrichmentReport.counts||{}).matched||0) + '</strong></div><div><span>Kontroll</span><strong>' + num((enrichmentReport.counts||{}).needsReview||0) + '</strong></div><div><span>Ej matchade</span><strong>' + num((enrichmentReport.counts||{}).unmatched||0) + '</strong></div><div><span>Avvikelser</span><strong>' + num((enrichmentReport.counts||{}).discrepancies||0) + '</strong></div></div>' : '') +
+      (enrichmentReport && (((enrichmentReport.needsReview||[]).length)||((enrichmentReport.unmatched||[]).length)||((enrichmentReport.discrepancies||[]).length)) ?
+        '<details class="api-enrichment-review"><summary>Visa poster som behöver kontrolleras</summary><div>' +
+          (enrichmentReport.needsReview||[]).slice(0,8).map(function(x){return '<p><strong>Osäker match</strong> · rad ' + esc(x.sourceRow) + ' · ' + esc(x.number||x.designation||x.address||"–") + '</p>';}).join('') +
+          (enrichmentReport.unmatched||[]).slice(0,8).map(function(x){return '<p><strong>Ingen match</strong> · rad ' + esc(x.sourceRow) + ' · ' + esc(x.number||x.designation||x.address||"–") + '</p>';}).join('') +
+          (enrichmentReport.discrepancies||[]).slice(0,8).map(function(x){return '<p><strong>Avvikelse</strong> · ' + esc(x.contractId) + ' · ' + esc(x.field) + ': ' + esc(x.primary) + ' ↔ ' + esc(x.enrichment) + '</p>';}).join('') +
+        '</div></details>' : '') +
+      (indexReport ? '<div class="notice api-index-report"><strong>KPI-serie inläst</strong><br>' + num(indexReport.rows||0) + ' indexvärden · ' + num(indexReport.recalculated||0) + ' indexberäkningar uppdaterade.</div>' : '') +
+    '</section>';
+
   const sourceActions =
     '<div class="section-stack"><div class="notice"><strong>Säker princip</strong><br>Stabila ID:n följer med varje rad. Skrivning sker först när du aktivt väljer att spara.</div>' +
     '<div class="api-access-row"><span>Läge</span><strong>' + esc(modeLabel) + '</strong></div>' +
@@ -2257,6 +2283,7 @@ function renderApi() {
     '</section>' +
 
     migrationHtml +
+    enrichmentHtml +
     '<section class="api-connect-workspace">' +
       '<div class="api-connect-main">' +
         '<section class="card pad api-source-card api-source-primary"><div class="api-card-top"><div class="api-connector-icon">XL</div><span class="mobile-only badge ' + deviceClass + '">' + (localFileReady?'Tillgänglig':'Begränsad') + '</span></div><h3>Excel på dator / nätverk</h3><p class="muted">Öppna en befintlig Lokalblick-fil och välj läs eller läs + skriv.</p>' + connectionActions + '</section>' +
@@ -2307,6 +2334,43 @@ function bindApiControls() {
       }
     });
   });
+  const enrichButton=document.querySelector("[data-api-contract-enrich]");
+  if(enrichButton && !enrichButton.dataset.apiBound){
+    enrichButton.dataset.apiBound="1";
+    enrichButton.addEventListener("click",async function(){
+      const original=enrichButton.textContent;
+      enrichButton.disabled=true; enrichButton.textContent="Matchar…";
+      try{
+        const result=await window.LokalblickSourceService.enrichContracts(state);
+        state=ensureShape(result.data);
+        await saveState();
+        render();
+      }catch(error){
+        if(error && error.name==="AbortError"){enrichButton.disabled=false;enrichButton.textContent=original;return;}
+        enrichButton.disabled=false;enrichButton.textContent=original;
+        alert(error.message||String(error));
+      }
+    });
+  }
+  const indexButton=document.querySelector("[data-api-index-import]");
+  if(indexButton && !indexButton.dataset.apiBound){
+    indexButton.dataset.apiBound="1";
+    indexButton.addEventListener("click",async function(){
+      const original=indexButton.textContent;
+      indexButton.disabled=true; indexButton.textContent="Läser KPI…";
+      try{
+        const result=await window.LokalblickSourceService.importIndexSeries(state);
+        state=ensureShape(result.data);
+        await saveState();
+        render();
+      }catch(error){
+        if(error && error.name==="AbortError"){indexButton.disabled=false;indexButton.textContent=original;return;}
+        indexButton.disabled=false;indexButton.textContent=original;
+        alert(error.message||String(error));
+      }
+    });
+  }
+
   const reconnect=document.querySelector("[data-api-reconnect]");
   if (reconnect && !reconnect.dataset.apiBound) {
     reconnect.dataset.apiBound="1";
@@ -3127,7 +3191,19 @@ const fieldTemplates = {
     ["contractId", "Objekt / avtal", "contract", "", true],
     ["unitId", "Verksamhetsområde", "unit", "", true],
     ["annualRent", "Årshyra", "number", "0", false],
-    ["annualContractDrift", "Avtalsdrift per år", "number", "0", false],
+    ["annualAdditions", "Tillägg per år", "number", "0", false],
+    ["annualContractDrift", "Media per år", "number", "0", false],
+    ["annualPropertyTax", "F-skatt per år", "number", "0", false],
+    ["baseRent", "Grundhyra", "number", "0", false],
+    ["rentBaseYear", "Hyra basår", "number", "0", false],
+    ["rentBaseIndex", "Hyra bastal", "number", "0", false],
+    ["rentIndexPercent", "Hyra indexandel (0–1)", "number", "0", false],
+    ["baseAdditions", "Grundtillägg", "number", "0", false],
+    ["additionBaseYear", "Tillägg basår", "number", "0", false],
+    ["additionBaseIndex", "Tillägg bastal", "number", "0", false],
+    ["additionIndexPercent", "Tillägg indexandel (0–1)", "number", "0", false],
+    ["noticePeriodMonths", "Uppsägningstid månader", "number", "0", false],
+    ["renewalPeriodMonths", "Förlängningstid månader", "number", "0", false],
     ["employees", "Antal anställda", "number", "0", false],
     ["users", "Antal brukare", "number", "0", false],
     ["rooms", "Antal rum", "number", "0", false],
@@ -3415,7 +3491,7 @@ async function saveEditor(form) {
   if (editorType === "object") {
     const c = state.contracts.find(function(x) { return x.id === data.contractId; });
     if (!c) return false;
-    ["annualRent", "annualContractDrift", "employees", "users", "rooms", "commonArea", "apartmentArea"].forEach(function(k) { c[k] = Number(data[k]) || 0; });
+    ["annualRent","annualAdditions","annualContractDrift","annualPropertyTax","baseRent","rentBaseYear","rentBaseIndex","rentIndexPercent","baseAdditions","additionBaseYear","additionBaseIndex","additionIndexPercent","noticePeriodMonths","renewalPeriodMonths","employees","users","rooms","commonArea","apartmentArea"].forEach(function(k) { c[k] = Number(data[k]) || 0; });
     c.unitId = data.unitId || "";
   } else if (editorType === "person") {
     const target = existing || { id: nextId("P", state.people) };
