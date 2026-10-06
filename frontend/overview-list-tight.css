@@ -37,3 +37,43 @@
 @media(max-width:1180px){#portfolio-overview-content .scope-list-row,#portfolio-overview-content .scope-list-columns{grid-template-columns:minmax(150px,1.2fr) 70px minmax(170px,1.4fr) minmax(115px,.9fr) 82px 86px 88px}}
 @media(max-width:900px){#portfolio-overview-content .scope-list-columns{display:none}#portfolio-overview-content .scope-list-row{grid-template-columns:minmax(130px,1.1fr) 65px minmax(145px,1.3fr) minmax(100px,.9fr) 76px 78px 82px}}
 @media(max-width:700px){#portfolio-overview-content .scope-list-row{min-height:44px;grid-template-columns:minmax(0,1fr) auto auto;padding:6px 8px}#portfolio-overview-content .scope-tight-fastighet,#portfolio-overview-content .scope-tight-typ,#portfolio-overview-content .scope-tight-ansvarig,#portfolio-overview-content .scope-tight-tillagd{display:none}.access-mode-bar{align-items:flex-start;flex-direction:column;gap:7px}.access-mode-actions{width:100%}.access-mode-button,.access-history-button{flex:1}.history-dialog form{padding:14px}.history-entry li{display:grid;gap:2px}.history-entry li span{text-align:left}}
+/* Sort and filter controls */
+#portfolio-overview-content .scope-list-columns{align-items:stretch}
+#portfolio-overview-content .scope-sort-button{
+  min-width:0;display:flex;align-items:center;gap:4px;padding:4px 9px;
+  border:0;border-left:1px solid #edf0f2;background:transparent;color:var(--muted);
+  font:inherit;font-weight:900;text-transform:uppercase;letter-spacing:.04em;text-align:left;cursor:pointer
+}
+#portfolio-overview-content .scope-sort-button:first-child{border-left:0;padding-left:0}
+#portfolio-overview-content .scope-sort-button:hover{color:var(--ink);background:#eef3f1}
+#portfolio-overview-content .scope-sort-button i{width:8px;font-style:normal;color:var(--accent)}
+#portfolio-overview-content .scope-sort-button.ascending i::before{content:'↑'}
+#portfolio-overview-content .scope-sort-button.descending i::before{content:'↓'}
+#portfolio-overview-content .scope-table-filter-toggle{
+  width:28px;height:28px;flex:0 0 28px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid transparent;border-radius:7px;background:transparent;color:var(--muted);cursor:pointer
+}
+#portfolio-overview-content .scope-table-filter-toggle:hover,
+#portfolio-overview-content .scope-table-filter-toggle.active{background:var(--accent-soft);color:var(--accent-strong);border-color:#cbdad5}
+#portfolio-overview-content .scope-table-filter-toggle svg{width:15px;height:15px;fill:currentColor}
+#portfolio-overview-content .scope-table-filter-panel{
+  display:grid;grid-template-columns:minmax(180px,1.5fr) repeat(3,minmax(130px,.8fr)) auto;
+  gap:6px;padding:7px 9px;background:#fbfcfc;border-bottom:1px solid var(--line)
+}
+#portfolio-overview-content .scope-table-filter-panel[hidden]{display:none}
+#portfolio-overview-content .scope-table-filter-panel input,
+#portfolio-overview-content .scope-table-filter-panel select{
+  min-width:0;height:30px;padding:4px 7px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;font-size:9px;color:var(--ink)
+}
+#portfolio-overview-content .scope-table-filter-clear{
+  height:30px;padding:4px 8px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--muted);font-size:9px;font-weight:800;cursor:pointer
+}
+#portfolio-overview-content .scope-list-row[hidden]{display:none!important}
+@media(max-width:900px){
+  #portfolio-overview-content .scope-table-filter-panel{grid-template-columns:1fr 1fr}
+  #portfolio-overview-content .scope-table-filter-search{grid-column:1/-1}
+}
+@media(max-width:700px){
+  #portfolio-overview-content .scope-table-filter-panel{grid-template-columns:1fr;padding:7px}
+  #portfolio-overview-content .scope-table-filter-search{grid-column:auto}
+}
