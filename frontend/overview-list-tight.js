@@ -1,6 +1,6 @@
 /* Lokalblick – tight overview lists
  * Column order:
- * Fastighet → Typ → Post → Ansvarig → Status → Skapad → Kostnad (kr)
+ * Fastighet → Typ → Post → Ansvarig → Status → Skapad → Kostnad (kr) → Redigera
  * Adds lightweight per-table filtering and click-to-sort headers.
  */
 (function () {
@@ -139,6 +139,7 @@
         var status = row.querySelector('.scope-list-status');
         var added = row.querySelector('.scope-list-added');
         var value = row.querySelector('.scope-list-value');
+        var editButton = value ? value.querySelector('[data-edit-type][data-edit-id]') : null;
         var valueStrong = value ? value.querySelector('strong') : null;
         var rawCost = valueStrong ? valueStrong.textContent.trim() : '';
         var costDisplay = rawCost
@@ -174,6 +175,17 @@
           }
           row.appendChild(div);
         });
+
+        var action = document.createElement('div');
+        action.className = 'scope-tight-cell scope-tight-action';
+        if (editButton) {
+          editButton.classList.remove('inline-link','compact-link');
+          editButton.classList.add('scope-row-edit');
+          editButton.innerHTML = '<span class="scope-row-edit-icon" aria-hidden="true">✎</span><span class="scope-row-edit-label">Redigera</span>';
+          editButton.setAttribute('aria-label', 'Redigera ' + title.textContent.trim());
+          action.appendChild(editButton);
+        }
+        row.appendChild(action);
       });
 
       var header = section.querySelector('.scope-list-columns');
@@ -191,7 +203,7 @@
         header.innerHTML = columns.map(function (column) {
           return '<button type="button" class="scope-sort-button" data-sort-key="' + column[0] + '" aria-sort="none">' +
             '<span>' + column[1] + '</span><i aria-hidden="true"></i></button>';
-        }).join('');
+        }).join('') + '<span class="scope-edit-column-head">Redigera</span>';
 
         header.querySelectorAll('.scope-sort-button').forEach(function (button) {
           button.addEventListener('click', function () {
