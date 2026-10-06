@@ -2246,7 +2246,11 @@ function bindApiControls() {
   if (refresh && !refresh.dataset.apiBound) {
     refresh.dataset.apiBound="1";
     refresh.addEventListener("click",async function(){
-      try { state=ensureShape(await window.LokalblickSourceService.reconnect()); render(); }
+      try {
+        const data=await window.LokalblickSourceService.reconnect();
+        state=ensureShape(await enrichConnectedData(data));
+        render();
+      }
       catch(error){ alert(error.message || String(error)); }
     });
   }
