@@ -460,7 +460,11 @@
 
     report.counts={
       sourceRows:rows.length,matched:report.matched.length,needsReview:report.needsReview.length,
-      unmatched:report.unmatched.length,discrepancies:report.discrepancies.length
+      unmatched:report.unmatched.length,discrepancies:report.discrepancies.length,
+      documents:report.matched.reduce(function(sum,item){
+        var contract=data.contracts.find(function(c){return c.id===item.contractId;});
+        return sum+(contract&&contract.contractDocumentUrl?1:0);
+      },0)
     };
     report.warnings=Array.from(new Set(report.warnings));
     data.contractEnrichmentReport=clone(report);
