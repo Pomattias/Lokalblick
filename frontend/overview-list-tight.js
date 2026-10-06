@@ -52,26 +52,32 @@
           [isContracts ? 'kund' : 'typ', isContracts ? customer : type, false, false],
           ['fastighet', property || '–', false, false],
           [isContracts ? 'area' : 'ansvarig', isContracts ? (area || '–') : (responsible || 'Ej tilldelad'), false, false],
-          ['status', status ? status.innerHTML : '–', true, false],
+          ['status', status || null, true, false],
           ['tid', time ? time.textContent.trim() : '–', false, false],
           ['kostnad', valueStrong ? valueStrong.textContent.trim() : '–', false, true],
-          ['action', edit ? edit.outerHTML : '', true, false]
+          ['action', edit || null, true, false]
         ];
 
-        row.innerHTML = cells.map(function (cell) {
-          var cls = 'scope-tight-cell scope-tight-' + cell[0];
-          var content = cell[2] ? cell[1] : escapeHtml(cell[1]);
-          if (cell[3]) content = '<strong>' + content + '</strong>';
-          return '<div class="' + cls + '">' + content + '</div>';
-        }).join('');
+        row.innerHTML = '';
+        cells.forEach(function (cell) {
+          var div = document.createElement('div');
+          div.className = 'scope-tight-cell scope-tight-' + cell[0];
+
+          if (cell[0] === 'status' && cell[1]) {
+            div.appendChild(cell[1]);
+          } else if (cell[0] === 'action' && cell[1]) {
+            div.appendChild(cell[1]);
+          } else if (cell[3]) {
+            var strong = document.createElement('strong');
+            strong.textContent = cell[1];
+            div.appendChild(strong);
+          } else {
+            div.textContent = cell[1];
+          }
+          row.appendChild(div);
+        });
         row.dataset.tightColumns = '1';
       });
-    });
-  }
-
-  function escapeHtml(value) {
-    return String(value == null ? '' : value).replace(/[&<>'"]/g, function (ch) {
-      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch];
     });
   }
 
