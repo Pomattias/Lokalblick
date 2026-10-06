@@ -1,0 +1,95 @@
+/*
+ * Lokalblick – global dropdown overflow fix
+ *
+ * Menyer och val ska alltid kunna öppnas ovanpå nästa innehållsblock.
+ * Den här filen ligger sist i CSS-kedjan så att den gäller konsekvent
+ * på alla vyer utan att behöva duplicera regler per sida.
+ */
+
+/* Containers that commonly host filters/dropdowns must not clip them. */
+.content,
+.grid,
+.card,
+.toolbar,
+.bestands-page,
+.bestands-shell,
+.portfolio-hero,
+.planning-section,
+.planning-section-head,
+.mode-heading,
+.filter-row,
+.filter-group,
+.filter-control,
+.filter-field,
+.filter-bar,
+.filter-panel,
+.filters,
+.filters-row,
+.filters-panel,
+.planning-filters,
+.planning-toolbar,
+.dropdown,
+.dropdown-wrap,
+.select-wrap,
+.select-control,
+details {
+  overflow: visible;
+}
+
+/* Keep an open picker above neighbouring cards/rows. */
+details[open],
+.dropdown.is-open,
+.dropdown.open,
+.filter-group:focus-within,
+.filter-control:focus-within,
+.select-wrap:focus-within {
+  position: relative;
+  z-index: 100;
+}
+
+/* Custom dropdown/menu surfaces should be allowed to escape their row. */
+.dropdown-menu,
+.dropdown-panel,
+.select-menu,
+.select-dropdown,
+.filter-menu,
+.filter-dropdown,
+.options-menu,
+[role="listbox"] {
+  position: relative;
+  z-index: 101;
+  max-width: none;
+}
+
+/* Avoid accidental horizontal clipping of long selected values. */
+.filter-row,
+.filters-row,
+.planning-filters,
+.planning-toolbar {
+  min-width: 0;
+}
+
+/* Tables and maps deliberately keep their own scrolling/clipping behaviour. */
+.table-wrap,
+.property-map,
+.leaflet-container,
+.bar-track,
+.pattern-track {
+  overflow: auto;
+}
+
+.property-map,
+.leaflet-container,
+.bar-track,
+.pattern-track {
+  overflow: hidden;
+}
+
+@media (max-width: 700px) {
+  /* Mobile pickers can intentionally use their own fixed/scrolling surface. */
+  .mobile-scope-picker[open] {
+    position: fixed;
+    z-index: 1000;
+    overflow: auto;
+  }
+}
