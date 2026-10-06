@@ -69,14 +69,16 @@
     const index=Number(headerRow)||0;
     const headers=headerMap(data[index]||[]);
     return data.slice(index+1).map(function(row,rowOffset){
-      return {row:row,headers:headers,sourceRow:index+2+rowOffset};
+      return {row:row,headers:headers,sourceRow:index+2+rowOffset,sourceSheet:name};
     }).filter(function(item){
       return item.row.some(function(v){return text(v)!=="";});
     });
   }
   function isHvof(workbook){
     const names=new Set(workbook.SheetNames||[]);
-    return names.has("Lokallista") && (names.has("Fastighetslista") || names.has("Årshjul") || names.has("Beställningar"));
+    const fullWorkbook=names.has("Lokallista") && (names.has("Fastighetslista") || names.has("Årshjul") || names.has("Beställningar"));
+    const contractWorkbook=(names.has("INT") || names.has("SF")) && names.has("EXT");
+    return fullWorkbook || contractWorkbook;
   }
   function unitId(v){
     const s=norm(v);
@@ -233,7 +235,7 @@
 
     // Primary source: Lokallista. SF/EXT are only fallback if Lokallista is absent.
     let localRows=rows(workbook,"Lokallista",0);
-    if(!localRows.length) localRows=rows(workbook,"SF",0).concat(rows(workbook,"EXT",0));
+    if(!localRows.length) localRows=rows(workbook,"INT",0).concat(rows(workbook,"SF",0)).concat(rows(workbook,"EXT",0));
     localRows.forEach(function(item){
       const r=item.row,h=item.headers;
       const sourceObject=text(cell(r,h,["Förvaltningsobjekt"]));
@@ -247,14 +249,15 @@
       const managerId=manager.name ? ensurePerson(data,manager.name,"","Fastighetsförvaltare",manager.sourceId,"",ownerOrgId) : "";
       const costCenter=text(cell(r,h,["Kostnadsställe","Fast.bet."]));
       const designation=/[A-Za-zÅÄÖåäö]/.test(costCenter) ? costCenter : "";
+      const sourceSheet=item.sourceSheet||"Lokallista";
       const property=ensureProperty(data,sourceObject,address,{
-        designation:designation,owner:ownerName,manager:manager.name||"",sourceSheet:"Lokallista",sourceRow:item.sourceRow
+        designation:designation,owner:ownerName,manager:manager.name||"",sourceSheet:sourceSheet,sourceRow:item.sourceRow
       });
-      const sourceType=/^INH/i.test(sourceObject) ? "EXT" : "SF";
+      const sourceType=sourceSheet==="EXT" ? "EXT" : (sourceSheet==="INT" || sourceSheet==="SF") ? "INT" : (/^INH/i.test(sourceObject) ? "EXT" : "INT");
       ensureContract(data,number,property,{
         source:sourceType,area:num(cell(r,h,["Area"])),category:text(cell(r,h,["Lokalkategori"])),
         use:text(cell(r,h,["Användning"])),end:excelDate(cell(r,h,["Aktuellt giltigt t.o.m."])),
-        notice:excelDate(cell(r,h,["Säg upp senast"])),ownerOrgId:ownerOrgId,sourceSheet:"Lokallista",sourceRow:item.sourceRow
+        notice:excelDate(cell(r,h,["Säg upp senast"])),ownerOrgId:ownerOrgId,sourceSheet:sourceSheet,sourceRow:item.sourceRow
       });
       if(managerId && !data.assignments.some(function(a){return a.personId===managerId && a.targetId===property.id;})){
         data.assignments.push({id:"A|"+hash(managerId+"|"+property.id),personId:managerId,targetType:"property",targetId:property.id,role:"Fastighetsförvaltare",fromDate:"",toDate:"",allocation:0});
