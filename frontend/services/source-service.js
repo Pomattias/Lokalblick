@@ -847,13 +847,13 @@
     if(access!=="granted") throw new Error("Läsåtkomst till filen godkändes inte.");
     const file=await handle.getFile();
     const buffer=await file.arrayBuffer();
-    return {file:file,workbook:XLSX.read(buffer,{type:"array",cellDates:false})};
+    return {file:file,buffer:buffer,workbook:XLSX.read(buffer,{type:"array",cellDates:false})};
   }
 
   async function enrichContracts(data) {
     if(!window.LokalblickContractEnrichmentAdapter) throw new Error("Avtalsadaptern är inte tillgänglig.");
     const picked=await readSecondaryWorkbook("Avtalsregister för berikning");
-    const result=window.LokalblickContractEnrichmentAdapter.enrich(picked.workbook,clone(data||source.data||{}),picked.file.name);
+    const result=window.LokalblickContractEnrichmentAdapter.enrich(picked.workbook,clone(data||source.data||{}),picked.file.name,picked.buffer);
     source.enrichmentReport=clone(result.report||null);
     source.enrichmentFileName=picked.file.name||"";
     return {data:clone(result.data),report:clone(result.report)};
