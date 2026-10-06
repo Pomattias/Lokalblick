@@ -1766,8 +1766,10 @@ function portfolioOverviewHtml(contracts) {
 function renderProperties() {
   const filters=portfolioFilterOptions();
   const initialContracts=portfolioScopeContracts();
+  const advancedFilterCount = ["customer","owner","tenantPerson","ownerPerson"].filter(function(key){return Boolean(portfolioFilters[key]);}).length;
   const advancedFilters =
-    '<details class="advanced-filters unified-advanced-filters"><summary><span>Fler filter</span><span class="advanced-count">Kund · ägare · kontakter</span></summary>' +
+    '<details class="advanced-filters unified-advanced-filters advanced-filter-chip ' + (advancedFilterCount ? "active" : "") + '">' +
+      '<summary><span>Övrigt</span><strong>' + (advancedFilterCount ? advancedFilterCount + " valda" : "Alla") + '</strong><b>⌄</b></summary>' +
       '<div class="advanced-filter-grid">' +
         '<select class="select" id="filter-customer">' + selectOptions(filters.customer,"Alla kunder") + '</select>' +
         '<select class="select" id="filter-owner">' + selectOptions(filters.owner,"Alla fastighetsägare") + '</select>' +
@@ -1778,14 +1780,13 @@ function renderProperties() {
   return '<div class="bestands-page unified-portfolio">' +
     '<section class="portfolio-hero unified-portfolio-hero">' +
       '<div id="mobile-quick-summary">' + mobileQuickSummaryHtml(initialContracts) + '</div>' +
-      '<div id="mobile-scope-filters">' + mobileScopeFiltersHtml(filters) + '</div>' +
+      '<div class="portfolio-filter-top-row"><div id="mobile-scope-filters">' + mobileScopeFiltersHtml(filters) + '</div>' + advancedFilters + '</div>' +
       '<div class="portfolio-search-row"><input class="search portfolio-search" id="portfolio-search" value="' + esc(portfolioFilters.q||"") + '" placeholder="Sök fastighet, avtal, kund eller person…">' +
         '<button class="button secondary" id="portfolio-filter-reset">Rensa</button></div>' +
       '<div id="mobile-content-tabs" class="mobile-content-tabs unified-content-tabs desktop-hide-summary">' + mobileModeChooserHtml(initialContracts) + '</div>' +
       '<div id="mobile-context"></div>' +
       '<select id="filter-unit" hidden>' + selectOptions(filters.unit,"Alla organisationer") + '</select>' +
       '<select id="filter-our-person" hidden>' + selectOptions(filters.ourPeople,"Alla ansvariga") + '</select>' +
-      advancedFilters +
     '</section>' +
 
     '<section class="portfolio-desktop-workspace" aria-label="Arbetsyta för aktuellt urval">' +
