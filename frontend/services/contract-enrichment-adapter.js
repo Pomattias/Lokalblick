@@ -84,6 +84,56 @@
     return i>=0 ? row[i] : "";
   }
   function valueAt(row,index){ return index>=0 ? row[index] : ""; }
+  function worksheetCell(workbook,sheetName,rowIndex,colIndex){
+    if(colIndex<0 || rowIndex<0) return null;
+    var sheet=workbook.Sheets[sheetName];
+    if(!sheet || !XLSX || !XLSX.utils || !XLSX.utils.encode_cell) return null;
+    return sheet[XLSX.utils.encode_cell({r:rowIndex,c:colIndex})] || null;
+  }
+  function formulaHyperlink(cell){
+    var f=cell&&cell.f?String(cell.f):"";
+    if(!f) return "";
+    var m=f.match(/HYPERLINK\s*\(\s*["']([^"']+)["']/i);
+    return m ? m[1] : "";
+  }
+  function hyperlinkTarget(cell){
+    if(!cell) return "";
+    if(cell.l && cell.l.Target) return text(cell.l.Target);
+    return text(formulaHyperlink(cell));
+  }
+  function contractPdfLink(workbook,hit,rowIndex,rowData){
+    var number=normalizeContractNo(rowData.number);
+    var numberCol=findCol(hit.headers,["Avtalsnummer","Avtal"]);
+    var direct=hyperlinkTarget(worksheetCell(workbook,hit.sheet,rowIndex,numberCol));
+    if(direct) return direct;
+
+    var preferred=[];
+    (hit.headerRow||[]).forEach(function(v,i){
+      var h=norm(v);
+      if(/pdf|lank|länk|hyresavtal|avtalsdokument|dokument|avtalsfil/.test(h)) preferred.push(i);
+    });
+    for(var p=0;p<preferred.length;p++){
+      var preferredTarget=hyperlinkTarget(worksheetCell(workbook,hit.sheet,rowIndex,preferred[p]));
+      if(preferredTarget) return preferredTarget;
+    }
+
+    var sheet=workbook.Sheets[hit.sheet];
+    var width=(hit.headerRow||[]).length;
+    var fallback="";
+    for(var col=0;col<width;col++){
+      var target=hyperlinkTarget(worksheetCell(workbook,hit.sheet,rowIndex,col));
+      if(!target) continue;
+      if(!fallback) fallback=target;
+      if(number){
+        var decoded="";
+        try{decoded=decodeURIComponent(target);}catch(_){decoded=target;}
+        var tail=decoded.split(/[\\/]/).pop()||"";
+        var fileStem=normalizeContractNo(tail.replace(/\.pdf(?:[?#].*)?$/i,""));
+        if(fileStem===number || fileStem.indexOf(number)>=0 || number.indexOf(fileStem)>=0) return target;
+      }
+    }
+    return fallback;
+  }
   function detectHeader(workbook){
     var best=null;
     (workbook.SheetNames||[]).forEach(function(name){
@@ -261,9 +311,11 @@
       var baseAddition=num(valueAt(row,finance.baseAddition));
       var annualRent=num(valueAt(row,finance.rentCurrent));
       var annualAddition=num(valueAt(row,finance.currentAddition));
+      var worksheetRow=hit.row+1+offset;
+      var documentUrl=contractPdfLink(workbook,hit,worksheetRow,{number:number});
       return {
         sourceRow:hit.row+2+offset,
-        designation:designation,address:address,number:number,
+        designation:designation,address:address,number:number,documentUrl:documentUrl,
         comment:text(cell(row,headers,["Kommentar"])),use:use,department:text(cell(row,headers,["AVDELNING","Avdelning"])),
         category:category,landlord:text(cell(row,headers,["Hyresvärd","Hyresvard"])),
         start:excelDate(cell(row,headers,["Fr.o.m.","Fr o m","Start"])),
@@ -348,6 +400,8 @@
         additionBaseYear:r.additionBaseYear,additionBaseIndex:r.additionBaseIndex,additionIndexPercent:r.additionIndexPercent,
         mediaWaste:r.mediaWaste,mediaElectricity:r.mediaElectricity,mediaWater:r.mediaWater,mediaHeating:r.mediaHeating,
         mediaHotWater:r.mediaHotWater,mediaVentilation:r.mediaVentilation,mediaOutdoor:r.mediaOutdoor,mediaPropertyTax:r.mediaPropertyTax,
+        contractDocumentUrl:r.documentUrl||"",
+        contractDocumentName:r.documentUrl ? ((function(url){try{return decodeURIComponent(String(url).split(/[\\/]/).pop()||"");}catch(_){return String(url).split(/[\\/]/).pop()||"";}})(r.documentUrl)) : "",
         enrichmentSource:fileName||"",enrichmentSourceRow:r.sourceRow,enrichmentTargetYear:r.targetYear||0
       };
       Object.keys(values).forEach(function(key){ if(values[key]!=="" && values[key]!=null && values[key]!==0) c[key]=values[key]; });
