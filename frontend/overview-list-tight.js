@@ -1,6 +1,6 @@
 /* Lokalblick – tight overview lists
  * Column order:
- * Fastighet → Typ → Post → Ansvarig → Status → Tid → Tillagd
+ * Fastighet → Typ → Post → Ansvarig → Status → Skapad → Kostnad (kr)
  * Adds lightweight per-table filtering and click-to-sort headers.
  */
 (function () {
@@ -11,14 +11,26 @@
     return cell ? cell.textContent.trim() : '';
   }
 
+  function sortValueOf(row, key) {
+    var cell = row.querySelector('.scope-tight-' + key);
+    if (!cell) return '';
+    return cell.dataset.sortValue != null && cell.dataset.sortValue !== ''
+      ? cell.dataset.sortValue
+      : cell.textContent.trim();
+  }
+
   function sortRows(section, key, direction) {
     var rows = Array.from(section.querySelectorAll('.scope-list-row'));
     rows.sort(function (a, b) {
-      var av = textOf(a, key);
-      var bv = textOf(b, key);
+      var av = sortValueOf(a, key);
+      var bv = sortValueOf(b, key);
       if (!av && bv) return 1;
       if (av && !bv) return -1;
-      var result = collator.compare(av, bv);
+      var an = Number(av);
+      var bn = Number(bv);
+      var result = Number.isFinite(an) && Number.isFinite(bn)
+        ? an - bn
+        : collator.compare(String(av), String(bv));
       return direction === 'desc' ? -result : result;
     });
     rows.forEach(function (row) { section.appendChild(row); });
@@ -125,23 +137,32 @@
         }
 
         var status = row.querySelector('.scope-list-status');
-        var time = row.querySelector('.scope-list-time');
         var added = row.querySelector('.scope-list-added');
+        var value = row.querySelector('.scope-list-value');
+        var valueStrong = value ? value.querySelector('strong') : null;
+        var rawCost = valueStrong ? valueStrong.textContent.trim() : '';
+        var costDisplay = rawCost
+          ? rawCost.replace(/\s*kr(?:\s*\/\s*år)?\s*$/i, '').trim()
+          : '–';
+        var costNumber = rawCost
+          ? Number(rawCost.replace(/\s/g, '').replace(/kr(?:\/år)?/gi, '').replace(/[^0-9,.-]/g, '').replace(',', '.'))
+          : NaN;
 
         var cells = [
-          ['fastighet', property || '–', false],
-          ['typ', type || '–', false],
-          ['post', title.textContent.trim(), true],
-          ['ansvarig', responsible || 'Ej tilldelad', false],
-          ['status', status || null, false],
-          ['tid', time ? time.textContent.trim() : '–', false],
-          ['tillagd', added ? added.textContent.trim() : '–', false]
+          ['fastighet', property || '–', false, ''],
+          ['typ', type || '–', false, ''],
+          ['post', title.textContent.trim(), true, ''],
+          ['ansvarig', responsible || 'Ej tilldelad', false, ''],
+          ['status', status || null, false, ''],
+          ['skapad', added ? added.textContent.trim() : '–', false, added ? added.textContent.trim() : ''],
+          ['kostnad', costDisplay, true, Number.isFinite(costNumber) ? String(costNumber) : '']
         ];
 
         row.innerHTML = '';
         cells.forEach(function (cell) {
           var div = document.createElement('div');
           div.className = 'scope-tight-cell scope-tight-' + cell[0];
+          if (cell[3]) div.dataset.sortValue = cell[3];
           if (cell[0] === 'status' && cell[1]) {
             div.appendChild(cell[1]);
           } else if (cell[2]) {
@@ -164,8 +185,8 @@
           ['post','Post'],
           ['ansvarig','Ansvarig'],
           ['status','Status'],
-          ['tid','Tid'],
-          ['tillagd','Tillagd']
+          ['skapad','Skapad'],
+          ['kostnad','Kostnad (kr)']
         ];
         header.innerHTML = columns.map(function (column) {
           return '<button type="button" class="scope-sort-button" data-sort-key="' + column[0] + '" aria-sort="none">' +
