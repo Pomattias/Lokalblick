@@ -2273,7 +2273,13 @@ function renderApi() {
         '<details class="api-enrichment-review"><summary>Visa poster som behöver kontrolleras</summary><div>' +
           (enrichmentReport.needsReview||[]).slice(0,8).map(function(x){return '<p><strong>Osäker match</strong> · rad ' + esc(x.sourceRow) + ' · ' + esc(x.number||x.designation||x.address||"–") + '</p>';}).join('') +
           (enrichmentReport.unmatched||[]).slice(0,8).map(function(x){return '<p><strong>Ingen match</strong> · rad ' + esc(x.sourceRow) + ' · ' + esc(x.number||x.designation||x.address||"–") + '</p>';}).join('') +
-          (enrichmentReport.discrepancies||[]).slice(0,8).map(function(x){return '<p><strong>Avvikelse</strong> · ' + esc(x.contractId) + ' · ' + esc(x.field) + ': ' + esc(x.primary) + ' ↔ ' + esc(x.enrichment) + '</p>';}).join('') +
+          (enrichmentReport.discrepancies||[]).slice(0,12).map(function(x){
+            const moneyFields=/hyresberäkning|tilläggsberäkning/.test(x.field||"");
+            const left=moneyFields ? money(x.primary) : esc(x.primary);
+            const right=moneyFields ? money(x.enrichment) : esc(x.enrichment);
+            return '<p><strong>Avvikelse · ' + esc(x.field) + '</strong> · ' + esc(x.contractId) + ': faktisk ' + left + ' · beräknad ' + right +
+              (x.detail ? '<br><span>' + esc(x.detail) + '</span>' : '') + '</p>';
+          }).join('') +
         '</div></details>' : '') +
       (indexReport ? '<div class="notice api-index-report"><strong>KPI-serie inläst</strong><br>' + num(indexReport.rows||0) + ' indexvärden · ' + num(indexReport.recalculated||0) + ' indexberäkningar uppdaterade.</div>' : '') +
     '</section>';
