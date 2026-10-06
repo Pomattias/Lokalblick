@@ -561,3 +561,42 @@ tr:hover td{background:#fafcfb}
     padding:7px 0 0;
   }
 }
+
+
+/* Open filters must always float above following content */
+.unified-portfolio-hero{
+  position:relative!important;
+  overflow:visible!important;
+  z-index:20;
+}
+.unified-portfolio-hero .portfolio-filter-top-row{
+  position:relative;
+  z-index:200!important;
+}
+.unified-portfolio-hero #mobile-scope-filters{
+  position:relative;
+  z-index:210!important;
+  overflow:visible!important;
+}
+.unified-portfolio-hero .mobile-scope-filter-row{
+  overflow:visible!important;
+}
+.unified-portfolio-hero .mobile-filter-chip{
+  position:relative;
+}
+.unified-portfolio-hero .mobile-filter-chip[open]{
+  z-index:500!important;
+}
+.unified-portfolio-hero .mobile-filter-chip[open] .mobile-filter-menu{
+  z-index:510!important;
+}
+.unified-portfolio-hero .advanced-filter-chip[open]{
+  z-index:500!important;
+}
+.unified-portfolio-hero .advanced-filter-chip[open] .advanced-filter-grid{
+  z-index:510!important;
+}
+.portfolio-desktop-workspace{
+  position:relative;
+  z-index:1;
+}
