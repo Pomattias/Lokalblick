@@ -116,9 +116,15 @@
       property.geocodeMatchCode = result.matchCode || "";
       property.geocodedAddress = result.address || property.address || "";
       property.geocodedAt = result.geocodedAt || null;
+
       if (validCoordinate(result.latitude) && validCoordinate(result.longitude)) {
         property.latitude = Number(result.latitude);
         property.longitude = Number(result.longitude);
+      } else if (result.addressChanged) {
+        // Never keep coordinates from the old address when the new address
+        // could not be matched with sufficient confidence.
+        property.latitude = null;
+        property.longitude = null;
       }
     });
 
