@@ -530,7 +530,7 @@
       });
     }
 
-    const plans = budgetRows("Budgetplaner",[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"]]);
+    const plans = budgetRows("Budgetplaner",[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"],["preliminaryIndex","Preliminärt oktoberindex"]]);
     const targets = budgetRows("Budgetmål",[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]);
     const lines = budgetRows("Budgetrader",[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["contractId","_contractId"],["propertyId","_propertyId"],["amount","Belopp"]]);
     data.indexSeries = budgetRows("KPI",[["year","År"],["month","Månad"],["value","Värde"],["source","Källa"]])
@@ -547,6 +547,7 @@
       });
       return {
         year: year, status: plan.status || "", createdAt: plan.createdAt || "", lockedAt: plan.lockedAt || "",
+        preliminaryIndex:Number(plan.preliminaryIndex)||0,
         notes: notes, targets: planTargets,
         lines: lines.filter(function(x){ return String(x.year) === String(year); }).map(function(x) {
           return {
@@ -645,8 +646,8 @@
 
     const plans = (data && data.budgetPlans) || [];
     XLSX.utils.book_append_sheet(workbook, simpleSheet(plans.map(function(plan) {
-      return {year:plan.year,status:plan.status||"",createdAt:plan.createdAt||"",lockedAt:plan.lockedAt||""};
-    }),[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"]]),"Budgetplaner");
+      return {year:plan.year,status:plan.status||"",createdAt:plan.createdAt||"",lockedAt:plan.lockedAt||"",preliminaryIndex:Number(plan.preliminaryIndex)||0};
+    }),[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"],["preliminaryIndex","Preliminärt oktoberindex"]]),"Budgetplaner");
 
     const targetRows=[], lineRows=[];
     plans.forEach(function(plan) {
