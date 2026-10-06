@@ -1722,11 +1722,11 @@ function scopeContractsSectionHtml(contracts) {
 
 function scopeAllSectionsHtml(contracts) {
   return '<div class="scope-all-sections">' +
-    scopeActivitySectionHtml(contracts,"maintenance","Underhåll","maintenance") +
-    scopeActivitySectionHtml(contracts,"project","Projekt","project") +
-    scopeActivitySectionHtml(contracts,"drift","Drift","driftIssue") +
     scopeContractsSectionHtml(contracts) +
-    scopeActivitySectionHtml(contracts,"wish","Övriga behov","wish") +
+    scopeActivitySectionHtml(contracts,"project","Projekt","project") +
+    scopeActivitySectionHtml(contracts,"maintenance","Underhåll","maintenance") +
+    scopeActivitySectionHtml(contracts,"drift","Drift","driftIssue") +
+    scopeActivitySectionHtml(contracts,"wish","Övrigt","wish") +
   '</div>';
 }
 
