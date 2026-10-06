@@ -167,14 +167,8 @@
     appendCell(row, 'adress', row.dataset.contractAddress || '–', false);
     appendCell(row, 'avtal', contractNumber || '–', true);
     appendCell(row, 'kvm', area ? numberFormat.format(area) : '–', false, area || '');
-    var rentCell=appendCell(row, 'hyra', rent ? numberFormat.format(rent) : '–', true, rent || '');
-    if(row.dataset.contractRentCalculated==="1" && rentCell){
-      var rentBadge=document.createElement('small'); rentBadge.className='scope-calc-badge'; rentBadge.textContent='Beräknad'; rentCell.appendChild(rentBadge);
-    }
-    var additionCell=appendCell(row, 'tillagg', additions ? numberFormat.format(additions) : '–', true, additions || '');
-    if(row.dataset.contractAdditionsCalculated==="1" && additionCell){
-      var addBadge=document.createElement('small'); addBadge.className='scope-calc-badge'; addBadge.textContent='Beräknad'; additionCell.appendChild(addBadge);
-    }
+    appendCell(row, 'hyra', rent ? numberFormat.format(rent) : '–', true, rent || '');
+    appendCell(row, 'tillagg', additions ? numberFormat.format(additions) : '–', true, additions || '');
     appendCell(row, 'krkvm', rentSqm ? numberFormat.format(rentSqm) : '–', true, rentSqm || '');
     appendCell(row, 'avtaltom', row.dataset.contractEnd || 'Tillsv.', false, row.dataset.contractEnd || '9999-12-31');
     appendCell(row, 'uppsagning', row.dataset.contractNotice || '–', false, row.dataset.contractNotice || '9999-12-31');
@@ -231,8 +225,8 @@
       ['adress', 'Adress'],
       ['avtal', 'Avtal'],
       ['kvm', 'kvm'],
-      ['hyra', 'Hyra'],
-      ['tillagg', 'Tillägg'],
+      ['hyra', 'Hyra · beräknad'],
+      ['tillagg', 'Tillägg · beräknat'],
       ['krkvm', 'kr/kvm'],
       ['avtaltom', 'Avtal t.o.m.'],
       ['uppsagning', 'Uppsägning']
