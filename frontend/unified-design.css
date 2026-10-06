@@ -789,3 +789,223 @@ tr:hover td{background:#fafcfb}
   .budget-index-assumption{grid-template-columns:1fr}
   .budget-index-assumption>label{grid-template-columns:minmax(0,1fr) 110px}
 }
+
+
+/* Ultra-compact contract editor: all editable agreement data without internal scroll */
+.editor-dialog.contract-editor{
+  width:min(1040px,calc(100vw - 40px))!important;
+  max-width:none!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+.editor-dialog.contract-editor form{
+  padding:9px 12px!important;
+  overflow:visible!important;
+}
+.editor-dialog.contract-editor .dialog-head{
+  min-height:32px;
+  align-items:center;
+}
+.editor-dialog.contract-editor .dialog-head .eyebrow{
+  font-size:6.5px!important;
+  line-height:1;
+}
+.editor-dialog.contract-editor .dialog-head h2{
+  margin:2px 0 0!important;
+  font-size:17px!important;
+  line-height:1.05!important;
+}
+.editor-dialog.contract-editor .icon-button{
+  width:26px!important;height:26px!important;font-size:16px!important;border-radius:7px!important;
+}
+.editor-dialog.contract-editor .dialog-fields{
+  display:block!important;
+  margin:7px 0!important;
+  overflow:visible!important;
+}
+.editor-dialog.contract-editor .dialog-actions{
+  gap:5px!important;
+  padding-top:0!important;
+}
+.editor-dialog.contract-editor .dialog-actions .button{
+  min-height:28px!important;
+  padding:4px 9px!important;
+  font-size:8.5px!important;
+  border-radius:7px!important;
+}
+.editor-dialog.contract-editor .object-editor-shell{
+  gap:6px!important;
+}
+.editor-dialog.contract-editor .object-editor-top{
+  grid-template-columns:1.35fr .65fr 1fr 1fr!important;
+  gap:5px!important;
+}
+.editor-dialog.contract-editor .object-editor-top .field{
+  gap:2px!important;
+}
+.editor-dialog.contract-editor .object-editor-top .field label{
+  font-size:7.5px!important;
+}
+.editor-dialog.contract-editor .object-editor-top input,
+.editor-dialog.contract-editor .object-editor-top select,
+.editor-dialog.contract-editor .object-editor-readonly{
+  min-height:28px!important;height:28px!important;
+  padding:0 7px!important;
+  border-radius:7px!important;
+  font-size:9px!important;
+}
+.editor-dialog.contract-editor .object-editor-main-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:5px;
+}
+.editor-dialog.contract-editor .index-editor-card,
+.editor-dialog.contract-editor .object-editor-secondary{
+  padding:6px!important;
+  border-radius:8px!important;
+}
+.editor-dialog.contract-editor .index-editor-card{
+  gap:5px!important;
+}
+.editor-dialog.contract-editor .index-editor-head{
+  align-items:center!important;
+  gap:6px!important;
+}
+.editor-dialog.contract-editor .index-editor-head>div{
+  display:flex!important;
+  align-items:baseline!important;
+  gap:6px!important;
+}
+.editor-dialog.contract-editor .index-editor-head>div>span,
+.editor-dialog.contract-editor .object-editor-section-head span{
+  font-size:6.5px!important;
+}
+.editor-dialog.contract-editor .index-editor-head h3{
+  font-size:10px!important;
+}
+.editor-dialog.contract-editor .index-editor-head .badge{
+  padding:2px 5px!important;
+  font-size:6.5px!important;
+}
+.editor-dialog.contract-editor .index-input-grid.compact{
+  grid-template-columns:1.25fr .65fr .75fr .65fr!important;
+  gap:4px!important;
+}
+.editor-dialog.contract-editor .index-input-grid label,
+.editor-dialog.contract-editor .object-editor-fields label{
+  gap:2px!important;
+}
+.editor-dialog.contract-editor .index-input-grid label>span,
+.editor-dialog.contract-editor .object-editor-fields label>span{
+  font-size:6.8px!important;
+  line-height:1!important;
+}
+.editor-dialog.contract-editor .index-input-grid input,
+.editor-dialog.contract-editor .object-editor-fields input,
+.editor-dialog.contract-editor .object-editor-fields select{
+  height:27px!important;
+  min-height:27px!important;
+  padding:0 6px!important;
+  border-radius:6px!important;
+  font-size:8.5px!important;
+}
+.editor-dialog.contract-editor .index-result-line{
+  display:grid;
+  grid-template-columns:.8fr 1.25fr .9fr;
+  gap:4px;
+}
+.editor-dialog.contract-editor .index-result-line>span{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:4px;
+  padding:4px 6px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:var(--panel-soft);
+  color:var(--muted);
+  font-size:6.8px;
+  white-space:nowrap;
+}
+.editor-dialog.contract-editor .index-result-line strong{
+  color:var(--ink);
+  font-size:9px;
+}
+.editor-dialog.contract-editor .index-result-line small{
+  font-size:6px;
+  text-transform:uppercase;
+  font-weight:900;
+  color:var(--accent-strong);
+}
+.editor-dialog.contract-editor .index-result-line .index-result-primary{
+  background:var(--accent-soft);
+}
+.editor-dialog.contract-editor .contract-terms-card,
+.editor-dialog.contract-editor .source-fields-card{
+  min-width:0;
+}
+.editor-dialog.contract-editor .object-editor-section-head{
+  margin:0 0 4px!important;
+}
+.editor-dialog.contract-editor .object-editor-fields{
+  display:grid;
+  gap:4px;
+}
+.editor-dialog.contract-editor .object-editor-fields.compact-five{
+  grid-template-columns:repeat(5,minmax(0,1fr));
+}
+.editor-dialog.contract-editor .object-editor-fields.compact-eight{
+  grid-template-columns:repeat(8,minmax(0,1fr));
+}
+.editor-dialog.contract-editor .field-span-2{
+  grid-column:span 2;
+}
+.editor-dialog.contract-editor .calculated-field{
+  height:27px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:4px;
+  padding:0 6px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:var(--accent-soft);
+  font-size:8.5px;
+  font-weight:800;
+}
+.editor-dialog.contract-editor .calculated-field small{
+  font-size:5.8px;
+  color:var(--accent-strong);
+  text-transform:uppercase;
+  font-weight:900;
+}
+.editor-dialog.contract-editor .media-card{
+  grid-column:1 / -1;
+}
+.editor-dialog.contract-editor .media-card .object-editor-fields label{
+  min-width:0;
+}
+.editor-dialog.contract-editor .media-card select{
+  width:100%;
+}
+
+@media(max-width:900px){
+  .editor-dialog.contract-editor{
+    width:calc(100vw - 16px)!important;
+    max-height:calc(100vh - 16px)!important;
+    overflow:auto!important;
+  }
+  .editor-dialog.contract-editor .object-editor-top{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .editor-dialog.contract-editor .object-editor-main-grid{
+    grid-template-columns:1fr!important;
+  }
+  .editor-dialog.contract-editor .object-editor-fields.compact-five{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .editor-dialog.contract-editor .object-editor-fields.compact-eight{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+}
