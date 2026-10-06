@@ -359,14 +359,20 @@
       var explicitAdditionBase=Number(r.additionBaseIndex)||0;
       var rentBaseIndex=explicitRentBase||indexValue(data.indexSeries,r.rentBaseYear);
       var additionBaseIndex=explicitAdditionBase||indexValue(data.indexSeries,r.additionBaseYear);
-      if(rentBaseIndex && !c.rentBaseIndex) c.rentBaseIndex=rentBaseIndex;
-      if(additionBaseIndex && !c.additionBaseIndex) c.additionBaseIndex=additionBaseIndex;
+      c.derivedRentBaseIndex = !explicitRentBase && rentBaseIndex ? rentBaseIndex : 0;
+      c.derivedAdditionBaseIndex = !explicitAdditionBase && additionBaseIndex ? additionBaseIndex : 0;
+      c.rentCalculationStatus = explicitRentBase ? "Bastal från avtal" : (rentBaseIndex ? "Preliminär · bastal härlett från basår" : "Bastal saknas");
+      c.additionCalculationStatus = explicitAdditionBase ? "Bastal från avtal" : (additionBaseIndex ? "Preliminär · bastal härlett från basår" : "Bastal saknas");
 
       var rentCrossesBase=crossesKpiBaseChange(r.rentBaseYear,indexYear);
       var additionCrossesBase=crossesKpiBaseChange(r.additionBaseYear,indexYear);
       if(rentCrossesBase || additionCrossesBase){
+        if(rentCrossesBase) c.rentCalculationStatus="Kan ej beräknas · KPI-basbyte";
+        if(additionCrossesBase) c.additionCalculationStatus="Kan ej beräknas · KPI-basbyte";
         report.warnings.push("KPI byter basår från 2026. Äldre bastal måste räknas om innan index för "+indexYear+" kan jämföras.");
       }
+      if(!explicitRentBase && rentBaseIndex) report.warnings.push("Minst ett hyresavtal saknar explicit bastal. Lokalblick visar då endast en preliminär kontroll från Basår.");
+      if(!explicitAdditionBase && additionBaseIndex && r.baseAdditions) report.warnings.push("Minst ett tillägg saknar explicit bastal. Lokalblick visar då endast en preliminär kontroll från Basår.");
 
       if(targetYear && currentIndex){
         if(r.baseRent && rentBaseIndex && !rentCrossesBase){
@@ -417,10 +423,16 @@
       var indexYear=year-1;
       var current=indexValue(series,indexYear);
       if(!current){missing++;return;}
-      var rentBase=Number(c.rentBaseIndex)||indexValue(series,c.rentBaseYear);
-      var additionBase=Number(c.additionBaseIndex)||indexValue(series,c.additionBaseYear);
-      if(rentBase && !Number(c.rentBaseIndex)) c.rentBaseIndex=rentBase;
-      if(additionBase && !Number(c.additionBaseIndex)) c.additionBaseIndex=additionBase;
+      var explicitRentBase=Number(c.rentBaseIndex)||0;
+      var explicitAdditionBase=Number(c.additionBaseIndex)||0;
+      var rentBase=explicitRentBase||indexValue(series,c.rentBaseYear);
+      var additionBase=explicitAdditionBase||indexValue(series,c.additionBaseYear);
+      c.derivedRentBaseIndex=!explicitRentBase&&rentBase?rentBase:0;
+      c.derivedAdditionBaseIndex=!explicitAdditionBase&&additionBase?additionBase:0;
+      c.rentCalculationStatus=explicitRentBase?"Bastal från avtal":(rentBase?"Preliminär · bastal härlett från basår":"Bastal saknas");
+      c.additionCalculationStatus=explicitAdditionBase?"Bastal från avtal":(additionBase?"Preliminär · bastal härlett från basår":"Bastal saknas");
+      if(crossesKpiBaseChange(c.rentBaseYear,indexYear)) c.rentCalculationStatus="Kan ej beräknas · KPI-basbyte";
+      if(crossesKpiBaseChange(c.additionBaseYear,indexYear)) c.additionCalculationStatus="Kan ej beräknas · KPI-basbyte";
       if(Number(c.baseRent)&&rentBase&&!crossesKpiBaseChange(c.rentBaseYear,indexYear)){
         c.calculatedAnnualRent=Math.round(indexedAmount(c.baseRent,rentBase,c.rentIndexPercent,current));
         c.rentIndexCurrent=current;c.rentIndexYear=indexYear;c.rentCalculationYear=year;
