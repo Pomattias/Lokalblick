@@ -39,7 +39,9 @@
     var order = { contracts: 0, project: 1, maintenance: 2, drift: 3, wish: 4 };
     sections.sort(function (a, b) {
       return (order[sectionKey(a)] ?? 99) - (order[sectionKey(b)] ?? 99);
-    }).forEach(function (section) { container.appendChild(section); });
+    });
+    var changed = sections.some(function (section, index) { return container.children[index] !== section; });
+    if (changed) sections.forEach(function (section) { container.appendChild(section); });
   }
 
   function propertyFallback(root) {
@@ -135,9 +137,12 @@
       button.title = 'Filtrera till ' + FILTER_LABELS[key].toLowerCase();
     });
     if (byKey.properties) byKey.properties.hidden = true;
-    FILTER_ORDER.map(function (key) { return byKey[key]; }).filter(Boolean).forEach(function (button) {
-      bar.querySelector('.view-choice-bar')?.appendChild(button);
-    });
+    var tabBar = bar.querySelector('.view-choice-bar');
+    if (tabBar) {
+      var ordered = FILTER_ORDER.map(function (key) { return byKey[key]; }).filter(Boolean);
+      var tabChanged = ordered.some(function (button, index) { return tabBar.children[index] !== button; });
+      if (tabChanged) ordered.forEach(function (button) { tabBar.appendChild(button); });
+    }
   }
 
   function setFilter(key) {
