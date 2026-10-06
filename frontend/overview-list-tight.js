@@ -1,34 +1,101 @@
 /* Lokalblick – tight overview lists
- * Consistent column order:
+ * Column order:
  * Fastighet → Typ → Post → Ansvarig → Status → Tid → Tillagd
+ * Adds lightweight per-table filtering and click-to-sort headers.
  */
 (function () {
+  var collator = new Intl.Collator('sv', { numeric: true, sensitivity: 'base' });
+
+  function textOf(row, key) {
+    var cell = row.querySelector('.scope-tight-' + key);
+    return cell ? cell.textContent.trim() : '';
+  }
+
+  function sortRows(section, key, direction) {
+    var rows = Array.from(section.querySelectorAll('.scope-list-row'));
+    rows.sort(function (a, b) {
+      var av = textOf(a, key);
+      var bv = textOf(b, key);
+      if (!av && bv) return 1;
+      if (av && !bv) return -1;
+      var result = collator.compare(av, bv);
+      return direction === 'desc' ? -result : result;
+    });
+    rows.forEach(function (row) { section.appendChild(row); });
+  }
+
+  function uniqueValues(section, key) {
+    return Array.from(new Set(
+      Array.from(section.querySelectorAll('.scope-list-row'))
+        .map(function (row) { return textOf(row, key); })
+        .filter(function (value) { return value && value !== '–' && value !== 'Ej tilldelad'; })
+    )).sort(function (a, b) { return collator.compare(a, b); });
+  }
+
+  function optionHtml(values, placeholder) {
+    return '<option value="">' + placeholder + '</option>' +
+      values.map(function (value) {
+        return '<option value="' + value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '">' +
+          value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+        '</option>';
+      }).join('');
+  }
+
+  function applyFilters(section) {
+    var panel = section.querySelector('.scope-table-filter-panel');
+    if (!panel) return;
+    var q = String((panel.querySelector('[data-table-filter="q"]') || {}).value || '').trim().toLocaleLowerCase('sv');
+    var type = String((panel.querySelector('[data-table-filter="typ"]') || {}).value || '');
+    var responsible = String((panel.querySelector('[data-table-filter="ansvarig"]') || {}).value || '');
+    var status = String((panel.querySelector('[data-table-filter="status"]') || {}).value || '');
+
+    section.querySelectorAll('.scope-list-row').forEach(function (row) {
+      var all = row.textContent.toLocaleLowerCase('sv');
+      var visible =
+        (!q || all.indexOf(q) !== -1) &&
+        (!type || textOf(row, 'typ') === type) &&
+        (!responsible || textOf(row, 'ansvarig') === responsible) &&
+        (!status || textOf(row, 'status') === status);
+      row.hidden = !visible;
+    });
+  }
+
+  function buildFilterPanel(section) {
+    var panel = document.createElement('div');
+    panel.className = 'scope-table-filter-panel';
+    panel.hidden = true;
+    panel.innerHTML =
+      '<input class="scope-table-filter-search" data-table-filter="q" type="search" placeholder="Filtrera tabellen…">' +
+      '<select data-table-filter="typ">' + optionHtml(uniqueValues(section, 'typ'), 'Alla typer') + '</select>' +
+      '<select data-table-filter="ansvarig">' + optionHtml(uniqueValues(section, 'ansvarig'), 'Alla ansvariga') + '</select>' +
+      '<select data-table-filter="status">' + optionHtml(uniqueValues(section, 'status'), 'Alla statusar') + '</select>' +
+      '<button type="button" class="scope-table-filter-clear">Rensa</button>';
+
+    panel.querySelectorAll('input,select').forEach(function (control) {
+      control.addEventListener(control.tagName === 'INPUT' ? 'input' : 'change', function () {
+        applyFilters(section);
+      });
+    });
+    panel.querySelector('.scope-table-filter-clear').addEventListener('click', function () {
+      panel.querySelectorAll('input,select').forEach(function (control) { control.value = ''; });
+      applyFilters(section);
+    });
+    return panel;
+  }
+
   function enhance() {
     var root = document.getElementById('portfolio-overview-content');
     if (!root) return;
 
     root.querySelectorAll('.scope-list-section').forEach(function (section) {
+      if (section.dataset.tableEnhanced === '1') return;
+      section.dataset.tableEnhanced = '1';
+
       var titleEl = section.querySelector('.scope-list-title span');
       var sectionTitle = titleEl ? titleEl.textContent.trim().toLowerCase() : '';
       var isContracts = sectionTitle === 'avtal';
 
-      var header = section.querySelector('.scope-list-columns');
-      if (header && header.dataset.tightColumns !== '1') {
-        header.classList.remove('contract-columns');
-        header.innerHTML = [
-          'Fastighet',
-          'Typ',
-          'Post',
-          'Ansvarig',
-          'Status',
-          'Tid',
-          'Tillagd'
-        ].map(function (label) { return '<span>' + label + '</span>'; }).join('');
-        header.dataset.tightColumns = '1';
-      }
-
       section.querySelectorAll('.scope-list-row').forEach(function (row) {
-        if (row.dataset.tightColumns === '1') return;
         var main = row.querySelector('.scope-list-main');
         if (!main) return;
         var title = main.querySelector('strong');
@@ -48,7 +115,6 @@
 
         if (isContracts) {
           type = 'Avtal';
-          /* Contract metadata is customer · property · area. Keep customer out of Ansvarig. */
           if (!propertyButton && plain.length > 1) {
             property = plain.length > 2 ? plain.slice(1, -1).join(' · ') : plain[1];
           }
@@ -87,8 +153,64 @@
           }
           row.appendChild(div);
         });
-        row.dataset.tightColumns = '1';
       });
+
+      var header = section.querySelector('.scope-list-columns');
+      if (header) {
+        header.classList.remove('contract-columns');
+        var columns = [
+          ['fastighet','Fastighet'],
+          ['typ','Typ'],
+          ['post','Post'],
+          ['ansvarig','Ansvarig'],
+          ['status','Status'],
+          ['tid','Tid'],
+          ['tillagd','Tillagd']
+        ];
+        header.innerHTML = columns.map(function (column) {
+          return '<button type="button" class="scope-sort-button" data-sort-key="' + column[0] + '" aria-sort="none">' +
+            '<span>' + column[1] + '</span><i aria-hidden="true"></i></button>';
+        }).join('');
+
+        header.querySelectorAll('.scope-sort-button').forEach(function (button) {
+          button.addEventListener('click', function () {
+            var current = button.getAttribute('aria-sort');
+            var direction = current === 'ascending' ? 'desc' : 'asc';
+            header.querySelectorAll('.scope-sort-button').forEach(function (other) {
+              other.setAttribute('aria-sort', 'none');
+              other.classList.remove('ascending','descending');
+            });
+            button.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+            button.classList.add(direction === 'asc' ? 'ascending' : 'descending');
+            sortRows(section, button.dataset.sortKey, direction);
+          });
+        });
+      }
+
+      var head = section.querySelector('.scope-list-head');
+      if (head) {
+        var filterButton = document.createElement('button');
+        filterButton.type = 'button';
+        filterButton.className = 'scope-table-filter-toggle';
+        filterButton.setAttribute('aria-label', 'Filtrera tabellen');
+        filterButton.setAttribute('aria-expanded', 'false');
+        filterButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.5 7.2V18l-3 1.5v-7.3L4 5Z"/></svg>';
+        head.appendChild(filterButton);
+
+        var panel = buildFilterPanel(section);
+        if (header) header.insertAdjacentElement('afterend', panel);
+        else head.insertAdjacentElement('afterend', panel);
+
+        filterButton.addEventListener('click', function () {
+          panel.hidden = !panel.hidden;
+          filterButton.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+          filterButton.classList.toggle('active', !panel.hidden);
+          if (!panel.hidden) {
+            var search = panel.querySelector('input');
+            if (search) search.focus();
+          }
+        });
+      }
     });
   }
 
