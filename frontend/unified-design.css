@@ -398,3 +398,14 @@ tr:hover td{background:#fafcfb}
 @media(prefers-reduced-motion:reduce){
   *{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+
+/* Header edit mode replaces the old access-mode strip */
+.header-edit-button.active{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+}
+.header-edit-button.active:hover{
+  background:var(--accent-strong);
+  border-color:var(--accent-strong);
+}
