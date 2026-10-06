@@ -4,7 +4,7 @@
   const DB_NAME = "lokalblick-local-sources";
   const STORE = "handles";
   const HANDLE_KEY = "excel-source";
-  const MODEL_VERSION = "2";
+  const MODEL_VERSION = "3";
 
   const SCHEMAS = [
     { sheet:"Fastigheter", key:"properties", prefix:"FAST", columns:[
@@ -13,7 +13,17 @@
     ]},
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
-      ["propertyId","_propertyId",true],["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["use","Verksamhet"],["start","Start"],["end","Slut"],["notice","Säg upp senast"],["annualRent","Årshyra"],["annualContractDrift","Avtalsdrift"],["unitId","_unitId",true],["tenantOrgId","_tenantOrgId",true],["ownerOrgId","_ownerOrgId",true],["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"]
+      ["propertyId","_propertyId",true],["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["use","Verksamhet"],
+      ["start","Start"],["end","Slut"],["notice","Säg upp senast"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
+      ["annualRent","Årshyra"],["annualAdditions","Årligt tillägg"],["annualContractDrift","Media per år"],["annualPropertyTax","F-skatt per år"],["rentPerSqm","Hyra kr/kvm"],
+      ["baseRent","Grundhyra"],["baseAdditions","Grundtillägg"],
+      ["rentBaseYear","Hyra basår"],["rentBaseIndex","Hyra bastal"],["rentIndexPercent","Hyra indexandel"],["rentIndexCurrent","Hyra aktuellt index"],["rentCalculationYear","Hyra beräkningsår"],["calculatedAnnualRent","Hyra beräknad"],["rentCalculationVariance","Hyra avvikelse"],
+      ["additionBaseYear","Tillägg basår"],["additionBaseIndex","Tillägg bastal"],["additionIndexPercent","Tillägg indexandel"],["additionIndexCurrent","Tillägg aktuellt index"],["additionCalculationYear","Tillägg beräkningsår"],["calculatedAnnualAdditions","Tillägg beräknat"],["additionCalculationVariance","Tillägg avvikelse"],
+      ["costCenterOperations","Kstl drift"],["costCenterPremises","Kstl lokaler"],["ekotObject","Objekt i Ekot"],
+      ["mediaWaste","Sopor"],["mediaElectricity","El"],["mediaWater","VA"],["mediaHeating","Värme"],["mediaHotWater","VV"],["mediaVentilation","Vent"],["mediaOutdoor","Utem."],["mediaPropertyTax","F-skatt ingår"],
+      ["unitId","_unitId",true],["tenantOrgId","_tenantOrgId",true],["ownerOrgId","_ownerOrgId",true],
+      ["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"],
+      ["enrichmentSource","_enrichmentSource",true],["enrichmentSourceRow","_enrichmentSourceRow",true],["enrichmentTargetYear","_enrichmentTargetYear",true]
     ], display:["Fastighet","Hyresgäst","Fastighetsägare","Område"] },
     { sheet:"Organisationer", key:"organizations", prefix:"ORG", columns:[
       ["id","_id",true],["name","Företag"],["type","Typ"],["ownerClass","Ägarklass"]
@@ -87,6 +97,10 @@
     pendingChanges:[],
     sourceKind:"canonical",
     migrationReport:null,
+    enrichmentReport:null,
+    enrichmentFileName:"",
+    indexReport:null,
+    indexFileName:"",
     writeRecoveryNeeded:false,
     lastWriteError:""
   };
@@ -141,6 +155,11 @@
     const newPlans = (after && after.budgetPlans) || [];
     if (JSON.stringify(oldPlans) !== JSON.stringify(newPlans)) {
       changes.push({ sheet:"Budget", key:"budgetPlans", id:"budget", action:"Ändrad", fields:["budgetPlans"], before:null, after:null });
+    }
+    const oldIndex = (before && before.indexSeries) || [];
+    const newIndex = (after && after.indexSeries) || [];
+    if (JSON.stringify(oldIndex) !== JSON.stringify(newIndex)) {
+      changes.push({ sheet:"KPI", key:"indexSeries", id:"kpi", action:"Ändrad", fields:["indexSeries"], before:null, after:null });
     }
     return changes;
   }
@@ -514,6 +533,9 @@
     const plans = budgetRows("Budgetplaner",[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"]]);
     const targets = budgetRows("Budgetmål",[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]);
     const lines = budgetRows("Budgetrader",[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["contractId","_contractId"],["propertyId","_propertyId"],["amount","Belopp"]]);
+    data.indexSeries = budgetRows("KPI",[["year","År"],["month","Månad"],["value","Värde"],["source","Källa"]])
+      .map(function(row){ return {year:Number(row.year)||0,month:Number(row.month)||10,value:Number(row.value)||0,source:row.source||""}; })
+      .filter(function(row){ return row.year && row.value; });
 
     data.budgetPlans = plans.map(function(plan) {
       const year = Number(plan.year) || plan.year;
@@ -640,6 +662,7 @@
     });
     XLSX.utils.book_append_sheet(workbook,simpleSheet(targetRows,[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]),"Budgetmål");
     XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["contractId","_contractId",true],["propertyId","_propertyId",true]]),"Budgetrader");
+    XLSX.utils.book_append_sheet(workbook,simpleSheet((data&&data.indexSeries)||[],[["year","År"],["month","Månad"],["value","Värde"],["source","Källa"]]),"KPI");
     return workbook;
   }
 
@@ -717,7 +740,7 @@
     const base = blank ? {
       isDemo:false, sourceName:handle.name || "Lokalblick-data.xlsx",
       properties:[], contracts:[], organizations:[], people:[], assignments:[], activities:[], projects:[], maintenance:[],
-      operations:[], investigations:[], maintenanceStatus:[], driftIssues:[], wishes:[], budgetPlans:[], assignmentChanges:[]
+      operations:[], investigations:[], maintenanceStatus:[], driftIssues:[], wishes:[], budgetPlans:[], assignmentChanges:[], indexSeries:[]
     } : clone(data || {});
     base.isDemo = false;
     base.sourceName = handle.name || "Lokalblick-data.xlsx";
@@ -812,6 +835,40 @@
     return status();
   }
 
+  async function readSecondaryWorkbook(description) {
+    if (!window.showOpenFilePicker) throw new Error("Excelimport kräver Edge eller Chrome med lokal filåtkomst.");
+    const handles = await window.showOpenFilePicker({
+      multiple:false,
+      types:[{ description:description || "Excel-arbetsbok", accept:{ "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"] } }]
+    });
+    const handle=handles[0];
+    const access=await permission(handle,"read",true);
+    if(access!=="granted") throw new Error("Läsåtkomst till filen godkändes inte.");
+    const file=await handle.getFile();
+    const buffer=await file.arrayBuffer();
+    return {file:file,workbook:XLSX.read(buffer,{type:"array",cellDates:false})};
+  }
+
+  async function enrichContracts(data) {
+    if(!window.LokalblickContractEnrichmentAdapter) throw new Error("Avtalsadaptern är inte tillgänglig.");
+    const picked=await readSecondaryWorkbook("Avtalsregister för berikning");
+    const result=window.LokalblickContractEnrichmentAdapter.enrich(picked.workbook,clone(data||source.data||{}),picked.file.name);
+    source.enrichmentReport=clone(result.report||null);
+    source.enrichmentFileName=picked.file.name||"";
+    return {data:clone(result.data),report:clone(result.report)};
+  }
+
+  async function importIndexSeries(data) {
+    if(!window.LokalblickContractEnrichmentAdapter) throw new Error("Indexadaptern är inte tillgänglig.");
+    const picked=await readSecondaryWorkbook("KPI / indexserie");
+    const series=window.LokalblickContractEnrichmentAdapter.parseIndexWorkbook(picked.workbook,picked.file.name);
+    if(!series.length) throw new Error("Ingen KPI-serie hittades. Filen behöver kolumner för År och Oktober/KPI/Indextal.");
+    const result=window.LokalblickContractEnrichmentAdapter.applyIndexSeries(clone(data||source.data||{}),series,picked.file.name);
+    source.indexReport=clone(result.report||null);
+    source.indexFileName=picked.file.name||"";
+    return {data:clone(result.data),report:clone(result.report)};
+  }
+
   async function setMode(mode) {
     const next = mode === "readwrite" ? "readwrite" : "read";
     if (next === "readwrite" && source.sourceKind === "migration") {
@@ -839,6 +896,10 @@
     source.pendingChanges = [];
     source.sourceKind = "canonical";
     source.migrationReport = null;
+    source.enrichmentReport = null;
+    source.enrichmentFileName = "";
+    source.indexReport = null;
+    source.indexFileName = "";
     source.writeRecoveryNeeded = false;
     source.lastWriteError = "";
     await forgetHandle();
@@ -858,6 +919,10 @@
       pendingChanges:clone(source.pendingChanges || []),
       sourceKind:source.sourceKind || "canonical",
       migrationReport:clone(source.migrationReport || null),
+      enrichmentReport:clone(source.enrichmentReport || null),
+      enrichmentFileName:source.enrichmentFileName || "",
+      indexReport:clone(source.indexReport || null),
+      indexFileName:source.indexFileName || "",
       writeRecoveryNeeded:Boolean(source.writeRecoveryNeeded),
       lastWriteError:source.lastWriteError || ""
     };
@@ -868,6 +933,8 @@
     connect:connect,
     reconnect:reconnect,
     createFile:createFile,
+    enrichContracts:enrichContracts,
+    importIndexSeries:importIndexSeries,
     write:write,
     setMode:setMode,
     disconnect:disconnect,
