@@ -409,3 +409,41 @@ tr:hover td{background:#fafcfb}
   background:var(--accent-strong);
   border-color:var(--accent-strong);
 }
+
+/* Quick choices act as table filters, not navigation tabs */
+#portfolio-content-tabs .quick-table-filters{
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  border:0!important;
+  padding:2px 0 8px!important;
+}
+#portfolio-content-tabs .quick-table-filter{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  min-height:30px!important;
+  padding:5px 9px!important;
+  border:1px solid var(--line)!important;
+  border-radius:999px!important;
+  background:#fff!important;
+  color:var(--muted)!important;
+  font-size:9px!important;
+  font-weight:800!important;
+}
+#portfolio-content-tabs .quick-table-filter::after{display:none!important}
+#portfolio-content-tabs .quick-table-filter strong{
+  min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;
+  padding:0 4px;border-radius:999px;background:#f0f3f2;color:#667278;font-size:8px;font-weight:850
+}
+#portfolio-content-tabs .quick-table-filter:hover{
+  border-color:#bfd0ca!important;background:#f8faf9!important;color:var(--ink)!important
+}
+#portfolio-content-tabs .quick-table-filter.active{
+  background:var(--accent-soft)!important;
+  border-color:#bdd0c9!important;
+  color:var(--accent-strong)!important;
+}
+#portfolio-content-tabs .quick-table-filter.active strong{
+  background:#dcebe6;color:var(--accent-strong)
+}
