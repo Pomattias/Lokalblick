@@ -81,7 +81,7 @@
   #portfolio-overview-content .scope-table-filter-search{grid-column:auto}
 }
 
-#portfolio-overview-content .scope-sort-button:last-child{justify-content:flex-end;text-align:right}
+#portfolio-overview-content .scope-sort-button[data-sort-key="kostnad"]{justify-content:flex-end;text-align:right}
 
 #portfolio-overview-content .scope-edit-column-head{
   min-width:0;display:flex;align-items:center;justify-content:flex-end;
@@ -89,3 +89,5 @@
   color:var(--muted);font:inherit;font-weight:900;text-transform:uppercase;
   letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
+
+@media(max-width:700px){#portfolio-overview-content .scope-list-columns{display:none}}
