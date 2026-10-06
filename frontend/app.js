@@ -127,6 +127,24 @@ function esc(v) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[ch];
   });
 }
+async function openContractDocument(raw) {
+  raw=String(raw||"").trim();
+  if(!raw) return;
+  const isWeb=/^https?:\/\//i.test(raw);
+  let target=raw;
+  if(/^\\\\/.test(target)) target="file://"+target.replace(/^\\\\/,"").replace(/\\/g,"/");
+  try{
+    const opened=window.open(target,"_blank","noopener");
+    if(opened || isWeb) return;
+  }catch(_){}
+  try{
+    await navigator.clipboard.writeText(raw);
+    alert("Dokumentsökvägen kunde inte öppnas direkt i webbläsaren och har kopierats till Urklipp.");
+  }catch(_){
+    alert("Dokumentet finns kopplat till avtalet men webbläsaren blockerar den interna sökvägen.");
+  }
+}
+window.LokalblickOpenContractDocument=openContractDocument;
 function unitName(id) {
   const u = ORG_UNITS.find(function(x) { return x.id === id; });
   return u ? u.name : "Ej satt";
@@ -1683,21 +1701,7 @@ function updateMobilePortfolioSurfaces(contracts) {
     button.addEventListener("click",async function(event){
       event.preventDefault();
       event.stopPropagation();
-      const raw=button.dataset.contractDocumentOpen||"";
-      if(!raw) return;
-      const isWeb=/^https?:\/\//i.test(raw);
-      let target=raw;
-      if(/^\\\\/.test(target)) target="file://"+target.replace(/^\\\\/,"").replace(/\\/g,"/");
-      try{
-        const opened=window.open(target,"_blank","noopener");
-        if(opened || isWeb) return;
-      }catch(_){}
-      try{
-        await navigator.clipboard.writeText(raw);
-        alert("Dokumentsökvägen kunde inte öppnas direkt i webbläsaren och har kopierats till Urklipp.");
-      }catch(_){
-        alert("Dokumentet finns kopplat till avtalet men webbläsaren blockerar den interna sökvägen.");
-      }
+      await openContractDocument(button.dataset.contractDocumentOpen||"");
     });
   });
   bindMobileScopeFilterControls();
