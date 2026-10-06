@@ -3447,51 +3447,127 @@ function openEditor(type, recordId) {
     return '<option value="' + esc(value) + '"' + (String(value) === String(selectedValue) ? ' selected' : '') + '>' + esc(label) + '</option>';
   }
 
-  document.getElementById("dialog-fields").innerHTML = fieldTemplates[type].map(function(field) {
-    const name = field[0], label = field[1], kind = field[2], preset = field[3], required = field[4];
-    const value = fieldValue(name, preset);
-    let control = "";
-    if (kind === "select") {
-      control = '<select name="' + name + '"' + (required ? " required" : "") + ">" +
-        String(preset).split("|").map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
-    } else if (kind === "contract") {
-      control = '<select name="' + name + '"' + (required ? " required" : "") + '>' +
-        optionHtml("", "–", value) +
-        state.contracts.map(function(c) { return optionHtml(c.id, (c.number || c.id) + " · " + propertyName(c.propertyId), value); }).join("") + "</select>";
-    } else if (kind === "person") {
-      control = '<select name="' + name + '" required>' +
-        state.people.map(function(p) { return optionHtml(p.id, p.name, value); }).join("") + "</select>";
-    } else if (kind === "organization") {
-      control = '<select name="' + name + '" required>' +
-        state.organizations.map(function(o) { return optionHtml(o.id, orgType(o.id) + " · " + o.name, value); }).join("") + "</select>";
-    } else if (kind === "unit") {
-      control = '<select name="' + name + '"' + (required ? " required" : "") + '>' + optionHtml("", "–", value) +
-        ORG_UNITS.map(function(u) { return optionHtml(u.id, u.name, value); }).join("") + "</select>";
-    } else if (kind === "internalperson") {
-      const internalPeople = state.people.filter(function(p) {
-        const org = state.organizations.find(function(o) { return o.id === p.organizationId; });
-        return org && org.type === "our";
-      });
-      control = '<select name="' + name + '">' + optionHtml("", "–", value) +
-        internalPeople.map(function(p) { return optionHtml(p.id, p.name, value); }).join("") + "</select>";
-    } else if (kind === "maintenanceCategory") {
-      control = '<select name="' + name + '" required>' +
-        MAINTENANCE_STATUS_CATEGORIES.map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
-    } else if (kind === "issueCategory") {
-      control = '<select name="' + name + '" required>' +
-        DRIFT_ISSUE_CATEGORIES.map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
-    } else if (kind === "wishCategory") {
-      control = '<select name="' + name + '" required>' +
-        WISH_CATEGORIES.map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
-    } else if (kind === "target") {
-      control = '<input name="' + name + '" value="' + esc(value) + '" placeholder="Objekt-ID eller ProjektID" required>';
-    } else if (kind === "textarea") {
-      control = '<textarea name="' + name + '" rows="4">' + esc(value) + '</textarea>';
-    } else {
-      control = '<input name="' + name + '" type="' + kind + '" value="' + esc(value) + '"' + (required ? " required" : "") + ">";
+  if (type === "object" && existing) {
+    const currentYear=new Date().getFullYear();
+    const indexYear=currentYear-1;
+    const knownIndex=indexSeriesValue(indexYear);
+    const rentPct=(Number(existing.rentIndexPercent)||0)*100;
+    const additionPct=(Number(existing.additionIndexPercent)||0)*100;
+    const unitValue=existing.unitId||"";
+    const contractLabel=(existing.number||existing.id)+" · "+propertyName(existing.propertyId);
+    document.getElementById("dialog-fields").innerHTML =
+      '<div class="object-editor-shell">' +
+        '<div class="object-editor-top">' +
+          '<input type="hidden" name="contractId" value="' + esc(existing.id) + '">' +
+          '<div class="field"><label>Objekt / avtal</label><div class="object-editor-readonly">' + esc(contractLabel) + '</div></div>' +
+          '<div class="field"><label>Verksamhetsområde</label><select name="unitId">' +
+            '<option value="">–</option>' + ORG_UNITS.map(function(u){return '<option value="'+esc(u.id)+'"'+(u.id===unitValue?' selected':'')+'>'+esc(u.name)+'</option>';}).join('') +
+          '</select></div>' +
+        '</div>' +
+        '<section class="index-editor-card" data-index-section="rent">' +
+          '<div class="index-editor-head"><div><span>HYRA</span><h3>Indexberäkning av årshyra</h3></div><span class="badge green">Beräknad</span></div>' +
+          '<div class="index-input-grid">' +
+            '<label><span>Grundhyra</span><input data-index-input name="baseRent" type="number" step="0.01" value="'+esc(existing.baseRent||0)+'"></label>' +
+            '<label><span>Basår</span><input data-index-input name="rentBaseYear" type="number" step="1" value="'+esc(existing.rentBaseYear||"")+'"></label>' +
+            '<label><span>Bastal</span><input data-index-input name="rentBaseIndex" type="number" step="0.01" value="'+esc(existing.rentBaseIndex||"")+'"></label>' +
+            '<label><span>Index %</span><input data-index-input name="rentIndexPercentPct" type="number" step="0.01" value="'+esc(rentPct||"")+'"></label>' +
+          '</div>' +
+          '<div class="index-result-grid">' +
+            '<div><span>KPI oktober '+indexYear+'</span><strong data-index-value="rent">'+(knownIndex?esc(new Intl.NumberFormat("sv-SE",{maximumFractionDigits:2}).format(knownIndex)):"Saknas")+'</strong><small>'+(knownIndex?"Känd KPI":"Läs in KPI-serie")+'</small></div>' +
+            '<div class="index-result-primary"><span>Årshyra '+currentYear+'</span><strong data-index-result="rent">–</strong><small>Beräknad</small></div>' +
+            '<div><span>Källvärde</span><strong>'+money(existing.annualRent||0)+'</strong><small>Från avtalsfil</small></div>' +
+          '</div>' +
+        '</section>' +
+        '<section class="index-editor-card" data-index-section="addition">' +
+          '<div class="index-editor-head"><div><span>TILLÄGG</span><h3>Indexberäkning av tillägg</h3></div><span class="badge green">Beräknad</span></div>' +
+          '<div class="index-input-grid">' +
+            '<label><span>Grundtillägg</span><input data-index-input name="baseAdditions" type="number" step="0.01" value="'+esc(existing.baseAdditions||0)+'"></label>' +
+            '<label><span>Basår</span><input data-index-input name="additionBaseYear" type="number" step="1" value="'+esc(existing.additionBaseYear||"")+'"></label>' +
+            '<label><span>Bastal</span><input data-index-input name="additionBaseIndex" type="number" step="0.01" value="'+esc(existing.additionBaseIndex||"")+'"></label>' +
+            '<label><span>Index %</span><input data-index-input name="additionIndexPercentPct" type="number" step="0.01" value="'+esc(additionPct||"")+'"></label>' +
+          '</div>' +
+          '<div class="index-result-grid">' +
+            '<div><span>KPI oktober '+indexYear+'</span><strong data-index-value="addition">'+(knownIndex?esc(new Intl.NumberFormat("sv-SE",{maximumFractionDigits:2}).format(knownIndex)):"Saknas")+'</strong><small>'+(knownIndex?"Känd KPI":"Läs in KPI-serie")+'</small></div>' +
+            '<div class="index-result-primary"><span>Tillägg '+currentYear+'</span><strong data-index-result="addition">–</strong><small>Beräknat</small></div>' +
+            '<div><span>Källvärde</span><strong>'+money(existing.annualAdditions||0)+'</strong><small>Från avtalsfil</small></div>' +
+          '</div>' +
+        '</section>' +
+        '<section class="object-editor-secondary">' +
+          '<div class="object-editor-section-head"><span>ÖVRIGA AVTALSKOSTNADER</span></div>' +
+          '<div class="index-input-grid">' +
+            '<label><span>Media per år</span><input name="annualContractDrift" type="number" step="1" value="'+esc(existing.annualContractDrift||0)+'"></label>' +
+            '<label><span>F-skatt per år</span><input name="annualPropertyTax" type="number" step="1" value="'+esc(existing.annualPropertyTax||0)+'"></label>' +
+          '</div>' +
+        '</section>' +
+        '<section class="object-editor-secondary">' +
+          '<div class="object-editor-section-head"><span>AVTALSVILLKOR</span></div>' +
+          '<div class="index-input-grid">' +
+            '<label><span>Uppsägningstid månader</span><input name="noticePeriodMonths" type="number" step="1" value="'+esc(existing.noticePeriodMonths||0)+'"></label>' +
+            '<label><span>Förlängningstid månader</span><input name="renewalPeriodMonths" type="number" step="1" value="'+esc(existing.renewalPeriodMonths||0)+'"></label>' +
+          '</div>' +
+        '</section>' +
+      '</div>';
+
+    function refreshIndexPreview(){
+      const root=document.getElementById("dialog-fields");
+      function n(name){const el=root.querySelector('[name="'+name+'"]');return Number(el&&el.value)||0;}
+      const rent=calculateIndexedAmount(n("baseRent"),n("rentBaseIndex"),n("rentIndexPercentPct")/100,knownIndex);
+      const addition=calculateIndexedAmount(n("baseAdditions"),n("additionBaseIndex"),n("additionIndexPercentPct")/100,knownIndex);
+      const rentOut=root.querySelector('[data-index-result="rent"]');
+      const additionOut=root.querySelector('[data-index-result="addition"]');
+      if(rentOut) rentOut.textContent=rent?money(rent):"Kan inte beräknas";
+      if(additionOut) additionOut.textContent=addition?money(addition):(n("baseAdditions")?"Kan inte beräknas":"–");
     }
-    return '<div class="field ' + (kind === "textarea" ? "full" : "") + '"><label>' + label + "</label>" + control + "</div>";
-  }).join("");
+    document.querySelectorAll("#dialog-fields [data-index-input]").forEach(function(input){input.addEventListener("input",refreshIndexPreview);});
+    refreshIndexPreview();
+  } else {
+      document.getElementById("dialog-fields").innerHTML = fieldTemplates[type].map(function(field) {
+      const name = field[0], label = field[1], kind = field[2], preset = field[3], required = field[4];
+      const value = fieldValue(name, preset);
+      let control = "";
+      if (kind === "select") {
+        control = '<select name="' + name + '"' + (required ? " required" : "") + ">" +
+          String(preset).split("|").map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
+      } else if (kind === "contract") {
+        control = '<select name="' + name + '"' + (required ? " required" : "") + '>' +
+          optionHtml("", "–", value) +
+          state.contracts.map(function(c) { return optionHtml(c.id, (c.number || c.id) + " · " + propertyName(c.propertyId), value); }).join("") + "</select>";
+      } else if (kind === "person") {
+        control = '<select name="' + name + '" required>' +
+          state.people.map(function(p) { return optionHtml(p.id, p.name, value); }).join("") + "</select>";
+      } else if (kind === "organization") {
+        control = '<select name="' + name + '" required>' +
+          state.organizations.map(function(o) { return optionHtml(o.id, orgType(o.id) + " · " + o.name, value); }).join("") + "</select>";
+      } else if (kind === "unit") {
+        control = '<select name="' + name + '"' + (required ? " required" : "") + '>' + optionHtml("", "–", value) +
+          ORG_UNITS.map(function(u) { return optionHtml(u.id, u.name, value); }).join("") + "</select>";
+      } else if (kind === "internalperson") {
+        const internalPeople = state.people.filter(function(p) {
+          const org = state.organizations.find(function(o) { return o.id === p.organizationId; });
+          return org && org.type === "our";
+        });
+        control = '<select name="' + name + '">' + optionHtml("", "–", value) +
+          internalPeople.map(function(p) { return optionHtml(p.id, p.name, value); }).join("") + "</select>";
+      } else if (kind === "maintenanceCategory") {
+        control = '<select name="' + name + '" required>' +
+          MAINTENANCE_STATUS_CATEGORIES.map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
+      } else if (kind === "issueCategory") {
+        control = '<select name="' + name + '" required>' +
+          DRIFT_ISSUE_CATEGORIES.map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
+      } else if (kind === "wishCategory") {
+        control = '<select name="' + name + '" required>' +
+          WISH_CATEGORIES.map(function(v) { return optionHtml(v, v, value); }).join("") + "</select>";
+      } else if (kind === "target") {
+        control = '<input name="' + name + '" value="' + esc(value) + '" placeholder="Objekt-ID eller ProjektID" required>';
+      } else if (kind === "textarea") {
+        control = '<textarea name="' + name + '" rows="4">' + esc(value) + '</textarea>';
+      } else {
+        control = '<input name="' + name + '" type="' + kind + '" value="' + esc(value) + '"' + (required ? " required" : "") + ">";
+      }
+      return '<div class="field ' + (kind === "textarea" ? "full" : "") + '"><label>' + label + "</label>" + control + "</div>";
+    }).join("");
+  
+  }
   document.getElementById("editor-dialog").showModal();
 }
 function nextId(prefix, list) {
@@ -3554,7 +3630,26 @@ async function saveEditor(form) {
   if (editorType === "object") {
     const c = state.contracts.find(function(x) { return x.id === data.contractId; });
     if (!c) return false;
-    ["annualRent","annualAdditions","annualContractDrift","annualPropertyTax","baseRent","rentBaseYear","rentBaseIndex","rentIndexPercent","baseAdditions","additionBaseYear","additionBaseIndex","additionIndexPercent","noticePeriodMonths","renewalPeriodMonths","employees","users","rooms","commonArea","apartmentArea"].forEach(function(k) { c[k] = Number(data[k]) || 0; });
+    ["annualContractDrift","annualPropertyTax","baseRent","rentBaseYear","rentBaseIndex","baseAdditions","additionBaseYear","additionBaseIndex","noticePeriodMonths","renewalPeriodMonths","employees","users","rooms","commonArea","apartmentArea"].forEach(function(k) {
+      if(Object.prototype.hasOwnProperty.call(data,k)) c[k] = Number(data[k]) || 0;
+    });
+    if(Object.prototype.hasOwnProperty.call(data,"rentIndexPercentPct")) c.rentIndexPercent=(Number(data.rentIndexPercentPct)||0)/100;
+    else if(Object.prototype.hasOwnProperty.call(data,"rentIndexPercent")) c.rentIndexPercent=Number(data.rentIndexPercent)||0;
+    if(Object.prototype.hasOwnProperty.call(data,"additionIndexPercentPct")) c.additionIndexPercent=(Number(data.additionIndexPercentPct)||0)/100;
+    else if(Object.prototype.hasOwnProperty.call(data,"additionIndexPercent")) c.additionIndexPercent=Number(data.additionIndexPercent)||0;
+    const live=contractAnnualValues(c,new Date().getFullYear(),0);
+    if(live.rent.calculated){
+      c.calculatedAnnualRent=Math.round(live.rent.amount);
+      c.rentIndexCurrent=live.rent.usedIndex;
+      c.rentIndexYear=live.rent.indexYear;
+      c.rentCalculationYear=new Date().getFullYear();
+    }
+    if(live.addition.calculated){
+      c.calculatedAnnualAdditions=Math.round(live.addition.amount);
+      c.additionIndexCurrent=live.addition.usedIndex;
+      c.additionIndexYear=live.addition.indexYear;
+      c.additionCalculationYear=new Date().getFullYear();
+    }
     c.unitId = data.unitId || "";
   } else if (editorType === "person") {
     const target = existing || { id: nextId("P", state.people) };
