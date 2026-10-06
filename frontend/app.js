@@ -2119,7 +2119,7 @@ function renderBudget() {
       '</div>' +
     '</section>';
 
-  return '<div class="budget-page unified-budget-shell">' + mobileBudget + '</div>';
+  return '<div class="budget-page unified-budget-shell">' + mobileBudget + excludedHtml + '</div>';
 }
 
 function sourceStatus() {
