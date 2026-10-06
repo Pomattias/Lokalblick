@@ -178,7 +178,16 @@
   function indexedAmount(baseAmount,baseIndex,indexShare,currentIndex){
     baseAmount=Number(baseAmount)||0;baseIndex=Number(baseIndex)||0;indexShare=Number(indexShare)||0;currentIndex=Number(currentIndex)||0;
     if(!baseAmount || !baseIndex || !currentIndex) return 0;
-    return baseAmount * (1 + indexShare * ((currentIndex/baseIndex)-1));
+    var calculated=baseAmount * (1 + indexShare * ((currentIndex-baseIndex)/baseIndex));
+    return Math.max(baseAmount,calculated);
+  }
+  function varianceTooLarge(actual,calculated){
+    actual=Number(actual)||0;calculated=Number(calculated)||0;
+    if(!actual || !calculated) return false;
+    return Math.abs(actual-calculated) > Math.max(100,Math.abs(actual)*0.005);
+  }
+  function crossesKpiBaseChange(baseYear,indexYear){
+    return Number(baseYear)>0 && Number(baseYear)<=2025 && Number(indexYear)>=2026;
   }
   function toleranceDiff(actual,calculated){
     actual=Number(actual)||0;calculated=Number(calculated)||0;
@@ -344,26 +353,46 @@
       Object.keys(values).forEach(function(key){ if(values[key]!=="" && values[key]!=null && values[key]!==0) c[key]=values[key]; });
 
       var targetYear=Number(r.targetYear)||0;
-      var currentIndex=targetYear ? indexValue(data.indexSeries,targetYear) : 0;
-      var rentBaseIndex=Number(r.rentBaseIndex)||indexValue(data.indexSeries,r.rentBaseYear);
-      var additionBaseIndex=Number(r.additionBaseIndex)||indexValue(data.indexSeries,r.additionBaseYear);
+      var indexYear=targetYear ? targetYear-1 : 0;
+      var currentIndex=indexYear ? indexValue(data.indexSeries,indexYear) : 0;
+      var explicitRentBase=Number(r.rentBaseIndex)||0;
+      var explicitAdditionBase=Number(r.additionBaseIndex)||0;
+      var rentBaseIndex=explicitRentBase||indexValue(data.indexSeries,r.rentBaseYear);
+      var additionBaseIndex=explicitAdditionBase||indexValue(data.indexSeries,r.additionBaseYear);
       if(rentBaseIndex && !c.rentBaseIndex) c.rentBaseIndex=rentBaseIndex;
       if(additionBaseIndex && !c.additionBaseIndex) c.additionBaseIndex=additionBaseIndex;
+
+      var rentCrossesBase=crossesKpiBaseChange(r.rentBaseYear,indexYear);
+      var additionCrossesBase=crossesKpiBaseChange(r.additionBaseYear,indexYear);
+      if(rentCrossesBase || additionCrossesBase){
+        report.warnings.push("KPI byter basår från 2026. Äldre bastal måste räknas om innan index för "+indexYear+" kan jämföras.");
+      }
+
       if(targetYear && currentIndex){
-        if(r.baseRent && rentBaseIndex){
+        if(r.baseRent && rentBaseIndex && !rentCrossesBase){
           c.calculatedAnnualRent=Math.round(indexedAmount(r.baseRent,rentBaseIndex,r.rentIndexPercent,currentIndex));
           c.rentIndexCurrent=currentIndex;
+          c.rentIndexYear=indexYear;
           c.rentCalculationYear=targetYear;
           c.rentCalculationVariance=Math.round(toleranceDiff(r.annualRent,c.calculatedAnnualRent));
+          if(varianceTooLarge(r.annualRent,c.calculatedAnnualRent)){
+            report.discrepancies.push({contractId:c.id,field:"hyresberäkning",primary:r.annualRent,enrichment:c.calculatedAnnualRent,sourceRow:r.sourceRow,
+              detail:"Grundhyra "+Math.round(r.baseRent)+" · bastal "+rentBaseIndex+" · indexandel "+Math.round((Number(r.rentIndexPercent)||0)*100)+"% · oktoberindex "+indexYear+" "+currentIndex});
+          }
         }
-        if(r.baseAdditions && additionBaseIndex){
+        if(r.baseAdditions && additionBaseIndex && !additionCrossesBase){
           c.calculatedAnnualAdditions=Math.round(indexedAmount(r.baseAdditions,additionBaseIndex,r.additionIndexPercent,currentIndex));
           c.additionIndexCurrent=currentIndex;
+          c.additionIndexYear=indexYear;
           c.additionCalculationYear=targetYear;
           c.additionCalculationVariance=Math.round(toleranceDiff(r.annualAdditions,c.calculatedAnnualAdditions));
+          if(varianceTooLarge(r.annualAdditions,c.calculatedAnnualAdditions)){
+            report.discrepancies.push({contractId:c.id,field:"tilläggsberäkning",primary:r.annualAdditions,enrichment:c.calculatedAnnualAdditions,sourceRow:r.sourceRow,
+              detail:"Grundtillägg "+Math.round(r.baseAdditions)+" · bastal "+additionBaseIndex+" · indexandel "+Math.round((Number(r.additionIndexPercent)||0)*100)+"% · oktoberindex "+indexYear+" "+currentIndex});
+          }
         }
       } else if(targetYear && (rentBaseIndex || additionBaseIndex || r.rentBaseYear || r.additionBaseYear)) {
-        report.warnings.push("KPI oktober "+targetYear+" saknas för indexberäkning.");
+        report.warnings.push("KPI oktober "+indexYear+" saknas för beräkning av "+targetYear+" års hyra.");
       }
 
       report.matched.push({sourceRow:r.sourceRow,contractId:c.id,number:c.number||"",method:match.method,score:match.score,reasons:match.reasons||[]});
@@ -385,20 +414,21 @@
     (data.contracts||[]).forEach(function(c){
       var year=Number(c.enrichmentTargetYear)||0;
       if(!year) return;
-      var current=indexValue(series,year);
+      var indexYear=year-1;
+      var current=indexValue(series,indexYear);
       if(!current){missing++;return;}
       var rentBase=Number(c.rentBaseIndex)||indexValue(series,c.rentBaseYear);
       var additionBase=Number(c.additionBaseIndex)||indexValue(series,c.additionBaseYear);
       if(rentBase && !Number(c.rentBaseIndex)) c.rentBaseIndex=rentBase;
       if(additionBase && !Number(c.additionBaseIndex)) c.additionBaseIndex=additionBase;
-      if(Number(c.baseRent)&&rentBase){
+      if(Number(c.baseRent)&&rentBase&&!crossesKpiBaseChange(c.rentBaseYear,indexYear)){
         c.calculatedAnnualRent=Math.round(indexedAmount(c.baseRent,rentBase,c.rentIndexPercent,current));
-        c.rentIndexCurrent=current;c.rentCalculationYear=year;
+        c.rentIndexCurrent=current;c.rentIndexYear=indexYear;c.rentCalculationYear=year;
         c.rentCalculationVariance=Math.round(toleranceDiff(c.annualRent,c.calculatedAnnualRent));recalculated++;
       }
-      if(Number(c.baseAdditions)&&additionBase){
+      if(Number(c.baseAdditions)&&additionBase&&!crossesKpiBaseChange(c.additionBaseYear,indexYear)){
         c.calculatedAnnualAdditions=Math.round(indexedAmount(c.baseAdditions,additionBase,c.additionIndexPercent,current));
-        c.additionIndexCurrent=current;c.additionCalculationYear=year;
+        c.additionIndexCurrent=current;c.additionIndexYear=indexYear;c.additionCalculationYear=year;
         c.additionCalculationVariance=Math.round(toleranceDiff(c.annualAdditions,c.calculatedAnnualAdditions));recalculated++;
       }
     });
