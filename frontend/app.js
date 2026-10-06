@@ -891,42 +891,54 @@ function portfolioActivityItems(contracts) {
 }
 function portfolioContentTabsHtml(contracts) {
   const items = portfolioActivityItems(contracts);
-  const propertyMode = Boolean(portfolioExplorer.propertyId);
-  const propertyCount = new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
   const counts = {
-    maintenance: items.filter(function(x){return x.group==="maintenance";}).length,
-    project: items.filter(function(x){return x.group==="project";}).length,
-    drift: items.filter(function(x){return x.group==="drift" || x.group==="operations";}).length,
-    wish: items.filter(function(x){return x.group==="wish";}).length,
     contracts: contracts.length,
-    properties: propertyCount
+    project: items.filter(function(x){return x.group==="project";}).length,
+    maintenance: items.filter(function(x){return x.group==="maintenance";}).length,
+    drift: items.filter(function(x){return x.group==="drift" || x.group==="operations";}).length,
+    wish: items.filter(function(x){return x.group==="wish";}).length
   };
-  const modes = propertyMode ? [
-    ["overview","Översikt","Sammanfattning och allt som hör till fastigheten"],
-    ["maintenance","Underhåll","Behov, planering och kostnad"],
-    ["project","Projekt","Projekt, tid och budget"],
-    ["drift","Drift","Driftkostnader och ärenden"],
-    ["contracts","Avtal","Avtal, area och årskostnad"],
-    ["wish","Önskemål","Önskemål och övriga behov"]
-  ] : [
-    ["overview","Översikt","Sammanfattning och alla poster i urvalet"],
-    ["properties","Fastigheter","Fastigheterna i aktuellt urval"],
-    ["maintenance","Underhåll","Behov, planering och kostnad"],
-    ["project","Projekt","Projekt, tid och budget"],
-    ["drift","Drift","Driftkostnader och ärenden"],
-    ["contracts","Avtal","Avtal, area och ekonomi"],
-    ["wish","Önskemål","Önskemål och övriga behov"]
+  const modes = [
+    ["overview","Översikt"],
+    ["contracts","Avtal"],
+    ["project","Projekt"],
+    ["maintenance","Underhåll"],
+    ["drift","Drift"],
+    ["wish","Övrigt"]
   ];
-  return '<div class="view-choice-bar">' + modes.map(function(mode) {
-    const active = portfolioExplorer.section === mode[0];
-    const count = counts[mode[0]];
-    return '<button class="view-choice ' + (active ? "active" : "") + '" type="button" data-portfolio-section="' + mode[0] +
-      '" role="tab" aria-selected="' + (active ? "true" : "false") + '" title="' + esc(mode[2]) + '">' +
-      '<span>' + esc(mode[1]) + '</span>' +
-      (count == null ? "" : '<strong>' + count + '</strong>') +
-    '</button>';
-  }).join("") + '</div>';
+  return '<div class="view-choice-bar quick-table-filters" role="group" aria-label="Snabbfilter för tabeller">' +
+    modes.map(function(mode) {
+      const active = portfolioExplorer.section === mode[0];
+      const count = counts[mode[0]];
+      return '<button class="view-choice quick-table-filter ' + (active ? "active" : "") + '" type="button" data-portfolio-section="' + mode[0] +
+        '" aria-pressed="' + (active ? "true" : "false") + '">' +
+        '<span>' + esc(mode[1]) + '</span>' +
+        (count == null ? "" : '<strong>' + count + '</strong>') +
+      '</button>';
+    }).join("") +
+  '</div>';
 }
+
+function scopeFilteredSectionsHtml(contracts, section) {
+  if (section === "contracts") return '<div class="scope-all-sections">' + scopeContractsSectionHtml(contracts) + '</div>';
+  if (section === "project") return '<div class="scope-all-sections">' + scopeActivitySectionHtml(contracts,"project","Projekt","project") + '</div>';
+  if (section === "maintenance") return '<div class="scope-all-sections">' + scopeActivitySectionHtml(contracts,"maintenance","Underhåll","maintenance") + '</div>';
+  if (section === "drift") return '<div class="scope-all-sections">' + scopeActivitySectionHtml(contracts,"drift","Drift","driftIssue") + '</div>';
+  if (section === "wish") return '<div class="scope-all-sections">' + scopeActivitySectionHtml(contracts,"wish","Övrigt","wish") + '</div>';
+  return "";
+}
+
+function portfolioTableViewHtml(contracts) {
+  const section = portfolioExplorer.section || "overview";
+  if (section === "overview") {
+    return portfolioExplorer.propertyId ? propertyWorkspaceHtml(contracts) : portfolioOverviewHtml(contracts);
+  }
+  if (["contracts","project","maintenance","drift","wish"].includes(section)) {
+    return scopeFilteredSectionsHtml(propertyContractsForContext(contracts), section);
+  }
+  return portfolioExplorer.propertyId ? propertyWorkspaceHtml(contracts) : portfolioOverviewHtml(contracts);
+}
+
 function perspectiveSummaryHtml(contracts, group) {
   const selected = portfolioActivityItems(contracts).filter(function(item){
     return group === "drift" ? (item.group === "drift" || item.group === "operations") : item.group === group;
@@ -1785,7 +1797,7 @@ function renderProperties() {
       '<div id="portfolio-content-tabs" class="desktop-perspective-nav"' + (portfolioExplorer.section==="activities" ? ' hidden' : '') + '>' + portfolioContentTabsHtml(initialContracts) + '</div>' +
       '<div class="desktop-detail-panels">' +
         '<div id="overview-panel"><div id="portfolio-overview-content">' +
-          (portfolioExplorer.propertyId ? propertyWorkspaceHtml(initialContracts) : portfolioOverviewHtml(initialContracts)) +
+          portfolioTableViewHtml(initialContracts) +
         '</div></div>' +
         '<div id="properties-panel" hidden><div id="portfolio-properties-content">' + mobilePropertyCardsHtml(initialContracts) + '</div></div>' +
         '<div id="contracts-panel" hidden><div id="portfolio-contracts-content">' + scopeContractsSectionHtml(initialContracts) + '</div></div>' +
@@ -2895,14 +2907,16 @@ function activitySections() {
 }
 function applyPortfolioSectionVisibility() {
   const section = portfolioExplorer.section || "overview";
+  const tableFilterSections = ["overview","contracts","project","maintenance","drift","wish"];
   const overview = document.getElementById("overview-panel");
   const properties = document.getElementById("properties-panel");
   const contracts = document.getElementById("contracts-panel");
   const activity = document.getElementById("activity-panel");
-  if (overview) overview.hidden = section !== "overview";
+
+  if (overview) overview.hidden = !tableFilterSections.includes(section);
   if (properties) properties.hidden = section !== "properties";
-  if (contracts) contracts.hidden = section !== "contracts";
-  if (activity) activity.hidden = !activitySections().includes(section);
+  if (contracts) contracts.hidden = true;
+  if (activity) activity.hidden = !["activities","investigation","operations"].includes(section);
 
   const mobileOverview = document.getElementById("mobile-overview-panel");
   const mobileProperties = document.getElementById("mobile-properties-panel");
@@ -2998,7 +3012,7 @@ function bindPortfolioExplorerControls() {
 }
 function updatePortfolioSurfaces(contracts) {
   const overview = document.getElementById("portfolio-overview-content");
-  if (overview) overview.innerHTML = portfolioExplorer.propertyId ? propertyWorkspaceHtml(contracts) : portfolioOverviewHtml(contracts);
+  if (overview) overview.innerHTML = portfolioTableViewHtml(contracts);
 
   const propertyContext = document.getElementById("property-persistent-context");
   if (propertyContext) propertyContext.innerHTML = propertyPersistentContextHtml(contracts);
