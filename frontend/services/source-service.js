@@ -19,7 +19,7 @@
       ["baseRent","Grundhyra"],["baseAdditions","Grundtillägg"],
       ["rentBaseYear","Hyra basår"],["rentBaseIndex","Hyra bastal"],["derivedRentBaseIndex","Hyra härlett bastal"],["rentIndexPercent","Hyra indexandel"],["rentIndexCurrent","Hyra aktuellt index"],["rentIndexYear","Hyra indexår"],["rentCalculationYear","Hyra beräkningsår"],["calculatedAnnualRent","Hyra beräknad"],["rentCalculationVariance","Hyra avvikelse"],["rentCalculationStatus","Hyra beräkningsstatus"],
       ["additionBaseYear","Tillägg basår"],["additionBaseIndex","Tillägg bastal"],["derivedAdditionBaseIndex","Tillägg härlett bastal"],["additionIndexPercent","Tillägg indexandel"],["additionIndexCurrent","Tillägg aktuellt index"],["additionIndexYear","Tillägg indexår"],["additionCalculationYear","Tillägg beräkningsår"],["calculatedAnnualAdditions","Tillägg beräknat"],["additionCalculationVariance","Tillägg avvikelse"],["additionCalculationStatus","Tillägg beräkningsstatus"],
-      ["costCenterOperations","Kstl drift"],["costCenterPremises","Kstl lokaler"],["ekotObject","Objekt i Ekot"],
+      ["costCenterOperations","Kstl drift"],["costCenterPremises","Kstl lokaler"],["ekotObject","Objekt i Ekot"],["contractDocumentUrl","Avtals-PDF"],["contractDocumentName","Avtalsdokument"],
       ["mediaWaste","Sopor"],["mediaElectricity","El"],["mediaWater","VA"],["mediaHeating","Värme"],["mediaHotWater","VV"],["mediaVentilation","Vent"],["mediaOutdoor","Utem."],["mediaPropertyTax","F-skatt ingår"],
       ["unitId","_unitId",true],["tenantOrgId","_tenantOrgId",true],["ownerOrgId","_ownerOrgId",true],
       ["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"],
