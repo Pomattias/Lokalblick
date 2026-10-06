@@ -627,7 +627,7 @@ function renderMobileDock() {
   if (window.matchMedia && window.matchMedia("(max-width: 700px)").matches) {
     const title=document.getElementById("page-title");
     if (title) {
-      title.textContent = active==="overview" ? "Översikt" :
+      title.textContent = active==="overview" ? portfolioScopeTitle() :
         active==="map" ? "Karta" :
         active==="plan" ? "Planera" :
         active==="budget" ? "Budget" :
@@ -699,8 +699,10 @@ function render() {
   }
 
   const meta = views.find(function(v) { return v.id === currentView; });
-  document.getElementById("page-title").textContent = currentView==="properties" && portfolioExplorer.section==="activities" ? "Planera" : meta.label;
-  document.getElementById("page-eyebrow").textContent = currentView==="properties" && portfolioExplorer.section==="activities" ? "ANSVAR · PLANERING · ÅTGÄRD" : meta.eyebrow;
+  const isPlanningView = currentView==="properties" && portfolioExplorer.section==="activities";
+  const isPortfolioView = currentView==="properties" && !isPlanningView;
+  document.getElementById("page-title").textContent = isPlanningView ? "Planera" : (isPortfolioView ? portfolioScopeTitle() : meta.label);
+  document.getElementById("page-eyebrow").textContent = isPlanningView ? "ANSVAR · PLANERING · ÅTGÄRD" : (isPortfolioView ? "AKTUELLT URVAL" : meta.eyebrow);
   const banner = document.getElementById("mode-banner");
   banner.className = "mode-banner " + (state.isDemo ? "demo" : "live");
   const sourceInfo = window.LokalblickSourceService ? window.LokalblickSourceService.status() : null;
@@ -1138,16 +1140,23 @@ function portfolioScopeTitle() {
   return "Alla fastigheter";
 }
 function updatePortfolioScopeHeader(contracts) {
+  const scopeTitle = portfolioScopeTitle();
   const title=document.getElementById("portfolio-scope-title");
   const meta=document.getElementById("portfolio-scope-meta");
-  if(title) title.textContent=portfolioScopeTitle();
+  if(title) title.textContent=scopeTitle;
   if(meta) {
     const properties=new Set(contracts.map(function(c){return c.propertyId;}).filter(Boolean)).size;
     const area=contracts.reduce(function(sum,c){return sum+(Number(c.area)||0);},0);
     meta.textContent=properties+" fastigheter · "+contracts.length+" avtal · "+num(area)+" kvm";
   }
+  if(currentView==="properties" && portfolioExplorer.section!=="activities") {
+    const pageTitle=document.getElementById("page-title");
+    const pageEyebrow=document.getElementById("page-eyebrow");
+    if(pageTitle) pageTitle.textContent=scopeTitle;
+    if(pageEyebrow) pageEyebrow.textContent="AKTUELLT URVAL";
+  }
   const mobileLabel=document.getElementById("mobile-scope-label");
-  if(mobileLabel) mobileLabel.textContent=portfolioScopeTitle();
+  if(mobileLabel) mobileLabel.textContent=scopeTitle;
 }
 function updateQuickScopeButtons() {
   const unit=document.getElementById("filter-unit");
@@ -1366,7 +1375,7 @@ function mobileQuickSummaryHtml(contracts) {
     '<div class="mobile-home-hero-copy"><span>AKTUELLT URVAL</span><h2>' + esc(portfolioScopeTitle()) + '</h2><p>' +
       propertyCount + ' fastigheter · ' + contracts.length + ' avtal · ' + num(totalArea) + ' kvm</p></div>' +
     '<div class="mobile-home-hero-value"><span>Årskostnad avtal</span><strong>' + money(annualContracts) +
-      '</strong><small>Hyra + avtalsdrift</small></div>' +
+      '</strong><small>Hyra + media</small></div>' +
   '</section>';
 }
 
@@ -1663,7 +1672,7 @@ function propertyPersistentContextHtml(contracts) {
       '<div><span>Ansvar hos oss</span><strong>' + esc(ourPeople.join(", ")||property.manager||"–") + '</strong></div>' +
       '<div><span>Area</span><strong>' + num(area) + ' kvm</strong></div>' +
       '<div><span>Avtal</span><strong>' + cs.length + ' st</strong></div>' +
-      '<div><span>Hyra + avtalsdrift</span><strong>' + money(annual) + '/år</strong></div>' +
+      '<div><span>Hyra + media</span><strong>' + money(annual) + '/år</strong></div>' +
     '</div>' +
   '</section>';
 }
@@ -1748,17 +1757,22 @@ function portfolioOverviewHtml(contracts) {
   const totalCost = contracts.reduce(function(sum, c) { return sum + totalContractCost(c); }, 0);
   const costPerSqm = totalArea ? totalCost / totalArea : 0;
   const activity = portfolioActivityItems(contracts);
-  const activeWork = activity.filter(function(item){
-    return !/klar|klart|avslaget/i.test(String(item.status||""));
-  }).length;
+  const maintenanceItems = activity.filter(function(item){ return item.group==="maintenance"; });
+  const driftItems = activity.filter(function(item){ return item.group==="drift" || item.group==="operations"; });
+  const otherItems = activity.filter(function(item){ return item.group==="wish"; });
+  const maintenanceCost = maintenanceItems.reduce(function(sum,item){ return sum + (Number(item.cost)||0); },0);
+  const driftCost = driftItems.reduce(function(sum,item){ return sum + (Number(item.cost)||0); },0);
+  const otherCost = otherItems.reduce(function(sum,item){ return sum + (Number(item.cost)||0); },0);
 
   return '<section class="summary-block">' +
-    '<div class="overview-kpis compact">' +
+    '<div class="overview-kpis compact portfolio-kpi-chips">' +
       kpi("Fastigheter", num(propertyIds.size), "i aktuellt urval") +
       kpi("Avtal", num(contracts.length), "i aktuellt urval") +
       kpi("Area", num(totalArea) + " kvm", propertyIds.size ? num(totalArea / propertyIds.size) + " kvm / fastighet" : "–") +
-      kpi("Hyra + drift", money(totalCost), totalArea ? num(costPerSqm) + " kr/kvm" : "–") +
-      kpi("Aktuella poster", num(activeWork), "underhåll · projekt · drift") +
+      kpi("Hyra + media", money(totalCost), totalArea ? num(costPerSqm) + " kr/kvm" : "–") +
+      kpi("Underhåll", money(maintenanceCost), maintenanceItems.length + (maintenanceItems.length===1 ? " post" : " poster")) +
+      kpi("Drift", money(driftCost), driftItems.length + (driftItems.length===1 ? " post" : " poster")) +
+      kpi("Övrigt", money(otherCost), otherItems.length + (otherItems.length===1 ? " post" : " poster")) +
     '</div></section>' +
     '<div class="scope-details-intro"><div><span class="portfolio-kicker">UNDERLAG</span><h3>Ekonomi och aktiviteter</h3></div></div>' +
     scopeAllSectionsHtml(contracts);
@@ -1790,10 +1804,7 @@ function renderProperties() {
     '</section>' +
 
     '<section class="portfolio-desktop-workspace" aria-label="Arbetsyta för aktuellt urval">' +
-      '<div class="desktop-scope-strip">' +
-        '<div class="desktop-scope-copy"><span class="portfolio-kicker">AKTUELLT URVAL</span><h2 id="portfolio-scope-title">' + esc(portfolioScopeTitle()) + '</h2><p id="portfolio-scope-meta"></p></div>' +
-        '<div id="portfolio-context" class="portfolio-context"></div>' +
-      '</div>' +
+      '<div id="portfolio-context" class="portfolio-context portfolio-context-only"></div>' +
       '<div id="property-persistent-context">' + propertyPersistentContextHtml(initialContracts) + '</div>' +
       '<div id="portfolio-content-tabs" class="desktop-perspective-nav"' + (portfolioExplorer.section==="activities" ? ' hidden' : '') + '>' + portfolioContentTabsHtml(initialContracts) + '</div>' +
       '<div class="desktop-detail-panels">' +
@@ -1878,7 +1889,7 @@ function mapPopupHtml(p) {
       '<span>Fastighetsägare</span><strong>' + esc(p.owner || "–") + '</strong>' +
       '<span>Objekt / avtal</span><strong>' + num(x.contracts) + '</strong>' +
       '<span>Area</span><strong>' + num(x.area) + ' kvm</strong>' +
-      '<span>Hyra + drift</span><strong>' + money(x.cost) + '</strong>' +
+      '<span>Hyra + media</span><strong>' + money(x.cost) + '</strong>' +
       '<span>Organisation</span><strong>' + esc(x.units.join(", ") || "–") + '</strong>' +
     '</div>' +
     '<div class="map-popup-status">' +
