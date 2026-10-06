@@ -680,6 +680,24 @@ function render() {
     window.LokalblickMapService.destroy();
   }
   renderNav();
+
+  const headerEdit = document.getElementById("header-edit");
+  if (headerEdit) {
+    const editAvailable = isEditAvailable();
+    headerEdit.hidden = !editAvailable;
+    headerEdit.textContent = canEdit() ? "Klar" : "Redigera";
+    headerEdit.classList.toggle("active", canEdit());
+    headerEdit.setAttribute("aria-pressed", canEdit() ? "true" : "false");
+    if (!headerEdit.dataset.bound) {
+      headerEdit.dataset.bound = "1";
+      headerEdit.addEventListener("click", function() {
+        if (canEdit()) setAccessMode("read");
+        else setAccessMode(isAdminAvailable() ? "admin" : "edit");
+        render();
+      });
+    }
+  }
+
   const meta = views.find(function(v) { return v.id === currentView; });
   document.getElementById("page-title").textContent = currentView==="properties" && portfolioExplorer.section==="activities" ? "Planera" : meta.label;
   document.getElementById("page-eyebrow").textContent = currentView==="properties" && portfolioExplorer.section==="activities" ? "ANSVAR · PLANERING · ÅTGÄRD" : meta.eyebrow;
@@ -1759,7 +1777,6 @@ function renderProperties() {
     '</section>' +
 
     '<section class="portfolio-desktop-workspace" aria-label="Arbetsyta för aktuellt urval">' +
-      '<div id="portfolio-access-mode">' + accessModeBarHtml() + '</div>' +
       '<div class="desktop-scope-strip">' +
         '<div class="desktop-scope-copy"><span class="portfolio-kicker">AKTUELLT URVAL</span><h2 id="portfolio-scope-title">' + esc(portfolioScopeTitle()) + '</h2><p id="portfolio-scope-meta"></p></div>' +
         '<div id="portfolio-context" class="portfolio-context"></div>' +
@@ -1777,7 +1794,7 @@ function renderProperties() {
     '</section>' +
 
     '<section class="portfolio-mobile-workspace ' + (portfolioExplorer.section==="activities" ? "plan-visible" : "") + '">' +
-      '<div id="portfolio-access-mode-mobile">' + accessModeBarHtml() + '</div><div id="mobile-property-persistent-context"></div>' +
+      '<div id="mobile-property-persistent-context"></div>' +
       '<div class="mobile-panels unified-panels">' +
         '<div class="mobile-panel" id="mobile-overview-panel"><div id="mobile-overview-content">' + mobileOverviewHtml(initialContracts) + '</div></div>' +
         '<div class="mobile-panel" id="mobile-properties-panel" hidden><div id="mobile-properties-content">' + mobilePropertyCardsHtml(initialContracts) + '</div></div>' +
