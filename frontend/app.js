@@ -1678,7 +1678,29 @@ function updateMobilePortfolioSurfaces(contracts) {
   const mobileFilters=document.getElementById("mobile-scope-filters");
   if(mobileFilters) {
     mobileFilters.innerHTML=mobileScopeFiltersHtml(portfolioFilterOptions());
-    bindMobileScopeFilterControls();
+    document.querySelectorAll("[data-contract-document-open]:not([data-document-bound])").forEach(function(button){
+    button.dataset.documentBound="1";
+    button.addEventListener("click",async function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      const raw=button.dataset.contractDocumentOpen||"";
+      if(!raw) return;
+      const isWeb=/^https?:\/\//i.test(raw);
+      let target=raw;
+      if(/^\\\\/.test(target)) target="file://"+target.replace(/^\\\\/,"").replace(/\\/g,"/");
+      try{
+        const opened=window.open(target,"_blank","noopener");
+        if(opened || isWeb) return;
+      }catch(_){}
+      try{
+        await navigator.clipboard.writeText(raw);
+        alert("Dokumentsökvägen kunde inte öppnas direkt i webbläsaren och har kopierats till Urklipp.");
+      }catch(_){
+        alert("Dokumentet finns kopplat till avtalet men webbläsaren blockerar den interna sökvägen.");
+      }
+    });
+  });
+  bindMobileScopeFilterControls();
   }
 
   const quickSummary=document.getElementById("mobile-quick-summary");
@@ -1793,7 +1815,9 @@ function scopeContractsSectionHtml(contracts) {
       ' data-contract-additions-calculated="' + (currentValues.addition.calculated ? "1" : "0") + '"' +
       ' data-contract-rent-sqm="' + esc(currentRentPerSqm) + '"' +
       ' data-contract-end="' + esc(c.end||"") + '"' +
-      ' data-contract-notice="' + esc(c.notice||"") + '">' +
+      ' data-contract-notice="' + esc(c.notice||"") + '"' +
+      ' data-contract-document-url="' + esc(c.contractDocumentUrl||"") + '"' +
+      ' data-contract-document-name="' + esc(c.contractDocumentName||"") + '">' +
       '<div class="scope-list-main"><strong>' + esc(c.number||c.id) + '</strong><span>' + esc(contractCustomer(c)) +
         (property ? ' · <button type="button" class="scope-inline-link" data-explorer-property="' + esc(property.id) + '">' +
           esc(address) + '</button>' : '') + ' · ' + num(c.area) + ' kvm</span></div>' +
@@ -3488,7 +3512,9 @@ function openEditor(type, recordId) {
       '<div class="object-editor-shell object-editor-compact">' +
         '<div class="object-editor-top">' +
           '<input type="hidden" name="contractId" value="' + esc(existing.id) + '">' +
-          '<div class="field"><label>Objekt / avtal</label><div class="object-editor-readonly">' + esc(contractLabel) + '</div></div>' +
+          '<div class="field"><label>Objekt / avtal</label><div class="object-editor-readonly object-editor-contract-id"><span>' + esc(contractLabel) + '</span>' +
+            (existing.contractDocumentUrl ? '<button type="button" class="contract-document-button" data-contract-document-open="' + esc(existing.contractDocumentUrl) + '" title="' + esc(existing.contractDocumentName||"Öppna hyresavtal") + '">PDF ↗</button>' : '') +
+          '</div></div>' +
           '<div class="field"><label>Verksamhetsområde</label><select name="unitId">' +
             '<option value="">–</option>' + ORG_UNITS.map(function(u){return '<option value="'+esc(u.id)+'"'+(u.id===unitValue?' selected':'')+'>'+esc(u.name)+'</option>';}).join('') +
           '</select></div>' +
