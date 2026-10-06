@@ -6,7 +6,8 @@
   "description": "Lokalblick repository tooling and preflight checks",
   "scripts": {
     "check": "node scripts/repo-check.mjs",
-    "test": "node scripts/repo-check.mjs"
+    "test": "node scripts/repo-check.mjs",
+    "company": "node backend/server.mjs"
   },
   "engines": {
     "node": ">=20"
