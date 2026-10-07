@@ -55,6 +55,11 @@ export function createTransport() {
       if (company()) throw Error("Arbetsfil hanteras av företagets backend");
       return normalize(await source().createFile(data, "readwrite", blank));
     },
+    async import(data) {
+      if (company())
+        throw Error("Excelimport kräver en backendadapter i företagsläget");
+      return source().importWorkbook(data);
+    },
     async enrich(data) {
       if (company())
         throw Error("Berikning kräver en backendadapter i företagsläget");
