@@ -133,6 +133,17 @@ test("different KPI series require review; duplicate indices cannot silently win
     "Behöver kontroll",
   );
 });
+test("notice date is derived from contract end and notice months", () => {
+  assert.equal(
+    C.noticeDate({ end: "2027-12-31", noticePeriodMonths: 9 }),
+    "2027-03-31",
+  );
+  assert.equal(
+    C.noticeDate({ end: "2027-05-31", noticePeriodMonths: 3 }),
+    "2027-02-28",
+  );
+  assert.equal(C.noticeDate({ end: "2027-12-31" }), "");
+});
 test("day periodization includes leap year and end date", () => {
   assert.equal(
     C.yearFactor({ start: "2024-01-01", end: "2024-12-31" }, 2024),
