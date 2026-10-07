@@ -21,7 +21,7 @@ const MIME_TYPES = {
 const API_ENTITIES = {
   organizations: "organizations",
   people: "people",
-  contacts: "contacts",
+  orders: "orders",
   activities: "activities",
   "maintenance-status": "maintenanceStatus",
   operations: "operations",
