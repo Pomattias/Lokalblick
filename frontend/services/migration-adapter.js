@@ -120,9 +120,11 @@
   function ensureProperty(data,sourceId,address,extra){
     const sid=text(sourceId), adr=text(address);
     let property=sid ? data.properties.find(function(p){return p.sourceId===sid;}) : null;
-    if(!property && adr){
+    // Finns ett objekts-ID är det identiteten. En annan post med annat objekts-ID
+    // får aldrig slås ihop bara för att adressen råkar vara samma.
+    if(!property && adr && !sid){
       const key=compactAddress(adr);
-      property=data.properties.find(function(p){return compactAddress(p.address)===key;});
+      property=data.properties.find(function(p){return !p.sourceId && compactAddress(p.address)===key;});
     }
     if(!property){
       const stable=sid || ("ADDR-"+hash(compactAddress(adr)));
@@ -143,15 +145,26 @@
     Object.keys(extra||{}).forEach(function(k){ if(extra[k]!=="" && extra[k]!=null) c[k]=extra[k]; });
     return c;
   }
+  function addressParts(value){
+    const raw=norm(value);
+    const match=raw.match(/^(.*?)(\d+)(.*)$/);
+    return match
+      ? {street:compactAddress(match[1]),number:Number(match[2]),tail:compactAddress(match[3])}
+      : {street:compactAddress(raw),number:null,tail:""};
+  }
+  function compatibleAddress(a,b){
+    const aa=addressParts(a),bb=addressParts(b);
+    if(!aa.street||!bb.street||aa.street!==bb.street) return false;
+    if(aa.number!=null&&bb.number!=null&&aa.number!==bb.number) return false;
+    return true;
+  }
   function propertyByAddress(data,address){
     const key=compactAddress(address);
     if(!key) return null;
     let exact=data.properties.find(function(p){return compactAddress(p.address)===key;});
     if(exact) return exact;
-    return data.properties.find(function(p){
-      const pk=compactAddress(p.address);
-      return pk && (pk.includes(key) || key.includes(pk));
-    }) || null;
+    const hits=data.properties.filter(function(p){return compatibleAddress(address,p.address);});
+    return hits.length===1 ? hits[0] : null;
   }
   function propertyByUse(data,value){
     const wanted=norm(value); if(!wanted) return null;
