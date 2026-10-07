@@ -149,6 +149,12 @@ export function summary(data, s, year, ui = {}) {
   if (ui.view === "map") {
     const mapped = view.properties.filter(
       (p) =>
+        p.latitude !== null &&
+        p.latitude !== undefined &&
+        p.latitude !== "" &&
+        p.longitude !== null &&
+        p.longitude !== undefined &&
+        p.longitude !== "" &&
         Number.isFinite(Number(p.latitude)) &&
         Number.isFinite(Number(p.longitude)),
     ).length;
