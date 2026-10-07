@@ -1063,7 +1063,7 @@
         if(base.contracts.some(function(x){return x.id===mapped.id;}))mapped.id=nextStableId("AVT",base.contracts);
         base.contracts.push(mapped);found=mapped;report.counts.contractsCreated++;
       } else if(mergeFields(found,mapped,[
-        "sourceId","propertyId","number","source","area","category","use","businessPartyId","businessName","businessResponsiblePersonId",
+        "sourceId","propertyId","number","area","category","use","businessPartyId","businessName","businessResponsiblePersonId",
         "start","end","noticePeriodMonths","renewalPeriodMonths","originalTerm","baseRent","baseAdditions","rentBaseYear","rentIndexPercent",
         "additionBaseYear","additionIndexPercent","annualContractDrift","annualPropertyTax","costCenterOperations","costCenterPremises","ekotObject",
         "contractDocumentUrl","contractDocumentName","contractDocumentKind","unitId","employees","users","rooms","commonArea","apartmentArea"
