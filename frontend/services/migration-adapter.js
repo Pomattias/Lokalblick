@@ -76,9 +76,11 @@
   }
   function isHvof(workbook){
     const names=new Set(workbook.SheetNames||[]);
-    const fullWorkbook=names.has("Lokallista") && (names.has("Fastighetslista") || names.has("Årshjul") || names.has("Beställningar"));
-    const contractWorkbook=(names.has("INT") || names.has("SF")) && names.has("EXT");
-    return fullWorkbook || contractWorkbook;
+    // Varje känd flik får läsas separat. Det gör att SF/INT, EXT och senare
+    // berikningsfiler kan matas in i valfri ordning utan att kräva en komplett arbetsbok.
+    const hasCore=["INT","SF","EXT","Lokallista"].some(function(name){return names.has(name);});
+    const hasEnrichment=["Lokalbestånd","Fastighetslista","Årshjul","Beställningar"].some(function(name){return names.has(name);});
+    return hasCore || hasEnrichment;
   }
   function unitId(v){
     const s=norm(v);
