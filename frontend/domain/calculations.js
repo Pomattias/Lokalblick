@@ -116,8 +116,9 @@
         )
       : sourceAmount;
     const preliminary = calculated && !knownIndex;
+    const missingRentInput = kind !== "addition" && base <= 0 && sourceAmount <= 0;
     const needsReview =
-      incompatible || conflicting || (base > 0 && !calculated);
+      incompatible || conflicting || missingRentInput || (base > 0 && !calculated);
     return {
       amount,
       calculated,
@@ -142,9 +143,11 @@
         ? "KPI-seriernas bas skiljer sig"
         : conflicting
           ? "Motstridiga oktoberindex"
-          : needsReview
-            ? "Bashyra, basår, indexandel eller oktoberindex saknas"
-            : "",
+          : missingRentInput
+            ? "Bashyra saknas"
+            : needsReview
+              ? "Bashyra, basår, indexandel eller oktoberindex saknas"
+              : "",
       source: calculated
         ? (row?.source || "SCB KPI")
         : c.provenance?.[kind === "addition" ? "annualAdditions" : "annualRent"]
