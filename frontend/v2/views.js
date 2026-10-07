@@ -53,11 +53,11 @@ export function filters(data, s) {
     if (p.owner) owners.set(p.owner, p.owner);
   });
   return `<div class="filters"><label>Ansvarig hos oss<select data-filter="person">${options(
-    data.people,
+    internalPeople(data),
     (x) => x.id,
     (x) => x.name,
     s.person,
-    "Alla ansvariga",
+    "Alla ansvariga hos oss",
   )}</select></label><label>Organisation<select data-filter="unit">${options(
     Object.entries(units),
     (x) => x[0],
@@ -76,6 +76,14 @@ const propertyLabel = (data, id) =>
   data.properties.find((x) => x.id === id)?.address || id || "Ej kopplad";
 const personLabel = (data, id) =>
   data.people.find((x) => x.id === id)?.name || "Ej fördelat";
+const internalPeople = (data) =>
+  data.people.filter((person) => {
+    if (!person.organizationId) return true;
+    return (
+      data.organizations.find((org) => org.id === person.organizationId)?.type ===
+      "our"
+    );
+  });
 export function summary(data, s, year) {
   const view = scope(data, s),
     rows = calc().budgetRows(data, year, view.contracts, view.properties),
@@ -209,7 +217,7 @@ export function planning(data, s, ui) {
       row([
         `<strong>${esc(x.title)}</strong><small>${esc(propertyLabel(data, x.propertyId))} · ${esc(x.label)}</small>`,
         `<select aria-label="Ansvarig för ${esc(x.title)}" data-assign="${x.collection}" data-id="${esc(x.record.id)}">${options(
-          data.people,
+          internalPeople(data),
           (p) => p.id,
           (p) => p.name,
           responsible(data, x.collection, x.record),
