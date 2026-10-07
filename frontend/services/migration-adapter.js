@@ -287,7 +287,8 @@
       const sourceId=text(cell(r,h,["Objekt. nr","Objekt nr"]));
       if(!address && !sourceId) return;
       let property=sourceId ? data.properties.find(function(p){return p.sourceId===sourceId;}) : null;
-      if(!property) property=propertyByAddress(data,address);
+      // Med objekts-ID får adress inte koppla raden till ett annat objekt.
+      if(!property && !sourceId) property=propertyByAddress(data,address);
       if(!property){
         property=ensureProperty(data,sourceId,address,{migrationState:"needs_review"});
         report.provisionalProperties.push({address:address,sourceRow:item.sourceRow,reason:"Ingen säker matchning mot Lokallista"});
