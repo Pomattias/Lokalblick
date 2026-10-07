@@ -31,6 +31,19 @@ const legacyCollections = [
   "assignmentChanges",
 ];
 
+function legacyExtras(item) {
+  return {
+    includeInBudget:
+      item.includeInBudget || (item.budgetIncluded === false ? "Nej" : "Ja"),
+    finalCosts: item.finalCosts || undefined,
+    finalCostConfirmed: Boolean(item.finalCostConfirmed),
+    provenance: clone(item.provenance || {}),
+    createdAt: item.createdAt || "",
+    createdBy: item.createdBy || "",
+    updatedAt: item.updatedAt || "",
+    updatedBy: item.updatedBy || "",
+  };
+}
 function orderFields(item) {
   return {
     orderedAt: item.orderedAt || "",
@@ -61,6 +74,7 @@ function legacyActivities(out) {
     const execution = Number(item.budgetExecution) || 0;
     const furnishing = Number(item.budgetFurnishing) || 0;
     push({
+      ...legacyExtras(item),
       id: item.id,
       type: "Projekt",
       propertyId: item.propertyId || "",
@@ -86,6 +100,7 @@ function legacyActivities(out) {
   });
   (out.maintenance || []).forEach((item) =>
     push({
+      ...legacyExtras(item),
       id: item.id,
       type: "Underhåll",
       propertyId: item.propertyId || "",
@@ -110,6 +125,7 @@ function legacyActivities(out) {
   );
   (out.driftIssues || []).forEach((item) =>
     push({
+      ...legacyExtras(item),
       id: item.id,
       type: "Drift",
       propertyId: item.propertyId || "",
@@ -134,6 +150,7 @@ function legacyActivities(out) {
   );
   (out.wishes || []).forEach((item) =>
     push({
+      ...legacyExtras(item),
       id: item.id,
       type: "Önskemål",
       propertyId: item.propertyId || "",
@@ -158,6 +175,7 @@ function legacyActivities(out) {
   );
   (out.investigations || []).forEach((item) =>
     push({
+      ...legacyExtras(item),
       id: item.id,
       type: "Utredning",
       propertyId: item.propertyId || "",
@@ -245,6 +263,7 @@ function migrateLegacy(out) {
       planningQuarter: status.planningQuarter || "",
       planningMonth: status.planningMonth || "",
       budgetCategory: "Underhåll",
+      includeInBudget: status.includeInBudget || "Ja",
       estimatedCost: Number(status.estimatedCost) || 0,
       investigationCost: 0,
       phase: "",
