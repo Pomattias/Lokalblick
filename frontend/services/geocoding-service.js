@@ -54,7 +54,7 @@
         longitude: validCoordinate(property.longitude) ? Number(property.longitude) : null
       };
     }).filter(function (property) {
-      return property.id && property.address;
+      return property.id && property.address && property.city;
     });
 
     if (!properties.length) return data;
