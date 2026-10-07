@@ -261,6 +261,36 @@ export function resolveReview(data, id, decision, targetId, actor) {
   }
 
   if (item.kind === "property-match") {
+    if (decision === "accept") {
+      const property = data.properties.find((p) => p.id === targetId);
+      if (!property) throw Error("Välj en befintlig fastighet");
+      const before = clone(property);
+      const source = item.record || {};
+      if (!property.name && source.name) property.name = source.name;
+      if (!property.address && source.address) property.address = source.address;
+      if (!property.designation && source.designation)
+        property.designation = source.designation;
+      property.sourceAliases = [
+        ...new Set(
+          [
+            ...(property.sourceAliases || []),
+            source.objectNo,
+            source.name,
+            source.address,
+            source.designation,
+          ].filter(Boolean),
+        ),
+      ];
+      property.provenance = property.provenance || {};
+      property.provenance.sourceAliases = {
+        source: item.source,
+        sheet: item.sheet,
+        row: item.row,
+        value: property.sourceAliases,
+        confirmedBy: actor,
+      };
+      audit(data, "properties", property.id, before, property, actor);
+    }
     item.status = decision === "accept" ? "accepted" : "rejected";
     item.resolvedBy = actor;
     item.resolvedAt = new Date().toISOString();
@@ -269,8 +299,8 @@ export function resolveReview(data, id, decision, targetId, actor) {
 
   if (item.kind === "activity-property") {
     if (decision === "accept") {
-      if (!data.properties.some((p) => p.id === targetId))
-        throw Error("Välj en befintlig fastighet");
+      const property = data.properties.find((p) => p.id === targetId);
+      if (!property) throw Error("Välj en befintlig fastighet");
       const record = data[item.collection]?.find(
         (x) => x.id === item.recordId,
       );
@@ -285,6 +315,15 @@ export function resolveReview(data, id, decision, targetId, actor) {
         value: targetId,
         confirmedBy: actor,
       };
+      property.sourceAliases = [
+        ...new Set(
+          [
+            ...(property.sourceAliases || []),
+            item.record?.business,
+            item.record?.address,
+          ].filter(Boolean),
+        ),
+      ];
       audit(data, item.collection, record.id, before, record, actor);
     }
     item.status = decision === "accept" ? "accepted" : "rejected";
