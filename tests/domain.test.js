@@ -535,6 +535,127 @@ test("supplemental lists stage canonical activities and require property confirm
     "underlag.xlsx",
   );
 });
+test("unified Excel import seeds empty property and contract data before enrichment", () => {
+  const svc = services();
+  const firstWorkbook = workbook({
+    SF: [
+      [
+        "Förvaltningsobjekt",
+        "Avtalsnummer",
+        "Gatuadress",
+        "Kundtyp avtal",
+        "Area",
+        "Lokalkategori",
+        "Användning",
+        "Aktuellt giltigt t.o.m.",
+        "Fastighetsförvaltare",
+      ],
+      [
+        "OBJ-1",
+        "12345",
+        "Testgatan 1",
+        "Fastighets AB",
+        500,
+        "Kontor",
+        "Vårdbo",
+        "2030-12-31",
+        "FF01 Lisa Förvaltare",
+      ],
+    ],
+  });
+  const first = svc.LokalblickSourceService.analyzeImportWorkbook(
+    firstWorkbook,
+    normalize({ isDemo: false }),
+    "SF.xlsx",
+  );
+  assert.equal(first.data.properties.length, 1);
+  assert.equal(first.data.contracts.length, 1);
+  assert.equal(first.data.contracts[0].propertyId, first.data.properties[0].id);
+  assert.equal(first.data.properties[0].ownerResponsiblePersonId, first.data.people[0].id);
+  assert.ok(first.data.auditLog.some((x) => x.collection === "properties"));
+  assert.ok(first.data.sourceRegistry.some((x) => x.kind === "core-import"));
+
+  const secondWorkbook = workbook({
+    EXT: [
+      [
+        "Förvaltningsobjekt",
+        "Avtalsnummer",
+        "Gatuadress",
+        "Kundtyp avtal",
+        "Area",
+        "Lokalkategori",
+        "Användning",
+        "Aktuellt giltigt t.o.m.",
+      ],
+      [
+        "OBJ-1",
+        "67890",
+        "Testgatan 1",
+        "Fastighets AB",
+        300,
+        "Kontor",
+        "Ordbo",
+        "2032-12-31",
+      ],
+    ],
+  });
+  const second = svc.LokalblickSourceService.analyzeImportWorkbook(
+    secondWorkbook,
+    first.data,
+    "EXT.xlsx",
+  );
+  assert.equal(second.data.properties.length, 1);
+  assert.equal(second.data.contracts.length, 2);
+  assert.deepEqual(
+    second.data.contracts.map((x) => x.number).sort(),
+    ["12345", "67890"],
+  );
+
+  const changedWorkbook = workbook({
+    EXT: [
+      [
+        "Förvaltningsobjekt",
+        "Avtalsnummer",
+        "Gatuadress",
+        "Kundtyp avtal",
+        "Area",
+        "Lokalkategori",
+        "Användning",
+        "Aktuellt giltigt t.o.m.",
+      ],
+      [
+        "OBJ-1",
+        "12345",
+        "Testgatan 1",
+        "Fastighets AB",
+        510,
+        "Kontor",
+        "Vårdbo",
+        "2030-12-31",
+      ],
+    ],
+  });
+  const changed = svc.LokalblickSourceService.analyzeImportWorkbook(
+    changedWorkbook,
+    second.data,
+    "EXT-update.xlsx",
+  );
+  assert.equal(changed.data.properties.length, 1);
+  assert.equal(changed.data.contracts.length, 2);
+  assert.equal(
+    changed.data.contracts.find((x) => x.number === "12345").area,
+    500,
+  );
+  assert.ok(
+    changed.data.importReview.some(
+      (x) => x.field === "area" && Number(x.proposed) === 510,
+    ),
+  );
+  assert.equal(
+    changed.data.importReview.some((x) => x.field === "source"),
+    false,
+  );
+});
 test("operational enrichment writes explicit responsibilities and orders without duplicate reimport", () => {
   const svc = services(),
     base = normalize({
