@@ -9,6 +9,7 @@ import "../frontend/domain/documents.js";
 import {
   normalize,
   scope,
+  responsible,
   assign,
   moveWish,
   resolveReview,
@@ -41,12 +42,15 @@ function services() {
     "services/data-service.js",
     "services/migration-adapter.js",
     "services/contract-enrichment-adapter.js",
+    "services/operational-enrichment-adapter.js",
     "services/source-service.js",
   ])
     vm.runInContext(fs.readFileSync("frontend/" + file, "utf8"), context);
   context.window.LokalblickCalculations = context.LokalblickCalculations;
   context.window.LokalblickSupplementalAdapter =
     context.LokalblickSupplementalAdapter;
+  context.window.LokalblickOperationalEnrichmentAdapter =
+    context.LokalblickOperationalEnrichmentAdapter;
   return context.window;
 }
 const workbook = (entries) => {
@@ -341,7 +345,10 @@ test("assignment and wish conversion retain identity and audit history", () => {
     wishes: [{ id: "w1", title: "Tak", estimatedCost: 100, budgetYear: 2027 }],
   });
   assign(d, "wishes", "w1", "person1", "Test");
+  assert.equal(d.assignments[0].targetType, "activity");
+  assert.equal(responsible(d, "wishes", d.wishes[0]), "person1");
   moveWish(d, "w1", "maintenance", "Test");
+  assert.equal(d.assignments[0].targetType, "activity");
   assert.equal(d.wishes.length, 0);
   assert.equal(d.maintenance[0].id, "w1");
   assert.equal(d.maintenance[0].cost, 100);
@@ -467,6 +474,83 @@ test("supplemental lists stage normalized records and require explicit property 
   assert.equal(d.maintenance.length, 1);
   assert.equal(d.maintenance[0].provenance.cost.source, "underlag.xlsx");
 });
+test("operational enrichment adds people, activity responsibility and avoids duplicate reimport", () => {
+  const svc = services(),
+    base = normalize({
+      isDemo: false,
+      properties: [
+        { id: "1081", address: "Västanväg 119A-C", designation: "Gräset 2" },
+        { id: "INH0443", address: "Von Troils väg 8B", designation: "Byrådirektören 4" },
+      ],
+      contracts: [
+        { id: "c1081", propertyId: "1081", number: "SF1081-001-4" },
+        { id: "c443", propertyId: "INH0443", number: "42001 7010 02" },
+      ],
+      organizations: [{ id: "ORG-OUR", name: "Vår organisation", type: "our" }],
+    });
+  const w = workbook({
+    Lokalbestånd: [
+      [],
+      [],
+      ["Verksamhetstyp", "Verksamhet", "Objektsnummer / Förvaltningsobjekt", "Benämning", "Adress", "Fastighetsbeteckning", "Antal medarbetare (viss+ heltid)", "Fastighetsägare", "Lokalkategori (LEB)", "Lokalyta (kvm)", "Avtalsnummer"],
+      ["SÄBO", "VÅRDBO", "1081", "Annetorpsgården", "Västanväg 119A-C", "Gräset 2", 39, "Stadsfastigheter", "ÄBO", 1714, "SF1081-001-4"],
+    ],
+    Fastighetslista: [
+      ["Benämning", "Postadress", "Fastighetsägare", "Förvaltare", "Email (förvaltare)", "Fastighetsbeteckning", "Objekt. nr"],
+      ["Annetorpsgården", "Västanväg 119A-C", "Stadsfastigheter", "Sacha Kozarovski", "sacha.kozarovski@malmo.se", "Gräset 2", "1081"],
+    ],
+    Årshjul: [
+      ["Verksamhet", "Namn på verksamheten", "Adress", "Vad ska göras", "Drift eller investering", "Ansvarig", "Uppskattat pris investering exkl moms, tkr", "Budget 2027, tkr", "Januari"],
+      ["VÅRDBO", "Annetorpsgården", "Västanväg 119", "Nytt skalskydd", "Investering", "Omid", 300, 300, "X"],
+    ],
+    Beställningar: [
+      [],
+      ["Beställningsdatum", "Beställt av", "Produktnamn/beskrivning", "Verksamhet", "Leverantör", "Pris investering", "Status (Enbart beställt eller klart)", "Reqs"],
+      ["2026-01-10", "Omid", "Nytt skalskydd", "Annetorpsgården", "Leverantör AB", 166512, "Klart", "REQ-1"],
+    ],
+  });
+  const first = svc.LokalblickOperationalEnrichmentAdapter.enrich(
+    w,
+    base,
+    "hvo.xlsx",
+  ).data;
+  const manager = first.people.find((p) => p.email === "sacha.kozarovski@malmo.se");
+  const omid = first.people.find((p) => p.name === "Omid");
+  assert.ok(manager);
+  assert.equal(omid.provisional, true);
+  assert.ok(first.assignments.some((a) => a.personId === manager.id && a.targetType === "property" && a.role === "Fastighetsförvaltare"));
+  assert.ok(first.assignments.some((a) => a.personId === omid.id && a.targetType === "activity" && a.role === "Ansvarig"));
+  assert.ok(first.assignments.some((a) => a.personId === omid.id && a.targetType === "activity" && a.role === "Beställare"));
+  assert.equal(first.projects.length, 1);
+  assert.equal(first.projects[0].orderedCost, 166512);
+  const counts = {
+    people: first.people.length,
+    assignments: first.assignments.length,
+    projects: first.projects.length,
+  };
+  const second = svc.LokalblickOperationalEnrichmentAdapter.enrich(
+    w,
+    first,
+    "hvo.xlsx",
+  ).data;
+  assert.equal(second.people.length, counts.people);
+  assert.equal(second.assignments.length, counts.assignments);
+  assert.equal(second.projects.length, counts.projects);
+  assert.equal(second.sourceRegistry.filter((x) => x.kind === "operational-enrichment" && x.name === "hvo.xlsx").length, 1);
+});
+
+test("Lokalblick workbook exposes human source sheet and hides technical extras", () => {
+  const svc = services();
+  const w = svc.LokalblickSourceService.dataToWorkbook(normalize({
+    isDemo: false,
+    sourceRegistry: [{ id: "s1", name: "underlag.xlsx", kind: "operational-enrichment", rows: 10, matched: 8, created: 2, review: 1 }],
+  }));
+  assert.ok(w.Sheets["Källor"]);
+  assert.ok(w.Sheets["Tilläggsdata"]);
+  const meta = (w.Workbook?.Sheets || []).find((x) => x.name === "Tilläggsdata");
+  assert.equal(meta?.Hidden, 1);
+});
+
 test("supplemental rows cannot create an unknown property or move an existing contract", () => {
   const d = normalize({
     properties: [{ id: "p1", address: "Test" }],
