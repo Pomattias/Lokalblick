@@ -3,9 +3,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const USER_ENTITIES = [
-  "organizations", "people", "assignments", "projects", "maintenance",
-  "maintenanceStatus", "driftCosts", "operations", "driftIssues", "wishes",
-  "investigations", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
+  "organizations", "people", "contacts", "activities", "maintenanceStatus",
+  "operations", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
+];
+const LEGACY_USER_ENTITIES = [
+  "assignments", "projects", "maintenance", "driftCosts", "driftIssues",
+  "wishes", "investigations"
 ];
 
 const CORE_ENTITIES = ["properties", "contracts"];
@@ -13,7 +16,7 @@ const ALL_ENTITIES = [...CORE_ENTITIES, ...USER_ENTITIES];
 
 function emptyStore() {
   return {
-    version: 1,
+    version: 2,
     entities: Object.fromEntries(USER_ENTITIES.map((entity) => [entity, []])),
     deleted: { properties: [], contracts: [] },
     updatedAt: null
@@ -48,15 +51,155 @@ function validateEntityRecord(entity, payload, id, core) {
   return record;
 }
 
+function legacyActivities(entities) {
+  const rows = [];
+  const seen = new Set();
+  const add = (activity) => {
+    if (!activity?.id || seen.has(activity.id)) return;
+    seen.add(activity.id);
+    rows.push(activity);
+  };
+  (entities.projects || []).forEach((x) => {
+    const execution = Number(x.budgetExecution) || 0;
+    const furnishing = Number(x.budgetFurnishing) || 0;
+    add({
+      id:x.id,type:"Projekt",propertyId:x.propertyId||"",contractId:x.contractId||"",
+      responsiblePersonId:x.responsiblePersonId||"",title:x.name||"",description:x.description||"",
+      category:"",status:x.status||"",priority:"",planningYear:x.budgetYear||"",
+      planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:"Projekt",
+      estimatedCost:execution+furnishing||Number(x.preliminaryCost)||0,
+      investigationCost:Number(x.budgetInvestigation)||0,phase:x.phase||"",
+      startDate:x.start||"",endDate:x.end||"",orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",
+      orderedByPersonId:x.orderedByPersonId||"",supplier:x.supplier||"",orderReference:x.orderReference||"",
+      orderedCost:Number(x.orderedCost)||0,deliveryText:x.deliveryText||"",completedAt:x.completedAt||"",
+      finalCost:Number(x.finalCost)||0,paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",
+      invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
+    });
+  });
+  (entities.maintenance || []).forEach((x) => add({
+    id:x.id,type:"Underhåll",propertyId:x.propertyId||"",contractId:x.contractId||"",
+    responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
+    category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.year||"",
+    planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:"Underhåll",
+    estimatedCost:Number(x.cost)||0,investigationCost:0,phase:"",startDate:"",endDate:"",
+    orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",orderedByPersonId:x.orderedByPersonId||"",
+    supplier:x.supplier||"",orderReference:x.orderReference||"",orderedCost:Number(x.orderedCost)||0,
+    deliveryText:x.deliveryText||"",completedAt:x.completedAt||"",finalCost:Number(x.finalCost)||0,
+    paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
+  }));
+  (entities.driftIssues || []).forEach((x) => add({
+    id:x.id,type:"Drift",propertyId:x.propertyId||"",contractId:x.contractId||"",
+    responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
+    category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.budgetYear||"",
+    planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:"Driftkostnader",
+    estimatedCost:Number(x.estimatedCost)||0,investigationCost:0,phase:"",startDate:x.createdDate||"",
+    endDate:x.targetDate||"",orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",
+    orderedByPersonId:x.orderedByPersonId||"",supplier:x.supplier||"",orderReference:x.orderReference||"",
+    orderedCost:Number(x.orderedCost)||0,deliveryText:x.deliveryText||"",completedAt:x.completedAt||x.completedDate||"",
+    finalCost:Number(x.finalCost)||0,paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",
+    invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
+  }));
+  (entities.wishes || []).forEach((x) => add({
+    id:x.id,type:"Önskemål",propertyId:x.propertyId||"",contractId:x.contractId||"",
+    responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
+    category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.budgetYear||"",
+    planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:x.budgetCategory||"Ej budget",
+    estimatedCost:Number(x.estimatedCost)||0,investigationCost:0,phase:"",startDate:x.createdDate||"",
+    endDate:x.targetDate||"",orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",
+    orderedByPersonId:x.orderedByPersonId||"",supplier:x.supplier||"",orderReference:x.orderReference||"",
+    orderedCost:Number(x.orderedCost)||0,deliveryText:x.deliveryText||"",completedAt:x.completedAt||x.completedDate||"",
+    finalCost:Number(x.finalCost)||0,paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",
+    invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
+  }));
+  (entities.investigations || []).forEach((x) => add({
+    id:x.id,type:"Utredning",propertyId:x.propertyId||"",contractId:x.contractId||"",
+    responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
+    category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.year||"",
+    planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:"Utredningar",
+    estimatedCost:Number(x.cost)||0,investigationCost:0,phase:"",startDate:"",endDate:"",
+    orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",orderedByPersonId:x.orderedByPersonId||"",
+    supplier:x.supplier||"",orderReference:x.orderReference||"",orderedCost:Number(x.orderedCost)||0,
+    deliveryText:x.deliveryText||"",completedAt:x.completedAt||"",finalCost:Number(x.finalCost)||0,
+    paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
+  }));
+  return rows;
+}
 function ensureStoreShape(value) {
   const store = emptyStore();
   if (!value || typeof value !== "object" || Array.isArray(value)) return store;
+  const entities = value.entities || {};
   for (const entity of USER_ENTITIES) {
-    if (Array.isArray(value.entities?.[entity])) store.entities[entity] = value.entities[entity];
+    if (Array.isArray(entities[entity])) store.entities[entity] = structuredClone(entities[entity]);
   }
+
+  const byActivity = new Map(store.entities.activities.map((x) => [x.id, x]));
+  for (const activity of legacyActivities(entities)) {
+    if (!byActivity.has(activity.id)) {
+      store.entities.activities.push(activity);
+      byActivity.set(activity.id, activity);
+    }
+  }
+  if (!store.entities.operations.length && Array.isArray(entities.driftCosts)) {
+    store.entities.operations = structuredClone(entities.driftCosts);
+  }
+
+  const people = new Map(store.entities.people.map((x) => [x.id, x]));
+  function ensureContact(a, targetType, targetId, role) {
+    if (!a?.personId || !targetId) return;
+    const type = targetType === "object" ? "contract" : targetType;
+    if (!["property", "contract"].includes(type)) return;
+    if (store.entities.contacts.some((x) => x.personId===a.personId && x.targetType===type && x.targetId===targetId && (x.role||"")===(role||"") && !x.toDate)) return;
+    store.entities.contacts.push({id:a.id||randomUUID(),personId:a.personId,targetType:type,targetId,role:role||"Kontakt",fromDate:a.fromDate||"",toDate:a.toDate||""});
+  }
+  function ensurePropertyResponsibility(propertyId, personId) {
+    if (!propertyId || !personId) return;
+    let overlay=store.entities.propertyOverlays.find((x) => x.propertyId===propertyId);
+    if (!overlay) {
+      overlay={id:propertyId,propertyId};
+      store.entities.propertyOverlays.push(overlay);
+    }
+    if (!overlay.responsiblePersonId) overlay.responsiblePersonId=personId;
+  }
+  const legacyType = (type) => ({project:"Projekt",maintenance:"Underhåll",driftIssue:"Drift",wish:"Önskemål",investigation:"Utredning"}[type]||"");
+  (entities.assignments || []).forEach((a) => {
+    if (a.toDate) return;
+    if (a.targetType==="property" && a.role==="Ansvarig") {
+      ensurePropertyResponsibility(a.targetId,a.personId); return;
+    }
+    if ((a.targetType==="activity" || legacyType(a.targetType)) && a.role==="Ansvarig") {
+      const activity=byActivity.get(a.targetId); if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId; return;
+    }
+    if ((a.targetType==="activity" || legacyType(a.targetType)) && a.role==="Beställare") {
+      const activity=byActivity.get(a.targetId);
+      if(activity){activity.orderedByPersonId ||= a.personId; activity.orderedBy ||= people.get(a.personId)?.name || "";}
+      return;
+    }
+    if (a.targetType==="object" && a.role==="Ansvarig") ensureContact(a,"contract",a.targetId,"Avtalsansvarig");
+    else ensureContact(a,a.targetType,a.targetId,a.role);
+  });
+
+  store.entities.maintenanceStatus.forEach((status) => {
+    if (status.actionNeed || Number(status.estimatedCost)>0) {
+      const id="STATUS-ACT|"+status.id;
+      if(!byActivity.has(id)){
+        const activity={
+          id,type:"Underhåll",propertyId:status.propertyId||"",contractId:status.contractId||"",
+          responsiblePersonId:status.responsiblePersonId||"",title:[status.category,status.actionNeed].filter(Boolean).join(" · ")||"Åtgärdsbehov",
+          description:status.comment||"",category:status.category||"",status:/bra/i.test(String(status.status||""))?"Identifierad":status.status||"Identifierad",
+          priority:status.priority||"",planningYear:status.budgetYear||"",planningQuarter:status.planningQuarter||"",planningMonth:status.planningMonth||"",
+          budgetCategory:"Underhåll",estimatedCost:Number(status.estimatedCost)||0,investigationCost:0,phase:"",startDate:status.assessedDate||"",endDate:"",
+          sourceId:status.id,sourceSheet:"Status",sourceRow:""
+        };
+        store.entities.activities.push(activity);byActivity.set(id,activity);
+      }
+    }
+    delete status.responsiblePersonId;
+  });
+
   for (const entity of CORE_ENTITIES) {
     if (Array.isArray(value.deleted?.[entity])) store.deleted[entity] = value.deleted[entity];
   }
+  store.version = 2;
   store.updatedAt = typeof value.updatedAt === "string" ? value.updatedAt : null;
   return store;
 }
@@ -110,7 +253,9 @@ export class LokalblickRepository {
   async initialize() {
     await fs.mkdir(path.dirname(path.resolve(this.dataPath)), { recursive: true });
     try {
-      this.store = ensureStoreShape(JSON.parse(await fs.readFile(this.dataPath, "utf8")));
+      const rawStore = JSON.parse(await fs.readFile(this.dataPath, "utf8"));
+      this.store = ensureStoreShape(rawStore);
+      if (Number(rawStore.version || 1) < 2) await this.persist(this.store);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
       await this.persist(this.store);
