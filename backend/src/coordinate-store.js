@@ -81,9 +81,14 @@ export function getCachedCoordinate(store, property) {
   const entry = getStoredCoordinate(store, propertyId);
   if (!entry) return null;
   const legacyKey = normalizeAddress(property && property.address);
-  if (entry.geocodedAddressKey !== addressKey && entry.geocodedAddressKey !== legacyKey)
-    return null;
-  return entry;
+  if (entry.geocodedAddressKey === addressKey) return entry;
+  if (
+    !String(property && property.city || "").trim() &&
+    !String(entry.geocodedCity || "").trim() &&
+    entry.geocodedAddressKey === legacyKey
+  )
+    return entry;
+  return null;
 }
 
 export function upsertCoordinate(store, property, result) {
