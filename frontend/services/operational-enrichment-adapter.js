@@ -316,7 +316,7 @@
     if (!hit || hit.score < 3) return;
     for (var i = hit.row + 1; i < rows.length; i++) {
       var row = rows[i];
-      var spec = { objectNo: cell(row, hit.headers, ["Objektsnummer / Förvaltningsobjekt"]), name: cell(row, hit.headers, ["Benämning"]), address: cell(row, hit.headers, ["Adress"]), designation: cell(row, hit.headers, ["Fastighetsbeteckning"]) };
+      var spec = { objectNo: cell(row, hit.headers, ["Objektsnummer / Förvaltningsobjekt"]), name: cell(row, hit.headers, ["Benämning"]), address: cell(row, hit.headers, ["Adress"]), city: cell(row, hit.headers, ["Ort","Postort","Stad"]), designation: cell(row, hit.headers, ["Fastighetsbeteckning"]) };
       if (!text(spec.objectNo) && !text(spec.address) && !text(spec.designation)) continue;
       report.counts.sourceRows++;
       var pm = matcher.match(spec);
@@ -327,6 +327,7 @@
       setIfBlank(pm.property, "ownerPartyId", ownerId, source, "Lokalbestånd", i + 1, data, report);
       if(ownerName&&!pm.property.sourceOwner)pm.property.sourceOwner=ownerName;
       setIfBlank(pm.property, "name", spec.name, source, "Lokalbestånd", i + 1, data, report);
+      setIfBlank(pm.property, "city", spec.city, source, "Lokalbestånd", i + 1, data, report);
       var contractNo = cell(row, hit.headers, ["Avtalsnummer"]), c = matchContract(data, contractNo, pm.property.id);
       if (c) {
         report.counts.contractsMatched++;
@@ -349,7 +350,7 @@
     var hit = findHeader(rows, [["Benämning"],["Postadress"],["Fastighetsägare"],["Förvaltare"]], 4);
     if (!hit || hit.score < 3) return;
     for (var i = hit.row + 1; i < rows.length; i++) {
-      var row = rows[i], spec = { objectNo: cell(row, hit.headers, ["Objekt. nr","Objekt nr"]), name: cell(row, hit.headers, ["Benämning"]), address: cell(row, hit.headers, ["Postadress"]), designation: cell(row, hit.headers, ["Fastighetsbeteckning"]) };
+      var row = rows[i], spec = { objectNo: cell(row, hit.headers, ["Objekt. nr","Objekt nr"]), name: cell(row, hit.headers, ["Benämning"]), address: cell(row, hit.headers, ["Postadress"]), city: cell(row, hit.headers, ["Ort","Postort","Stad"]), designation: cell(row, hit.headers, ["Fastighetsbeteckning"]) };
       if (!text(spec.name) && !text(spec.address) && !text(spec.designation)) continue;
       report.counts.sourceRows++;
       var pm = matcher.match(spec);
@@ -360,6 +361,7 @@
       setIfBlank(pm.property, "ownerPartyId", ownerId, source, "Fastighetslista", i + 1, data, report);
       if(owner&&!pm.property.sourceOwner)pm.property.sourceOwner=owner;
       setIfBlank(pm.property, "name", spec.name, source, "Fastighetslista", i + 1, data, report);
+      setIfBlank(pm.property, "city", spec.city, source, "Fastighetslista", i + 1, data, report);
       setIfBlank(pm.property, "boundaryMaintenance", cell(row, hit.headers, ["Gränsdragningslist underhåll","Gränsdragningslista underhåll"]), source, "Fastighetslista", i + 1, data, report);
       var names = splitNames(cell(row, hit.headers, ["Förvaltare"])), mailList = emails(cell(row, hit.headers, ["Email (förvaltare)","E-post förvaltare"])), phone = text(cell(row, hit.headers, ["Förvaltare nr.","Förvaltare nr"]));
       names.forEach(function (name, idx) {
