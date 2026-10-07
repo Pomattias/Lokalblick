@@ -276,7 +276,8 @@ export function budget(data,s,ui) {
   const scoped=Boolean(s.propertyId||s.unit||s.owner||s.person||s.q),view=scope(data,s);
   const plan=data.budgetPlans.find(p=>Number(p.year)===ui.year),locked=plan?.status==='Låst';
   const rows=calc().budgetRows(data,ui.year,scoped?view.contracts:undefined,scoped?view.properties:undefined);
-  const included=(plan?.lines||rows).filter(r=>r.included!==false&&(!scoped||(r.contractId?view.contracts.some(c=>c.id===r.contractId):view.properties.some(p=>p.id===r.propertyId))));
+  const baselineRows=locked?(plan?.lines||[]):rows;
+  const included=baselineRows.filter(r=>r.included!==false&&(!scoped||(r.contractId?view.contracts.some(c=>c.id===r.contractId):view.properties.some(p=>p.id===r.propertyId))));
   const comparison=globalThis.LokalblickBudgetFollowup.compare(data,included,rows,ui.year);
   const baseline=calc().summarize(included),forecast=calc().summarize(comparison.map(r=>({...r,amount:r.forecast}))),actual=calc().summarize(comparison.map(r=>({...r,amount:r.finalCost??0})));
   const total=categories.reduce((sum,k)=>sum+(scoped?baseline[k]||0:Number(plan?.targets?.[k]??baseline[k]??0)),0);
