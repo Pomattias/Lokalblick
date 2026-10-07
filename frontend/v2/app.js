@@ -60,7 +60,7 @@ function requireActorIdentity(){
 }
 function captureChanges(before){
   const logged=new Set(data.auditLog.slice(before.auditLog.length).map(h=>h.collection+'|'+h.recordId));
-  for(const col of collections.filter(c=>!['auditLog','indexSeries','assignmentChanges','importReview','sourceRegistry','documents','activities'].includes(c))){
+  for(const col of collections.filter(c=>!['auditLog','indexSeries','importReview','sourceRegistry','documents'].includes(c))){
     const id=r=>String(col==='budgetPlans'?r.year:r.id),old=new Map(before[col].map(r=>[id(r),r])),next=new Map(data[col].map(r=>[id(r),r]));
     for(const key of new Set([...old.keys(),...next.keys()])){
       const a=old.get(key)||{},b=next.get(key)||{};
@@ -70,7 +70,7 @@ function captureChanges(before){
   }
 }
 function showHistory(type='',id=''){
-  const collection={contract:'contracts',project:'projects',maintenance:'maintenance',operation:'operations',investigation:'investigations',maintenanceStatus:'maintenanceStatus',driftIssue:'driftIssues',wish:'wishes'}[type]||type;
+  const collection={contract:'contracts',activity:'activities',operation:'operations',maintenanceStatus:'maintenanceStatus'}[type]||type;
   const entries=data.auditLog.slice().reverse().filter(h=>!collection||(h.collection===collection&&String(h.recordId)===String(id)));
   const d=document.createElement('dialog');d.className='followup-dialog';
   d.innerHTML='<h2>Ändringshistorik</h2>'+entries.map(h=>'<article><strong>'+esc(h.action)+' · '+esc(h.collection)+' · '+esc(h.recordId)+'</strong><p>'+esc(h.by)+' · '+esc(new Date(h.at).toLocaleString('sv-SE'))+'</p><ul>'+(h.fields||[]).map(f=>'<li>'+esc(f.label||f.field)+': '+esc(typeof f.from==='object'?JSON.stringify(f.from):f.from)+' → '+esc(typeof f.to==='object'?JSON.stringify(f.to):f.to)+'</li>').join('')+'</ul></article>').join('')+'<form method="dialog"><button>Stäng</button></form>';
