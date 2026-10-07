@@ -93,29 +93,62 @@ test("zero index share is valid and decreasing index preserves floor", () => {
   assert.equal(C.indexedAmount(100, 200, 0.5, 100), 100);
   assert.equal(C.indexedAmount(100, 200, 0.5, 100, false), 75);
 });
-test("only October may supply the annual index", () => {
-  assert.equal(C.october([{ year: 2025, month: 9, value: 400 }], 2025), null);
+test("only October may supply a custom annual index", () => {
   assert.equal(
-    C.component(contract, "rent", 2026, 0, [
-      { year: 2025, month: 9, value: 400 },
-    ]).status,
+    C.october([{ year: 2025, month: 9, value: 400, seriesBase: "custom" }], 2025, "custom"),
+    null,
+  );
+  assert.equal(
+    C.component(
+      { ...contract, rentBaseIndex: 300, rentSeriesBase: "custom" },
+      "rent",
+      2026,
+      0,
+      [{ year: 2025, month: 9, value: 400, seriesBase: "custom" }],
+    ).status,
     "Behöver kontroll",
   );
 });
-test("known index takes precedence over preliminary budget index", () => {
+test("SCB October KPI calculates current rent without a separate KPI import", () => {
+  const value = C.component(
+    {
+      id: "scb-rent",
+      baseRent: 100000,
+      rentBaseYear: 2020,
+      rentIndexPercent: 80,
+    },
+    "rent",
+    2026,
+    0,
+    [],
+  );
+  assert.equal(value.status, "Beräknad");
+  assert.equal(value.bastal, 336.97);
+  assert.equal(value.usedIndex, 419.35);
+  assert.equal(value.indexYear, 2025);
+  assert.ok(
+    Math.abs(value.amount - 100000 * (1 + 0.8 * (419.35 / 336.97 - 1))) <
+      0.001,
+  );
+});
+test("known index takes precedence; preliminary index is used before October exists", () => {
   const data = normalize({
     isDemo: false,
     contracts: [contract],
     indexSeries: series,
     budgetPlans: [{ year: 2026, preliminaryIndex: 420 }],
   });
-  assert.equal(C.budgetRows(data, 2026)[0].status, "Beräknad");
-  data.indexSeries = series.filter((x) => x.year !== 2025);
-  const rows = C.budgetRows(data, 2026);
-  assert.equal(rows[0].status, "Preliminär");
+  const current = C.budgetRows(data, 2026)[0];
+  assert.equal(current.status, "Beräknad");
+  assert.equal(C.annualValues(contract, 2026, 420, []).rent.usedIndex, 419.35);
+
+  data.budgetPlans = [{ year: 2027, preliminaryIndex: 425 }];
+  data.indexSeries = series;
+  const future = C.budgetRows(data, 2027)[0];
+  assert.equal(future.status, "Preliminär");
   assert.equal(
-    rows[0].amount,
-    C.annualValues(contract, 2026, 420, data.indexSeries).total,
+    future.amount,
+    C.annualValues(contract, 2027, 425, data.indexSeries).total,
   );
 });
 test("different KPI series require review; duplicate indices cannot silently win", () => {
