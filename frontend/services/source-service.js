@@ -11,7 +11,7 @@
     { sheet:"Fastigheter", key:"properties", prefix:"FAST", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["responsiblePersonId","_responsiblePersonId",true],["ownerPartyId","_ownerPartyId",true],["ownerResponsiblePersonId","_ownerResponsiblePersonId",true],
-      ["type","Typ"],["address","Adress"],["designation","Fastighetsbeteckning"],["latitude","Latitud"],["longitude","Longitud"]
+      ["type","Typ"],["address","Adress"],["city","Ort"],["designation","Fastighetsbeteckning"],["latitude","Latitud"],["longitude","Longitud"]
     ], display:["Fastighetsägare","Ansvarig hos fastighetsägaren","Ansvarig hos oss"] },
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
@@ -1195,7 +1195,7 @@
       if(!found){
         if(base.properties.some(function(x){return x.id===mapped.id;}))mapped.id=nextStableId("FAST",base.properties);
         base.properties.push(mapped);found=mapped;report.counts.propertiesCreated++;
-      } else if(mergeFields(found,mapped,["sourceId","address","designation","type","ownerPartyId","ownerResponsiblePersonId","responsiblePersonId","latitude","longitude","unitId"],"properties","Fastighet")) {
+      } else if(mergeFields(found,mapped,["sourceId","address","city","designation","type","ownerPartyId","ownerResponsiblePersonId","responsiblePersonId","latitude","longitude","unitId"],"properties","Fastighet")) {
         report.counts.propertiesUpdated++;
       }
       propertyMap.set(row.id,found.id);
