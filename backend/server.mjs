@@ -134,7 +134,7 @@ async function handle(req, res) {
     }
   }
 
-  if (url.pathname === "/runtime-config.js" && req.method === "GET") {
+  if (["/runtime-config.js","/frontend/runtime-config.js"].includes(url.pathname) && req.method === "GET") {
     const cartoKey = process.env.VITE_CARTO_API_KEY || process.env.CARTO_API_KEY || "";
     res.writeHead(200, {
       "content-type": "text/javascript; charset=utf-8",
