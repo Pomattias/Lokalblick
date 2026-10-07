@@ -201,6 +201,29 @@
   }
   const budgetIncluded = (x) =>
     x?.budgetIncluded !== false && x?.includeInBudget !== "Nej";
+  function budgetIndex(data, year, preliminaryIndex) {
+    const indexYear = number(year) - 1;
+    const row = october((data && data.indexSeries) || [], indexYear, "1980");
+    const known =
+      row && !row.preliminary && !/prelim|prognos/i.test(row.source || "")
+        ? number(row.value)
+        : 0;
+    if (known)
+      return {
+        year:indexYear,
+        value:known,
+        source:row.source || "SCB KPI",
+        status:"Fastställd"
+      };
+    const preliminary = number(preliminaryIndex);
+    return {
+      year:indexYear,
+      value:preliminary,
+      source:preliminary ? "Preliminärt budgetindex" : "",
+      status:preliminary ? "Preliminär" : "Saknas"
+    };
+  }
+
   function budgetRows(data, year, contracts, properties) {
     const rows = [],
       plan = (data.budgetPlans || []).find(
@@ -325,6 +348,7 @@
     annualValues,
     noticeDate,
     yearFactor,
+    budgetIndex,
     budgetRows,
     actualRows,
     summarize,
