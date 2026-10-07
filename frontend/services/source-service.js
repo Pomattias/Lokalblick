@@ -947,6 +947,220 @@
     return {file:file,buffer:buffer,workbook:XLSX.read(buffer,{type:"array",cellDates:false})};
   }
 
+
+  function importNorm(value) {
+    return String(value == null ? "" : value).trim().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/[^a-z0-9åäö]+/g," ").replace(/\s+/g," ").trim();
+  }
+  function importAddress(value) { return importNorm(value).replace(/\s+/g,""); }
+  function hasImportValue(value) { return value !== "" && value != null; }
+  function sameImportValue(a,b) {
+    if (typeof a === "number" || typeof b === "number") return Number(a) === Number(b);
+    return importNorm(a) === importNorm(b);
+  }
+  function nextImportReviewId(data) {
+    let n=(data.importReview||[]).length+1,id="";
+    do { id="review:import:"+n++; } while((data.importReview||[]).some(function(x){return x.id===id;}));
+    return id;
+  }
+  function importConflict(data,fileName,entity,row,field,current,proposed) {
+    if (!hasImportValue(current) || !hasImportValue(proposed) || sameImportValue(current,proposed)) return;
+    data.importReview=data.importReview||[];
+    data.importReview.push({
+      id:nextImportReviewId(data),kind:"operational-conflict",source:fileName||"Excelimport",
+      sheet:row.sourceSheet||"",row:row.sourceRow||"",entity:entity,recordId:row.id||"",
+      field:field,current:current,proposed:proposed,status:"pending"
+    });
+  }
+  function mergePrimaryData(base,incoming,fileName) {
+    canonicalizeModel(base); canonicalizeModel(incoming);
+    ["properties","contracts","organizations","people","sourceRegistry","importReview","auditLog"].forEach(function(key){if(!Array.isArray(base[key]))base[key]=[];});
+    const report={profile:"Grunddata",fileName:fileName||"",sheets:[],counts:{propertiesCreated:0,propertiesUpdated:0,contractsCreated:0,contractsUpdated:0,organizationsCreated:0,peopleCreated:0,conflicts:0}};
+    const initialReviews=base.importReview.length;
+    const orgMap=new Map(),personMap=new Map(),propertyMap=new Map();
+
+    (incoming.organizations||[]).forEach(function(org){
+      let found=base.organizations.find(function(x){return x.id===org.id;});
+      if(!found)found=base.organizations.find(function(x){return importNorm(x.name)===importNorm(org.name)&&importNorm(x.type)===importNorm(org.type);});
+      if(!found){
+        found=clone(org);
+        if(base.organizations.some(function(x){return x.id===found.id;}))found.id=nextStableId("PART",base.organizations);
+        base.organizations.push(found);report.counts.organizationsCreated++;
+      } else {
+        ["name","type","ownerClass"].forEach(function(field){if(!hasImportValue(found[field])&&hasImportValue(org[field]))found[field]=org[field];});
+      }
+      orgMap.set(org.id,found.id);
+    });
+
+    (incoming.people||[]).forEach(function(person){
+      const mappedOrg=orgMap.get(person.organizationId)||person.organizationId||"";
+      let found=base.people.find(function(x){return x.id===person.id;});
+      if(!found&&person.email)found=base.people.find(function(x){return importNorm(x.email)===importNorm(person.email);});
+      if(!found&&person.sourceId)found=base.people.find(function(x){return x.sourceId&&String(x.sourceId)===String(person.sourceId);});
+      if(!found)found=base.people.find(function(x){return importNorm(x.name)===importNorm(person.name)&&String(x.organizationId||"")===String(mappedOrg||"");});
+      if(!found){
+        found=clone(person);found.organizationId=mappedOrg;
+        if(base.people.some(function(x){return x.id===found.id;}))found.id=nextStableId("P",base.people);
+        base.people.push(found);report.counts.peopleCreated++;
+      } else {
+        ["name","role","email","sourceId","unitId"].forEach(function(field){if(!hasImportValue(found[field])&&hasImportValue(person[field]))found[field]=person[field];});
+        if(!found.organizationId&&mappedOrg)found.organizationId=mappedOrg;
+      }
+      personMap.set(person.id,found.id);
+    });
+
+    function mergeFields(target,row,fields,entity) {
+      let changed=false;
+      fields.forEach(function(field){
+        const proposed=row[field];
+        if(!hasImportValue(proposed))return;
+        if(!hasImportValue(target[field])){target[field]=proposed;changed=true;return;}
+        if(!sameImportValue(target[field],proposed))importConflict(base,fileName,entity,row,field,target[field],proposed);
+      });
+      return changed;
+    }
+
+    (incoming.properties||[]).forEach(function(row){
+      const mapped=clone(row);
+      if(mapped.ownerPartyId)mapped.ownerPartyId=orgMap.get(mapped.ownerPartyId)||mapped.ownerPartyId;
+      if(mapped.ownerResponsiblePersonId)mapped.ownerResponsiblePersonId=personMap.get(mapped.ownerResponsiblePersonId)||mapped.ownerResponsiblePersonId;
+      if(mapped.responsiblePersonId)mapped.responsiblePersonId=personMap.get(mapped.responsiblePersonId)||mapped.responsiblePersonId;
+      let found=mapped.sourceId?base.properties.find(function(x){return x.sourceId&&String(x.sourceId)===String(mapped.sourceId);}):null;
+      if(!found&&mapped.id)found=base.properties.find(function(x){return x.id===mapped.id;});
+      if(!found&&mapped.address){
+        const key=importAddress(mapped.address);
+        found=base.properties.find(function(x){return key&&importAddress(x.address)===key;});
+      }
+      if(!found&&mapped.designation){
+        const hits=base.properties.filter(function(x){return importNorm(x.designation)===importNorm(mapped.designation);});
+        if(hits.length===1)found=hits[0];
+      }
+      if(!found){
+        if(base.properties.some(function(x){return x.id===mapped.id;}))mapped.id=nextStableId("FAST",base.properties);
+        base.properties.push(mapped);found=mapped;report.counts.propertiesCreated++;
+      } else if(mergeFields(found,mapped,["sourceId","address","designation","type","ownerPartyId","ownerResponsiblePersonId","responsiblePersonId","latitude","longitude","unitId"],"Fastighet")) {
+        report.counts.propertiesUpdated++;
+      }
+      propertyMap.set(row.id,found.id);
+    });
+
+    function contractNumber(value){return String(value||"").replace(/\s+/g,"").toUpperCase();}
+    (incoming.contracts||[]).forEach(function(row){
+      const mapped=clone(row);
+      mapped.propertyId=propertyMap.get(mapped.propertyId)||mapped.propertyId||"";
+      if(mapped.businessPartyId)mapped.businessPartyId=orgMap.get(mapped.businessPartyId)||mapped.businessPartyId;
+      if(mapped.businessResponsiblePersonId)mapped.businessResponsiblePersonId=personMap.get(mapped.businessResponsiblePersonId)||mapped.businessResponsiblePersonId;
+      const number=contractNumber(mapped.number||mapped.sourceId);
+      let found=null;
+      if(number){
+        const hits=base.contracts.filter(function(x){return contractNumber(x.number||x.sourceId)===number;});
+        if(hits.length===1)found=hits[0];
+        else if(hits.length>1&&mapped.propertyId)found=hits.find(function(x){return x.propertyId===mapped.propertyId;})||null;
+      }
+      if(!found&&mapped.id)found=base.contracts.find(function(x){return x.id===mapped.id;});
+      if(!found){
+        if(base.contracts.some(function(x){return x.id===mapped.id;}))mapped.id=nextStableId("AVT",base.contracts);
+        base.contracts.push(mapped);found=mapped;report.counts.contractsCreated++;
+      } else if(mergeFields(found,mapped,[
+        "sourceId","propertyId","number","source","area","category","use","businessPartyId","businessName","businessResponsiblePersonId",
+        "start","end","noticePeriodMonths","renewalPeriodMonths","originalTerm","baseRent","baseAdditions","rentBaseYear","rentIndexPercent",
+        "additionBaseYear","additionIndexPercent","annualContractDrift","annualPropertyTax","costCenterOperations","costCenterPremises","ekotObject",
+        "contractDocumentUrl","contractDocumentName","contractDocumentKind","unitId","employees","users","rooms","commonArea","apartmentArea"
+      ],"Avtal")) {
+        report.counts.contractsUpdated++;
+      }
+    });
+
+    report.counts.conflicts=base.importReview.length-initialReviews;
+    const sourceSheets=Array.from(new Set((incoming.properties||[]).concat(incoming.contracts||[]).map(function(x){return x.sourceSheet||"";}).filter(Boolean)));
+    report.sheets=sourceSheets;
+    base.sourceRegistry=(base.sourceRegistry||[]).filter(function(x){return !(x.kind==="core-import"&&x.name===(fileName||""));});
+    base.sourceRegistry.push({
+      id:"source:core:"+String(fileName||"Excel").replace(/[^a-z0-9]+/gi,"-").toLowerCase(),
+      name:fileName||"Excelimport",kind:"core-import",importedAt:new Date().toISOString(),
+      rows:(incoming.properties||[]).length+(incoming.contracts||[]).length,
+      matched:report.counts.propertiesUpdated+report.counts.contractsUpdated,
+      created:report.counts.propertiesCreated+report.counts.contractsCreated,
+      review:report.counts.conflicts,sheets:sourceSheets.join(", ")
+    });
+    return report;
+  }
+
+  function appendImportAudit(before,after,fileName) {
+    after.auditLog=Array.isArray(after.auditLog)?after.auditLog:[];
+    const at=new Date().toISOString();
+    diffData(before,after).forEach(function(change,index){
+      if(change.key==="metadata")return;
+      const fields=(change.fields||[]).map(function(field){
+        return {field:field,from:change.before?change.before[field]:"",to:change.after?change.after[field]:""};
+      });
+      after.auditLog.push({
+        id:"import|"+at+"|"+index,at:at,by:"Excelimport · "+(fileName||"källa"),
+        collection:change.key||"",recordId:change.id||"",action:change.action||"Importerad",fields:fields
+      });
+    });
+  }
+
+  function analyzeImportWorkbook(workbook,baseData,fileName,arrayBuffer) {
+    let data=clone(baseData||{});
+    canonicalizeModel(data);
+    const before=clone(data);
+    const report={
+      profile:"Lokalblick import v1",fileName:fileName||"",sheets:(workbook.SheetNames||[]).slice(),stages:[],
+      counts:{propertiesBefore:(data.properties||[]).length,contractsBefore:(data.contracts||[]).length,propertiesAfter:0,contractsAfter:0,activitiesAfter:0,review:0},
+      warnings:[]
+    };
+    let recognized=false;
+
+    if(window.LokalblickMigrationAdapter&&window.LokalblickMigrationAdapter.detect(workbook)){
+      const migrated=window.LokalblickMigrationAdapter.migrate(workbook,fileName||"Excelimport");
+      const primary=clone(migrated.data||{});
+      canonicalizeModel(primary);
+      const coreReport=mergePrimaryData(data,primary,fileName);
+      report.stages.push(coreReport);recognized=true;
+      (migrated.report&&migrated.report.warnings||[]).forEach(function(x){if(report.warnings.indexOf(x)<0)report.warnings.push(x);});
+    }
+
+    if(window.LokalblickOperationalEnrichmentAdapter&&window.LokalblickOperationalEnrichmentAdapter.detect(workbook)){
+      const operational=window.LokalblickOperationalEnrichmentAdapter.enrich(workbook,data,fileName||"Excelimport");
+      data=operational.data;report.stages.push(operational.report);recognized=true;
+    }
+
+    if(window.LokalblickContractEnrichmentAdapter&&window.LokalblickContractEnrichmentAdapter.detect(workbook)&&(data.contracts||[]).length){
+      const contracts=window.LokalblickContractEnrichmentAdapter.enrich(workbook,data,fileName||"Excelimport",arrayBuffer);
+      data=contracts.data;report.stages.push(contracts.report);recognized=true;
+    }
+
+    if(window.LokalblickContractEnrichmentAdapter){
+      const series=window.LokalblickContractEnrichmentAdapter.parseIndexWorkbook(workbook,fileName||"Excelimport");
+      if(series.length){
+        const indexed=window.LokalblickContractEnrichmentAdapter.applyIndexSeries(data,series,fileName||"Excelimport");
+        data=indexed.data;report.stages.push({profile:"KPI",fileName:fileName||"",counts:{sourceRows:series.length,recalculated:indexed.report.recalculated||0},warnings:indexed.report.warnings||[]});recognized=true;
+      }
+    }
+
+    if(!recognized)throw new Error("Filen innehåller inga flikar som Lokalblick känner igen ännu.");
+    canonicalizeModel(data);
+    appendImportAudit(before,data,fileName);
+    report.counts.propertiesAfter=(data.properties||[]).length;
+    report.counts.contractsAfter=(data.contracts||[]).length;
+    report.counts.activitiesAfter=(data.activities||[]).length;
+    report.counts.review=(data.importReview||[]).filter(function(x){return x.status==="pending";}).length;
+    data.lastImportReport=clone(report);
+    return {data:data,report:report};
+  }
+
+  async function importWorkbook(data) {
+    const picked=await readSecondaryWorkbook("Excelkälla till Lokalblick");
+    const result=analyzeImportWorkbook(picked.workbook,clone(data||source.data||{}),picked.file.name,picked.buffer);
+    source.operationalReports=source.operationalReports||[];
+    source.operationalReports.push(clone(result.report));
+    source.operationalFileNames=source.operationalFileNames||[];
+    source.operationalFileNames.push(picked.file.name||"");
+    return {data:clone(result.data),report:clone(result.report)};
+  }
+
   async function enrichContracts(data) {
     if(!window.LokalblickContractEnrichmentAdapter) throw new Error("Avtalsadaptern är inte tillgänglig.");
     const picked=await readSecondaryWorkbook("Avtalsregister för berikning");
@@ -1050,6 +1264,8 @@
     connect:connect,
     reconnect:reconnect,
     createFile:createFile,
+    importWorkbook:importWorkbook,
+    analyzeImportWorkbook:analyzeImportWorkbook,
     enrichContracts:enrichContracts,
     enrichOperational:enrichOperational,
     importIndexSeries:importIndexSeries,
