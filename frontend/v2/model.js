@@ -567,57 +567,115 @@ export function responsible(data, collection, record) {
 }
 export function scope(data, selection) {
   const allItems = activities(data);
-  const contracts = data.contracts.filter((c) => {
-    const p = data.properties.find((x) => x.id === c.propertyId) || {};
+  const q = String(selection.q || "").trim().toLocaleLowerCase("sv");
+  const person = selection.person || "";
+  const propertyById = new Map((data.properties || []).map((p) => [p.id, p]));
+  const contractsByProperty = new Map();
+  (data.contracts || []).forEach((c) => {
+    if (!contractsByProperty.has(c.propertyId))
+      contractsByProperty.set(c.propertyId, []);
+    contractsByProperty.get(c.propertyId).push(c);
+  });
+
+  const contractMatchesBase = (c) => {
+    const p = propertyById.get(c.propertyId) || {};
     return (
       (!selection.propertyId || c.propertyId === selection.propertyId) &&
       (!selection.unit || c.unitId === selection.unit) &&
       (!selection.owner || p.ownerPartyId === selection.owner) &&
-      (!selection.person ||
-        responsible(data, "properties", p) === selection.person ||
-        allItems.some(
-          (x) =>
-            (x.record.contractId === c.id ||
-              (!x.record.contractId && x.propertyId === c.propertyId)) &&
-            responsible(data, "activities", x.record) === selection.person,
-        )) &&
-      (!selection.q ||
-        [c.number, c.use, p.address, p.designation]
+      (!q ||
+        [
+          c.number,
+          c.use,
+          c.businessName,
+          p.address,
+          p.designation,
+        ]
           .join(" ")
           .toLocaleLowerCase("sv")
-          .includes(selection.q.toLocaleLowerCase("sv")))
+          .includes(q))
     );
+  };
+
+  const propertyMatchesBase = (p) => {
+    const related = contractsByProperty.get(p.id) || [];
+    const unitMatch =
+      !selection.unit ||
+      p.unitId === selection.unit ||
+      related.some((c) => c.unitId === selection.unit);
+    const qMatch =
+      !q ||
+      [p.address, p.designation]
+        .join(" ")
+        .toLocaleLowerCase("sv")
+        .includes(q) ||
+      related.some((c) =>
+        [c.number, c.use, c.businessName]
+          .join(" ")
+          .toLocaleLowerCase("sv")
+          .includes(q),
+      );
+    return (
+      (!selection.propertyId || p.id === selection.propertyId) &&
+      (!selection.owner || p.ownerPartyId === selection.owner) &&
+      unitMatch &&
+      qMatch
+    );
+  };
+
+  const baseContracts = (data.contracts || []).filter(contractMatchesBase);
+  const contracts = baseContracts.filter((c) => {
+    if (!person) return true;
+    const p = propertyById.get(c.propertyId) || {};
+    return responsible(data, "properties", p) === person;
   });
-  const cids = new Set(contracts.map((x) => x.id));
-  const pids = new Set(contracts.map((x) => x.propertyId));
-  const properties = data.properties.filter(
-    (p) =>
-      pids.has(p.id) ||
-      (!data.contracts.some((c) => c.propertyId === p.id) &&
-        (!selection.propertyId || p.id === selection.propertyId) &&
-        !selection.unit &&
-        (!selection.owner || p.ownerPartyId === selection.owner) &&
-        (!selection.person ||
-          responsible(data, "properties", p) === selection.person ||
-          allItems.some(
-            (x) =>
-              x.propertyId === p.id &&
-              responsible(data, "activities", x.record) === selection.person,
-          )) &&
-        (!selection.q ||
-          [p.address, p.designation]
-            .join(" ")
-            .toLocaleLowerCase("sv")
-            .includes(selection.q.toLocaleLowerCase("sv")))),
-  );
-  properties.forEach((p) => pids.add(p.id));
-  const items = allItems.filter((x) =>
-    x.record.contractId
-      ? cids.has(x.record.contractId)
-      : pids.has(x.propertyId),
-  );
+
+  const properties = (data.properties || []).filter((p) => {
+    if (!propertyMatchesBase(p)) return false;
+    return !person || responsible(data, "properties", p) === person;
+  });
+
+  const items = allItems.filter((x) => {
+    const record = x.record || {};
+    const contract = record.contractId
+      ? (data.contracts || []).find((c) => c.id === record.contractId)
+      : null;
+    const propertyId = x.propertyId || contract?.propertyId || "";
+    const property = propertyById.get(propertyId) || {};
+    if (selection.propertyId && propertyId !== selection.propertyId) return false;
+    if (selection.owner && property.ownerPartyId !== selection.owner) return false;
+    if (selection.unit) {
+      const relatedUnit = contract
+        ? contract.unitId
+        : property.unitId ||
+          (contractsByProperty.get(propertyId) || []).find(
+            (c) => c.unitId === selection.unit,
+          )?.unitId;
+      if (relatedUnit !== selection.unit) return false;
+    }
+    if (q) {
+      const haystack = [
+        property.address,
+        property.designation,
+        contract?.number,
+        contract?.use,
+        contract?.businessName,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("sv");
+      if (!haystack.includes(q)) return false;
+    }
+    if (
+      person &&
+      responsible(data, "activities", record) !== person
+    )
+      return false;
+    return true;
+  });
+
   return { contracts, properties, items };
 }
+
 export function audit(data, collection, id, before, after, actor) {
   const at = new Date().toISOString();
   data.auditLog.push({
