@@ -232,7 +232,7 @@ test("two sources create conflict and do not overwrite source values", () => {
   assert.ok(result.data.importReview.some((x) => x.field === "area"));
   assert.equal(result.data.contracts[0].provenance.area.source, "INT/EXT");
 });
-test("actual XLSX bytes roundtrip model, metadata, activities and locked budget", () => {
+test("actual XLSX bytes roundtrip keeps one activity model, responsibility and locked budget", () => {
   const svc = services();
   const d = normalize({
     isDemo: false,
@@ -295,30 +295,39 @@ test("actual XLSX bytes roundtrip model, metadata, activities and locked budget"
       },
     ],
   });
+  assert.equal(d.projects.length, 0);
+  assert.equal(d.maintenance.length, 0);
+  assert.equal(d.activities.length, 2);
   const bytes = XLSX.write(
     svc.LokalblickSourceService.dataToWorkbook(clone(d)),
     { type: "buffer", bookType: "xlsx" },
   );
-  const out = svc.LokalblickSourceService.workbookToData(
-    XLSX.read(bytes, { type: "buffer" }),
-  );
+  const workbookOut = XLSX.read(bytes, { type: "buffer" });
+  assert.ok(workbookOut.Sheets.Aktiviteter);
+  assert.equal(Boolean(workbookOut.Sheets.Projekt), false);
+  assert.equal(Boolean(workbookOut.Sheets.Underhåll), false);
+  assert.equal(Boolean(workbookOut.Sheets.Ansvar), false);
+  const out = svc.LokalblickSourceService.workbookToData(workbookOut);
   assert.equal(out.contracts[0].id, "c1");
   assert.deepEqual(
     plain(out.contracts[0].provenance),
     d.contracts[0].provenance,
   );
-  assert.equal(out.projects[0].budgetInvestigation, 10);
-  assert.equal(out.projects[0].budgetExecution, 200);
-  assert.equal(out.projects[0].budgetFurnishing, 30);
-  assert.equal(out.projects[0].budgetIncluded, false);
-  assert.equal(out.maintenance[0].responsiblePersonId, "person1");
+  const project = out.activities.find((x) => x.id === "pr1");
+  const maintenance = out.activities.find((x) => x.id === "uh1");
+  assert.equal(project.investigationCost, 10);
+  assert.equal(project.estimatedCost, 230);
+  assert.equal(project.responsiblePersonId, "person1");
+  assert.equal(project.budgetIncluded, false);
+  assert.equal(maintenance.responsiblePersonId, "person1");
+  assert.equal(out.properties[0].responsiblePersonId, "person1");
   assert.equal(out.auditLog[0].description.length, 40000);
   assert.equal(out.indexSeries[0].seriesBase, "1980");
   assert.equal(out.budgetPlans[0].lines[0].sourceId, "uh1");
+  assert.equal(out.budgetPlans[0].lines[0].sourceType, "activity");
   assert.equal(out.budgetPlans[0].lockedBy, "Test");
   assert.equal(out.importReview.length, 1);
 });
-const clone = plain;
 test("metadata-only edits contribute to pending changes", () => {
   const svc = services();
   const d = normalize({ isDemo: false });
@@ -340,19 +349,29 @@ test("non-demo normalization never inserts demo data; multi-contract scope stays
   assert.equal(v.contracts.length, 2);
   assert.equal(v.items.length, 1);
 });
-test("assignment and wish conversion retain identity and audit history", () => {
+test("responsibility is stored directly and wish conversion keeps the same activity", () => {
   const d = normalize({
-    wishes: [{ id: "w1", title: "Tak", estimatedCost: 100, budgetYear: 2027 }],
+    activities: [
+      {
+        id: "w1",
+        type: "Önskemål",
+        title: "Tak",
+        estimatedCost: 100,
+        planningYear: 2027,
+        budgetCategory: "Ej budget",
+      },
+    ],
   });
-  assign(d, "wishes", "w1", "person1", "Test");
-  assert.equal(d.assignments[0].targetType, "activity");
-  assert.equal(responsible(d, "wishes", d.wishes[0]), "person1");
-  moveWish(d, "w1", "maintenance", "Test");
-  assert.equal(d.assignments[0].targetType, "activity");
-  assert.equal(d.wishes.length, 0);
-  assert.equal(d.maintenance[0].id, "w1");
-  assert.equal(d.maintenance[0].cost, 100);
-  assert.equal(d.assignmentChanges[0].changedBy, "Test");
+  assign(d, "activities", "w1", "person1", "Test");
+  assert.equal(d.activities[0].responsiblePersonId, "person1");
+  assert.equal(responsible(d, "activities", d.activities[0]), "person1");
+  assert.equal(d.assignments.length, 0);
+  moveWish(d, "w1", "Underhåll", "Test");
+  assert.equal(d.activities.length, 1);
+  assert.equal(d.activities[0].id, "w1");
+  assert.equal(d.activities[0].type, "Underhåll");
+  assert.equal(d.activities[0].budgetCategory, "Underhåll");
+  assert.equal(d.activities[0].estimatedCost, 100);
   assert.ok(d.auditLog.length >= 2);
 });
 test("review requires an existing contract and keeps source provenance", () => {
@@ -444,19 +463,19 @@ test("failed Excel write keeps pending changes and baseline until retry succeeds
     123456,
   );
 });
-test("supplemental lists stage normalized records and require explicit property confirmation", () => {
+test("supplemental lists stage canonical activities and require property confirmation", () => {
   const svc = services(),
     data = normalize({
       isDemo: false,
       properties: [{ id: "p1", address: "Testgatan 1" }],
     });
   const schema = svc.LokalblickSourceService.schemas.find(
-    (s) => s.key === "maintenance",
+    (s) => s.key === "activities",
   );
   const w = workbook({
     Underlag: [
-      ["Åtgärd", "Planår", "Kostnad", "Adress"],
-      ["Tak", 2027, "100 000,50", "Testgatan 1"],
+      ["Åtgärd", "Planår", "Kostnad", "Adress", "Typ"],
+      ["Tak", 2027, "100 000,50", "Testgatan 1", "Underhåll"],
     ],
   });
   const result = svc.LokalblickSupplementalAdapter.analyze(
@@ -465,16 +484,20 @@ test("supplemental lists stage normalized records and require explicit property 
     schema,
     "underlag.xlsx",
   );
-  assert.equal(result.data.maintenance.length, 0);
+  assert.equal(result.data.activities.length, 0);
   const review = plain(result.data.importReview[0]);
-  assert.equal(review.record.cost, 100000.5);
+  assert.equal(review.record.estimatedCost, 100000.5);
   assert.equal(review.record.propertyId, "p1");
   const d = normalize(result.data);
   resolveReview(d, review.id, "accept", "p1", "Test");
-  assert.equal(d.maintenance.length, 1);
-  assert.equal(d.maintenance[0].provenance.cost.source, "underlag.xlsx");
+  assert.equal(d.activities.length, 1);
+  assert.equal(d.activities[0].type, "Underhåll");
+  assert.equal(
+    d.activities[0].provenance.estimatedCost.source,
+    "underlag.xlsx",
+  );
 });
-test("operational enrichment adds people, activity responsibility and avoids duplicate reimport", () => {
+test("operational enrichment writes direct responsibility, contacts and avoids duplicate reimport", () => {
   const svc = services(),
     base = normalize({
       isDemo: false,
@@ -516,17 +539,24 @@ test("operational enrichment adds people, activity responsibility and avoids dup
   ).data;
   const manager = first.people.find((p) => p.email === "sacha.kozarovski@malmo.se");
   const omid = first.people.find((p) => p.name === "Omid");
+  const activity = first.activities.find((x) => x.title === "Nytt skalskydd");
   assert.ok(manager);
   assert.equal(omid.provisional, true);
-  assert.ok(first.assignments.some((a) => a.personId === manager.id && a.targetType === "property" && a.role === "Fastighetsförvaltare"));
-  assert.ok(first.assignments.some((a) => a.personId === omid.id && a.targetType === "activity" && a.role === "Ansvarig"));
-  assert.ok(first.assignments.some((a) => a.personId === omid.id && a.targetType === "activity" && a.role === "Beställare"));
-  assert.equal(first.projects.length, 1);
-  assert.equal(first.projects[0].orderedCost, 166512);
+  assert.ok(
+    first.contacts.some(
+      (x) =>
+        x.personId === manager.id &&
+        x.targetType === "property" &&
+        x.role === "Fastighetsförvaltare",
+    ),
+  );
+  assert.equal(activity.responsiblePersonId, omid.id);
+  assert.equal(activity.orderedByPersonId, omid.id);
+  assert.equal(activity.orderedCost, 166512);
   const counts = {
     people: first.people.length,
-    assignments: first.assignments.length,
-    projects: first.projects.length,
+    contacts: first.contacts.length,
+    activities: first.activities.length,
   };
   const second = svc.LokalblickOperationalEnrichmentAdapter.enrich(
     w,
@@ -534,11 +564,15 @@ test("operational enrichment adds people, activity responsibility and avoids dup
     "hvo.xlsx",
   ).data;
   assert.equal(second.people.length, counts.people);
-  assert.equal(second.assignments.length, counts.assignments);
-  assert.equal(second.projects.length, counts.projects);
-  assert.equal(second.sourceRegistry.filter((x) => x.kind === "operational-enrichment" && x.name === "hvo.xlsx").length, 1);
+  assert.equal(second.contacts.length, counts.contacts);
+  assert.equal(second.activities.length, counts.activities);
+  assert.equal(
+    second.sourceRegistry.filter(
+      (x) => x.kind === "operational-enrichment" && x.name === "hvo.xlsx",
+    ).length,
+    1,
+  );
 });
-
 test("Lokalblick workbook exposes human source sheet and hides technical extras", () => {
   const svc = services();
   const w = svc.LokalblickSourceService.dataToWorkbook(normalize({
@@ -551,7 +585,7 @@ test("Lokalblick workbook exposes human source sheet and hides technical extras"
   assert.equal(meta?.Hidden, 1);
 });
 
-test("supplemental rows cannot create an unknown property or move an existing contract", () => {
+test("supplemental activities cannot create an unknown property or move a contract", () => {
   const d = normalize({
     properties: [{ id: "p1", address: "Test" }],
     contracts: [contract],
@@ -559,22 +593,40 @@ test("supplemental rows cannot create an unknown property or move an existing co
       {
         id: "r1",
         kind: "record",
-        collection: "maintenance",
-        record: { title: "Tak", propertyId: "UNKNOWN" },
+        collection: "activities",
+        record: {
+          type: "Underhåll",
+          title: "Tak",
+          propertyId: "UNKNOWN",
+        },
         status: "pending",
       },
     ],
   });
   assert.throws(() => resolveReview(d, "r1", "accept", "", "Test"));
-  assert.equal(d.maintenance.length, 0);
+  assert.equal(d.activities.length, 0);
 });
-test("actual costs aggregate once and preserve source identity", () => {
+test("actual costs aggregate once from operations and activities", () => {
   const d = normalize({
     contracts: [contract],
     operations: [{ id: "o1", propertyId: "p1", period: 2027, actual: 10 }],
-    maintenance: [{ id: "m1", propertyId: "p1", year: 2027, finalCost: 20 }],
-    projects: [
-      { id: "pr1", propertyId: "p1", budgetYear: 2027, finalCost: 30 },
+    activities: [
+      {
+        id: "m1",
+        type: "Underhåll",
+        propertyId: "p1",
+        planningYear: 2027,
+        budgetCategory: "Underhåll",
+        finalCost: 20,
+      },
+      {
+        id: "pr1",
+        type: "Projekt",
+        propertyId: "p1",
+        planningYear: 2027,
+        budgetCategory: "Projekt",
+        finalCost: 30,
+      },
     ],
   });
   const rows = C.actualRows(d, 2027);
@@ -584,26 +636,30 @@ test("actual costs aggregate once and preserve source identity", () => {
   );
   assert.equal(rows.find((r) => r.sourceId === "m1").category, "Underhåll");
 });
-test("responsible scope includes individually assigned tasks and properties without contracts", () => {
+test("responsible scope uses direct property and activity responsibility", () => {
   const d = normalize({
     contracts: [contract],
     properties: [
       { id: "p1", address: "Testgatan 1" },
       { id: "p2", address: "Annat" },
     ],
-    maintenance: [
+    activities: [
       {
         id: "m1",
+        type: "Underhåll",
         propertyId: "p1",
-        year: 2027,
-        cost: 100,
+        planningYear: 2027,
+        estimatedCost: 100,
+        budgetCategory: "Underhåll",
         responsiblePersonId: "person1",
       },
       {
         id: "m2",
+        type: "Underhåll",
         propertyId: "p2",
-        year: 2027,
-        cost: 200,
+        planningYear: 2027,
+        estimatedCost: 200,
+        budgetCategory: "Underhåll",
         responsiblePersonId: "person1",
       },
     ],
