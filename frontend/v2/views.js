@@ -106,18 +106,27 @@ function scopedBudgetRows(data, s, year, view) {
   return rows.filter((row) => budgetRowInScope(row, view));
 }
 function rentMetrics(data, contracts, year) {
-  let rent = 0, area = 0, needsReview = 0;
+  let rent = 0, area = 0, rentForAverage = 0, rentArea = 0, needsReview = 0;
   (contracts || []).forEach((contract) => {
     const values = calc().annualValues(contract, year, 0, data.indexSeries);
-    rent += Number(values.rent.amount || 0) + Number(values.addition.amount || 0);
-    area += Number(contract.area || 0);
-    if (values.rent.status === "Behöver kontroll" || values.addition.status === "Behöver kontroll")
-      needsReview++;
+    const contractRent =
+      Number(values.rent.amount || 0) + Number(values.addition.amount || 0);
+    const contractArea = Number(contract.area || 0);
+    const incomplete =
+      values.rent.status === "Behöver kontroll" ||
+      values.addition.status === "Behöver kontroll";
+    rent += contractRent;
+    area += contractArea;
+    if (incomplete) needsReview++;
+    else if (contractArea > 0) {
+      rentForAverage += contractRent;
+      rentArea += contractArea;
+    }
   });
   return {
     rent,
     area,
-    rentPerSqm: area > 0 ? rent / area : 0,
+    rentPerSqm: rentArea > 0 ? rentForAverage / rentArea : 0,
     needsReview,
   };
 }
