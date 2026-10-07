@@ -523,6 +523,17 @@ export function assign(data, collection, id, person, actor) {
   }
   const record = data[targetCollection].find((x) => x.id === id);
   if (!record) throw Error("Posten finns inte");
+  if (person) {
+    const selected = data.people.find((x) => x.id === person);
+    if (!selected) throw Error("Ansvarig person finns inte");
+    if (selected.organizationId) {
+      const organization = data.organizations.find(
+        (x) => x.id === selected.organizationId,
+      );
+      if (organization && organization.type !== "our")
+        throw Error("Ansvarig hos oss måste tillhöra vår organisation");
+    }
+  }
   const old = record.responsiblePersonId || "";
   if (old === person) return;
   const before = clone(record);
