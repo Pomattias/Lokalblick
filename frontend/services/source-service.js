@@ -516,6 +516,11 @@
 
     const canonicalActivities=activityRowsFromData(data), byActivity=new Map((data.activities||[]).map(function(x){return [x.id,x];}));
     canonicalActivities.forEach(function(a){ if(a&&a.id&&!byActivity.has(a.id)){data.activities.push(a);byActivity.set(a.id,a);} });
+    (data.activities||[]).forEach(function(activity){
+      if(!activity.includeInBudget && activity.budgetIncluded===false)activity.includeInBudget="Nej";
+      else if(!activity.includeInBudget && activity.budgetIncluded===true)activity.includeInBudget="Ja";
+      delete activity.budgetIncluded;
+    });
 
     (data.maintenanceStatus||[]).forEach(function(status){
       if(!status.actionNeed && !(Number(status.estimatedCost)>0)) return;
