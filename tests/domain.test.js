@@ -535,6 +535,73 @@ test("supplemental lists stage canonical activities and require property confirm
     "underlag.xlsx",
   );
 });
+test("prepared Excel import lists sheets and imports only selected sheets with progress", async () => {
+  const svc = services();
+  const api = svc.LokalblickSourceService;
+  const sourceWorkbook = workbook({
+    SF: [
+      [
+        "Förvaltningsobjekt",
+        "Avtalsnummer",
+        "Gatuadress",
+        "Kundtyp avtal",
+        "Area",
+        "Lokalkategori",
+        "Användning",
+      ],
+      ["OBJ-1", "12345", "Testgatan 1", "Fastighets AB", 500, "Kontor", "Vårdbo"],
+    ],
+    Fastighetslista: [
+      ["Benämning", "Postadress", "Fastighetsägare", "Förvaltare", "Objekt. nr"],
+      ["Testhuset", "Testgatan 1", "Fastighets AB", "Lisa Förvaltare", "OBJ-1"],
+    ],
+    Noteringar: [["Fri text"], ["Ska inte läsas"]],
+  });
+  const bytes = XLSX.write(sourceWorkbook, { type: "array", bookType: "xlsx" });
+  svc.showOpenFilePicker = async () => [
+    {
+      name: "underlag.xlsx",
+      queryPermission: async () => "granted",
+      requestPermission: async () => "granted",
+      getFile: async () => ({
+        name: "underlag.xlsx",
+        arrayBuffer: async () => bytes,
+      }),
+    },
+  ];
+  const progress = [];
+  const prepared = await api.prepareImportWorkbook((x) => progress.push(plain(x)));
+  assert.deepEqual(
+    prepared.sheets.map((x) => x.name),
+    ["SF", "Fastighetslista", "Noteringar"],
+  );
+  assert.equal(prepared.sheets.find((x) => x.name === "SF").recommended, true);
+  assert.equal(
+    prepared.sheets.find((x) => x.name === "Noteringar").recommended,
+    false,
+  );
+  const result = await api.importPreparedWorkbook(
+    normalize({ isDemo: false }),
+    ["SF"],
+    (x) => progress.push(plain(x)),
+  );
+  assert.deepEqual(result.report.sheets, ["SF"]);
+  assert.equal(result.data.properties.length, 1);
+  assert.equal(result.data.contracts.length, 1);
+  assert.equal(
+    result.data.people.some((x) => x.name === "Lisa Förvaltare"),
+    false,
+  );
+  assert.ok(progress.some((x) => x.stage === "parsed-sheets"));
+  assert.ok(
+    progress.some(
+      (x) =>
+        x.stage === "core-done" &&
+        x.counts?.properties === 1 &&
+        x.counts?.contracts === 1,
+    ),
+  );
+});
 test("unified Excel import seeds empty property and contract data before enrichment", () => {
   const svc = services();
   const firstWorkbook = workbook({
