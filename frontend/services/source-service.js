@@ -125,7 +125,8 @@
     indexReport:null,
     indexFileName:"",
     writeRecoveryNeeded:false,
-    lastWriteError:""
+    lastWriteError:"",
+    pendingImport:null
   };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -933,6 +934,75 @@
     return status();
   }
 
+  function emitImportProgress(onProgress, payload) {
+    if (typeof onProgress !== "function") return;
+    try { onProgress(payload); } catch (_) {}
+  }
+  function yieldImportUi() {
+    return new Promise(function(resolve){ setTimeout(resolve, 0); });
+  }
+  function importSheetRole(name) {
+    const n=String(name||"").trim().toLowerCase();
+    if (["sf","int","ext","lokallista"].includes(n)) return {kind:"Fastigheter & avtal",recommended:true};
+    if (n==="lokalbestånd") return {kind:"Avtal & verksamhet",recommended:true};
+    if (n==="fastighetslista") return {kind:"Fastighetsberikning",recommended:true};
+    if (n==="årshjul" || n==="arshjul") return {kind:"Aktiviteter",recommended:true};
+    if (n==="beställningar" || n==="bestallningar") return {kind:"Beställningar",recommended:true};
+    if (/kpi|index/.test(n)) return {kind:"KPI / index",recommended:true};
+    if (["fastigheter","avtal","parter","personer","aktiviteter","kostnader","status"].includes(n))
+      return {kind:"Lokalblick-data",recommended:true};
+    return {kind:"Övrig flik",recommended:false};
+  }
+  async function prepareImportWorkbook(onProgress) {
+    if (!window.showOpenFilePicker) throw new Error("Excelimport kräver Edge eller Chrome med lokal filåtkomst.");
+    emitImportProgress(onProgress,{stage:"choose",message:"Välj Excel-fil…"});
+    const handles=await window.showOpenFilePicker({
+      multiple:false,
+      types:[{description:"Excelkälla till Lokalblick",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]
+    });
+    const handle=handles[0];
+    const access=await permission(handle,"read",true);
+    if(access!=="granted") throw new Error("Läsåtkomst till filen godkändes inte.");
+    const file=await handle.getFile();
+    emitImportProgress(onProgress,{stage:"read",message:"Läser filen "+file.name+"…"});
+    const buffer=await file.arrayBuffer();
+    await yieldImportUi();
+    emitImportProgress(onProgress,{stage:"sheets",message:"Identifierar flikar i "+file.name+"…"});
+    const overview=XLSX.read(buffer,{type:"array",bookSheets:true,bookProps:true});
+    const sheets=(overview.SheetNames||[]).map(function(name,index){
+      const role=importSheetRole(name);
+      return {name:name,index:index,kind:role.kind,recommended:role.recommended};
+    });
+    source.pendingImport={fileName:file.name||"Excelimport.xlsx",buffer:buffer,sheets:sheets};
+    emitImportProgress(onProgress,{stage:"ready",message:sheets.length+" flikar hittades.",fileName:source.pendingImport.fileName,sheets:sheets});
+    return {fileName:source.pendingImport.fileName,sheets:clone(sheets)};
+  }
+  function selectedImportWorkbook(buffer, selectedSheets) {
+    const wanted=new Set(selectedSheets||[]);
+    const workbook=XLSX.read(buffer,{type:"array",cellDates:false,sheets:selectedSheets});
+    workbook.SheetNames=(workbook.SheetNames||[]).filter(function(name){return wanted.has(name) && workbook.Sheets[name];});
+    const filtered={};
+    workbook.SheetNames.forEach(function(name){filtered[name]=workbook.Sheets[name];});
+    workbook.Sheets=filtered;
+    return workbook;
+  }
+  function sheetRowCount(workbook,name) {
+    const ref=workbook.Sheets[name] && workbook.Sheets[name]["!ref"];
+    if(!ref) return 0;
+    try {
+      const range=XLSX.utils.decode_range(ref);
+      return Math.max(0,range.e.r-range.s.r+1);
+    } catch (_) { return 0; }
+  }
+  function importProgressCounts(data, extra) {
+    return Object.assign({
+      properties:(data.properties||[]).length,
+      contracts:(data.contracts||[]).length,
+      activities:(data.activities||[]).length,
+      review:(data.importReview||[]).filter(function(x){return x.status==="pending";}).length
+    },extra||{});
+  }
+
   async function readSecondaryWorkbook(description) {
     if (!window.showOpenFilePicker) throw new Error("Excelimport kräver Edge eller Chrome med lokal filåtkomst.");
     const handles = await window.showOpenFilePicker({
@@ -1168,14 +1238,106 @@
     return {data:data,report:report};
   }
 
-  async function importWorkbook(data) {
-    const picked=await readSecondaryWorkbook("Excelkälla till Lokalblick");
-    const result=analyzeImportWorkbook(picked.workbook,clone(data||source.data||{}),picked.file.name,picked.buffer);
+  async function analyzeImportWorkbookAsync(workbook,baseData,fileName,arrayBuffer,onProgress) {
+    let data=clone(baseData||{});
+    canonicalizeModel(data);
+    const before=clone(data);
+    const report={
+      profile:"Lokalblick import v1",fileName:fileName||"",sheets:(workbook.SheetNames||[]).slice(),stages:[],
+      counts:{propertiesBefore:(data.properties||[]).length,contractsBefore:(data.contracts||[]).length,propertiesAfter:0,contractsAfter:0,activitiesAfter:0,review:0},
+      warnings:[]
+    };
+    let recognized=false;
+    const totalStages=4, stageRows=Object.fromEntries((workbook.SheetNames||[]).map(function(name){return [name,sheetRowCount(workbook,name)];}));
+    emitImportProgress(onProgress,{stage:"parsed",step:0,totalSteps:totalStages,message:"Flikarna är lästa.",sheets:(workbook.SheetNames||[]).map(function(name){return {name:name,rows:stageRows[name]};}),counts:importProgressCounts(data)});
+    await yieldImportUi();
+
+    if(window.LokalblickMigrationAdapter&&window.LokalblickMigrationAdapter.detect(workbook)){
+      emitImportProgress(onProgress,{stage:"core",step:1,totalSteps:totalStages,message:"Tolkar fastigheter och avtal…",counts:importProgressCounts(data)});
+      await yieldImportUi();
+      const migrated=window.LokalblickMigrationAdapter.migrate(workbook,fileName||"Excelimport");
+      const primary=clone(migrated.data||{});
+      canonicalizeModel(primary);
+      const coreReport=mergePrimaryData(data,primary,fileName);
+      report.stages.push(coreReport);recognized=true;
+      (migrated.report&&migrated.report.warnings||[]).forEach(function(x){if(report.warnings.indexOf(x)<0)report.warnings.push(x);});
+      emitImportProgress(onProgress,{stage:"core-done",step:1,totalSteps:totalStages,message:"Grunddata klar.",counts:importProgressCounts(data,{
+        matched:(coreReport.counts.propertiesUpdated||0)+(coreReport.counts.contractsUpdated||0),
+        created:(coreReport.counts.propertiesCreated||0)+(coreReport.counts.contractsCreated||0)
+      })});
+      await yieldImportUi();
+    }
+
+    if(window.LokalblickOperationalEnrichmentAdapter&&window.LokalblickOperationalEnrichmentAdapter.detect(workbook)){
+      emitImportProgress(onProgress,{stage:"operational",step:2,totalSteps:totalStages,message:"Tolkar fastighetsdata, aktiviteter och beställningar…",counts:importProgressCounts(data)});
+      await yieldImportUi();
+      const operational=window.LokalblickOperationalEnrichmentAdapter.enrich(workbook,data,fileName||"Excelimport");
+      data=operational.data;report.stages.push(operational.report);recognized=true;
+      const oc=operational.report&&operational.report.counts||{};
+      emitImportProgress(onProgress,{stage:"operational-done",step:2,totalSteps:totalStages,message:"Berikning klar.",counts:importProgressCounts(data,{
+        matched:(oc.propertiesMatched||0)+(oc.contractsMatched||0)+(oc.ordersMatched||0),
+        created:(oc.activitiesCreated||0)+(oc.ordersCreated||0)+(oc.peopleCreated||0)
+      })});
+      await yieldImportUi();
+    }
+
+    if(window.LokalblickContractEnrichmentAdapter&&window.LokalblickContractEnrichmentAdapter.detect(workbook)&&(data.contracts||[]).length){
+      emitImportProgress(onProgress,{stage:"contracts",step:3,totalSteps:totalStages,message:"Tolkar avtalsvillkor och dokumentlänkar…",counts:importProgressCounts(data)});
+      await yieldImportUi();
+      const contracts=window.LokalblickContractEnrichmentAdapter.enrich(workbook,data,fileName||"Excelimport",arrayBuffer);
+      data=contracts.data;report.stages.push(contracts.report);recognized=true;
+      const cc=contracts.report&&contracts.report.counts||{};
+      emitImportProgress(onProgress,{stage:"contracts-done",step:3,totalSteps:totalStages,message:"Avtalsberikning klar.",counts:importProgressCounts(data,{matched:cc.matched||0})});
+      await yieldImportUi();
+    }
+
+    if(window.LokalblickContractEnrichmentAdapter){
+      emitImportProgress(onProgress,{stage:"index",step:4,totalSteps:totalStages,message:"Kontrollerar KPI / index…",counts:importProgressCounts(data)});
+      await yieldImportUi();
+      const series=window.LokalblickContractEnrichmentAdapter.parseIndexWorkbook(workbook,fileName||"Excelimport");
+      if(series.length){
+        const indexed=window.LokalblickContractEnrichmentAdapter.applyIndexSeries(data,series,fileName||"Excelimport");
+        data=indexed.data;report.stages.push({profile:"KPI",fileName:fileName||"",counts:{sourceRows:series.length,recalculated:indexed.report.recalculated||0},warnings:indexed.report.warnings||[]});recognized=true;
+      }
+    }
+
+    if(!recognized)throw new Error("De markerade flikarna innehåller ingen information som Lokalblick känner igen ännu.");
+    canonicalizeModel(data);
+    appendImportAudit(before,data,fileName);
+    report.counts.propertiesAfter=(data.properties||[]).length;
+    report.counts.contractsAfter=(data.contracts||[]).length;
+    report.counts.activitiesAfter=(data.activities||[]).length;
+    report.counts.review=(data.importReview||[]).filter(function(x){return x.status==="pending";}).length;
+    data.lastImportReport=clone(report);
+    emitImportProgress(onProgress,{stage:"done",step:totalStages,totalSteps:totalStages,message:"Importen är klar.",counts:importProgressCounts(data)});
+    return {data:data,report:report};
+  }
+
+  async function importPreparedWorkbook(data,selectedSheets,onProgress) {
+    if(!source.pendingImport) throw new Error("Välj Excel-filen på nytt.");
+    const selected=(selectedSheets||[]).filter(function(name){return source.pendingImport.sheets.some(function(x){return x.name===name;});});
+    if(!selected.length) throw new Error("Markera minst en flik att läsa in.");
+    emitImportProgress(onProgress,{stage:"parse",message:"Läser "+selected.length+" markerade flikar…",selectedSheets:selected});
+    await yieldImportUi();
+    const workbook=selectedImportWorkbook(source.pendingImport.buffer,selected);
+    emitImportProgress(onProgress,{
+      stage:"parsed-sheets",message:"Markerade flikar lästa.",
+      sheets:selected.map(function(name){return {name:name,rows:sheetRowCount(workbook,name)};})
+    });
+    await yieldImportUi();
+    const result=await analyzeImportWorkbookAsync(workbook,clone(data||source.data||{}),source.pendingImport.fileName,source.pendingImport.buffer,onProgress);
     source.operationalReports=source.operationalReports||[];
     source.operationalReports.push(clone(result.report));
     source.operationalFileNames=source.operationalFileNames||[];
-    source.operationalFileNames.push(picked.file.name||"");
+    source.operationalFileNames.push(source.pendingImport.fileName||"");
+    source.pendingImport=null;
     return {data:clone(result.data),report:clone(result.report)};
+  }
+
+  async function importWorkbook(data,onProgress) {
+    const prepared=await prepareImportWorkbook(onProgress);
+    const selected=prepared.sheets.filter(function(x){return x.recommended;}).map(function(x){return x.name;});
+    return importPreparedWorkbook(data,selected.length?selected:prepared.sheets.map(function(x){return x.name;}),onProgress);
   }
 
   async function enrichContracts(data) {
@@ -1244,6 +1406,7 @@
     source.indexFileName = "";
     source.writeRecoveryNeeded = false;
     source.lastWriteError = "";
+    source.pendingImport = null;
     await forgetHandle();
     if (window.LokalblickDemoDataService) window.LokalblickDataService = window.LokalblickDemoDataService;
     return window.LokalblickDataService.load();
@@ -1281,6 +1444,8 @@
     connect:connect,
     reconnect:reconnect,
     createFile:createFile,
+    prepareImportWorkbook:prepareImportWorkbook,
+    importPreparedWorkbook:importPreparedWorkbook,
     importWorkbook:importWorkbook,
     analyzeImportWorkbook:analyzeImportWorkbook,
     enrichContracts:enrichContracts,
