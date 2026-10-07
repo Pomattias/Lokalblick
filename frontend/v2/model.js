@@ -502,7 +502,7 @@ export function scope(data, selection) {
     return (
       (!selection.propertyId || c.propertyId === selection.propertyId) &&
       (!selection.unit || c.unitId === selection.unit) &&
-      (!selection.owner || (c.ownerOrgId || p.owner) === selection.owner) &&
+      (!selection.owner || (c.ownerOrgId || p.ownerOrgId) === selection.owner) &&
       (!selection.person ||
         responsible(data, "properties", p) === selection.person ||
         allItems.some(
