@@ -448,6 +448,41 @@ function canonicalRelations(out) {
   delete out.contacts;return out;
 }
 
+function obsoleteCrossObjectReviews(out) {
+  const pending=(out.importReview||[]).filter(
+    (x)=>x.status==="pending"&&x.kind==="operational-conflict"&&(x.collection==="properties"||x.entity==="Fastighet"),
+  );
+  const groups=new Map();
+  pending.forEach((item)=>{
+    const key=[
+      item.source||"",
+      item.sheet||"",
+      item.row||"",
+      item.recordId||item.incomingRecordId||"",
+    ].join("|");
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(item);
+  });
+  const now=new Date().toISOString();
+  groups.forEach((items)=>{
+    const identityConflict=items.find(
+      (x)=>x.field==="sourceId"&&String(x.current||"").trim()&&String(x.proposed||"").trim()&&String(x.current).trim()!==String(x.proposed).trim(),
+    );
+    if(!identityConflict)return;
+    items.forEach((item)=>{
+      item.status="obsolete";
+      item.resolvedBy="Lokalblick";
+      item.resolvedAt=now;
+      item.resolutionReason="Olika objekts-ID får inte matchas som samma fastighet.";
+    });
+  });
+  (out.sourceRegistry||[]).forEach((source)=>{
+    source.review=(out.importReview||[]).filter(
+      (item)=>item.status==="pending"&&(!source.name||item.source===source.name),
+    ).length;
+  });
+}
+
 function normalizeOwnerRelations(out) {
   const key = (name) =>
     String(name || "")
@@ -499,6 +534,7 @@ export function normalize(data) {
     if (!Array.isArray(out[k])) out[k] = [];
   });
   normalizeOwnerRelations(out);
+  obsoleteCrossObjectReviews(out);
   out.contracts.forEach((c) => {
     c.start = c.start ?? c.originalValidFrom ?? "";
     c.end = c.end ?? c.currentValidTo ?? "";
