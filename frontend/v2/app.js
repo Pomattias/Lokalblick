@@ -44,7 +44,7 @@ const labels = {
   budget: "Budget",
   map: "Karta",
   sources: "Datakällor",
-  people: "Organisation",
+  people: "Parter",
 };
 const actor = () =>
   data.currentUser?.name ||
@@ -70,7 +70,7 @@ function captureChanges(before){
   }
 }
 function showHistory(type='',id=''){
-  const collection={contract:'contracts',activity:'activities',operation:'operations',maintenanceStatus:'maintenanceStatus'}[type]||type;
+  const collection={contract:'contracts',activity:'activities',order:'orders',operation:'operations',maintenanceStatus:'maintenanceStatus'}[type]||type;
   const entries=data.auditLog.slice().reverse().filter(h=>!collection||(h.collection===collection&&String(h.recordId)===String(id)));
   const d=document.createElement('dialog');d.className='followup-dialog';
   d.innerHTML='<h2>Ändringshistorik</h2>'+entries.map(h=>'<article><strong>'+esc(h.action)+' · '+esc(h.collection)+' · '+esc(h.recordId)+'</strong><p>'+esc(h.by)+' · '+esc(new Date(h.at).toLocaleString('sv-SE'))+'</p><ul>'+(h.fields||[]).map(f=>'<li>'+esc(f.label||f.field)+': '+esc(typeof f.from==='object'?JSON.stringify(f.from):f.from)+' → '+esc(typeof f.to==='object'?JSON.stringify(f.to):f.to)+'</li>').join('')+'</ul></article>').join('')+'<form method="dialog"><button>Stäng</button></form>';

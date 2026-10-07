@@ -41,17 +41,17 @@ export function options(items, value, label, selected = "", empty = "Alla") {
 const organizationLabel = (data, id) =>
   data.organizations.find((x) => x.id === id)?.name || id || "";
 const propertyOwnerLabel = (data, property) =>
-  organizationLabel(data, property?.ownerOrgId);
+  organizationLabel(data, property?.ownerPartyId);
 export function filters(data, s) {
   const owners = new Map();
   data.contracts.forEach((c) => {
     const p = data.properties.find((x) => x.id === c.propertyId) || {};
-    const id = c.ownerOrgId || p.ownerOrgId;
+    const id = p.ownerPartyId;
     if (id) owners.set(id, organizationLabel(data, id));
   });
   data.properties.forEach((p) => {
-    if (p.ownerOrgId)
-      owners.set(p.ownerOrgId, organizationLabel(data, p.ownerOrgId));
+    if (p.ownerPartyId)
+      owners.set(p.ownerPartyId, organizationLabel(data, p.ownerPartyId));
   });
   return `<div class="filters"><label>Ansvarig hos oss<select data-filter="person">${options(
     internalPeople(data),
@@ -59,12 +59,12 @@ export function filters(data, s) {
     (x) => x.name,
     s.person,
     "Alla ansvariga hos oss",
-  )}</select></label><label>Organisation<select data-filter="unit">${options(
+  )}</select></label><label>Område<select data-filter="unit">${options(
     Object.entries(units),
     (x) => x[0],
     (x) => x[1],
     s.unit,
-    "Alla organisationer",
+    "Alla områden",
   )}</select></label><label>Fastighetsägare<select data-filter="owner">${options(
     [...owners],
     (x) => x[0],
@@ -177,19 +177,30 @@ export function overview(data, s, ui) {
   return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div><div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
 }
 export function contractDetail(data, id, year) {
-  const c = data.contracts.find((x) => x.id === id);
-  if (!c) return "";
-  const v = calc().annualValues(c, year, 0, data.indexSeries),
-    doc = globalThis.LokalblickDocuments.resolve(
-      globalThis.LokalblickDocuments.fromContract(c),
-      globalThis.LokalblickContractDocumentCache,
-    );
-  return `<section class="detail"><div class="section-title"><h2>Avtal ${esc(c.number || c.id)}</h2><button data-close-contract>Stäng detalj</button></div><div class="detail-grid"><div><small>Verksamhet</small><strong>${esc(c.use || "–")}</strong></div><div><small>Hyra ${year} · ${esc(v.rent.status)}</small><strong>${money(v.rent.amount)}</strong></div><div><small>Tillägg · ${esc(v.addition.status)}</small><strong>${money(v.addition.amount)}</strong></div><div><small>Hyra kr/kvm</small><strong>${c.area > 0 ? num(v.rent.amount / c.area) : "–"}</strong></div></div><p>${esc(v.rent.basedOn.join(" · ") || v.rent.source)}${v.rent.reason ? " · " + esc(v.rent.reason) : ""}</p><p>${doc.status === "ready" ? `<a href="${esc(doc.href)}" target="_blank" rel="noopener noreferrer">${esc(doc.label)}</a>` : esc(doc.label)} <small>${esc(doc.name)}</small></p><details><summary>Värdenas ursprung</summary>${table(
-    ["Fält", "Värde", "Källa", "Rad"],
-    Object.entries(c.provenance || {}).map(([field, p]) =>
-      row([esc(field), esc(p.value), esc(p.source), esc(p.row)]),
-    ),
-  )}</details>${edit("contracts", c.id, "Ändra avtal")}</section>`;
+  const c=data.contracts.find((x)=>x.id===id);
+  if(!c)return "";
+  const p=data.properties.find((x)=>x.id===c.propertyId)||{};
+  const v=calc().annualValues(c,year,0,data.indexSeries),notice=calc().noticeDate(c);
+  const doc=globalThis.LokalblickDocuments.resolve(globalThis.LokalblickDocuments.fromContract(c),globalThis.LokalblickContractDocumentCache);
+  const acts=(data.activities||[]).filter((a)=>a.contractId===c.id);
+  const orders=(data.orders||[]).filter((o)=>acts.some((a)=>a.id===o.activityId));
+  return `<section class="detail"><div class="section-title"><h2>Avtal ${esc(c.number||c.id)}</h2><button data-close-contract>Stäng detalj</button></div>
+  <div class="detail-grid">
+    <div><small>Verksamhet</small><strong>${esc(c.businessName||c.use||"–")}</strong><small>${esc(organizationLabel(data,c.businessPartyId))}</small></div>
+    <div><small>Verksamhetsansvarig</small><strong>${esc(personLabel(data,c.businessResponsiblePersonId))}</strong></div>
+    <div><small>Ansvarig hos oss · fastighet</small><strong>${esc(personLabel(data,p.responsiblePersonId))}</strong></div>
+    <div><small>Fastighetsägarens ansvarige</small><strong>${esc(personLabel(data,p.ownerResponsiblePersonId))}</strong></div>
+    <div><small>Hyra ${year} · ${esc(v.rent.status)}</small><strong>${money(v.rent.amount)}</strong></div>
+    <div><small>Tillägg · ${esc(v.addition.status)}</small><strong>${money(v.addition.amount)}</strong></div>
+    <div><small>Hyra kr/kvm · beräknat</small><strong>${c.area>0?num(v.rent.amount/c.area):"–"}</strong></div>
+    <div><small>Säg upp senast · beräknat</small><strong>${esc(notice||"–")}</strong></div>
+  </div>
+  <p>${esc(v.rent.basedOn.join(" · ")||v.rent.source)}${v.rent.reason?" · "+esc(v.rent.reason):""}</p>
+  <p>${doc.status==="ready"?`<a href="${esc(doc.href)}" target="_blank" rel="noopener noreferrer">${esc(doc.label)}</a>`:esc(doc.label)} <small>${esc(doc.name)}</small></p>
+  <h3>Beställningar</h3>
+  ${table(["Aktivitet","Leverantör","Beställt","Utfall","Status",""],orders.map((o)=>{const a=acts.find((x)=>x.id===o.activityId)||{};return row([esc(a.title||o.activityId),esc(o.supplier),money(o.orderedCost),money(o.finalCost),esc(o.paymentStatus||o.completedAt||""),edit("orders",o.id)]);}))}
+  <details><summary>Värdenas ursprung</summary>${table(["Fält","Värde","Källa","Rad"],Object.entries(c.provenance||{}).map(([field,x])=>row([esc(field),esc(x.value),esc(x.source),esc(x.row)])))}</details>
+  ${edit("contracts",c.id,"Ändra avtal")}</section>`;
 }
 export function planning(data, s, ui) {
   const v = scope(data, s);
@@ -278,7 +289,7 @@ export function sources(data, transport) {
   const st = transport.status(),
     company = transport.company();
   const reviews = data.importReview.filter((x) => x.status === "pending");
-  return `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och organisationer</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Read-only underlag. Skapa Lokalblick-data innan du ändrar eller berikar." : "Källunderlag läses. Godkända ändringar sparas i Lokalblick-data."}</p>${company ? "" : `<div class="actions"><button data-source="connect">Anslut arbetsfil / INT–EXT</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom arbetsfil</button><button data-source="enrich" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika avtal</button><button data-source="operational" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika fastigheter & åtgärder</button><button data-source="index" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs KPI</button><label>Kompletterande lista<select id="supplement-kind"><option value="activities">Aktiviteter</option><option value="operations">Kostnader</option><option value="maintenanceStatus">Status / inventering</option></select></label><button data-source="supplement" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs lista</button></div>`}</section>${table(
+  return `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Read-only underlag. Skapa Lokalblick-data innan du ändrar eller berikar." : "Källunderlag läses. Godkända ändringar sparas i Lokalblick-data."}</p>${company ? "" : `<div class="actions"><button data-source="connect">Anslut arbetsfil / INT–EXT</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom arbetsfil</button><button data-source="enrich" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika avtal</button><button data-source="operational" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika fastigheter & åtgärder</button><button data-source="index" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs KPI</button><label>Kompletterande lista<select id="supplement-kind"><option value="activities">Aktiviteter</option><option value="operations">Kostnader</option><option value="maintenanceStatus">Status / inventering</option></select></label><button data-source="supplement" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs lista</button></div>`}</section>${table(
     ["Källa", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
     data.sourceRegistry.map((x) =>
       row([
@@ -360,45 +371,8 @@ export function sources(data, transport) {
   )}</details>`;
 }
 export function organization(data) {
-  const target = (contact) => {
-    if (contact.targetType === "property")
-      return propertyLabel(data, contact.targetId);
-    if (contact.targetType === "contract") {
-      const contract = data.contracts.find((x) => x.id === contact.targetId);
-      return contract
-        ? (contract.number || contract.id) +
-            " · " +
-            propertyLabel(data, contract.propertyId)
-        : contact.targetId;
-    }
-    return contact.targetId || "";
-  };
-  return `<div class="section-title"><h2>Personer och organisationer</h2><div>${edit("people", "", "Lägg till person")}${edit("organizations", "", "Lägg till organisation")}</div></div>${table(
-    ["Person", "Befattning", "Organisation", ""],
-    data.people.map((x) =>
-      row([
-        esc(x.name),
-        esc(x.role),
-        esc(
-          data.organizations.find((o) => o.id === x.organizationId)?.name || "",
-        ),
-        edit("people", x.id),
-      ]),
-    ),
-  )}<h3>Kontakter</h3>${table(
-    ["Person", "Roll", "Kopplad till", ""],
-    (data.contacts || []).map((x) =>
-      row([
-        esc(personLabel(data, x.personId)),
-        esc(x.role || "Kontakt"),
-        esc(target(x)),
-        edit("contacts", x.id),
-      ]),
-    ),
-  )}${table(
-    ["Organisation", "Typ", ""],
-    data.organizations.map((x) =>
-      row([esc(x.name), esc(x.type), edit("organizations", x.id)]),
-    ),
-  )}`;
+  return `<div class="section-title"><h2>Personer och parter</h2><div>${edit("people","","Lägg till person")}${edit("organizations","","Lägg till part")}</div></div>
+  ${table(["Person","Befattning","Part",""],data.people.map((x)=>row([esc(x.name),esc(x.role),esc(data.organizations.find((o)=>o.id===x.organizationId)?.name||""),edit("people",x.id)])))}
+  <h3>Parter</h3>
+  ${table(["Part","Typ",""],data.organizations.map((x)=>row([esc(x.name),esc(x.type),edit("organizations",x.id)])))}`;
 }

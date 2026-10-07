@@ -3,11 +3,15 @@ import { clone } from "./model.js";
 const relations = {
   propertyId: ["properties", (x) => x.address || x.id],
   contractId: ["contracts", (x) => x.number || x.id],
+  activityId: ["activities", (x) => x.title || x.id],
   organizationId: ["organizations", (x) => x.name],
-  ownerOrgId: ["organizations", (x) => x.name],
-  tenantOrgId: ["organizations", (x) => x.name],
+  ownerPartyId: ["organizations", (x) => x.name],
+  businessPartyId: ["organizations", (x) => x.name],
   personId: ["people", (x) => x.name],
   responsiblePersonId: ["people", (x) => x.name],
+  ownerResponsiblePersonId: ["people", (x) => x.name],
+  businessResponsiblePersonId: ["people", (x) => x.name],
+  orderedByPersonId: ["people", (x) => x.name],
 };
 const internalPeople = (data) =>
   data.people.filter((person) => {
@@ -50,12 +54,16 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
   const fieldLabels = {
     propertyId: "Fastighet",
     contractId: "Avtal",
-    unitId: "Organisation",
-    ownerOrgId: "Fastighetsägare",
-    tenantOrgId: "Hyresgäst",
-    organizationId: "Organisation",
+    activityId: "Aktivitet",
+    unitId: "Område",
+    ownerPartyId: "Fastighetsägare",
+    businessPartyId: "Verksamhetspart",
+    organizationId: "Part",
     personId: "Person",
     responsiblePersonId: "Ansvarig hos oss",
+    ownerResponsiblePersonId: "Ansvarig hos fastighetsägaren",
+    businessResponsiblePersonId: "Verksamhetsansvarig",
+    orderedByPersonId: "Beställd av",
     targetType: "Posttyp",
     targetId: "Post",
   };
@@ -82,8 +90,10 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     let control;
     if (relations[key]) {
       const [collection, fn] = relations[key];
-      const items =
-        key === "responsiblePersonId" ? internalPeople(data) : data[collection];
+      let items=data[collection];
+      if(key==="responsiblePersonId"||key==="orderedByPersonId")items=internalPeople(data);
+      if(key==="ownerResponsiblePersonId"&&record.ownerPartyId)items=data.people.filter((p)=>p.organizationId===record.ownerPartyId);
+      if(key==="businessResponsiblePersonId"&&record.businessPartyId)items=data.people.filter((p)=>p.organizationId===record.businessPartyId);
       control = `<select name="${key}">${options(items, (x) => x.id, fn, record[key], "Ej kopplad")}</select>`;
     } else if (key === "type" && col === "activities")
       control = `<select name="type">${options(
