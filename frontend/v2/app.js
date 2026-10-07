@@ -252,7 +252,22 @@ async function sourceAction(action) {
   if (action === "create" || action === "blank")
     data = await transport.create(data, action === "blank");
   if (action === "refresh") data = await transport.refresh();
-  if (["enrich", "operational", "index", "supplement"].includes(action)) {
+  if (action === "import") {
+    const beforeStatus = transport.status();
+    const base = data.isDemo ? { isDemo:false, sourceName:"Excelimport" } : data;
+    result = await transport.import(base);
+    if (beforeStatus.connected && beforeStatus.sourceKind !== "migration") {
+      data = await transport.save(result.data);
+      notice(
+        "Excel inläst. Fastigheter och avtal har byggts eller matchats först. Granska konflikter innan du sparar till Excel.",
+      );
+    } else {
+      data = normalize(result.data);
+      notice(
+        "Excel inläst. Skapa Lokalblick-data för att spara den nya strukturen permanent.",
+      );
+    }
+  } else if (["enrich", "operational", "index", "supplement"].includes(action)) {
     result = await transport[action](
       data,
       document.querySelector("#supplement-kind")?.value,
