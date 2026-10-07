@@ -136,14 +136,15 @@
     }
     return found;
   }
-  function ensureAssignment(data, report, personId, targetType, targetId, role, sourceMeta) {
+  function ensureContact(data, report, personId, targetType, targetId, role, sourceMeta) {
     if (!personId || !targetId) return null;
-    data.assignments = Array.isArray(data.assignments) ? data.assignments : [];
-    var found = data.assignments.find(function (a) { return a.personId === personId && a.targetType === targetType && a.targetId === targetId && (a.role || "") === (role || "") && !a.toDate; });
+    data.contacts = Array.isArray(data.contacts) ? data.contacts : [];
+    var normalizedType = targetType === "object" ? "contract" : targetType;
+    var found = data.contacts.find(function (a) { return a.personId === personId && a.targetType === normalizedType && a.targetId === targetId && (a.role || "") === (role || "") && !a.toDate; });
     if (found) return found;
-    found = { id: "A|" + hash(personId + "|" + targetType + "|" + targetId + "|" + (role || "")), personId: personId, targetType: targetType, targetId: targetId, role: role || "Ansvarig", fromDate: "", toDate: "", allocation: 0 };
+    found = { id: "K|" + hash(personId + "|" + normalizedType + "|" + targetId + "|" + (role || "")), personId: personId, targetType: normalizedType, targetId: targetId, role: role || "Kontakt", fromDate: "", toDate: "" };
     if (sourceMeta) found.provenance = { source: sourceMeta.source, sheet: sourceMeta.sheet, row: sourceMeta.row };
-    data.assignments.push(found); report.counts.assignmentsCreated++;
+    data.contacts.push(found); report.counts.contactsCreated++;
     return found;
   }
   function propertyMatcher(data) {
@@ -194,7 +195,7 @@
     return rows.length === 1 ? rows[0] : null;
   }
   function recordCollection(data, record) {
-    var keys = ["properties","contracts","projects","maintenance","driftIssues","wishes","investigations","people"];
+    var keys = ["properties","contracts","activities","people","contacts"];
     for (var i = 0; i < keys.length; i++) if ((data[keys[i]] || []).indexOf(record) >= 0) return keys[i];
     return "";
   }
@@ -216,9 +217,9 @@
     return inter / Math.max(A.size, B.size);
   }
   function activityCollections(data) {
-    return [
-      ["projects", "Projekt", "name"], ["maintenance", "Underhåll", "title"], ["driftIssues", "Drift", "title"], ["wishes", "Önskemål", "title"], ["investigations", "Utredning", "title"]
-    ].flatMap(function (spec) { return (data[spec[0]] || []).map(function (r) { return { collection: spec[0], type: spec[1], title: r[spec[2]] || "", record: r }; }); });
+    return (data.activities || []).map(function (r) {
+      return { collection: "activities", type: r.type || "Önskemål", title: r.title || "", record: r };
+    });
   }
   function classifyActivity(row) {
     var type = norm(row.costType), all = norm([row.title, row.comment, row.extraComment].join(" "));
@@ -228,8 +229,6 @@
     if (/felanm|trasig|larm|service|reparation|strömavbrott|stromavbrott|kärvar|karvar/.test(all)) return "Drift";
     return "Önskemål";
   }
-  function collectionForType(type) { return { Projekt: "projects", Underhåll: "maintenance", Drift: "driftIssues", Önskemål: "wishes", Utredning: "investigations" }[type] || "wishes"; }
-  function itemTitle(record, collection) { return collection === "projects" ? record.name : record.title; }
   function findActivity(data, propertyId, title, type) {
     var all = activityCollections(data), exact = all.filter(function (x) { return (!propertyId || x.record.propertyId === propertyId) && norm(x.title) === norm(title); });
     if (exact.length === 1) return exact[0];
@@ -243,43 +242,40 @@
     return null;
   }
   function createActivity(data, report, spec) {
-    var collection = collectionForType(spec.type), key = norm(spec.propertyId + "|" + spec.type + "|" + spec.title), id = "ACT|" + hash(key);
-    var existing = (data[collection] || []).find(function (x) { return x.id === id; });
-    if (existing) return { collection: collection, record: existing, created: false };
-    var common = {
-      id: id, propertyId: spec.propertyId || "", contractId: spec.contractId || "", description: spec.description || "",
-      status: spec.status || "Planerad", planningQuarter: spec.planningQuarter || "", planningMonth: spec.planningMonth || "",
-      sourceId: spec.sourceId || id, sourceSheet: spec.sheet || "", sourceRow: spec.row || "", ownerPays: spec.ownerPays || "",
-      category: spec.category || "", priority: spec.priority || ""
+    data.activities = Array.isArray(data.activities) ? data.activities : [];
+    var key = norm(spec.propertyId + "|" + spec.type + "|" + spec.title), id = "ACT|" + hash(key);
+    var existing = data.activities.find(function (x) { return x.id === id; });
+    if (existing) return { collection: "activities", record: existing, created: false };
+    var r = {
+      id: id, type: spec.type || "Önskemål", propertyId: spec.propertyId || "", contractId: spec.contractId || "",
+      responsiblePersonId: "", orderedByPersonId: "", title: spec.title || "", description: spec.description || "",
+      category: spec.category || "", status: spec.status || "Planerad", priority: spec.priority || "",
+      planningYear: spec.planningYear || "", planningQuarter: spec.planningQuarter || "", planningMonth: spec.planningMonth || "",
+      budgetCategory: spec.budgetCategory || (spec.type === "Projekt" ? "Projekt" : spec.type === "Underhåll" ? "Underhåll" : spec.type === "Drift" ? "Driftkostnader" : spec.type === "Utredning" ? "Utredningar" : "Ej budget"),
+      estimatedCost: Number(spec.estimatedCost) || 0, investigationCost: Number(spec.investigationCost) || 0,
+      phase: spec.phase || (spec.type === "Projekt" ? "Förstudie" : ""), startDate: spec.startDate || "", endDate: spec.endDate || "",
+      orderedAt: "", orderedBy: "", supplier: "", orderReference: "", orderedCost: 0, deliveryText: "",
+      completedAt: spec.completedAt || "", finalCost: Number(spec.finalCost) || 0, paymentStatus: "", paidAt: "", invoiceComment: "",
+      ownerPays: spec.ownerPays || "", sourceId: spec.sourceId || id, sourceSheet: spec.sheet || "", sourceRow: spec.row || "",
+      budgetAmount2027: Number(spec.budgetAmount2027) || 0, planningMonths: spec.planningMonths || [], provenance: {}
     };
-    var r;
-    if (collection === "projects") r = Object.assign(common, { name: spec.title, phase: spec.phase || "Förstudie", start: spec.startDate || "", end: spec.endDate || "", moveIn: "", budgetYear: spec.planningYear || "", budgetInvestigation: 0, budgetExecution: Number(spec.estimatedCost) || 0, budgetFurnishing: 0, preliminaryCost: Number(spec.estimatedCost) || 0 });
-    else if (collection === "maintenance") r = Object.assign(common, { title: spec.title, year: spec.planningYear || "", cost: Number(spec.estimatedCost) || 0 });
-    else if (collection === "driftIssues") r = Object.assign(common, { title: spec.title, createdDate: spec.startDate || "", targetDate: spec.endDate || "", decisionDate: "", completedDate: spec.completedAt || "", budgetYear: spec.planningYear || "", estimatedCost: Number(spec.estimatedCost) || 0, finalCost: Number(spec.finalCost) || 0, includeInBudget: "Ja" });
-    else if (collection === "investigations") r = Object.assign(common, { title: spec.title, year: spec.planningYear || "", cost: Number(spec.estimatedCost) || 0 });
-    else r = Object.assign(common, { title: spec.title, createdDate: spec.startDate || "", targetDate: spec.endDate || "", decisionDate: "", completedDate: spec.completedAt || "", budgetYear: spec.planningYear || "", budgetCategory: spec.budgetCategory || "Ej budget", estimatedCost: Number(spec.estimatedCost) || 0, finalCost: Number(spec.finalCost) || 0, includeInBudget: "Ja" });
-    r.budgetAmount2027 = Number(spec.budgetAmount2027) || 0;
-    r.planningMonths = spec.planningMonths || [];
-    r.provenance = {};
-    ["propertyId","contractId","description","status","category","priority","ownerPays"].forEach(function (k) { if (r[k] !== "" && r[k] != null) addProvenance(r, k, r[k], spec.source, spec.sheet, spec.row); });
-    addProvenance(r, collection === "projects" ? "name" : "title", spec.title, spec.source, spec.sheet, spec.row);
-    data[collection] = Array.isArray(data[collection]) ? data[collection] : [];
-    data[collection].push(r); report.counts.activitiesCreated++;
-    return { collection: collection, record: r, created: true };
+    ["propertyId","contractId","type","title","description","status","category","priority","ownerPays","estimatedCost"].forEach(function (k) {
+      if (r[k] !== "" && r[k] != null) addProvenance(r, k, r[k], spec.source, spec.sheet, spec.row);
+    });
+    data.activities.push(r); report.counts.activitiesCreated++;
+    return { collection: "activities", record: r, created: true };
   }
   function enrichActivity(data, report, ref, spec) {
     var r = ref.record, source = spec.source, sheet = spec.sheet, row = spec.row;
-    var titleKey = ref.collection === "projects" ? "name" : "title";
-    setIfBlank(r, titleKey, spec.title, source, sheet, row, data, report);
+    setIfBlank(r, "title", spec.title, source, sheet, row, data, report);
     setIfBlank(r, "description", spec.description, source, sheet, row, data, report);
     setIfBlank(r, "category", spec.category, source, sheet, row, data, report);
     setIfBlank(r, "priority", spec.priority, source, sheet, row, data, report);
     setIfBlank(r, "propertyId", spec.propertyId, source, sheet, row, data, report);
     setIfBlank(r, "contractId", spec.contractId, source, sheet, row, data, report);
-    if (ref.collection === "projects") { setIfBlank(r, "budgetYear", spec.planningYear, source, sheet, row, data, report); setIfBlank(r, "preliminaryCost", spec.estimatedCost, source, sheet, row, data, report); }
-    else if (ref.collection === "maintenance") { setIfBlank(r, "year", spec.planningYear, source, sheet, row, data, report); setIfBlank(r, "cost", spec.estimatedCost, source, sheet, row, data, report); }
-    else if (ref.collection === "investigations") { setIfBlank(r, "year", spec.planningYear, source, sheet, row, data, report); setIfBlank(r, "cost", spec.estimatedCost, source, sheet, row, data, report); }
-    else { setIfBlank(r, "budgetYear", spec.planningYear, source, sheet, row, data, report); setIfBlank(r, "estimatedCost", spec.estimatedCost, source, sheet, row, data, report); }
+    setIfBlank(r, "planningYear", spec.planningYear, source, sheet, row, data, report);
+    setIfBlank(r, "estimatedCost", spec.estimatedCost, source, sheet, row, data, report);
+    if (spec.type && !r.type) r.type = spec.type;
     if (spec.budgetAmount2027 && !r.budgetAmount2027) r.budgetAmount2027 = spec.budgetAmount2027;
     if (spec.planningMonths && spec.planningMonths.length && !(r.planningMonths || []).length) r.planningMonths = spec.planningMonths.slice();
     report.counts.activitiesUpdated++;
@@ -343,7 +339,7 @@
       names.forEach(function (name, idx) {
         var p = ensurePerson(data, report, { name: name, email: mailList[idx] || (names.length === 1 ? mailList[0] : ""), organizationId: ownerId, role: "Fastighetsförvaltare", source: source, sheet: "Fastighetslista", row: i + 1 });
         if (phone && !p.phone) p.phone = phone;
-        ensureAssignment(data, report, p.id, "property", pm.property.id, "Fastighetsförvaltare", { source: source, sheet: "Fastighetslista", row: i + 1 });
+        ensureContact(data, report, p.id, "property", pm.property.id, "Fastighetsförvaltare", { source: source, sheet: "Fastighetslista", row: i + 1 });
       });
     }
   }
@@ -363,10 +359,17 @@
       var found = findActivity(data, spec.propertyId, title, type), ref = found ? enrichActivity(data, report, found, spec) : createActivity(data, report, spec);
       if (!pm.property && (business || address)) review(data, report, { kind: "activity-property", source: source, sheet: "Årshjul", row: i + 1, collection: ref.collection, recordId: ref.record.id, record: { title: title, business: business, address: address }, address: address, message: "Åtgärden saknar säker fastighetskoppling." });
       var responsible = splitNames(cell(row, hit.headers, ["Ansvarig"]));
-      responsible.forEach(function (name) {
-        var p = ensurePerson(data, report, { name: name, organizationId: ourOrgId(data), unitId: unitId(cell(row, hit.headers, ["Verksamhet"])), role: "Ansvarig", provisional: name.indexOf(" ") < 0, source: source, sheet: "Årshjul", row: i + 1 });
-        ensureAssignment(data, report, p.id, "activity", ref.record.id, "Ansvarig", { source: source, sheet: "Årshjul", row: i + 1 });
-      });
+      if (responsible.length) {
+        ref.record.responsibleSourceText = responsible.join(" / ");
+        responsible.forEach(function (name, index) {
+          var p = ensurePerson(data, report, { name: name, organizationId: ourOrgId(data), unitId: unitId(cell(row, hit.headers, ["Verksamhet"])), role: "", provisional: name.indexOf(" ") < 0, source: source, sheet: "Årshjul", row: i + 1 });
+          if (index === 0 && !ref.record.responsiblePersonId) {
+            ref.record.responsiblePersonId = p.id;
+            addProvenance(ref.record, "responsiblePersonId", p.id, source, "Årshjul", i + 1);
+            report.counts.responsibilitiesSet++;
+          }
+        });
+      }
     }
   }
   function processBestallningar(workbook, data, report, matcher, source) {
@@ -387,22 +390,11 @@
       var fields = { orderedAt: orderedAt, orderedBy: orderedBy, supplier: text(cell(row, hit.headers, ["Leverantör"])), orderReference: text(cell(row, hit.headers, ["Reqs","Diarienr"])), orderedCost: cost, deliveryText: text(cell(row, hit.headers, ["Leveransdatum"])), completedAt: spec.status === "Klar" ? text(cell(row, hit.headers, ["Leveransdatum"])) : "", finalCost: spec.finalCost, paymentStatus: /faktura|betald/i.test(text(cell(row, hit.headers, ["Kommentarer"]))) ? "Faktura registrerad" : "", invoiceComment: text(cell(row, hit.headers, ["Kommentarer"])) };
       Object.keys(fields).forEach(function (k) { setIfBlank(r, k, fields[k], source, "Beställningar", i + 1, data, report); });
       previous = r; report.counts.ordersMatched++;
-      splitNames(orderedBy).forEach(function (name) { var p = ensurePerson(data, report, { name: name, organizationId: ourOrgId(data), role: "Beställare", provisional: name.indexOf(" ") < 0, source: source, sheet: "Beställningar", row: i + 1 }); ensureAssignment(data, report, p.id, "activity", r.id, "Beställare", { source: source, sheet: "Beställningar", row: i + 1 }); });
+      splitNames(orderedBy).forEach(function (name, index) {
+        var p = ensurePerson(data, report, { name: name, organizationId: ourOrgId(data), role: "", provisional: name.indexOf(" ") < 0, source: source, sheet: "Beställningar", row: i + 1 });
+        if (index === 0 && !r.orderedByPersonId) r.orderedByPersonId = p.id;
+      });
     }
-  }
-  function refreshActivities(data) {
-    data.activities = activityCollections(data).map(function (x) {
-      var r = x.record, title = itemTitle(r, x.collection);
-      return {
-        id: r.id, propertyId: r.propertyId || "", contractId: r.contractId || "", responsiblePersonId: "",
-        type: x.type, title: title, description: r.description || "", category: r.category || "", status: r.status || "", priority: r.priority || "",
-        planningYear: r.budgetYear || r.year || "", planningQuarter: r.planningQuarter || "", planningMonth: r.planningMonth || "",
-        budgetCategory: x.type === "Projekt" ? "Projekt" : x.type === "Underhåll" ? "Underhåll" : x.type === "Drift" ? "Driftkostnader" : x.type === "Utredning" ? "Utredningar" : (r.budgetCategory || "Ej budget"),
-        estimatedCost: Number(r.preliminaryCost || r.cost || r.estimatedCost) || 0, phase: r.phase || "", startDate: r.start || r.createdDate || "", endDate: r.end || r.targetDate || "",
-        orderedAt: r.orderedAt || "", orderedBy: r.orderedBy || "", supplier: r.supplier || "", orderReference: r.orderReference || "", orderedCost: Number(r.orderedCost) || 0,
-        deliveryText: r.deliveryText || "", completedAt: r.completedAt || r.completedDate || "", finalCost: Number(r.finalCost) || 0, paymentStatus: r.paymentStatus || "", paidAt: r.paidAt || "", invoiceComment: r.invoiceComment || "", ownerPays: r.ownerPays || "", sourceId: r.sourceId || "", sourceSheet: r.sourceSheet || "", sourceRow: r.sourceRow || ""
-      };
-    });
   }
   function detect(workbook) {
     var names = (workbook && workbook.SheetNames) || [];
@@ -411,14 +403,13 @@
   function enrich(workbook, baseData, fileName) {
     if (!detect(workbook)) throw new Error("Filen känns inte igen som en operativ Lokalblick-berikning. Förväntade flikar är Lokalbestånd, Fastighetslista, Årshjul eller Beställningar.");
     var data = clone(baseData || {}), source = fileName || "Operativ berikning";
-    ["properties","contracts","organizations","people","assignments","projects","maintenance","driftIssues","wishes","investigations","sourceRegistry","importReview"].forEach(function (k) { if (!Array.isArray(data[k])) data[k] = []; });
-    var report = { profile: "Operativ berikning v1", fileName: source, sheets: [], needsReview: [], counts: { sourceRows: 0, propertiesMatched: 0, contractsMatched: 0, peopleCreated: 0, assignmentsCreated: 0, activitiesCreated: 0, activitiesUpdated: 0, ordersMatched: 0, needsReview: 0 } };
+    ["properties","contracts","organizations","people","contacts","activities","sourceRegistry","importReview"].forEach(function (k) { if (!Array.isArray(data[k])) data[k] = []; });
+    var report = { profile: "Operativ berikning v2", fileName: source, sheets: [], needsReview: [], counts: { sourceRows: 0, propertiesMatched: 0, contractsMatched: 0, peopleCreated: 0, contactsCreated: 0, responsibilitiesSet: 0, activitiesCreated: 0, activitiesUpdated: 0, ordersMatched: 0, needsReview: 0 } };
     var matcher = propertyMatcher(data);
     if (matrix(workbook, "Lokalbestånd").length) { report.sheets.push("Lokalbestånd"); processLokalbestand(workbook, data, report, matcher, source); }
     if (matrix(workbook, "Fastighetslista").length) { report.sheets.push("Fastighetslista"); processFastighetslista(workbook, data, report, matcher, source); }
     if (matrix(workbook, "Årshjul").length) { report.sheets.push("Årshjul"); processArshjul(workbook, data, report, matcher, source); }
     if (matrix(workbook, "Beställningar").length) { report.sheets.push("Beställningar"); processBestallningar(workbook, data, report, matcher, source); }
-    refreshActivities(data);
     report.counts.needsReview = report.needsReview.length;
     data.sourceRegistry = (data.sourceRegistry || []).filter(function (x) { return !(x.kind === "operational-enrichment" && x.name === source); });
     data.sourceRegistry.push({ id: "source:operational:" + hash(source), name: source, kind: "operational-enrichment", importedAt: new Date().toISOString(), rows: report.counts.sourceRows, matched: report.counts.propertiesMatched + report.counts.contractsMatched + report.counts.activitiesUpdated, created: report.counts.activitiesCreated + report.counts.peopleCreated, review: report.counts.needsReview, sheets: report.sheets.join(", ") });
