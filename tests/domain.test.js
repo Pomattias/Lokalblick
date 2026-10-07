@@ -287,6 +287,12 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
         responsiblePersonId: "person1",
       },
     ],
+    operations: [
+      { id: "op1", propertyId: "p1", period: 2026, category: "El", budget: 100, actual: 90 },
+    ],
+    maintenanceStatus: [
+      { id: "ms1", propertyId: "p1", category: "Ytskikt", status: "Bra" },
+    ],
     auditLog: [{
       id: "log1",
       at: "2026-10-07T10:00:00.000Z",
@@ -330,6 +336,8 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
   assert.equal(Boolean(workbookOut.Sheets.Projekt), false);
   assert.equal(Boolean(workbookOut.Sheets.Underhåll), false);
   assert.equal(Boolean(workbookOut.Sheets.Ansvar), false);
+  assert.equal(Boolean(workbookOut.Sheets.Kostnader), false);
+  assert.equal(Boolean(workbookOut.Sheets.Status), false);
   const out = svc.LokalblickSourceService.workbookToData(workbookOut);
   assert.equal(out.contracts[0].id, "c1");
   assert.deepEqual(
@@ -348,6 +356,8 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
   assert.equal(Object.hasOwn(project, "budgetIncluded"), false);
   assert.equal(maintenance.responsiblePersonId, "person1");
   assert.equal(out.properties[0].responsiblePersonId, "person1");
+  assert.equal(out.operations[0].actual, 90);
+  assert.equal(out.maintenanceStatus[0].status, "Bra");
   assert.equal(out.auditLog[0].action, "Ändrad");
   assert.equal(out.auditLog[0].fields[0].field, "estimatedCost");
   assert.equal(out.indexSeries[0].seriesBase, "1980");
