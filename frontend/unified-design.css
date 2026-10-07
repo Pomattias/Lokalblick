@@ -300,7 +300,7 @@ tr:hover td{background:#fafcfb}
   .mobile-only{display:block}
 
   .mobile-dock{
-    left:8px!important;right:8px!important;bottom:8px!important;
+    left:8px!important;right:8px!important;bottom:calc(8px + env(safe-area-inset-bottom))!important;
     width:auto!important;height:58px!important;
     padding:4px!important;
     border:1px solid rgba(210,220,217,.9)!important;
