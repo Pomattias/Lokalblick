@@ -6,10 +6,15 @@
   "description": "Lokalblick repository tooling and preflight checks",
   "scripts": {
     "check": "node scripts/repo-check.mjs",
-    "test": "node scripts/repo-check.mjs",
-    "company": "node backend/server.mjs"
+    "test": "node --test tests/*.test.js && node scripts/repo-check.mjs",
+    "company": "node backend/server.mjs",
+    "test:budget-browser": "node scripts/budget-browser-check.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "1.51.1",
+    "xlsx": "0.18.5"
   }
 }
