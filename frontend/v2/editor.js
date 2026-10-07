@@ -9,6 +9,14 @@ const relations = {
   personId: ["people", (x) => x.name],
   responsiblePersonId: ["people", (x) => x.name],
 };
+const internalPeople = (data) =>
+  data.people.filter((person) => {
+    if (!person.organizationId) return true;
+    return (
+      data.organizations.find((org) => org.id === person.organizationId)?.type ===
+      "our"
+    );
+  });
 const generated =
   /^(?:id|sourceId|sourceSheet|sourceRow|enrichment|derived|calculated|rentPerSqm|rentCalculation|additionCalculation|rentIndexCurrent|additionIndexCurrent|rentIndexYear|additionIndexYear|provenance|createdAt|createdBy|updatedAt|updatedBy)/;
 const numeric =
@@ -74,7 +82,9 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     let control;
     if (relations[key]) {
       const [collection, fn] = relations[key];
-      control = `<select name="${key}">${options(data[collection], (x) => x.id, fn, record[key], "Ej kopplad")}</select>`;
+      const items =
+        key === "responsiblePersonId" ? internalPeople(data) : data[collection];
+      control = `<select name="${key}">${options(items, (x) => x.id, fn, record[key], "Ej kopplad")}</select>`;
     } else if (key === "type" && col === "activities")
       control = `<select name="type">${options(
         ["Projekt", "Underhåll", "Drift", "Önskemål", "Utredning"],
