@@ -449,6 +449,40 @@ test("document resolver separates URL, local, filename, embedded and unsafe refe
   );
   assert.equal(D.match({ name: "A-1.pdf" }, [contract]).contractId, "c1");
 });
+test("view switch can adopt shared state without losing Excel connection or dirty state", async () => {
+  const svc = services();
+  const api = svc.LokalblickSourceService;
+  const original = normalize({
+    isDemo: false,
+    properties: [{ id: "p1", sourceId: "P1", address: "Testgatan 1" }],
+    contracts: [{ ...contract, propertyId: "p1" }],
+  });
+  const workbookData = api.dataToWorkbook(original);
+  const bytes = XLSX.write(workbookData, { type: "array", bookType: "xlsx" });
+  const handle = {
+    name: "Lokalblick-data.xlsx",
+    queryPermission: async () => "granted",
+    requestPermission: async () => "granted",
+    getFile: async () => ({
+      name: "Lokalblick-data.xlsx",
+      arrayBuffer: async () => bytes,
+    }),
+  };
+  svc.showOpenFilePicker = async () => [handle];
+  await api.connect("read");
+  const switched = normalize({
+    ...original,
+    properties: [{ ...original.properties[0], address: "Testgatan 3" }],
+  });
+  api.adoptViewState(switched);
+  const status = api.status();
+  assert.equal(status.connected, true);
+  assert.equal(status.dirty, true);
+  assert.ok(status.pendingChanges.length > 0);
+  assert.equal(svc.LokalblickDataService.mode, "local-excel");
+  const loaded = await svc.LokalblickDataService.load();
+  assert.equal(loaded.properties[0].address, "Testgatan 3");
+});
 test("failed Excel write keeps pending changes and baseline until retry succeeds", async () => {
   const svc = services(),
     api = svc.LokalblickSourceService,
