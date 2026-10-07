@@ -188,62 +188,55 @@
               : "Källvärde",
       );
     });
-    (data.projects || [])
-      .filter((x) => number(x.budgetYear) === number(year) && budgetIncluded(x))
-      .forEach((x) => {
-        add(x, "Utredningar", number(x.budgetInvestigation), "project", x.name);
-        add(
-          x,
-          "Projekt",
-          number(x.budgetExecution) + number(x.budgetFurnishing),
-          "project",
-          x.name,
-        );
-      });
-    [
-      ["maintenance", "year", "cost", "Underhåll", "maintenance"],
-      ["operations", "period", "budget", "Driftkostnader", "operation"],
-      ["investigations", "year", "cost", "Utredningar", "investigation"],
-    ].forEach(([key, y, c, cat, type]) =>
-      (data[key] || [])
-        .filter((x) => number(x[y]) === number(year) && budgetIncluded(x))
-        .forEach((x) => add(x, cat, number(x[c]), type)),
-    );
-    (data.maintenanceStatus || [])
+
+    (data.activities || [])
       .filter(
         (x) =>
+          number(x.planningYear) === number(year) &&
           budgetIncluded(x) &&
-          x.includeInBudget === "Ja" &&
-          number(x.budgetYear) === number(year),
-      )
-      .forEach((x) =>
-        add(x, "Underhåll", number(x.estimatedCost), "maintenanceStatus"),
-      );
-    (data.driftIssues || [])
-      .filter(
-        (x) =>
-          budgetIncluded(x) &&
-          x.includeInBudget === "Ja" &&
-          number(x.budgetYear) === number(year) &&
-          x.status !== "Klar",
-      )
-      .forEach((x) =>
-        add(x, "Driftkostnader", number(x.estimatedCost), "driftIssue"),
-      );
-    (data.wishes || [])
-      .filter(
-        (x) =>
-          budgetIncluded(x) &&
-          x.includeInBudget === "Ja" &&
-          number(x.budgetYear) === number(year) &&
-          x.budgetCategory &&
-          x.budgetCategory !== "Ej budget" &&
           x.status !== "Avslaget",
       )
+      .forEach((x) => {
+        if (number(x.investigationCost) > 0)
+          add(
+            x,
+            "Utredningar",
+            number(x.investigationCost),
+            "activity",
+            x.title,
+          );
+        let category =
+          x.budgetCategory ||
+          {
+            Projekt: "Projekt",
+            Underhåll: "Underhåll",
+            Drift: "Driftkostnader",
+            Utredning: "Utredningar",
+          }[x.type] ||
+          "Ej budget";
+        if (x.type === "Önskemål" && category === "Ej budget") return;
+        if (x.type === "Drift" && x.status === "Klar") return;
+        if (category !== "Ej budget")
+          add(
+            x,
+            category,
+            number(x.estimatedCost),
+            "activity",
+            x.title,
+          );
+      });
+
+    (data.operations || [])
+      .filter((x) => number(x.period) === number(year) && budgetIncluded(x))
       .forEach((x) =>
-        add(x, x.budgetCategory, number(x.estimatedCost), "wish"),
+        add(x, "Driftkostnader", number(x.budget), "operation"),
       );
-    rows.push(...(plan?.lines||[]).filter(r=>r.sourceType==="manual"&&r.included!==false).map(r=>({...r})));
+
+    rows.push(
+      ...(plan?.lines || [])
+        .filter((r) => r.sourceType === "manual" && r.included !== false)
+        .map((r) => ({ ...r })),
+    );
     if (!Array.isArray(contracts)) return rows;
     const ids = new Set(contracts.map((x) => x.id)),
       pids = new Set(
@@ -267,30 +260,40 @@
         (contracts || data.contracts || []).map((c) => c.propertyId),
       );
     const rows = [];
-    [
-      ["operations", "period", "actual", "Driftkostnader"],
-      ["driftIssues", "budgetYear", "finalCost", "Driftkostnader"],
-      ["maintenance", "year", "finalCost", "Underhåll"],
-      ["projects", "budgetYear", "finalCost", "Projekt"],
-      ["investigations", "year", "finalCost", "Utredningar"],
-      ["wishes", "budgetYear", "finalCost", null],
-    ].forEach(([key, y, field, category]) =>
-      (data[key] || [])
-        .filter(
-          (x) =>
-            number(x[y]) === number(year) &&
-            (x.contractId ? ids.has(x.contractId) : pids.has(x.propertyId)),
-        )
-        .forEach((x) => {
-          const cat = category || x.budgetCategory;
-          if (cat && cat !== "Ej budget")
-            rows.push({
-              category: cat,
-              amount: number(x[field]),
-              sourceId: x.id,
-            });
-        }),
-    );
+    (data.operations || [])
+      .filter(
+        (x) =>
+          number(x.period) === number(year) &&
+          (x.contractId ? ids.has(x.contractId) : pids.has(x.propertyId)),
+      )
+      .forEach((x) => {
+        const amount = number(x.actual);
+        if (amount)
+          rows.push({
+            category: "Driftkostnader",
+            amount,
+            sourceId: x.id,
+          });
+      });
+    (data.activities || [])
+      .filter(
+        (x) =>
+          number(x.planningYear) === number(year) &&
+          (x.contractId ? ids.has(x.contractId) : pids.has(x.propertyId)),
+      )
+      .forEach((x) => {
+        const category =
+          x.budgetCategory ||
+          {
+            Projekt: "Projekt",
+            Underhåll: "Underhåll",
+            Drift: "Driftkostnader",
+            Utredning: "Utredningar",
+          }[x.type];
+        const amount = number(x.finalCost);
+        if (category && category !== "Ej budget" && amount)
+          rows.push({ category, amount, sourceId: x.id });
+      });
     return rows;
   }
   root.LokalblickCalculations = {
