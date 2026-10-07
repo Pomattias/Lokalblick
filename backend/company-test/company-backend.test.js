@@ -128,6 +128,102 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   assert.equal(await repository.get("people", person.id), null);
 });
 
+test("legacy company store migrates once to direct responsibility, activities and contacts", async (t) => {
+  const directory = await tempDirectory();
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const dataPath = path.join(directory, "legacy-data.json");
+  const source = parseLebWorkbook(syntheticWorkbook());
+  await fs.writeFile(
+    dataPath,
+    JSON.stringify(
+      {
+        version: 1,
+        entities: {
+          organizations: [],
+          people: [
+            { id: "P-INTERN", name: "Intern ansvarig" },
+            { id: "P-EXTERN", name: "Extern förvaltare" },
+          ],
+          assignments: [
+            {
+              id: "A1",
+              personId: "P-INTERN",
+              targetType: "property",
+              targetId: "PROP-1",
+              role: "Ansvarig",
+              toDate: "",
+            },
+            {
+              id: "A2",
+              personId: "P-INTERN",
+              targetType: "maintenance",
+              targetId: "UH1",
+              role: "Ansvarig",
+              toDate: "",
+            },
+            {
+              id: "A3",
+              personId: "P-EXTERN",
+              targetType: "property",
+              targetId: "PROP-1",
+              role: "Fastighetsförvaltare",
+              toDate: "",
+            },
+          ],
+          projects: [],
+          maintenance: [
+            {
+              id: "UH1",
+              propertyId: "PROP-1",
+              title: "Tak",
+              year: 2027,
+              cost: 100000,
+            },
+          ],
+          maintenanceStatus: [],
+          driftCosts: [],
+          operations: [],
+          driftIssues: [],
+          wishes: [],
+          investigations: [],
+          budgetData: [],
+          coordinates: [],
+          contractOverlays: [],
+          propertyOverlays: [],
+        },
+        deleted: { properties: [], contracts: [] },
+        updatedAt: null,
+      },
+      null,
+      2,
+    ),
+  );
+  const repository = await new LokalblickRepository({
+    sourceAdapter: {
+      loadCore: async () => source,
+      loadCoordinates: async () => [],
+    },
+    dataPath,
+  }).initialize();
+  const workspace = await repository.bootstrap();
+  assert.equal(
+    workspace.properties.find((x) => x.id === "PROP-1").responsiblePersonId,
+    "P-INTERN",
+  );
+  assert.equal(workspace.activities.length, 1);
+  assert.equal(workspace.activities[0].id, "UH1");
+  assert.equal(workspace.activities[0].type, "Underhåll");
+  assert.equal(workspace.activities[0].responsiblePersonId, "P-INTERN");
+  assert.equal(workspace.contacts.length, 1);
+  assert.equal(workspace.contacts[0].personId, "P-EXTERN");
+  assert.equal(workspace.contacts[0].role, "Fastighetsförvaltare");
+  const stored = JSON.parse(await fs.readFile(dataPath, "utf8"));
+  assert.equal(stored.version, 2);
+  assert.equal(Object.hasOwn(stored.entities, "assignments"), false);
+  assert.equal(Object.hasOwn(stored.entities, "maintenance"), false);
+  assert.equal(stored.entities.activities.length, 1);
+});
+
 test("workspace rejects invalid data and LEB core cannot be updated", async (t) => {
   const directory = await tempDirectory();
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
