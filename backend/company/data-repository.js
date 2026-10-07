@@ -239,7 +239,7 @@ function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
     mapExternalResponsibility(a.personId,a.targetType,a.targetId);
   });
 
-  store.entities.maintenanceStatus.forEach((status) => {  store.entities.maintenanceStatus.forEach((status) => {
+  store.entities.maintenanceStatus.forEach((status) => {
     if (status.actionNeed || Number(status.estimatedCost)>0) {
       const id="STATUS-ACT|"+status.id;
       if(!byActivity.has(id)){
