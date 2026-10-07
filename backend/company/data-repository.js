@@ -53,6 +53,16 @@ function validateEntityRecord(entity, payload, id, core) {
 
 function legacyActivities(entities) {
   const rows = [];
+  const extras = (x) => ({
+    includeInBudget: x.includeInBudget || (x.budgetIncluded === false ? "Nej" : "Ja"),
+    finalCosts: x.finalCosts || undefined,
+    finalCostConfirmed: Boolean(x.finalCostConfirmed),
+    provenance: structuredClone(x.provenance || {}),
+    createdAt: x.createdAt || "",
+    createdBy: x.createdBy || "",
+    updatedAt: x.updatedAt || "",
+    updatedBy: x.updatedBy || ""
+  });
   const seen = new Set();
   const add = (activity) => {
     if (!activity?.id || seen.has(activity.id)) return;
@@ -63,6 +73,7 @@ function legacyActivities(entities) {
     const execution = Number(x.budgetExecution) || 0;
     const furnishing = Number(x.budgetFurnishing) || 0;
     add({
+      ...extras(x),
       id:x.id,type:"Projekt",propertyId:x.propertyId||"",contractId:x.contractId||"",
       responsiblePersonId:x.responsiblePersonId||"",title:x.name||"",description:x.description||"",
       category:"",status:x.status||"",priority:"",planningYear:x.budgetYear||"",
@@ -77,6 +88,7 @@ function legacyActivities(entities) {
     });
   });
   (entities.maintenance || []).forEach((x) => add({
+    ...extras(x),
     id:x.id,type:"Underhåll",propertyId:x.propertyId||"",contractId:x.contractId||"",
     responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
     category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.year||"",
@@ -88,6 +100,7 @@ function legacyActivities(entities) {
     paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
   }));
   (entities.driftIssues || []).forEach((x) => add({
+    ...extras(x),
     id:x.id,type:"Drift",propertyId:x.propertyId||"",contractId:x.contractId||"",
     responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
     category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.budgetYear||"",
@@ -100,6 +113,7 @@ function legacyActivities(entities) {
     invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
   }));
   (entities.wishes || []).forEach((x) => add({
+    ...extras(x),
     id:x.id,type:"Önskemål",propertyId:x.propertyId||"",contractId:x.contractId||"",
     responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
     category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.budgetYear||"",
@@ -112,6 +126,7 @@ function legacyActivities(entities) {
     invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
   }));
   (entities.investigations || []).forEach((x) => add({
+    ...extras(x),
     id:x.id,type:"Utredning",propertyId:x.propertyId||"",contractId:x.contractId||"",
     responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
     category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.year||"",
@@ -203,7 +218,7 @@ function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
           responsiblePersonId:status.responsiblePersonId||"",title:[status.category,status.actionNeed].filter(Boolean).join(" · ")||"Åtgärdsbehov",
           description:status.comment||"",category:status.category||"",status:/bra/i.test(String(status.status||""))?"Identifierad":status.status||"Identifierad",
           priority:status.priority||"",planningYear:status.budgetYear||"",planningQuarter:status.planningQuarter||"",planningMonth:status.planningMonth||"",
-          budgetCategory:"Underhåll",estimatedCost:Number(status.estimatedCost)||0,investigationCost:0,phase:"",startDate:status.assessedDate||"",endDate:"",
+          budgetCategory:"Underhåll",includeInBudget:status.includeInBudget||"Ja",estimatedCost:Number(status.estimatedCost)||0,investigationCost:0,phase:"",startDate:status.assessedDate||"",endDate:"",
           sourceId:status.id,sourceSheet:"Status",sourceRow:""
         };
         store.entities.activities.push(activity);byActivity.set(id,activity);
