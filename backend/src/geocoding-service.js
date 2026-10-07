@@ -4,7 +4,7 @@ import {
   loadCoordinateStore,
   saveCoordinateStore,
   upsertCoordinate,
-  normalizeAddress
+  normalizeLocation
 } from "./coordinate-store.js";
 
 const PROVIDER = "azure-maps";
@@ -58,6 +58,7 @@ function resultFromFeature(property, feature) {
     id: property.id,
     sourceId: property.sourceId || "",
     address: property.address || "",
+    city: property.city || "",
     latitude: accepted ? latitude : null,
     longitude: accepted ? longitude : null,
     status: accepted ? "matched" : (Number.isFinite(latitude) && Number.isFinite(longitude) ? "review" : "not_found"),
@@ -72,8 +73,9 @@ async function callAzureBatch(properties) {
   const key = process.env.AZURE_MAPS_SUBSCRIPTION_KEY;
   if (!key) throw configError();
 
+  const defaultCity = String(process.env.LOKALBLICK_DEFAULT_CITY || "Malmö").trim();
   const batchItems = properties.map((property) => ({
-    query: `${String(property.address).trim()}, Sverige`,
+    query: [String(property.address).trim(), String(property.city || defaultCity).trim(), "Sverige"].filter(Boolean).join(", "),
     top: 5,
     optionalId: String(property.id)
   }));
@@ -134,6 +136,7 @@ function validateProperties(properties) {
     id: String(property && property.id || "").trim(),
     sourceId: String(property && property.sourceId || "").trim(),
     address: String(property && property.address || "").trim(),
+    city: String(property && property.city || process.env.LOKALBLICK_DEFAULT_CITY || "Malmö").trim(),
     latitude: Number.isFinite(Number(property && property.latitude)) ? Number(property.latitude) : null,
     longitude: Number.isFinite(Number(property && property.longitude)) ? Number(property.longitude) : null
   })).filter((property) => property.id && property.address);
@@ -162,7 +165,7 @@ export async function geocodeProperties(input) {
   for (const property of properties) {
     const cached = getCachedCoordinate(store, property);
     const stored = getStoredCoordinate(store, property.id);
-    const addressChanged = Boolean(stored && stored.geocodedAddressKey !== normalizeAddress(property.address));
+    const addressChanged = Boolean(stored && stored.geocodedAddressKey !== normalizeLocation(property.address, property.city));
 
     if (cached && cacheCanBeReused(cached)) {
       results.push(Object.assign({}, cached, {
@@ -180,6 +183,7 @@ export async function geocodeProperties(input) {
         id: property.id,
         sourceId: property.sourceId,
         address: property.address,
+        city: property.city || "",
         latitude: property.latitude,
         longitude: property.longitude,
         status: "matched",
@@ -214,6 +218,7 @@ export async function geocodeProperties(input) {
     id: property.id,
     sourceId: property.sourceId || "",
     address: property.address,
+    city: property.city || "",
     latitude: null,
     longitude: null,
     status: "not_found",
