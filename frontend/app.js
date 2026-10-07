@@ -30,6 +30,7 @@ const views = [
 ];
 
 let state = clone(demo);
+let switchingView = false;
 let currentView = "properties";
 let selectedBudgetYear = new Date().getFullYear() + 1;
 let maintenancePlanning = { year: new Date().getFullYear() + 1, mode: "quarter" };
@@ -3782,6 +3783,7 @@ async function saveEditor(form) {
 
 document.getElementById("clear-data").addEventListener("click", async function() {
   if (confirm("Återställ publik demodata i denna webbläsare?")) {
+    await window.LokalblickViewBridge?.clear();
     state = ensureShape(await window.LokalblickDataService.reset());
     currentView = "properties";
     render();
@@ -3799,10 +3801,48 @@ document.getElementById("editor-form").addEventListener("submit", async function
   }
 });
 
-async function init() {
-  if (window.LokalblickSourceService) {
-    await window.LokalblickSourceService.restoreRemembered();
+async function restoreSharedViewState() {
+  const bridge = window.LokalblickViewBridge;
+  if (!bridge) return false;
+  const saved = await bridge.load();
+  if (!saved || !saved.data) return false;
+  const source = window.LokalblickSourceService;
+  if (source && source.status().connected && source.adoptViewState) {
+    source.adoptViewState(saved.data);
+    return true;
   }
+  const mode = window.LokalblickDataService && window.LokalblickDataService.mode || "";
+  if (!["company-api", "m365-api", "local-excel"].includes(mode)) {
+    bridge.activate();
+    return true;
+  }
+  return false;
+}
+
+document.addEventListener("click", function(event) {
+  const link = event.target.closest("a[data-ui-version]");
+  if (!link || !state) return;
+  event.preventDefault();
+  (async function() {
+    switchingView = true;
+    await window.LokalblickViewBridge?.save(state, {
+      from: "v1",
+      sourceMode: window.LokalblickDataService?.mode || "",
+    });
+    location.href = link.href;
+  })();
+});
+
+async function init() {
+  const mode = window.LokalblickDataService && window.LokalblickDataService.mode || "";
+  const external = ["company-api", "m365-api"].includes(mode);
+  if (window.LokalblickSourceService && !external) {
+    if (window.LokalblickSourceService.resumeRemembered)
+      await window.LokalblickSourceService.resumeRemembered();
+    else
+      await window.LokalblickSourceService.restoreRemembered();
+  }
+  await restoreSharedViewState();
   await loadState();
   render();
 }
