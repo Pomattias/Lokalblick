@@ -318,7 +318,8 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
   assert.equal(project.investigationCost, 10);
   assert.equal(project.estimatedCost, 230);
   assert.equal(project.responsiblePersonId, "person1");
-  assert.equal(project.budgetIncluded, false);
+  assert.equal(project.includeInBudget, "Nej");
+  assert.equal(Object.hasOwn(project, "budgetIncluded"), false);
   assert.equal(maintenance.responsiblePersonId, "person1");
   assert.equal(out.properties[0].responsiblePersonId, "person1");
   assert.equal(out.auditLog[0].description.length, 40000);
