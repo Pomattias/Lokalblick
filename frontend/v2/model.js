@@ -259,15 +259,31 @@ function migrateLegacy(out) {
   });
 
   const personName = (id) => out.people.find((x) => x.id === id)?.name || "";
+  const isOurPerson = (id) => {
+    const person = out.people.find((x) => x.id === id);
+    if (!person) return false;
+    if (!person.organizationId) return true;
+    return out.organizations.find((x) => x.id === person.organizationId)?.type === "our";
+  };
+  const responsibilityRole = (role) =>
+    /ansvar|projektledare|objektansvar/i.test(String(role || ""));
   (out.assignments || []).forEach((assignment) => {
     if (assignment.toDate) return;
-    if (assignment.targetType === "property" && assignment.role === "Ansvarig") {
+    if (
+      assignment.targetType === "property" &&
+      isOurPerson(assignment.personId) &&
+      responsibilityRole(assignment.role)
+    ) {
       const property = out.properties.find((x) => x.id === assignment.targetId);
       if (property && !property.responsiblePersonId)
         property.responsiblePersonId = assignment.personId;
       return;
     }
-    if (assignment.targetType === "activity" && assignment.role === "Ansvarig") {
+    if (
+      assignment.targetType === "activity" &&
+      isOurPerson(assignment.personId) &&
+      responsibilityRole(assignment.role)
+    ) {
       const activity = byActivity.get(assignment.targetId);
       if (activity && !activity.responsiblePersonId)
         activity.responsiblePersonId = assignment.personId;
@@ -275,7 +291,8 @@ function migrateLegacy(out) {
     }
     if (
       assignment.targetType === "maintenanceStatus" &&
-      assignment.role === "Ansvarig"
+      isOurPerson(assignment.personId) &&
+      responsibilityRole(assignment.role)
     ) {
       const activity = byActivity.get("STATUS-ACT|" + assignment.targetId);
       if (activity && !activity.responsiblePersonId)
@@ -283,7 +300,11 @@ function migrateLegacy(out) {
       return;
     }
     const mappedType = legacyType(assignment.targetType);
-    if (mappedType && assignment.role === "Ansvarig") {
+    if (
+      mappedType &&
+      isOurPerson(assignment.personId) &&
+      responsibilityRole(assignment.role)
+    ) {
       const activity = byActivity.get(assignment.targetId);
       if (activity && !activity.responsiblePersonId)
         activity.responsiblePersonId = assignment.personId;
@@ -300,16 +321,18 @@ function migrateLegacy(out) {
       }
       return;
     }
-    if (assignment.targetType === "object" && assignment.role === "Ansvarig")
-      addContact(
-        out,
-        assignment,
-        "contract",
-        assignment.targetId,
-        "Avtalsansvarig",
-      );
-    else
-      addContact(
+    if (
+      ["object", "contract"].includes(assignment.targetType) &&
+      isOurPerson(assignment.personId) &&
+      responsibilityRole(assignment.role)
+    ) {
+      const contract = out.contracts.find((x) => x.id === assignment.targetId);
+      const property = out.properties.find((x) => x.id === contract?.propertyId);
+      if (property && !property.responsiblePersonId)
+        property.responsiblePersonId = assignment.personId;
+      return;
+    }
+    addContact(
         out,
         assignment,
         assignment.targetType,
