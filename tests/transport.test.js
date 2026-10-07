@@ -171,6 +171,13 @@ test("locked budget baseline and adjustments remain unchanged by live activity f
             sourceType: "activity",
             sourceId: "m1",
           },
+          {
+            category: "Underhåll",
+            amount: 50,
+            sourceType: "manual",
+            sourceId: "BUDGET-ADJ|2027|0",
+            source: "Budgetjustering",
+          },
         ],
       },
     ],
@@ -179,5 +186,7 @@ test("locked budget baseline and adjustments remain unchanged by live activity f
   d.activities[0].estimatedCost = 300;
   const rows = globalThis.LokalblickCalculations.budgetRows(d, 2027);
   assert.equal(rows.find((x) => x.sourceId === "m1").amount, 300);
+  assert.equal(rows.some((x) => x.sourceType === "manual"), false);
+  assert.equal(d.budgetPlans[0].lines.find((x) => x.sourceType === "manual").amount, 50);
   assert.equal(JSON.stringify(d.budgetPlans), before);
 });
