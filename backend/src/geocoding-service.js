@@ -7,146 +7,242 @@ import {
   normalizeLocation
 } from "./coordinate-store.js";
 
-const PROVIDER = "azure-maps";
-const API_VERSION = "2026-01-01";
-const ENDPOINT = "https://atlas.microsoft.com";
+const PROVIDER = "openrouteservice";
+const FALLBACK_PROVIDER = "nominatim";
 const MAX_BATCH_SIZE = 100;
 const NOT_FOUND_RETRY_MS = 24 * 60 * 60 * 1000;
 const ERROR_RETRY_MS = 60 * 60 * 1000;
 
+function text(value) {
+  return String(value == null ? "" : value).trim();
+}
+
+function orsApiKey() {
+  return (
+    text(process.env.ORS_API_KEY) ||
+    text(process.env.OPENROUTESERVICE_API_KEY) ||
+    text(process.env.OPENROUTE_SERVICE_API_KEY)
+  );
+}
+
 function configError() {
-  const error = new Error("Azure Maps är inte konfigurerat. Sätt AZURE_MAPS_SUBSCRIPTION_KEY i backend-miljön.");
+  const error = new Error(
+    "OpenRouteService är inte konfigurerat. Sätt ORS_API_KEY i backend-miljön."
+  );
   error.code = "GEOCODING_NOT_CONFIGURED";
+  error.statusCode = 503;
   return error;
 }
 
-function confidenceRank(value) {
-  return value === "High" ? 3 : value === "Medium" ? 2 : value === "Low" ? 1 : 0;
+function normalizeComparable(value) {
+  return text(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9,\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function featureScore(feature) {
-  const properties = feature && feature.properties ? feature.properties : {};
-  const confidence = confidenceRank(properties.confidence);
-  const matchCodes = Array.isArray(properties.matchCodes) ? properties.matchCodes : [];
-  const exact = matchCodes.includes("Good") ? 4 : matchCodes.includes("Ambiguous") ? 2 : 0;
-  const type = properties.type === "Address" ? 3 : 0;
-  const coordinates = feature && feature.geometry && Array.isArray(feature.geometry.coordinates) ? 2 : 0;
-  return confidence * 100 + exact * 10 + type + coordinates;
+function extractHouseNumber(value) {
+  return normalizeComparable(value).match(/\b\d+[a-z]?\b/)?.[0] || "";
 }
 
-function pickFeature(features) {
-  return (features || []).slice().sort((a, b) => featureScore(b) - featureScore(a))[0] || null;
+function extractStreet(value) {
+  return normalizeComparable(value)
+    .replace(/\b\d+[a-z]?\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function resultFromFeature(property, feature) {
-  const props = feature && feature.properties ? feature.properties : {};
-  const coords = feature && feature.geometry && Array.isArray(feature.geometry.coordinates)
-    ? feature.geometry.coordinates
-    : [];
-  const longitude = Number(coords[0]);
-  const latitude = Number(coords[1]);
-  const confidence = String(props.confidence || "");
-  const matchCodes = Array.isArray(props.matchCodes) ? props.matchCodes : [];
-  const matchCode = matchCodes.join(", ");
-  const type = String(props.type || "");
-  const accepted =
-    Number.isFinite(latitude) && Number.isFinite(longitude) &&
-    type === "Address" &&
-    (confidence === "High" || (confidence === "Medium" && matchCodes.includes("Good")));
+function candidateScore(candidate, property) {
+  const label = normalizeComparable(candidate.displayName);
+  const street = extractStreet(property.address);
+  const house = extractHouseNumber(property.address);
+  const city = normalizeComparable(property.city);
+  let score = 0;
+  if (city) score += label.includes(city) ? 100 : -160;
+  if (street) score += label.includes(street) ? 55 : -50;
+  if (house) score += label.includes(house) ? 20 : -20;
+  return score;
+}
 
+function pickCandidate(candidates, property) {
+  const scored = (candidates || [])
+    .map((candidate) => ({ candidate, score: candidateScore(candidate, property) }))
+    .sort((a, b) => b.score - a.score);
+  if (!scored.length) return null;
+  const best = scored[0];
+  if (best.score < 80) return null;
+  const runnerUp = scored[1];
+  return {
+    ...best.candidate,
+    score: best.score,
+    ambiguous: Boolean(runnerUp && best.score - runnerUp.score < 20)
+  };
+}
+
+function queryFor(property) {
+  return [text(property.address), text(property.city), "Sverige"]
+    .filter(Boolean)
+    .join(", ");
+}
+
+async function geocodeViaOrs(property, key) {
+  const url = new URL("https://api.openrouteservice.org/geocode/search");
+  url.searchParams.set("api_key", key);
+  url.searchParams.set("text", queryFor(property));
+  url.searchParams.set("size", "5");
+  url.searchParams.set("boundary.country", "SE");
+  url.searchParams.set("lang", "sv");
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    const error = new Error(`ORS ${response.status}: ${detail.slice(0, 180)}`);
+    error.code = "GEOCODING_PROVIDER_ERROR";
+    throw error;
+  }
+  const payload = await response.json().catch(() => ({}));
+  const candidates = (Array.isArray(payload.features) ? payload.features : [])
+    .map((feature) => {
+      const coords = feature?.geometry?.coordinates;
+      const longitude = Array.isArray(coords) ? Number(coords[0]) : NaN;
+      const latitude = Array.isArray(coords) ? Number(coords[1]) : NaN;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      return {
+        latitude,
+        longitude,
+        displayName:
+          text(feature?.properties?.label) ||
+          text(feature?.properties?.name)
+      };
+    })
+    .filter(Boolean);
+  return pickCandidate(candidates, property);
+}
+
+async function geocodeViaNominatim(property) {
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", "5");
+  url.searchParams.set("countrycodes", "se");
+  url.searchParams.set("q", queryFor(property));
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Lokalblick/1.0",
+      Accept: "application/json"
+    },
+    cache: "no-store"
+  });
+  if (!response.ok) throw new Error(`Nominatim ${response.status}`);
+  const payload = await response.json().catch(() => []);
+  const candidates = (Array.isArray(payload) ? payload : [])
+    .map((hit) => {
+      const latitude = Number(hit?.lat);
+      const longitude = Number(hit?.lon);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      return {
+        latitude,
+        longitude,
+        displayName: text(hit?.display_name)
+      };
+    })
+    .filter(Boolean);
+  return pickCandidate(candidates, property);
+}
+
+function providerResult(property, candidate, provider) {
+  if (!candidate) {
+    return {
+      id: property.id,
+      sourceId: property.sourceId || "",
+      address: property.address,
+      city: property.city,
+      latitude: null,
+      longitude: null,
+      status: "not_found",
+      confidence: "",
+      matchCode: "",
+      provider,
+      geocodedAt: new Date().toISOString()
+    };
+  }
+  const status = candidate.ambiguous ? "review" : "matched";
   return {
     id: property.id,
     sourceId: property.sourceId || "",
-    address: property.address || "",
-    city: property.city || "",
-    latitude: accepted ? latitude : null,
-    longitude: accepted ? longitude : null,
-    status: accepted ? "matched" : (Number.isFinite(latitude) && Number.isFinite(longitude) ? "review" : "not_found"),
-    confidence,
-    matchCode,
-    provider: PROVIDER,
+    address: property.address,
+    city: property.city,
+    latitude: status === "matched" ? candidate.latitude : null,
+    longitude: status === "matched" ? candidate.longitude : null,
+    status,
+    confidence: candidate.ambiguous ? "Medium" : "High",
+    matchCode: candidate.ambiguous ? "Ambiguous" : "Good",
+    provider,
+    displayName: candidate.displayName || "",
     geocodedAt: new Date().toISOString()
   };
 }
 
-async function callAzureBatch(properties) {
-  const key = process.env.AZURE_MAPS_SUBSCRIPTION_KEY;
-  if (!key) throw configError();
-
-  const batchItems = properties.map((property) => ({
-    query: [String(property.address).trim(), String(property.city).trim(), "Sverige"].filter(Boolean).join(", "),
-    top: 5,
-    optionalId: String(property.id)
-  }));
-
-  const url = new URL("/geocode:batch", ENDPOINT);
-  url.searchParams.set("api-version", API_VERSION);
-  url.searchParams.set("subscription-key", key);
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "accept": "application/json",
-      "accept-language": "sv-SE"
-    },
-    body: JSON.stringify({ batchItems })
-  });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = payload && payload.error && payload.error.message
-      ? payload.error.message
-      : `Azure Maps svarade ${response.status}`;
-    const error = new Error(message);
-    error.code = "GEOCODING_PROVIDER_ERROR";
-    error.status = response.status;
-    throw error;
-  }
-
-  return properties.map((property, index) => {
-    const item = Array.isArray(payload.batchItems) ? payload.batchItems[index] : null;
-    if (!item || item.error) {
+async function geocodeProperty(property, key) {
+  try {
+    const ors = await geocodeViaOrs(property, key);
+    if (ors) return providerResult(property, ors, PROVIDER);
+  } catch (error) {
+    // Nominatim is a fallback, not the bulk provider.
+    try {
+      const fallback = await geocodeViaNominatim(property);
+      return providerResult(property, fallback, FALLBACK_PROVIDER);
+    } catch (_) {
       return {
-        id: property.id,
-        sourceId: property.sourceId || "",
-        address: property.address || "",
-        latitude: null,
-        longitude: null,
+        ...providerResult(property, null, PROVIDER),
         status: "error",
-        confidence: "",
-        matchCode: item && item.error ? String(item.error.code || "") : "",
-        provider: PROVIDER,
-        geocodedAt: new Date().toISOString()
+        matchCode: error && error.code ? String(error.code) : "provider_error"
       };
     }
-    return resultFromFeature(property, pickFeature(item.features));
-  });
+  }
+  return providerResult(property, null, PROVIDER);
 }
 
 function validCoordinate(value) {
-  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+  return value !== null && value !== undefined && value !== "" &&
+    Number.isFinite(Number(value));
 }
 
 function validateProperties(properties) {
   if (!Array.isArray(properties) || properties.length < 1 || properties.length > MAX_BATCH_SIZE) {
     const error = new Error(`Geokodning tar 1–${MAX_BATCH_SIZE} fastigheter per anrop.`);
     error.code = "INVALID_BATCH";
-    error.status = 400;
+    error.statusCode = 400;
     throw error;
   }
-  return properties.map((property) => ({
-    id: String(property && property.id || "").trim(),
-    sourceId: String(property && property.sourceId || "").trim(),
-    address: String(property && property.address || "").trim(),
-    city: String(property && property.city || "").trim(),
-    latitude: validCoordinate(property && property.latitude) ? Number(property.latitude) : null,
-    longitude: validCoordinate(property && property.longitude) ? Number(property.longitude) : null
-  })).filter((property) => property.id && property.address && property.city);
+  return properties
+    .map((property) => ({
+      id: text(property && property.id),
+      sourceId: text(property && property.sourceId),
+      address: text(property && property.address),
+      city: text(property && property.city),
+      latitude: validCoordinate(property && property.latitude)
+        ? Number(property.latitude)
+        : null,
+      longitude: validCoordinate(property && property.longitude)
+        ? Number(property.longitude)
+        : null
+    }))
+    .filter((property) => property.id && property.address && property.city);
 }
 
 export function isGeocodingConfigured() {
-  return Boolean(process.env.AZURE_MAPS_SUBSCRIPTION_KEY);
+  return Boolean(orsApiKey());
+}
+
+export function geocodingProvider() {
+  return isGeocodingConfigured()
+    ? "openrouteservice+nominatim"
+    : "openrouteservice";
 }
 
 function cacheCanBeReused(entry) {
@@ -160,6 +256,9 @@ function cacheCanBeReused(entry) {
 }
 
 export async function geocodeProperties(input) {
+  const key = orsApiKey();
+  if (!key) throw configError();
+
   const properties = validateProperties(input);
   const store = await loadCoordinateStore();
   const results = [];
@@ -168,25 +267,35 @@ export async function geocodeProperties(input) {
   for (const property of properties) {
     const cached = getCachedCoordinate(store, property);
     const stored = getStoredCoordinate(store, property.id);
-    const addressChanged = Boolean(stored && stored.geocodedAddressKey !== normalizeLocation(property.address, property.city));
+    const addressChanged = Boolean(
+      stored &&
+      stored.geocodedAddressKey !== normalizeLocation(property.address, property.city)
+    );
 
     if (cached && cacheCanBeReused(cached)) {
-      results.push(Object.assign({}, cached, {
+      results.push({
+        ...cached,
         id: property.id,
         sourceId: property.sourceId || cached.sourceId || "",
         address: property.address,
+        city: property.city,
         addressChanged: false,
         cached: true
-      }));
+      });
       continue;
     }
 
-    if (Number.isFinite(property.latitude) && Number.isFinite(property.longitude) && !cached && !stored) {
+    if (
+      validCoordinate(property.latitude) &&
+      validCoordinate(property.longitude) &&
+      !cached &&
+      !stored
+    ) {
       const seeded = {
         id: property.id,
         sourceId: property.sourceId,
         address: property.address,
-        city: property.city || "",
+        city: property.city,
         latitude: property.latitude,
         longitude: property.longitude,
         status: "matched",
@@ -196,20 +305,24 @@ export async function geocodeProperties(input) {
         geocodedAt: new Date().toISOString()
       };
       upsertCoordinate(store, property, seeded);
-      results.push(Object.assign({}, seeded, { cached: true, addressChanged: false }));
+      results.push({ ...seeded, cached: true, addressChanged: false });
       continue;
     }
 
-    needsProvider.push(Object.assign({}, property, { addressChanged }));
+    needsProvider.push({ ...property, addressChanged });
   }
 
-  for (let offset = 0; offset < needsProvider.length; offset += MAX_BATCH_SIZE) {
-    const chunk = needsProvider.slice(offset, offset + MAX_BATCH_SIZE);
-    const providerResults = await callAzureBatch(chunk);
-    providerResults.forEach((result) => {
-      const property = chunk.find((item) => item.id === result.id);
-      result.addressChanged = Boolean(property && property.addressChanged);
-      upsertCoordinate(store, result, result);
+  // Keep concurrency modest for ORS quotas and predictable company-network traffic.
+  const concurrency = 4;
+  for (let offset = 0; offset < needsProvider.length; offset += concurrency) {
+    const chunk = needsProvider.slice(offset, offset + concurrency);
+    const chunkResults = await Promise.all(
+      chunk.map((property) => geocodeProperty(property, key))
+    );
+    chunkResults.forEach((result, index) => {
+      const property = chunk[index];
+      result.addressChanged = Boolean(property.addressChanged);
+      upsertCoordinate(store, property, result);
       results.push(result);
     });
   }
@@ -217,19 +330,12 @@ export async function geocodeProperties(input) {
   await saveCoordinateStore(store);
 
   const byId = new Map(results.map((result) => [String(result.id), result]));
-  return properties.map((property) => byId.get(property.id) || {
-    id: property.id,
-    sourceId: property.sourceId || "",
-    address: property.address,
-    city: property.city || "",
-    latitude: null,
-    longitude: null,
-    status: "not_found",
-    confidence: "",
-    matchCode: "",
-    provider: PROVIDER,
-    geocodedAt: null
-  });
+  return properties.map((property) =>
+    byId.get(property.id) || {
+      ...providerResult(property, null, PROVIDER),
+      geocodedAt: null
+    }
+  );
 }
 
-export { MAX_BATCH_SIZE, PROVIDER };
+export { MAX_BATCH_SIZE, PROVIDER, FALLBACK_PROVIDER };
