@@ -217,11 +217,7 @@
         add(x, "Driftkostnader", number(x.budget), "operation"),
       );
 
-    rows.push(
-      ...(plan?.lines || [])
-        .filter((r) => r.sourceType === "manual" && r.included !== false)
-        .map((r) => ({ ...r })),
-    );
+    // Frozen/manual budget rows belong to the locked baseline, never to live forecast.
     if (!Array.isArray(contracts)) return rows;
     const ids = new Set(contracts.map((x) => x.id)),
       pids = new Set(
