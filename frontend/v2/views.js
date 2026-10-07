@@ -286,16 +286,188 @@ export function budget(data,s,ui) {
     return row([esc(k),money(base),plan&&!locked&&!scoped?`<input aria-label="Justering ${k}" data-adjust="${k}" type="number" value="${target-base}">`:money(target-base),money(target),money(forecast[k]),money(actual[k])]);
   }))}${plan?globalThis.LokalblickBudgetUI.html(plan,comparison,scoped,{state:data,esc,money}):''}`;
 }
+const importFieldLabels = {
+  sourceId: "Objekts-ID",
+  address: "Adress",
+  designation: "Fastighetsbeteckning",
+  propertyId: "Fastighet",
+  number: "Avtalsnummer",
+  area: "Area",
+  category: "Kategori",
+  use: "Verksamhet / användning",
+  businessName: "Namn på verksamheten",
+  ownerPartyId: "Fastighetsägare",
+  businessPartyId: "Verksamhet",
+  responsiblePersonId: "Ansvarig hos oss",
+  ownerResponsiblePersonId: "Ansvarig hos fastighetsägaren",
+  businessResponsiblePersonId: "Verksamhetsansvarig",
+  start: "Avtalsstart",
+  end: "Avtalsslut",
+  noticePeriodMonths: "Uppsägningstid",
+  renewalPeriodMonths: "Förlängningstid",
+  originalTerm: "Ursprunglig avtalstid",
+  baseRent: "Bashyra",
+  baseAdditions: "Tillägg",
+  rentBaseYear: "Basår hyra",
+  rentIndexPercent: "Indexandel hyra",
+  additionBaseYear: "Basår tillägg",
+  additionIndexPercent: "Indexandel tillägg",
+  annualContractDrift: "Avtalsdrift",
+  annualPropertyTax: "Fastighetsskatt",
+  unitId: "Område",
+  employees: "Antal anställda",
+  users: "Antal brukare",
+  rooms: "Antal rum",
+  commonArea: "Allmän yta",
+  apartmentArea: "Lägenhetsyta",
+};
+const importFieldLabel = (field) => importFieldLabels[field] || field || "Uppgift";
+const sourceKindLabel = (kind) =>
+  ({
+    "core-import": "Grunddata",
+    "operational-enrichment": "Fastigheter & aktiviteter",
+    "contract-enrichment": "Avtalsberikning",
+    migration: "Migrering",
+  })[kind] || kind || "";
+function reviewCollection(item) {
+  if (item.collection) return item.collection;
+  if (item.entity === "Fastighet") return "properties";
+  if (item.entity === "Avtal" || item.contractId) return "contracts";
+  return "";
+}
+function reviewRecord(data, item) {
+  const collection = reviewCollection(item);
+  const records = Array.isArray(data[collection]) ? data[collection] : [];
+  let record = records.find((x) => x.id === item.recordId);
+  if (!record && item.field) {
+    const matches = records.filter(
+      (x) => JSON.stringify(x[item.field] ?? "") === JSON.stringify(item.current ?? ""),
+    );
+    if (matches.length === 1) record = matches[0];
+  }
+  return { collection, record };
+}
+function reviewRecordLabel(data, item) {
+  if (item.recordLabel) return item.recordLabel;
+  const { collection, record } = reviewRecord(data, item);
+  if (!record) return item.entity || "";
+  if (collection === "properties")
+    return [record.address, record.designation, record.sourceId].filter(Boolean).join(" · ");
+  if (collection === "contracts")
+    return [
+      record.number,
+      propertyLabel(data, record.propertyId),
+      record.businessName || record.use,
+    ].filter(Boolean).join(" · ");
+  if (collection === "activities") return record.title || record.id;
+  return record.name || record.id || "";
+}
+function reviewCurrentSource(data, item) {
+  if (item.currentSource)
+    return [item.currentSource, item.currentSheet, item.currentRow ? "rad " + item.currentRow : ""]
+      .filter(Boolean)
+      .join(" · ");
+  const { record } = reviewRecord(data, item);
+  const provenance = record?.provenance?.[item.field] || {};
+  return [
+    provenance.source || record?.sourceSheet || "Lokalblick-data",
+    provenance.sheet || record?.sourceSheet || "",
+    provenance.row || record?.sourceRow ? "rad " + (provenance.row || record?.sourceRow) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+function reviewIncomingSource(item) {
+  return [
+    item.source || "Importerad fil",
+    item.sheet ? "flik " + item.sheet : "",
+    item.row ? "rad " + item.row : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+function reviewValue(data, item, value) {
+  if (value == null || value === "") return "Tomt";
+  if (["ownerPartyId", "businessPartyId"].includes(item.field))
+    return organizationLabel(data, value) || value;
+  if (
+    ["responsiblePersonId", "ownerResponsiblePersonId", "businessResponsiblePersonId"].includes(
+      item.field,
+    )
+  )
+    return personLabel(data, value) || value;
+  if (item.field === "propertyId") return propertyLabel(data, value);
+  if (typeof value === "number")
+    return ["area", "commonArea", "apartmentArea"].includes(item.field)
+      ? num(value) + " m²"
+      : num(value);
+  return String(value);
+}
+function reviewConflictCard(data, x) {
+  const label = reviewRecordLabel(data, x);
+  return `<section class="review review-conflict"><div class="review-main"><div class="review-heading"><div><strong>${esc(x.entity || (x.contractId ? "Avtal" : "Datakonflikt"))} · ${esc(importFieldLabel(x.field))}</strong>${label ? `<small class="review-context">${esc(label)}</small>` : ""}</div></div><div class="review-compare"><div class="review-value current"><span>Registrerat i Lokalblick</span><strong>${esc(reviewValue(data, x, x.current))}</strong><small>${esc(reviewCurrentSource(data, x))}</small></div><div class="review-value proposed"><span>Från importen</span><strong>${esc(reviewValue(data, x, x.proposed))}</strong><small>${esc(reviewIncomingSource(x))}</small></div></div></div><div class="actions review-actions"><button data-review="${esc(x.id)}" data-decision="reject">Behåll registrerat</button><button class="primary-action" data-review="${esc(x.id)}" data-decision="accept">Använd från filen</button></div></section>`;
+}
+function reviewStandardCard(data, x) {
+  const title =
+    x.kind === "match"
+      ? "Avtalsmatchning"
+      : x.kind === "record"
+        ? "Import till " + (kinds[x.collection] || x.collection)
+        : x.kind === "person"
+          ? "Komplettera person"
+          : x.kind === "activity-property"
+            ? "Koppla aktivitet till fastighet"
+            : x.kind === "property-match"
+              ? "Kontrollera fastighetsmatchning"
+              : x.field || x.kind;
+  const detail = [
+    x.personName,
+    x.record?.name,
+    x.record?.title,
+    x.record?.number,
+    x.record?.address,
+    x.address,
+    x.record?.use,
+    x.message,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const source = reviewIncomingSource(x);
+  const propertySelect = ["record", "activity-property", "property-match"].includes(x.kind)
+    ? `<label>Fastighet<select data-review-target="${esc(x.id)}">${options(
+        data.properties,
+        (p) => p.id,
+        (p) => p.address || p.id,
+        x.record?.propertyId || "",
+        "Välj fastighet",
+      )}</select></label>`
+    : "";
+  const contractSelect =
+    x.kind === "match"
+      ? `<label>Matcha till avtal<select data-review-target="${esc(x.id)}">${options(
+          data.contracts,
+          (c) => c.id,
+          (c) =>
+            (c.number || "Utan nummer") +
+            " · " +
+            propertyLabel(data, c.propertyId),
+          "",
+          "Välj befintligt avtal",
+        )}</select></label>`
+      : "";
+  return `<section class="review"><div><strong>${esc(title)}</strong><small>${esc(source)}</small><p>${esc(detail)}</p></div><div class="actions">${propertySelect}${contractSelect}<button data-review="${esc(x.id)}" data-decision="accept">Godkänn</button><button data-review="${esc(x.id)}" data-decision="reject">Avvisa</button></div></section>`;
+}
 export function sources(data, transport) {
   const st = transport.status(),
     company = transport.company();
   const reviews = data.importReview.filter((x) => x.status === "pending");
   return `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? "" : `<div class="actions"><button data-source="import">Läs in Excel</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom Lokalblick-data</button></div><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
-    ["Källa", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
+    ["Källa", "Flik(ar)", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
     data.sourceRegistry.map((x) =>
       row([
         esc(x.name),
-        esc(x.kind),
+        esc(x.sheets || "–"),
+        esc(sourceKindLabel(x.kind)),
         num(x.rows),
         num(x.matched || 0),
         num(x.created || 0),
@@ -303,65 +475,12 @@ export function sources(data, transport) {
         esc(x.importedAt),
       ]),
     ),
-  )}<h3>Behöver granskas (${reviews.length})</h3>${
+  )}<div class="section-title review-title"><h3>Behöver granskas (${reviews.length})</h3><small>Välj vilket värde som ska gälla. Valet loggas i ändringshistoriken.</small></div>${
     reviews
-      .map(
-        (x) =>
-          `<section class="review"><div><strong>${esc(
-            x.kind === "match"
-              ? "Avtalsmatchning"
-              : x.kind === "record"
-                ? "Import till " + (kinds[x.collection] || x.collection)
-                : x.kind === "person"
-                  ? "Komplettera person"
-                  : x.kind === "activity-property"
-                    ? "Koppla aktivitet till fastighet"
-                    : x.kind === "property-match"
-                      ? "Kontrollera fastighetsmatchning"
-                      : x.kind === "operational-conflict"
-                        ? "Datakonflikt · " + (x.field || "")
-                        : x.field || x.kind,
-          )}</strong><small>${esc(x.source)} · rad ${esc(x.row)}</small><p>${
-            x.kind === "conflict" || x.kind === "operational-conflict"
-              ? `${esc(x.current)} → ${esc(x.proposed)}`
-              : esc(
-                  [
-                    x.personName,
-                    x.record?.name,
-                    x.record?.title,
-                    x.record?.number,
-                    x.record?.address,
-                    x.address,
-                    x.record?.use,
-                    x.message,
-                  ]
-                    .filter(Boolean)
-                    .join(" · "),
-                )
-          }</p></div><div class="actions">${
-            ["record", "activity-property", "property-match"].includes(x.kind)
-              ? `<label>Fastighet<select data-review-target="${esc(x.id)}">${options(
-                  data.properties,
-                  (p) => p.id,
-                  (p) => p.address || p.id,
-                  x.record?.propertyId || "",
-                  "Välj fastighet",
-                )}</select></label>`
-              : ""
-          }${
-            x.kind === "match"
-              ? `<label>Matcha till avtal<select data-review-target="${esc(x.id)}">${options(
-                  data.contracts,
-                  (c) => c.id,
-                  (c) =>
-                    (c.number || "Utan nummer") +
-                    " · " +
-                    propertyLabel(data, c.propertyId),
-                  "",
-                  "Välj befintligt avtal",
-                )}</select></label>`
-              : ""
-          }<button data-review="${esc(x.id)}" data-decision="accept">Godkänn</button><button data-review="${esc(x.id)}" data-decision="reject">Behåll nuvarande</button></div></section>`,
+      .map((x) =>
+        x.kind === "conflict" || x.kind === "operational-conflict"
+          ? reviewConflictCard(data, x)
+          : reviewStandardCard(data, x),
       )
       .join("") || "<p>Inga öppna matchningar eller konflikter.</p>"
   }<details><summary>Ändringar som väntar på Excel (${st.pendingChanges?.length || 0})</summary>${table(
