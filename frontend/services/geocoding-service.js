@@ -71,7 +71,7 @@
       window.LokalblickGeocodingStatus = {
         available: false,
         configured: Boolean(status && status.configured),
-        message: status && status.ok ? "Azure Maps är inte konfigurerat." : "Lokalblick backend svarar inte ännu."
+        message: status && status.ok ? "OpenRouteService är inte konfigurerat." : "Lokalblick backend svarar inte ännu."
       };
       return data;
     }
@@ -133,7 +133,7 @@
     window.LokalblickGeocodingStatus = {
       available: true,
       configured: true,
-      provider: status.provider || "azure-maps",
+      provider: status.provider || "openrouteservice",
       total: allResults.length,
       matched: allResults.filter(function (item) { return item.status === "matched"; }).length,
       review: allResults.filter(function (item) { return item.status === "review"; }).length,
