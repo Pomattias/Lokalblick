@@ -373,14 +373,14 @@ document.addEventListener("click", (event) =>
     }
     if (b.hasAttribute("data-budget-create"))
       await mutation((d) => {
-        const lines = calc().budgetRows(d, ui.year);
+        const live = calc().budgetRows(d, ui.year);
         d.budgetPlans.push({
           year: ui.year,
           status: "Arbetsbudget",
           createdAt: new Date().toISOString(),
           preliminaryIndex: 0,
-          lines,
-          targets: calc().summarize(lines),
+          lines: [],
+          targets: calc().summarize(live),
           notes: {},
         });
       });
@@ -388,6 +388,27 @@ document.addEventListener("click", (event) =>
       await mutation((d) => {
         const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
         if (!plan || plan.status === "Låst") return;
+        const live = calc().budgetRows(d, ui.year);
+        const liveTotals = calc().summarize(live);
+        const adjustments = categories
+          .map((category) => ({
+            category,
+            amount: Number(plan.targets?.[category] ?? liveTotals[category] ?? 0) - Number(liveTotals[category] || 0),
+          }))
+          .filter((line) => line.amount !== 0)
+          .map((line, index) => ({
+            category: line.category,
+            sub: "Budgetjustering",
+            source: "Budgetjustering",
+            amount: line.amount,
+            propertyId: "",
+            contractId: "",
+            sourceType: "manual",
+            sourceId: "BUDGET-ADJ|" + ui.year + "|" + index,
+            status: "Låst",
+            included: true,
+          }));
+        plan.lines = live.concat(adjustments);
         plan.status = "Låst";
         plan.lockedAt = new Date().toISOString();
         plan.lockedBy = actor();
@@ -423,7 +444,7 @@ document.addEventListener("change", (event) =>
       await mutation((d) => {
         const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
         if (!plan || plan.status === "Låst") throw Error("Budgeten är låst");
-        const previous = calc().summarize(plan.lines),
+        const previous = calc().summarize(calc().budgetRows(d, ui.year)),
           adjust = Object.fromEntries(
             categories.map((k) => [
               k,
@@ -431,8 +452,7 @@ document.addEventListener("change", (event) =>
             ]),
           );
         plan.preliminaryIndex = Math.max(0, Number(x.value) || 0);
-        plan.lines = calc().budgetRows(d, ui.year);
-        const amounts = calc().summarize(plan.lines);
+        const amounts = calc().summarize(calc().budgetRows(d, ui.year));
         categories.forEach(
           (k) => (plan.targets[k] = (amounts[k] || 0) + adjust[k]),
         );
@@ -442,7 +462,7 @@ document.addEventListener("change", (event) =>
         const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
         if (!plan || plan.status === "Låst") throw Error("Budgeten är låst");
         plan.targets[x.dataset.adjust] =
-          (calc().summarize(plan.lines)[x.dataset.adjust] || 0) +
+          (calc().summarize(calc().budgetRows(d, ui.year))[x.dataset.adjust] || 0) +
           Number(x.value);
       });
   }),
