@@ -180,11 +180,6 @@
     if (JSON.stringify(oldPlans) !== JSON.stringify(newPlans)) {
       changes.push({ sheet:"Budget", key:"budgetPlans", id:"budget", action:"Ändrad", fields:["budgetPlans"], before:null, after:null });
     }
-    const oldIndex = (before && before.indexSeries) || [];
-    const newIndex = (after && after.indexSeries) || [];
-    if (JSON.stringify(oldIndex) !== JSON.stringify(newIndex)) {
-      changes.push({ sheet:"Index", key:"indexSeries", id:"index", action:"Ändrad", fields:["indexSeries"], before:null, after:null });
-    }
     if(JSON.stringify(extraRows(before||{}))!==JSON.stringify(extraRows(after||{}))) changes.push({sheet:"Tilläggsdata",key:"metadata",id:"metadata",action:"Ändrad",fields:[],before:null,after:null});
     return changes;
   }
@@ -564,8 +559,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["operations","maintenanceStatus","importReview","documents"];
-  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","auditLog","sourceRegistry","importReview","documents"];
+  const EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","importReview","documents"];
+  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
@@ -578,12 +573,8 @@
     });
     EXTRA_KEYS.forEach(function(key){if(data[key]!=null)add("workspace",key,data[key]);});
     (data.budgetPlans||[]).forEach(function(p){
-      const extras=Object.fromEntries(Object.entries(p).filter(function(entry){return !["year","status","createdAt","lockedAt","lockedBy","preliminaryIndex","targets","notes"].includes(entry[0]);}));
+      const extras=Object.fromEntries(Object.entries(p).filter(function(entry){return !["year","status","createdAt","lockedAt","lockedBy","preliminaryIndex","lockedIndexYear","lockedIndexValue","lockedIndexSource","targets","notes"].includes(entry[0]);}));
       if(Object.keys(extras).length)add("budgetPlans",String(p.year),extras);
-    });
-    (data.indexSeries||[]).forEach(function(p){
-      const extras=Object.fromEntries(Object.entries(p).filter(function(entry){return !["year","month","value","source"].includes(entry[0]);}));
-      if(Object.keys(extras).length)add("indexSeries",p.year+"|"+p.month,extras);
     });
     return rows;
   }
@@ -634,13 +625,15 @@
     }
 
     const budgetSheet = workbook.Sheets["Budget"] ? "Budget" : "Budgetplaner";
-    const plans = budgetRows(budgetSheet,[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"],["lockedBy","Låst av"],["preliminaryIndex","Preliminärt oktoberindex"],["targetRent","Hyra + drift"],["targetMaintenance","Underhåll"],["targetProject","Projekt"],["targetOperations","Driftkostnader"],["targetInvestigations","Utredningar"]]);
+    const plans = budgetRows(budgetSheet,[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"],["lockedBy","Låst av"],["preliminaryIndex","Preliminärt oktoberindex"],["lockedIndexYear","Låst indexår"],["lockedIndexValue","Låst oktoberindex"],["lockedIndexSource","Indexkälla"],["targetRent","Hyra + drift"],["targetMaintenance","Underhåll"],["targetProject","Projekt"],["targetOperations","Driftkostnader"],["targetInvestigations","Utredningar"]]);
     const targets = workbook.Sheets["Budgetmål"] ? budgetRows("Budgetmål",[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]) : [];
     const lines = budgetRows("Budgetrader",[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["contractId","_contractId"],["propertyId","_propertyId"],["amount","Belopp"],["sourceType","Typ"],["sourceId","_sourceId"],["status","Värdestatus"]]);
-    const indexSheet = workbook.Sheets["Index"] ? "Index" : "KPI";
-    data.indexSeries = budgetRows(indexSheet,[["year","År"],["month","Månad"],["value",indexSheet==="Index"?"Indextal":"Värde"],["seriesBase","Serie basår"],["source","Källa"]])
-      .map(function(row){ return {year:Number(row.year)||0,month:Number(row.month)||10,value:Number(row.value)||0,seriesBase:String(row.seriesBase||"1980"),source:row.source||""}; })
-      .filter(function(row){ return row.year && row.value; });
+    const indexSheet = workbook.Sheets["Index"] ? "Index" : (workbook.Sheets["KPI"] ? "KPI" : "");
+    data.indexSeries = indexSheet
+      ? budgetRows(indexSheet,[["year","År"],["month","Månad"],["value",indexSheet==="Index"?"Indextal":"Värde"],["seriesBase","Serie basår"],["source","Källa"]])
+          .map(function(row){ return {year:Number(row.year)||0,month:Number(row.month)||10,value:Number(row.value)||0,seriesBase:String(row.seriesBase||"1980"),source:row.source||""}; })
+          .filter(function(row){ return row.year && row.value; })
+      : [];
 
     data.budgetPlans = plans.map(function(plan) {
       const year = Number(plan.year) || plan.year;
@@ -650,6 +643,9 @@
       return {
         year: year, status: plan.status || "", createdAt: plan.createdAt || "", lockedAt: plan.lockedAt || "", lockedBy: plan.lockedBy || "",
         preliminaryIndex:Number(plan.preliminaryIndex)||0,
+        lockedIndexYear:Number(plan.lockedIndexYear)||0,
+        lockedIndexValue:Number(plan.lockedIndexValue)||0,
+        lockedIndexSource:plan.lockedIndexSource||"",
         notes: notes, targets: planTargets,
         lines: lines.filter(function(x){ return String(x.year) === String(year); }).map(function(x) {
           return {
@@ -741,40 +737,6 @@
     return ws;
   }
 
-  function workbookIndexRows(data) {
-    const defaults =
-      window.LokalblickCalculations &&
-      typeof window.LokalblickCalculations.defaultOctoberSeries === "function"
-        ? window.LokalblickCalculations.defaultOctoberSeries()
-        : [];
-    const merged=new Map();
-    defaults.forEach(function(row){
-      const normalized={
-        year:Number(row.year)||0,
-        month:Number(row.month)||10,
-        value:Number(row.value)||0,
-        seriesBase:String(row.seriesBase||"1980"),
-        source:row.source||"SCB KPI"
-      };
-      if(normalized.year&&normalized.value)
-        merged.set(normalized.year+"|"+normalized.month+"|"+normalized.seriesBase,normalized);
-    });
-    ((data&&data.indexSeries)||[]).forEach(function(row){
-      const normalized={
-        year:Number(row.year)||0,
-        month:Number(row.month)||10,
-        value:Number(row.value)||0,
-        seriesBase:String(row.seriesBase||"1980"),
-        source:row.source||"Importerad indexserie"
-      };
-      if(normalized.year&&normalized.value)
-        merged.set(normalized.year+"|"+normalized.month+"|"+normalized.seriesBase,normalized);
-    });
-    return Array.from(merged.values()).sort(function(a,b){
-      return a.year-b.year || a.month-b.month || a.seriesBase.localeCompare(b.seriesBase);
-    });
-  }
-
   function dataToWorkbook(data) {
     const canonical=canonicalizeModel(clone(data||{}));
     ensureStableIds(canonical);
@@ -794,7 +756,7 @@
     XLSX.utils.book_append_sheet(workbook, sheetFromSchema(ACTIVITY_SCHEMA, canonical.activities||[], canonical), ACTIVITY_SCHEMA.sheet);
 
     const plans = (canonical && canonical.budgetPlans) || [];
-    XLSX.utils.book_append_sheet(workbook,simpleSheet(plans.map(function(plan){return {year:plan.year,status:plan.status||"",createdAt:plan.createdAt||"",lockedAt:plan.lockedAt||"",lockedBy:plan.lockedBy||"",preliminaryIndex:Number(plan.preliminaryIndex)||0,targetRent:Number((plan.targets||{})["Hyra + drift"])||0,targetMaintenance:Number((plan.targets||{}).Underhåll)||0,targetProject:Number((plan.targets||{}).Projekt)||0,targetOperations:Number((plan.targets||{}).Driftkostnader)||0,targetInvestigations:Number((plan.targets||{}).Utredningar)||0};}),[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"],["lockedBy","Låst av"],["preliminaryIndex","Preliminärt oktoberindex"],["targetRent","Hyra + drift"],["targetMaintenance","Underhåll"],["targetProject","Projekt"],["targetOperations","Driftkostnader"],["targetInvestigations","Utredningar"]]),"Budget");
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(plans.map(function(plan){return {year:plan.year,status:plan.status||"",createdAt:plan.createdAt||"",lockedAt:plan.lockedAt||"",lockedBy:plan.lockedBy||"",preliminaryIndex:Number(plan.preliminaryIndex)||0,lockedIndexYear:Number(plan.lockedIndexYear)||0,lockedIndexValue:Number(plan.lockedIndexValue)||0,lockedIndexSource:plan.lockedIndexSource||"",targetRent:Number((plan.targets||{})["Hyra + drift"])||0,targetMaintenance:Number((plan.targets||{}).Underhåll)||0,targetProject:Number((plan.targets||{}).Projekt)||0,targetOperations:Number((plan.targets||{}).Driftkostnader)||0,targetInvestigations:Number((plan.targets||{}).Utredningar)||0};}),[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"],["lockedBy","Låst av"],["preliminaryIndex","Preliminärt oktoberindex"],["lockedIndexYear","Låst indexår"],["lockedIndexValue","Låst oktoberindex"],["lockedIndexSource","Indexkälla"],["targetRent","Hyra + drift"],["targetMaintenance","Underhåll"],["targetProject","Projekt"],["targetOperations","Driftkostnader"],["targetInvestigations","Utredningar"]]),"Budget");
 
     const lineRows=[];
     plans.forEach(function(plan) {
@@ -806,7 +768,6 @@
       });
     });
     XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["contractId","_contractId",true],["propertyId","_propertyId",true],["sourceType","Typ"],["sourceId","_sourceId",true],["status","Värdestatus"]]),"Budgetrader");
-    XLSX.utils.book_append_sheet(workbook,simpleSheet(workbookIndexRows(canonical),[["year","År"],["month","Månad"],["value","Indextal"],["seriesBase","Serie basår"],["source","Källa"]]),"Index");
     const registry=(canonical&&canonical.sourceRegistry)||[];
     XLSX.utils.book_append_sheet(workbook,simpleSheet(registry.map(function(x){return {
       name:x.name||"",kind:x.kind||"",rows:Number(x.rows)||0,matched:Number(x.matched)||0,created:Number(x.created)||0,
