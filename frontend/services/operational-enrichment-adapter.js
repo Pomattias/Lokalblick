@@ -136,16 +136,21 @@
     }
     return found;
   }
-  function ensureContact(data, report, personId, targetType, targetId, role, sourceMeta) {
-    if (!personId || !targetId) return null;
-    data.contacts = Array.isArray(data.contacts) ? data.contacts : [];
-    var normalizedType = targetType === "object" ? "contract" : targetType;
-    var found = data.contacts.find(function (a) { return a.personId === personId && a.targetType === normalizedType && a.targetId === targetId && (a.role || "") === (role || "") && !a.toDate; });
-    if (found) return found;
-    found = { id: "K|" + hash(personId + "|" + normalizedType + "|" + targetId + "|" + (role || "")), personId: personId, targetType: normalizedType, targetId: targetId, role: role || "Kontakt", fromDate: "", toDate: "" };
-    if (sourceMeta) found.provenance = { source: sourceMeta.source, sheet: sourceMeta.sheet, row: sourceMeta.row };
-    data.contacts.push(found); report.counts.contactsCreated++;
-    return found;
+  function setOwnerResponsible(data, report, property, person, sourceMeta) {
+    if (!property || !person) return;
+    if (!property.ownerResponsiblePersonId) {
+      property.ownerResponsiblePersonId = person.id;
+      addProvenance(property, "ownerResponsiblePersonId", person.id, sourceMeta.source, sourceMeta.sheet, sourceMeta.row);
+      report.counts.ownerResponsibilitiesSet++;
+    }
+  }
+  function createOrder(data, report, activity, spec) {
+    data.orders = Array.isArray(data.orders) ? data.orders : [];
+    var id = spec.id || "ORD|" + hash(activity.id + "|" + (spec.orderedAt || "") + "|" + (spec.orderReference || "") + "|" + (spec.supplier || "") + "|" + (spec.orderedCost || spec.finalCost || ""));
+    var found=data.orders.find(function(x){return x.id===id;});
+    if(found) return found;
+    found={id:id,activityId:activity.id,orderedByPersonId:spec.orderedByPersonId||"",orderedAt:spec.orderedAt||"",supplier:spec.supplier||"",orderReference:spec.orderReference||"",orderedCost:Number(spec.orderedCost)||0,deliveryText:spec.deliveryText||"",completedAt:spec.completedAt||"",finalCost:Number(spec.finalCost)||0,paymentStatus:spec.paymentStatus||"",paidAt:spec.paidAt||"",invoiceComment:spec.invoiceComment||"",ownerPays:spec.ownerPays||"",provenance:{source:spec.source||"",sheet:spec.sheet||"",row:spec.row||""}};
+    data.orders.push(found); report.counts.ordersCreated++; return found;
   }
   function propertyMatcher(data) {
     var aliases = new Map();
@@ -247,20 +252,17 @@
     var existing = data.activities.find(function (x) { return x.id === id; });
     if (existing) return { collection: "activities", record: existing, created: false };
     var r = {
-      id: id, type: spec.type || "Önskemål", propertyId: spec.propertyId || "", contractId: spec.contractId || "",
-      responsiblePersonId: "", orderedByPersonId: "", title: spec.title || "", description: spec.description || "",
+      id: id, type: spec.type || "Önskemål", propertyId: spec.contractId ? "" : (spec.propertyId || ""), contractId: spec.contractId || "",
+      responsiblePersonId: "", title: spec.title || "", description: spec.description || "",
       category: spec.category || "", status: spec.status || "Planerad", priority: spec.priority || "",
       planningYear: spec.planningYear || "", planningQuarter: spec.planningQuarter || "", planningMonth: spec.planningMonth || "",
       budgetCategory: spec.budgetCategory || (spec.type === "Projekt" ? "Projekt" : spec.type === "Underhåll" ? "Underhåll" : spec.type === "Drift" ? "Driftkostnader" : spec.type === "Utredning" ? "Utredningar" : "Ej budget"),
-      includeInBudget: spec.includeInBudget || "Ja",
-      estimatedCost: Number(spec.estimatedCost) || 0, investigationCost: Number(spec.investigationCost) || 0,
+      includeInBudget: spec.includeInBudget || "Ja", estimatedCost: Number(spec.estimatedCost) || 0,
       phase: spec.phase || (spec.type === "Projekt" ? "Förstudie" : ""), startDate: spec.startDate || "", endDate: spec.endDate || "",
-      orderedAt: "", orderedBy: "", supplier: "", orderReference: "", orderedCost: 0, deliveryText: "",
-      completedAt: spec.completedAt || "", finalCost: Number(spec.finalCost) || 0, paymentStatus: "", paidAt: "", invoiceComment: "",
-      ownerPays: spec.ownerPays || "", sourceId: spec.sourceId || id, sourceSheet: spec.sheet || "", sourceRow: spec.row || "",
+      sourceId: spec.sourceId || id, sourceSheet: spec.sheet || "", sourceRow: spec.row || "",
       budgetAmount2027: Number(spec.budgetAmount2027) || 0, planningMonths: spec.planningMonths || [], provenance: {}
     };
-    ["propertyId","contractId","type","title","description","status","category","priority","ownerPays","estimatedCost"].forEach(function (k) {
+    ["propertyId","contractId","type","title","description","status","category","priority","estimatedCost"].forEach(function (k) {
       if (r[k] !== "" && r[k] != null) addProvenance(r, k, r[k], spec.source, spec.sheet, spec.row);
     });
     data.activities.push(r); report.counts.activitiesCreated++;
@@ -272,8 +274,9 @@
     setIfBlank(r, "description", spec.description, source, sheet, row, data, report);
     setIfBlank(r, "category", spec.category, source, sheet, row, data, report);
     setIfBlank(r, "priority", spec.priority, source, sheet, row, data, report);
-    setIfBlank(r, "propertyId", spec.propertyId, source, sheet, row, data, report);
     setIfBlank(r, "contractId", spec.contractId, source, sheet, row, data, report);
+    if(!r.contractId)setIfBlank(r, "propertyId", spec.propertyId, source, sheet, row, data, report);
+    else delete r.propertyId;
     setIfBlank(r, "planningYear", spec.planningYear, source, sheet, row, data, report);
     setIfBlank(r, "estimatedCost", spec.estimatedCost, source, sheet, row, data, report);
     if (spec.type && !r.type) r.type = spec.type;
@@ -303,7 +306,7 @@
       report.counts.propertiesMatched++;
       matcher.addAlias(spec.name, pm.property.id); matcher.addAlias(spec.address, pm.property.id); matcher.addAlias(spec.designation, pm.property.id); matcher.addAlias(spec.objectNo, pm.property.id);
       var ownerName=cell(row, hit.headers, ["Fastighetsägare"]), ownerId=ownerName?ensureOrg(data,ownerName,"owner"):"";
-      setIfBlank(pm.property, "ownerOrgId", ownerId, source, "Lokalbestånd", i + 1, data, report);
+      setIfBlank(pm.property, "ownerPartyId", ownerId, source, "Lokalbestånd", i + 1, data, report);
       if(ownerName&&!pm.property.sourceOwner)pm.property.sourceOwner=ownerName;
       setIfBlank(pm.property, "name", spec.name, source, "Lokalbestånd", i + 1, data, report);
       var contractNo = cell(row, hit.headers, ["Avtalsnummer"]), c = matchContract(data, contractNo, pm.property.id);
@@ -312,11 +315,13 @@
         setIfBlank(c, "area", num(cell(row, hit.headers, ["Lokalyta (kvm)"])), source, "Lokalbestånd", i + 1, data, report);
         setIfBlank(c, "category", cell(row, hit.headers, ["Lokalkategori (LEB)"]), source, "Lokalbestånd", i + 1, data, report);
         setIfBlank(c, "use", cell(row, hit.headers, ["Verksamhetstyp"]), source, "Lokalbestånd", i + 1, data, report);
+        var businessPartyName=text(cell(row, hit.headers, ["Verksamhet"]));
+        if(businessPartyName)setIfBlank(c,"businessPartyId",ensureOrg(data,businessPartyName,"business"),source,"Lokalbestånd",i+1,data,report);
+        setIfBlank(c, "businessName", cell(row, hit.headers, ["Namn på verksamheten","Benämning"]), source, "Lokalbestånd", i + 1, data, report);
         setIfBlank(c, "unitId", unitId(cell(row, hit.headers, ["Verksamhet"])), source, "Lokalbestånd", i + 1, data, report);
         setIfBlank(c, "employees", num(cell(row, hit.headers, ["Antal medarbetare (viss+ heltid)"])), source, "Lokalbestånd", i + 1, data, report);
         setIfBlank(c, "start", excelDate(cell(row, hit.headers, ["From"])), source, "Lokalbestånd", i + 1, data, report);
         setIfBlank(c, "end", excelDate(cell(row, hit.headers, ["Tom"])), source, "Lokalbestånd", i + 1, data, report);
-        setIfBlank(c, "notice", excelDate(cell(row, hit.headers, ["Säg upp avtal senast"])), source, "Lokalbestånd", i + 1, data, report);
         setIfBlank(c, "contractDocumentUrl", cell(row, hit.headers, ["Länk avtal (Huvudkontrakt)"]), source, "Lokalbestånd", i + 1, data, report);
       }
     }
@@ -334,7 +339,7 @@
       report.counts.propertiesMatched++;
       matcher.addAlias(spec.name, pm.property.id); matcher.addAlias(spec.address, pm.property.id); matcher.addAlias(spec.designation, pm.property.id); matcher.addAlias(spec.objectNo, pm.property.id);
       var owner = cell(row, hit.headers, ["Fastighetsägare"]), ownerId = owner ? ensureOrg(data, owner, "owner") : "";
-      setIfBlank(pm.property, "ownerOrgId", ownerId, source, "Fastighetslista", i + 1, data, report);
+      setIfBlank(pm.property, "ownerPartyId", ownerId, source, "Fastighetslista", i + 1, data, report);
       if(owner&&!pm.property.sourceOwner)pm.property.sourceOwner=owner;
       setIfBlank(pm.property, "name", spec.name, source, "Fastighetslista", i + 1, data, report);
       setIfBlank(pm.property, "boundaryMaintenance", cell(row, hit.headers, ["Gränsdragningslist underhåll","Gränsdragningslista underhåll"]), source, "Fastighetslista", i + 1, data, report);
@@ -342,7 +347,7 @@
       names.forEach(function (name, idx) {
         var p = ensurePerson(data, report, { name: name, email: mailList[idx] || (names.length === 1 ? mailList[0] : ""), organizationId: ownerId, role: "Fastighetsförvaltare", source: source, sheet: "Fastighetslista", row: i + 1 });
         if (phone && !p.phone) p.phone = phone;
-        ensureContact(data, report, p.id, "property", pm.property.id, "Fastighetsförvaltare", { source: source, sheet: "Fastighetslista", row: i + 1 });
+        if(idx===0)setOwnerResponsible(data,report,pm.property,p,{source:source,sheet:"Fastighetslista",row:i+1});
       });
     }
   }
@@ -358,10 +363,12 @@
       var driftCost = num(cell(row, hit.headers, ["Uppskattat pris drift exkl moms, tkr"])), investCost = num(cell(row, hit.headers, ["Uppskattat pris investering exkl moms, tkr"])), budget = num(cell(row, hit.headers, ["Budget 2027, tkr"]));
       var est = (type === "Drift" ? driftCost : investCost) * 1000; if (!est) est = (driftCost || investCost || budget) * 1000;
       var comment = [cell(row, hit.headers, ["Kommentar"]), cell(row, hit.headers, ["Sanelas kommentarer"])].map(text).filter(Boolean).join(" · ");
-      var spec = { source: source, sheet: "Årshjul", row: i + 1, propertyId: pm.property ? pm.property.id : "", contractId: "", type: type, title: title, description: comment, category: text(cell(row, hit.headers, ["Kluster"])), priority: text(cell(row, hit.headers, ["Prio","Prio "])), status: num(cell(row, hit.headers, ["Slutlig faktura"])) ? "Klar" : "Planerad", planningYear: budget ? 2027 : "", planningQuarter: months.quarter, planningMonth: months.month, planningMonths: months.months, estimatedCost: est, budgetAmount2027: budget * 1000, finalCost: num(cell(row, hit.headers, ["Slutlig faktura"])), ownerPays: text(cell(row, hit.headers, ["Betalas av fastighetsägaren"])), sourceId: "OP|Årshjul|" + hash((pm.property ? pm.property.id : aliasKey(business || address)) + "|" + norm(title)) };
+      var spec = { source: source, sheet: "Årshjul", row: i + 1, propertyId: pm.property ? pm.property.id : "", contractId: "", type: type, title: title, description: comment, category: text(cell(row, hit.headers, ["Kluster"])), priority: text(cell(row, hit.headers, ["Prio","Prio "])), status: num(cell(row, hit.headers, ["Slutlig faktura"])) ? "Klar" : "Planerad", planningYear: budget ? 2027 : "", planningQuarter: months.quarter, planningMonth: months.month, planningMonths: months.months, estimatedCost: est, budgetAmount2027: budget * 1000, sourceId: "OP|Årshjul|" + hash((pm.property ? pm.property.id : aliasKey(business || address)) + "|" + norm(title)) };
       var found = findActivity(data, spec.propertyId, title, type), ref = found ? enrichActivity(data, report, found, spec) : createActivity(data, report, spec);
       if (!pm.property && (business || address)) review(data, report, { kind: "activity-property", source: source, sheet: "Årshjul", row: i + 1, collection: ref.collection, recordId: ref.record.id, record: { title: title, business: business, address: address }, address: address, message: "Åtgärden saknar säker fastighetskoppling." });
       var responsible = splitNames(cell(row, hit.headers, ["Ansvarig"]));
+      var arshjulFinal=num(cell(row,hit.headers,["Slutlig faktura"]));
+      if(arshjulFinal>0)createOrder(data,report,ref.record,{id:"ORD|Årshjul|"+hash(ref.record.id+"|"+(i+1)),finalCost:arshjulFinal,paymentStatus:"Slutlig faktura",ownerPays:text(cell(row,hit.headers,["Betalas av fastighetsägaren"])),source:source,sheet:"Årshjul",row:i+1});
       if (responsible.length) {
         ref.record.responsibleSourceText = responsible.join(" / ");
         responsible.forEach(function (name, index) {
@@ -376,27 +383,23 @@
     }
   }
   function processBestallningar(workbook, data, report, matcher, source) {
-    var rows = matrix(workbook, "Beställningar"); if (!rows.length) return;
-    var hit = findHeader(rows, [["Beställningsdatum"],["Beställt av"],["Produktnamn/beskrivning"],["Verksamhet"]], 5);
-    if (!hit || hit.score < 3) return;
-    var previous = null;
-    for (var i = hit.row + 1; i < rows.length; i++) {
-      var row = rows[i], title = text(cell(row, hit.headers, ["Produktnamn/beskrivning"])); if (!title) continue;
-      var orderedAt = excelDate(cell(row, hit.headers, ["Beställningsdatum"])), orderedBy = text(cell(row, hit.headers, ["Beställt av"])), business = text(cell(row, hit.headers, ["Verksamhet"]));
-      if (!orderedAt && !orderedBy && !business && previous) { previous.invoiceComment = [previous.invoiceComment, title].filter(Boolean).join(" · "); continue; }
+    var rows=matrix(workbook,"Beställningar"); if(!rows.length)return;
+    var hit=findHeader(rows,[["Beställningsdatum"],["Beställt av"],["Produktnamn/beskrivning"],["Verksamhet"]],5); if(!hit||hit.score<3)return;
+    var previous=null;
+    for(var i=hit.row+1;i<rows.length;i++){
+      var row=rows[i],title=text(cell(row,hit.headers,["Produktnamn/beskrivning"]));if(!title)continue;
+      var orderedAt=excelDate(cell(row,hit.headers,["Beställningsdatum"])),orderedBy=text(cell(row,hit.headers,["Beställt av"])),business=text(cell(row,hit.headers,["Verksamhet"]));
+      if(!orderedAt&&!orderedBy&&!business&&previous){previous.invoiceComment=[previous.invoiceComment,title].filter(Boolean).join(" · ");continue;}
       report.counts.sourceRows++;
-      var pm = matcher.match({ name: business, business: business, address: business });
-      var drift = num(cell(row, hit.headers, ["Pris drift & underhåll"])), invest = num(cell(row, hit.headers, ["Pris investering"])), type = invest > 0 ? "Projekt" : "Drift", cost = invest || drift;
-      var found = findActivity(data, pm.property ? pm.property.id : "", title, type), spec = { source: source, sheet: "Beställningar", row: i + 1, propertyId: pm.property ? pm.property.id : "", type: type, title: title, description: text(cell(row, hit.headers, ["Kommentarer"])), category: "Beställning", status: /klart/i.test(text(cell(row, hit.headers, ["Status (Enbart beställt eller klart)","Status"]))) ? "Klar" : "Beställd", estimatedCost: cost, finalCost: /klart/i.test(text(cell(row, hit.headers, ["Status (Enbart beställt eller klart)","Status"]))) ? cost : 0, sourceId: "OP|Beställning|" + hash((pm.property ? pm.property.id : aliasKey(business)) + "|" + norm(title)) };
-      var ref = found ? enrichActivity(data, report, found, spec) : createActivity(data, report, spec), r = ref.record;
-      if (!pm.property && business) review(data, report, { kind: "activity-property", source: source, sheet: "Beställningar", row: i + 1, collection: ref.collection, recordId: r.id, record: { title: title, business: business }, message: "Beställningen saknar säker fastighetskoppling." });
-      var fields = { orderedAt: orderedAt, orderedBy: orderedBy, supplier: text(cell(row, hit.headers, ["Leverantör"])), orderReference: text(cell(row, hit.headers, ["Reqs","Diarienr"])), orderedCost: cost, deliveryText: text(cell(row, hit.headers, ["Leveransdatum"])), completedAt: spec.status === "Klar" ? text(cell(row, hit.headers, ["Leveransdatum"])) : "", finalCost: spec.finalCost, paymentStatus: /faktura|betald/i.test(text(cell(row, hit.headers, ["Kommentarer"]))) ? "Faktura registrerad" : "", invoiceComment: text(cell(row, hit.headers, ["Kommentarer"])) };
-      Object.keys(fields).forEach(function (k) { setIfBlank(r, k, fields[k], source, "Beställningar", i + 1, data, report); });
-      previous = r; report.counts.ordersMatched++;
-      splitNames(orderedBy).forEach(function (name, index) {
-        var p = ensurePerson(data, report, { name: name, organizationId: ourOrgId(data), role: "", provisional: name.indexOf(" ") < 0, source: source, sheet: "Beställningar", row: i + 1 });
-        if (index === 0 && !r.orderedByPersonId) r.orderedByPersonId = p.id;
-      });
+      var pm=matcher.match({name:business,business:business,address:business});
+      var drift=num(cell(row,hit.headers,["Pris drift & underhåll"])),invest=num(cell(row,hit.headers,["Pris investering"])),type=invest>0?"Projekt":"Drift",cost=invest||drift;
+      var done=/klart/i.test(text(cell(row,hit.headers,["Status (Enbart beställt eller klart)","Status"])));
+      var found=findActivity(data,pm.property?pm.property.id:"",title,type),spec={source:source,sheet:"Beställningar",row:i+1,propertyId:pm.property?pm.property.id:"",type:type,title:title,description:text(cell(row,hit.headers,["Kommentarer"])),category:"Beställning",status:done?"Klar":"Beställd",estimatedCost:cost,sourceId:"OP|Beställning|"+hash((pm.property?pm.property.id:aliasKey(business))+"|"+norm(title))};
+      var ref=found?enrichActivity(data,report,found,spec):createActivity(data,report,spec),r=ref.record;
+      if(!pm.property&&business)review(data,report,{kind:"activity-property",source:source,sheet:"Beställningar",row:i+1,collection:ref.collection,recordId:r.id,record:{title:title,business:business},message:"Beställningen saknar säker fastighetskoppling."});
+      var order=createOrder(data,report,r,{id:"ORD|Beställning|"+hash(source+"|"+(i+1)+"|"+title),orderedAt:orderedAt,supplier:text(cell(row,hit.headers,["Leverantör"])),orderReference:text(cell(row,hit.headers,["Reqs","Diarienr"])),orderedCost:cost,deliveryText:text(cell(row,hit.headers,["Leveransdatum"])),completedAt:done?excelDate(cell(row,hit.headers,["Leveransdatum"])):"",finalCost:done?cost:0,paymentStatus:/faktura|betald/i.test(text(cell(row,hit.headers,["Kommentarer"])))?"Faktura registrerad":"",invoiceComment:text(cell(row,hit.headers,["Kommentarer"])),source:source,sheet:"Beställningar",row:i+1});
+      previous=order;report.counts.ordersMatched++;
+      splitNames(orderedBy).forEach(function(name,index){var p=ensurePerson(data,report,{name:name,organizationId:ourOrgId(data),role:"",provisional:name.indexOf(" ")<0,source:source,sheet:"Beställningar",row:i+1});if(index===0&&!order.orderedByPersonId)order.orderedByPersonId=p.id;});
     }
   }
   function detect(workbook) {
@@ -406,8 +409,8 @@
   function enrich(workbook, baseData, fileName) {
     if (!detect(workbook)) throw new Error("Filen känns inte igen som en operativ Lokalblick-berikning. Förväntade flikar är Lokalbestånd, Fastighetslista, Årshjul eller Beställningar.");
     var data = clone(baseData || {}), source = fileName || "Operativ berikning";
-    ["properties","contracts","organizations","people","contacts","activities","sourceRegistry","importReview"].forEach(function (k) { if (!Array.isArray(data[k])) data[k] = []; });
-    var report = { profile: "Operativ berikning v2", fileName: source, sheets: [], needsReview: [], counts: { sourceRows: 0, propertiesMatched: 0, contractsMatched: 0, peopleCreated: 0, contactsCreated: 0, responsibilitiesSet: 0, activitiesCreated: 0, activitiesUpdated: 0, ordersMatched: 0, needsReview: 0 } };
+    ["properties","contracts","organizations","people","orders","activities","sourceRegistry","importReview"].forEach(function (k) { if (!Array.isArray(data[k])) data[k] = []; });
+    var report = { profile: "Operativ berikning v3", fileName: source, sheets: [], needsReview: [], counts: { sourceRows: 0, propertiesMatched: 0, contractsMatched: 0, peopleCreated: 0, ownerResponsibilitiesSet: 0, responsibilitiesSet: 0, activitiesCreated: 0, activitiesUpdated: 0, ordersCreated: 0, ordersMatched: 0, needsReview: 0 } };
     var matcher = propertyMatcher(data);
     if (matrix(workbook, "Lokalbestånd").length) { report.sheets.push("Lokalbestånd"); processLokalbestand(workbook, data, report, matcher, source); }
     if (matrix(workbook, "Fastighetslista").length) { report.sheets.push("Fastighetslista"); processFastighetslista(workbook, data, report, matcher, source); }
