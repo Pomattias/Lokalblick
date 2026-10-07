@@ -67,8 +67,8 @@ export function activities(data) {
     })),
   );
 }
-export function responsible(data, collection, record) {
-  const type = {
+function legacyAssignmentType(collection) {
+  return {
     properties: "property",
     contracts: "object",
     projects: "project",
@@ -76,14 +76,27 @@ export function responsible(data, collection, record) {
     maintenanceStatus: "maintenanceStatus",
     driftIssues: "driftIssue",
     wishes: "wish",
-  }[collection];
-  return (
-    data.assignments.find(
-      (a) => a.targetType === type && a.targetId === record.id && !a.toDate,
-    )?.personId ||
-    record.responsiblePersonId ||
-    ""
+    investigations: "investigation",
+    operations: "operation",
+  }[collection] || collection;
+}
+function canonicalAssignmentType(collection) {
+  return Object.prototype.hasOwnProperty.call(kinds, collection)
+    ? "activity"
+    : legacyAssignmentType(collection);
+}
+export function responsible(data, collection, record) {
+  const canonical = canonicalAssignmentType(collection);
+  const legacy = legacyAssignmentType(collection);
+  const matches = (data.assignments || []).filter(
+    (a) =>
+      a.targetId === record.id &&
+      !a.toDate &&
+      (a.targetType === canonical || a.targetType === legacy),
   );
+  const assigned =
+    matches.find((a) => a.role === "Ansvarig") || matches[0];
+  return assigned?.personId || record.responsiblePersonId || "";
 }
 export function scope(data, selection) {
   const allItems = activities(data);
@@ -159,21 +172,16 @@ export function assign(data, collection, id, person, actor) {
   if (!record) throw Error("Posten finns inte");
   const old = responsible(data, collection, record);
   if (old === person) return;
-  const at = new Date().toISOString(),
-    before = clone(record);
-  record.responsiblePersonId = person;
-  const type =
-    {
-      properties: "property",
-      contracts: "object",
-      projects: "project",
-      maintenance: "maintenance",
-      maintenanceStatus: "maintenanceStatus",
-      driftIssues: "driftIssue",
-      wishes: "wish",
-    }[collection] || collection;
+  const at = new Date().toISOString();
+  const type = canonicalAssignmentType(collection);
+  const legacy = legacyAssignmentType(collection);
   data.assignments
-    .filter((a) => a.targetType === type && a.targetId === id && !a.toDate)
+    .filter(
+      (a) =>
+        a.targetId === id &&
+        !a.toDate &&
+        (a.targetType === type || a.targetType === legacy),
+    )
     .forEach((a) => {
       a.toDate = at.slice(0, 10);
     });
@@ -196,7 +204,6 @@ export function assign(data, collection, id, person, actor) {
     changedAt: at,
     changedBy: actor,
   });
-  audit(data, collection, id, before, record, actor);
 }
 export function moveWish(data, id, target, actor) {
   if (!["maintenance", "driftIssues"].includes(target))
@@ -215,7 +222,7 @@ export function moveWish(data, id, target, actor) {
   data.assignments
     .filter((a) => a.targetType === "wish" && a.targetId === id)
     .forEach((a) => {
-      a.targetType = target === "maintenance" ? "maintenance" : "driftIssue";
+      a.targetType = "activity";
     });
   data[target].push(record);
   data.wishes.splice(i, 1);
@@ -233,6 +240,83 @@ export function resolveReview(data, id, decision, targetId, actor) {
   const item = data.importReview.find((x) => x.id === id);
   if (!item || item.status !== "pending")
     throw Error("Förslaget är redan hanterat");
+
+  if (item.kind === "person") {
+    const person = data.people.find((x) => x.id === item.personId);
+    if (decision === "accept" && person) {
+      person.identityStatus = person.provisional
+        ? "reviewed-provisional"
+        : "confirmed";
+    }
+    if (decision === "reject" && person?.provisional) {
+      data.assignments = data.assignments.filter(
+        (a) => a.personId !== person.id,
+      );
+      data.people = data.people.filter((x) => x.id !== person.id);
+    }
+    item.status = decision === "accept" ? "accepted" : "rejected";
+    item.resolvedBy = actor;
+    item.resolvedAt = new Date().toISOString();
+    return;
+  }
+
+  if (item.kind === "property-match") {
+    item.status = decision === "accept" ? "accepted" : "rejected";
+    item.resolvedBy = actor;
+    item.resolvedAt = new Date().toISOString();
+    return;
+  }
+
+  if (item.kind === "activity-property") {
+    if (decision === "accept") {
+      if (!data.properties.some((p) => p.id === targetId))
+        throw Error("Välj en befintlig fastighet");
+      const record = data[item.collection]?.find(
+        (x) => x.id === item.recordId,
+      );
+      if (!record) throw Error("Aktiviteten finns inte");
+      const before = clone(record);
+      record.propertyId = targetId;
+      record.provenance = record.provenance || {};
+      record.provenance.propertyId = {
+        source: item.source,
+        sheet: item.sheet,
+        row: item.row,
+        value: targetId,
+        confirmedBy: actor,
+      };
+      audit(data, item.collection, record.id, before, record, actor);
+    }
+    item.status = decision === "accept" ? "accepted" : "rejected";
+    item.resolvedBy = actor;
+    item.resolvedAt = new Date().toISOString();
+    return;
+  }
+
+  if (item.kind === "operational-conflict") {
+    if (decision === "accept") {
+      const record = data[item.collection]?.find(
+        (x) => x.id === item.recordId,
+      );
+      if (!record) throw Error("Posten finns inte");
+      const before = clone(record);
+      record[item.field] = item.proposed;
+      record.provenance = record.provenance || {};
+      record.provenance[item.field] = {
+        source: item.source,
+        sheet: item.sheet,
+        row: item.row,
+        value: item.proposed,
+        confirmedBy: actor,
+      };
+      audit(data, item.collection, record.id, before, record, actor);
+    }
+    item.status = decision === "accept" ? "accepted" : "rejected";
+    item.resolvedBy = actor;
+    item.resolvedAt = new Date().toISOString();
+    return;
+  }
+
   if (decision === "accept" && item.kind === "record") {
     const allowed = [
       "projects",
