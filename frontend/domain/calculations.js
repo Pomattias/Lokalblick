@@ -39,18 +39,8 @@
         : 0;
     const usedIndex =
       knownIndex || number(preliminaryIndex) || number(row?.value);
-    const explicit = number(c[prefix + "BaseIndex"]);
     const basisRow = october(series, c[prefix + "BaseYear"]);
-    const bastal =
-      explicit ||
-      number(
-        c[
-          prefix === "rent"
-            ? "derivedRentBaseIndex"
-            : "derivedAdditionBaseIndex"
-        ],
-      ) ||
-      number(basisRow?.value);
+    const bastal = number(basisRow?.value);
     const rawShare = c[prefix + "IndexPercent"];
     const share = number(rawShare),
       validShare =
@@ -158,18 +148,10 @@
         (p) => Number(p.year) === Number(year),
       );
     const add = (x, category, amount, type, label, status) => {
-      if (amount > 0)
-        rows.push({
-          category,
-          source: label || x.title || x.name || x.category || x.id,
-          sub: label || x.title || x.category || "",
-          amount,
-          propertyId: x.propertyId || "",
-          contractId: x.contractId || "",
-          sourceType: type,
-          sourceId: x.id,
-          status: status || "Källvärde",
-        });
+      if (amount > 0) {
+        const contract=x.contractId?(data.contracts||[]).find((c)=>c.id===x.contractId):null;
+        rows.push({category,source:label||x.title||x.name||x.category||x.id,sub:label||x.title||x.category||"",amount,propertyId:x.propertyId||contract?.propertyId||"",contractId:x.contractId||"",sourceType:type,sourceId:x.id,status:status||"Källvärde"});
+      }
     };
     (data.contracts || []).forEach((c) => {
       const v = annualValues(c, year, plan?.preliminaryIndex, data.indexSeries);
@@ -197,14 +179,6 @@
           x.status !== "Avslaget",
       )
       .forEach((x) => {
-        if (number(x.investigationCost) > 0)
-          add(
-            x,
-            "Utredningar",
-            number(x.investigationCost),
-            "activity",
-            x.title,
-          );
         let category =
           x.budgetCategory ||
           {
@@ -275,25 +249,16 @@
             sourceId: x.id,
           });
       });
-    (data.activities || [])
-      .filter(
-        (x) =>
-          number(x.planningYear) === number(year) &&
-          (x.contractId ? ids.has(x.contractId) : pids.has(x.propertyId)),
-      )
-      .forEach((x) => {
-        const category =
-          x.budgetCategory ||
-          {
-            Projekt: "Projekt",
-            Underhåll: "Underhåll",
-            Drift: "Driftkostnader",
-            Utredning: "Utredningar",
-          }[x.type];
-        const amount = number(x.finalCost);
-        if (category && category !== "Ej budget" && amount)
-          rows.push({ category, amount, sourceId: x.id });
-      });
+    (data.orders || []).forEach((order) => {
+      const activity=(data.activities||[]).find((x)=>x.id===order.activityId);
+      if(!activity || number(activity.planningYear)!==number(year)) return;
+      const propertyId=activity.propertyId || (data.contracts||[]).find((c)=>c.id===activity.contractId)?.propertyId || "";
+      if(activity.contractId ? !ids.has(activity.contractId) : !pids.has(propertyId)) return;
+      const category=activity.budgetCategory || {Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Utredning:"Utredningar"}[activity.type];
+      const amount=number(order.finalCost);
+      if(category && category!=="Ej budget" && amount) rows.push({category,amount,sourceId:activity.id,orderId:order.id});
+    });
+    (data.activities || []).filter((x)=>!(data.orders||[]).some((o)=>o.activityId===x.id)).filter((x)=>number(x.planningYear)===number(year)&&(x.contractId?ids.has(x.contractId):pids.has(x.propertyId))).forEach((x)=>{const category=x.budgetCategory||{Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Utredning:"Utredningar"}[x.type];const amount=number(x.finalCost);if(category&&category!=="Ej budget"&&amount)rows.push({category,amount,sourceId:x.id});});
     return rows;
   }
   root.LokalblickCalculations = {

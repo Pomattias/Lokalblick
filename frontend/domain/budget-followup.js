@@ -12,10 +12,16 @@
       if(deleted)item=Object.fromEntries((deleted.fields||[]).map(f=>[f.field,f.from]));
     }
     if(!item)return null;
+    if(row.sourceType==='activity') {
+      const orders=(data.orders||[]).filter(x=>String(x.activityId)===String(item.id));
+      if(orders.length) {
+        const completed=orders.filter(x=>Number(x.finalCost)||x.completedAt||/faktura|betald|klar/i.test(x.paymentStatus||''));
+        if(completed.length) return completed.reduce((sum,x)=>sum+(Number(x.finalCost)||0),0);
+        return null;
+      }
+    }
     const value=item.finalCosts?.[year]?.[row.category];
     if(value != null) return Number(value);
-    // A project can carry a separate investigation budget; never count one final cost twice.
-    if(item.type==='Projekt' && row.category==='Utredningar') return null;
     if(item.finalCostConfirmed || item.completedDate || item.completedAt || /^(Utförd|Klar|Klart)$/.test(item.status||'')) return Number(item.finalCost)||0;
     return null;
   }

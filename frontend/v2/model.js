@@ -4,6 +4,7 @@ export const collections = [
   "organizations",
   "people",
   "contacts",
+  "orders",
   "activities",
   "operations",
   "maintenanceStatus",
@@ -417,6 +418,16 @@ function migrateLegacy(out) {
   return out;
 }
 
+function canonicalRelations(out) {
+  out.orders=Array.isArray(out.orders)?out.orders:[];
+  const isOur=(id)=>{const p=out.people.find((x)=>x.id===id);if(!p)return false;if(!p.organizationId)return true;return out.organizations.find((x)=>x.id===p.organizationId)?.type==="our";};
+  out.properties.forEach((p)=>{if(!p.ownerPartyId&&p.ownerOrgId)p.ownerPartyId=p.ownerOrgId;delete p.ownerOrgId;});
+  out.contracts.forEach((c)=>{if(!c.businessPartyId&&c.tenantOrgId)c.businessPartyId=c.tenantOrgId;delete c.tenantOrgId;delete c.ownerOrgId;["notice","rentPerSqm","rentBaseIndex","derivedRentBaseIndex","rentIndexCurrent","rentIndexYear","rentCalculationYear","calculatedAnnualRent","rentCalculationVariance","rentCalculationStatus","additionBaseIndex","derivedAdditionBaseIndex","additionIndexCurrent","additionIndexYear","additionCalculationYear","calculatedAnnualAdditions","additionCalculationVariance","additionCalculationStatus"].forEach((k)=>delete c[k]);});
+  (out.contacts||[]).filter((x)=>!x.toDate).forEach((c)=>{if(isOur(c.personId))return;const t=c.targetType==="object"?"contract":c.targetType;if(t==="property"){const p=out.properties.find((x)=>x.id===c.targetId);if(p&&!p.ownerResponsiblePersonId)p.ownerResponsiblePersonId=c.personId;}else if(t==="contract"){const a=out.contracts.find((x)=>x.id===c.targetId);if(a&&!a.businessResponsiblePersonId)a.businessResponsiblePersonId=c.personId;}});
+  out.activities.forEach((a)=>{if(a.contractId&&out.contracts.some((c)=>c.id===a.contractId))delete a.propertyId;const has=a.orderedAt||a.orderedBy||a.orderedByPersonId||a.supplier||a.orderReference||Number(a.orderedCost)||a.deliveryText||a.completedAt||Number(a.finalCost)||a.paymentStatus||a.paidAt||a.invoiceComment||a.ownerPays;if(has){const id="ORD|"+a.id;if(!out.orders.some((o)=>o.id===id))out.orders.push({id,activityId:a.id,orderedAt:a.orderedAt||"",orderedByPersonId:a.orderedByPersonId||"",supplier:a.supplier||"",orderReference:a.orderReference||"",orderedCost:Number(a.orderedCost)||0,deliveryText:a.deliveryText||"",completedAt:a.completedAt||"",finalCost:Number(a.finalCost)||0,paymentStatus:a.paymentStatus||"",paidAt:a.paidAt||"",invoiceComment:a.invoiceComment||"",ownerPays:a.ownerPays||""});}["orderedAt","orderedBy","orderedByPersonId","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost","paymentStatus","paidAt","invoiceComment","ownerPays","finalCosts","finalCostConfirmed","investigationCost"].forEach((k)=>delete a[k]);});
+  out.contacts=[];return out;
+}
+
 function normalizeOwnerRelations(out) {
   const key = (name) =>
     String(name || "")
@@ -445,12 +456,15 @@ function normalizeOwnerRelations(out) {
     return org.id;
   };
   out.properties.forEach((property) => {
-    if (property.owner && !property.ownerOrgId)
-      property.ownerOrgId = ensureOwner(property.owner);
+    if (property.owner && !property.ownerPartyId)
+      property.ownerPartyId = ensureOwner(property.owner);
+    if (!property.ownerPartyId && property.ownerOrgId)
+      property.ownerPartyId = property.ownerOrgId;
     if (property.owner && !property.sourceOwner)
       property.sourceOwner = property.owner;
     if (property.manager && !property.sourceManager)
       property.sourceManager = property.manager;
+    delete property.ownerOrgId;
     delete property.owner;
     delete property.manager;
   });
@@ -470,7 +484,7 @@ export function normalize(data) {
     c.end = c.end ?? c.currentValidTo ?? "";
     c.notice = c.notice ?? c.noticeBy ?? "";
   });
-  return migrateLegacy(out);
+  return canonicalRelations(migrateLegacy(out));
 }
 export function activities(data) {
   return (data.activities || []).map((record) => ({
@@ -502,7 +516,7 @@ export function scope(data, selection) {
     return (
       (!selection.propertyId || c.propertyId === selection.propertyId) &&
       (!selection.unit || c.unitId === selection.unit) &&
-      (!selection.owner || (c.ownerOrgId || p.ownerOrgId) === selection.owner) &&
+      (!selection.owner || p.ownerPartyId === selection.owner) &&
       (!selection.person ||
         responsible(data, "properties", p) === selection.person ||
         allItems.some(
@@ -526,7 +540,7 @@ export function scope(data, selection) {
       (!data.contracts.some((c) => c.propertyId === p.id) &&
         (!selection.propertyId || p.id === selection.propertyId) &&
         !selection.unit &&
-        (!selection.owner || p.ownerOrgId === selection.owner) &&
+        (!selection.owner || p.ownerPartyId === selection.owner) &&
         (!selection.person ||
           responsible(data, "properties", p) === selection.person ||
           allItems.some(
@@ -636,14 +650,11 @@ export function resolveReview(data, id, decision, targetId, actor) {
         : "confirmed";
     }
     if (decision === "reject" && person?.provisional) {
-      data.contacts = data.contacts.filter((x) => x.personId !== person.id);
-      data.properties.forEach((x) => {
-        if (x.responsiblePersonId === person.id) x.responsiblePersonId = "";
-      });
-      data.activities.forEach((x) => {
-        if (x.responsiblePersonId === person.id) x.responsiblePersonId = "";
-        if (x.orderedByPersonId === person.id) x.orderedByPersonId = "";
-      });
+      data.contacts = [];
+      data.properties.forEach((x) => { if (x.responsiblePersonId === person.id) x.responsiblePersonId = ""; if (x.ownerResponsiblePersonId === person.id) x.ownerResponsiblePersonId = ""; });
+      data.contracts.forEach((x) => { if (x.businessResponsiblePersonId === person.id) x.businessResponsiblePersonId = ""; });
+      data.activities.forEach((x) => { if (x.responsiblePersonId === person.id) x.responsiblePersonId = ""; });
+      (data.orders||[]).forEach((x) => { if (x.orderedByPersonId === person.id) x.orderedByPersonId = ""; });
       data.people = data.people.filter((x) => x.id !== person.id);
     }
     item.status = decision === "accept" ? "accepted" : "rejected";
