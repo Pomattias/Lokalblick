@@ -47,7 +47,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     tenantOrgId: "Hyresgäst",
     organizationId: "Organisation",
     personId: "Person",
-    responsiblePersonId: "Ansvarig",
+    responsiblePersonId: "Ansvarig hos oss",
     targetType: "Posttyp",
     targetId: "Post",
   };
@@ -65,8 +65,8 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
       if (!fields.has(k))
         fields.set(k, k === "responsiblePersonId" ? "Ansvarig" : k);
     });
-  if (["projects", "maintenance", "wishes", "driftIssues"].includes(col))
-    fields.set("responsiblePersonId", "Ansvarig");
+  if (["properties", "activities"].includes(col))
+    fields.set("responsiblePersonId", "Ansvarig hos oss");
   const groups = new Map();
   fields.forEach((label, key) => {
     const g = group(key);
