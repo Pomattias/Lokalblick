@@ -22,14 +22,23 @@ synthetic browser-storage exception remain unchanged.
 User-owned entities support `GET /api/{entity}`, `POST /api/{entity}`,
 `GET /api/{entity}/{id}`, `PATCH /api/{entity}/{id}`, and
 `DELETE /api/{entity}/{id}`. Canonical business entities are
-`organizations`, `people`, `contacts`, `activities`,
-`maintenance-status`, `operations`, `budget-data`, and overlays.
+`organizations` (shown as **Parter** in the UI/Excel), `people`,
+`activities`, `orders`, `maintenance-status`, `operations`,
+`budget-data`, and overlays.
 
-Responsibility is stored directly as `responsiblePersonId` on a property
-overlay or activity. External/role-based relations use `contacts`. Legacy
-`assignments`, `projects`, `maintenance`, `drift-issues`, `wishes`,
-and `investigations` are migration inputs only and are not active API
-entities.
+Responsibility is explicit rather than generic. A property overlay may carry
+`ownerPartyId`, `ownerResponsiblePersonId`, and `responsiblePersonId`
+(our property responsibility). A contract overlay may carry
+`businessPartyId`, `businessName`, and `businessResponsiblePersonId`.
+An activity may carry its own `responsiblePersonId`; it is intentionally
+independent from the property's responsible person. Orders are separate
+records linked by `activityId`.
+
+`contacts` and legacy `assignments`, `projects`, `maintenance`,
+`drift-issues`, `wishes`, and `investigations` are migration inputs
+only and are not active API entities. Existing external contacts are migrated
+to the explicit property/contract responsibility fields. Existing order
+fields on activities are migrated to `orders`.
 
 Properties and imported contracts are read-only LEB core. Their DELETE
 operations persist backend tombstones; editable property and contract
@@ -45,3 +54,12 @@ completions belong in property overlays and contract overlays.
 
 The client must never send a filesystem path, workbook, credential, or direct
 source-system write request.
+
+
+## Budget persistence
+
+Working budget values are calculated live from agreements, activities and
+orders. `budget-data` keeps the budget header/metadata and UI workspace
+metadata. Budget rows become a frozen snapshot only when a budget is locked.
+After locking, follow-up compares the frozen budget with current forecast,
+ordered values and outcome without rewriting the locked baseline.
