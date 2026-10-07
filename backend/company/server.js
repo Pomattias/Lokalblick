@@ -5,6 +5,11 @@ import { fileURLToPath } from "node:url";
 import { LokalblickRepository } from "./data-repository.js";
 import { loadLocalEnvironment } from "./env.js";
 import { LocalCompanySourceAdapter } from "./adapters/local-company-source-adapter.js";
+import {
+  geocodeProperties,
+  isGeocodingConfigured,
+  geocodingProvider
+} from "../src/geocoding-service.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const FRONTEND = path.join(ROOT, "frontend");
@@ -160,7 +165,39 @@ export function createLokalblickServer(repository, { host = DEFAULT_HOST, port =
         return;
       }
       if (pathname === "/api/health" && request.method === "GET") {
-        return sendJson(response, 200, { status: "ok" });
+        return sendJson(response, 200, {
+          ok: true,
+          status: "ok",
+          geocoding: {
+            configured: isGeocodingConfigured(),
+            provider: geocodingProvider()
+          }
+        });
+      }
+      if (pathname === "/api/geocode" && request.method === "POST") {
+        const body = await readJson(request);
+        try {
+          const results = await geocodeProperties(body.properties || []);
+          return sendJson(response, 200, { results });
+        } catch (error) {
+          return sendJson(response, error.statusCode || 500, {
+            error: error.message || "Geokodningen misslyckades.",
+            code: error.code || "GEOCODING_ERROR"
+          });
+        }
+      }
+      if (pathname === "/runtime-config.js" && request.method === "GET") {
+        const cartoKey = process.env.VITE_CARTO_API_KEY || process.env.CARTO_API_KEY || "";
+        response.writeHead(200, {
+          "Content-Type": "text/javascript; charset=utf-8",
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff"
+        });
+        response.end(
+          "window.LokalblickRuntime=Object.assign({},window.LokalblickRuntime||{},{" +
+          "cartoApiKey:" + JSON.stringify(cartoKey) + "});"
+        );
+        return;
       }
       if (pathname === "/api/source/status" && request.method === "GET") {
         return sendJson(response, 200, statusPayload(await repository.status()));
