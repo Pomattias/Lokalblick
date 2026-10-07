@@ -180,6 +180,24 @@ test("contract enrichment maps rent inputs and calculates current indexed rent",
   assert.equal(Math.round(value.amount), 119558);
 });
 
+test("budget snapshot resolves the exact October index used", () => {
+  const fixed = C.budgetIndex({ indexSeries: series }, 2026, 999);
+  assert.deepEqual(
+    plain(fixed),
+    { year: 2025, value: 400, source: "known", status: "Fastställd" },
+  );
+  const preliminary = C.budgetIndex({ indexSeries: series }, 2027, 425);
+  assert.deepEqual(
+    plain(preliminary),
+    {
+      year: 2026,
+      value: 425,
+      source: "Preliminärt budgetindex",
+      status: "Preliminär",
+    },
+  );
+});
+
 test("known index takes precedence; preliminary index is used before October exists", () => {
   const data = normalize({
     isDemo: false,
@@ -392,6 +410,9 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
         year: 2026,
         status: "Låst",
         lockedBy: "Test",
+        lockedIndexYear: 2025,
+        lockedIndexValue: 400,
+        lockedIndexSource: "known",
         targets: { Underhåll: 300 },
         lines: [
           {
@@ -415,18 +436,9 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
   );
   const workbookOut = XLSX.read(bytes, { type: "buffer" });
   assert.ok(workbookOut.Sheets.Aktiviteter);
-  assert.ok(workbookOut.Sheets.Index);
+  assert.equal(Boolean(workbookOut.Sheets.Index), false);
   assert.equal(Boolean(workbookOut.Sheets.KPI), false);
-  const indexRows = XLSX.utils.sheet_to_json(workbookOut.Sheets.Index, { defval: "" });
-  assert.ok(
-    indexRows.some(
-      (row) =>
-        Number(row["År"]) === 2025 &&
-        Number(row["Månad"]) === 10 &&
-        Number(row["Indextal"]) === 419.35 &&
-        String(row["Serie basår"]) === "1980",
-    ),
-  );
+  assert.ok(workbookOut.Sheets["Tilläggsdata"]);
   assert.equal(Boolean(workbookOut.Sheets.Projekt), false);
   assert.equal(Boolean(workbookOut.Sheets.Underhåll), false);
   assert.equal(Boolean(workbookOut.Sheets.Ansvar), false);
@@ -454,7 +466,11 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
   assert.equal(out.maintenanceStatus[0].status, "Bra");
   assert.equal(out.auditLog[0].action, "Ändrad");
   assert.equal(out.auditLog[0].fields[0].field, "estimatedCost");
+  assert.equal(out.indexSeries.length, series.length);
   assert.equal(out.indexSeries[0].seriesBase, "1980");
+  assert.equal(out.budgetPlans[0].lockedIndexYear, 2025);
+  assert.equal(out.budgetPlans[0].lockedIndexValue, 400);
+  assert.equal(out.budgetPlans[0].lockedIndexSource, "known");
   assert.equal(out.budgetPlans[0].lines[0].sourceId, "uh1");
   assert.equal(out.budgetPlans[0].lines[0].sourceType, "activity");
   assert.equal(out.budgetPlans[0].lockedBy, "Test");
@@ -487,7 +503,10 @@ test("missing city can be completed once and persists to Lokalblick-data with au
   const out = api.workbookToData(XLSX.read(bytes, { type: "buffer" }));
   assert.equal(out.properties.find((x) => x.id === "p1").city, "Malmö");
   assert.equal(out.properties.find((x) => x.id === "p2").city, "Malmö");
-  assert.ok(out.indexSeries.some((x) => Number(x.year) === 2025 && Number(x.value) === 419.35));
+  assert.equal(out.indexSeries.length, 0);
+  const workbookOut = XLSX.read(bytes, { type: "buffer" });
+  assert.equal(Boolean(workbookOut.Sheets.Index), false);
+  assert.equal(Boolean(workbookOut.Sheets.KPI), false);
 });
 
 test("metadata-only edits contribute to pending changes", () => {
