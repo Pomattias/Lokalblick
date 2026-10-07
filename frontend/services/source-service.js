@@ -167,7 +167,7 @@
 
   function diffData(before, after) {
     let changes = [];
-    SCHEMAS.forEach(function(schema) {
+    SCHEMAS.concat([ACTIVITY_SCHEMA]).forEach(function(schema) {
       changes = changes.concat(diffLists((before || {})[schema.key], (after || {})[schema.key], schema));
     });
     const oldPlans = (before && before.budgetPlans) || [];
@@ -931,11 +931,12 @@
     });
     const base = blank ? {
       isDemo:false, sourceName:handle.name || "Lokalblick-data.xlsx",
-      properties:[], contracts:[], organizations:[], people:[], assignments:[], activities:[], projects:[], maintenance:[],
-      operations:[], investigations:[], maintenanceStatus:[], driftIssues:[], wishes:[], budgetPlans:[], assignmentChanges:[], indexSeries:[]
+      properties:[], contracts:[], organizations:[], people:[], contacts:[], activities:[],
+      operations:[], maintenanceStatus:[], budgetPlans:[], auditLog:[], sourceRegistry:[], importReview:[], documents:[], indexSeries:[]
     } : clone(data || {});
     base.isDemo = false;
     base.sourceName = handle.name || "Lokalblick-data.xlsx";
+    canonicalizeModel(base);
     const workbook = dataToWorkbook(base);
     const bytes = XLSX.write(workbook, { bookType:"xlsx", type:"array" });
     await writeBytes(handle, bytes);
