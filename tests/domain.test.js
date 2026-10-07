@@ -131,6 +131,55 @@ test("SCB October KPI calculates current rent without a separate KPI import", ()
       0.001,
   );
 });
+test("contract enrichment maps rent inputs and calculates current indexed rent", () => {
+  const svc = services();
+  const w = workbook({
+    Avtalsdata: [
+      [
+        "Fastighetsbeteckning",
+        "Adress",
+        "Avtalsnummer",
+        "Verksamhet",
+        "Hyresvärd",
+        "Bashyra",
+        "Basår",
+        "Index %",
+        "kvm",
+      ],
+      [
+        "TEST 1",
+        "Testgatan 1",
+        "A-1",
+        "Vårdbo",
+        "Ägaren AB",
+        100000,
+        2020,
+        80,
+        100,
+      ],
+    ],
+  });
+  const base = normalize({
+    isDemo: false,
+    contracts: [{ id: "c1", number: "A-1", propertyId: "p1", area: 100 }],
+    properties: [
+      { id: "p1", address: "Testgatan 1", designation: "TEST 1" },
+    ],
+  });
+  const enriched = svc.LokalblickContractEnrichmentAdapter.enrich(
+    w,
+    base,
+    "hyresdata.xlsx",
+  );
+  const c = enriched.data.contracts[0];
+  const value = C.component(c, "rent", 2026, 0, enriched.data.indexSeries);
+  assert.equal(c.baseRent, 100000);
+  assert.equal(c.rentBaseYear, 2020);
+  assert.equal(c.rentIndexPercent, 0.8);
+  assert.equal(value.status, "Beräknad");
+  assert.equal(Math.round(value.amount), 119558);
+});
+
 test("known index takes precedence; preliminary index is used before October exists", () => {
   const data = normalize({
     isDemo: false,
