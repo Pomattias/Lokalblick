@@ -264,17 +264,56 @@ export function sources(data, transport) {
   const st = transport.status(),
     company = transport.company();
   const reviews = data.importReview.filter((x) => x.status === "pending");
-  return `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och organisationer</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Read-only underlag. Skapa Lokalblick-data innan du ändrar eller berikar." : "Källunderlag läses. Godkända ändringar sparas i Lokalblick-data."}</p>${company ? "" : `<div class="actions"><button data-source="connect">Anslut arbetsfil / INT–EXT</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom arbetsfil</button><button data-source="enrich" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika avtal</button><button data-source="index" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs KPI</button><label>Kompletterande lista<select id="supplement-kind"><option value="projects">Projekt</option><option value="maintenance">Underhåll</option><option value="driftIssues">Driftärenden</option><option value="wishes">Önskemål</option><option value="operations">Driftbudget / utfall</option></select></label><button data-source="supplement" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs lista</button></div>`}</section>${table(
-    ["Källa", "Typ", "Poster", "Importerad"],
+  return `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och organisationer</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Read-only underlag. Skapa Lokalblick-data innan du ändrar eller berikar." : "Källunderlag läses. Godkända ändringar sparas i Lokalblick-data."}</p>${company ? "" : `<div class="actions"><button data-source="connect">Anslut arbetsfil / INT–EXT</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom arbetsfil</button><button data-source="enrich" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika avtal</button><button data-source="operational" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika fastigheter & åtgärder</button><button data-source="index" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs KPI</button><label>Kompletterande lista<select id="supplement-kind"><option value="projects">Projekt</option><option value="maintenance">Underhåll</option><option value="driftIssues">Driftärenden</option><option value="wishes">Önskemål</option><option value="operations">Driftbudget / utfall</option></select></label><button data-source="supplement" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs lista</button></div>`}</section>${table(
+    ["Källa", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
     data.sourceRegistry.map((x) =>
-      row([esc(x.name), esc(x.kind), num(x.rows), esc(x.importedAt)]),
+      row([
+        esc(x.name),
+        esc(x.kind),
+        num(x.rows),
+        num(x.matched || 0),
+        num(x.created || 0),
+        num(x.review || 0),
+        esc(x.importedAt),
+      ]),
     ),
   )}<h3>Behöver granskas (${reviews.length})</h3>${
     reviews
       .map(
         (x) =>
-          `<section class="review"><div><strong>${esc(x.kind === "match" ? "Avtalsmatchning" : x.kind === "record" ? "Import till " + (kinds[x.collection] || x.collection) : x.field)}</strong><small>${esc(x.source)} · rad ${esc(x.row)}</small><p>${x.kind === "conflict" ? `${esc(x.current)} → ${esc(x.proposed)}` : esc([x.record?.name, x.record?.title, x.record?.number, x.record?.address, x.address, x.record?.use].filter(Boolean).join(" · "))}</p></div><div class="actions">${
-            x.kind === "record"
+          `<section class="review"><div><strong>${esc(
+            x.kind === "match"
+              ? "Avtalsmatchning"
+              : x.kind === "record"
+                ? "Import till " + (kinds[x.collection] || x.collection)
+                : x.kind === "person"
+                  ? "Komplettera person"
+                  : x.kind === "activity-property"
+                    ? "Koppla aktivitet till fastighet"
+                    : x.kind === "property-match"
+                      ? "Kontrollera fastighetsmatchning"
+                      : x.kind === "operational-conflict"
+                        ? "Datakonflikt · " + (x.field || "")
+                        : x.field || x.kind,
+          )}</strong><small>${esc(x.source)} · rad ${esc(x.row)}</small><p>${
+            x.kind === "conflict" || x.kind === "operational-conflict"
+              ? `${esc(x.current)} → ${esc(x.proposed)}`
+              : esc(
+                  [
+                    x.personName,
+                    x.record?.name,
+                    x.record?.title,
+                    x.record?.number,
+                    x.record?.address,
+                    x.address,
+                    x.record?.use,
+                    x.message,
+                  ]
+                    .filter(Boolean)
+                    .join(" · "),
+                )
+          }</p></div><div class="actions">${
+            ["record", "activity-property", "property-match"].includes(x.kind)
               ? `<label>Fastighet<select data-review-target="${esc(x.id)}">${options(
                   data.properties,
                   (p) => p.id,
