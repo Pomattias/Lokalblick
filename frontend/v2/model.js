@@ -3,17 +3,11 @@ export const collections = [
   "contracts",
   "organizations",
   "people",
-  "assignments",
+  "contacts",
   "activities",
-  "projects",
-  "maintenance",
   "operations",
-  "investigations",
   "maintenanceStatus",
-  "driftIssues",
-  "wishes",
   "budgetPlans",
-  "assignmentChanges",
   "auditLog",
   "indexSeries",
   "sourceRegistry",
@@ -21,22 +15,337 @@ export const collections = [
   "documents",
 ];
 export const kinds = {
-  projects: "Projekt",
-  maintenance: "Underhåll",
+  activities: "Aktivitet",
+  operations: "Kostnad",
   maintenanceStatus: "Status",
-  driftIssues: "Drift",
-  wishes: "Önskemål",
-  investigations: "Utredning",
-  operations: "Driftkostnad",
 };
 export const clone = (x) => JSON.parse(JSON.stringify(x));
+
+const legacyCollections = [
+  "assignments",
+  "projects",
+  "maintenance",
+  "investigations",
+  "driftIssues",
+  "wishes",
+  "assignmentChanges",
+];
+
+function orderFields(item) {
+  return {
+    orderedAt: item.orderedAt || "",
+    orderedBy: item.orderedBy || "",
+    orderedByPersonId: item.orderedByPersonId || "",
+    supplier: item.supplier || "",
+    orderReference: item.orderReference || "",
+    orderedCost: Number(item.orderedCost) || 0,
+    deliveryText: item.deliveryText || "",
+    completedAt: item.completedAt || item.completedDate || "",
+    finalCost: Number(item.finalCost) || 0,
+    paymentStatus: item.paymentStatus || "",
+    paidAt: item.paidAt || "",
+    invoiceComment: item.invoiceComment || "",
+    sourceId: item.sourceId || "",
+    sourceSheet: item.sourceSheet || "",
+    sourceRow: item.sourceRow || "",
+    ownerPays: item.ownerPays || "",
+  };
+}
+function legacyActivities(out) {
+  const rows = [];
+  const push = (activity) => {
+    if (!activity?.id || rows.some((x) => x.id === activity.id)) return;
+    rows.push(activity);
+  };
+  (out.projects || []).forEach((item) => {
+    const execution = Number(item.budgetExecution) || 0;
+    const furnishing = Number(item.budgetFurnishing) || 0;
+    push({
+      id: item.id,
+      type: "Projekt",
+      propertyId: item.propertyId || "",
+      contractId: item.contractId || "",
+      responsiblePersonId: item.responsiblePersonId || "",
+      title: item.name || "",
+      description: item.description || "",
+      category: "",
+      status: item.status || "",
+      priority: "",
+      planningYear: item.budgetYear || "",
+      planningQuarter: item.planningQuarter || "",
+      planningMonth: item.planningMonth || "",
+      budgetCategory: "Projekt",
+      estimatedCost:
+        execution + furnishing || Number(item.preliminaryCost) || 0,
+      investigationCost: Number(item.budgetInvestigation) || 0,
+      phase: item.phase || "",
+      startDate: item.start || "",
+      endDate: item.end || "",
+      ...orderFields(item),
+    });
+  });
+  (out.maintenance || []).forEach((item) =>
+    push({
+      id: item.id,
+      type: "Underhåll",
+      propertyId: item.propertyId || "",
+      contractId: item.contractId || "",
+      responsiblePersonId: item.responsiblePersonId || "",
+      title: item.title || "",
+      description: item.description || "",
+      category: item.category || "",
+      status: item.status || "",
+      priority: item.priority || "",
+      planningYear: item.year || "",
+      planningQuarter: item.planningQuarter || "",
+      planningMonth: item.planningMonth || "",
+      budgetCategory: "Underhåll",
+      estimatedCost: Number(item.cost) || 0,
+      investigationCost: 0,
+      phase: "",
+      startDate: "",
+      endDate: "",
+      ...orderFields(item),
+    }),
+  );
+  (out.driftIssues || []).forEach((item) =>
+    push({
+      id: item.id,
+      type: "Drift",
+      propertyId: item.propertyId || "",
+      contractId: item.contractId || "",
+      responsiblePersonId: item.responsiblePersonId || "",
+      title: item.title || "",
+      description: item.description || "",
+      category: item.category || "",
+      status: item.status || "",
+      priority: item.priority || "",
+      planningYear: item.budgetYear || "",
+      planningQuarter: item.planningQuarter || "",
+      planningMonth: item.planningMonth || "",
+      budgetCategory: "Driftkostnader",
+      estimatedCost: Number(item.estimatedCost) || 0,
+      investigationCost: 0,
+      phase: "",
+      startDate: item.createdDate || "",
+      endDate: item.targetDate || "",
+      ...orderFields(item),
+    }),
+  );
+  (out.wishes || []).forEach((item) =>
+    push({
+      id: item.id,
+      type: "Önskemål",
+      propertyId: item.propertyId || "",
+      contractId: item.contractId || "",
+      responsiblePersonId: item.responsiblePersonId || "",
+      title: item.title || "",
+      description: item.description || "",
+      category: item.category || "",
+      status: item.status || "",
+      priority: item.priority || "",
+      planningYear: item.budgetYear || "",
+      planningQuarter: item.planningQuarter || "",
+      planningMonth: item.planningMonth || "",
+      budgetCategory: item.budgetCategory || "Ej budget",
+      estimatedCost: Number(item.estimatedCost) || 0,
+      investigationCost: 0,
+      phase: "",
+      startDate: item.createdDate || "",
+      endDate: item.targetDate || "",
+      ...orderFields(item),
+    }),
+  );
+  (out.investigations || []).forEach((item) =>
+    push({
+      id: item.id,
+      type: "Utredning",
+      propertyId: item.propertyId || "",
+      contractId: item.contractId || "",
+      responsiblePersonId: item.responsiblePersonId || "",
+      title: item.title || "",
+      description: item.description || "",
+      category: item.category || "",
+      status: item.status || "",
+      priority: item.priority || "",
+      planningYear: item.year || "",
+      planningQuarter: item.planningQuarter || "",
+      planningMonth: item.planningMonth || "",
+      budgetCategory: "Utredningar",
+      estimatedCost: Number(item.cost) || 0,
+      investigationCost: 0,
+      phase: "",
+      startDate: "",
+      endDate: "",
+      ...orderFields(item),
+    }),
+  );
+  return rows;
+}
+function legacyType(type) {
+  return {
+    project: "Projekt",
+    maintenance: "Underhåll",
+    driftIssue: "Drift",
+    wish: "Önskemål",
+    investigation: "Utredning",
+  }[type];
+}
+function addContact(out, assignment, targetType, targetId, role) {
+  if (!assignment?.personId || !targetId) return;
+  const normalized = targetType === "object" ? "contract" : targetType;
+  if (!["property", "contract"].includes(normalized)) return;
+  const exists = out.contacts.some(
+    (x) =>
+      x.personId === assignment.personId &&
+      x.targetType === normalized &&
+      x.targetId === targetId &&
+      (x.role || "") === (role || "") &&
+      !x.toDate,
+  );
+  if (!exists)
+    out.contacts.push({
+      id: assignment.id || crypto.randomUUID(),
+      personId: assignment.personId,
+      targetType: normalized,
+      targetId,
+      role: role || "Kontakt",
+      fromDate: assignment.fromDate || "",
+      toDate: assignment.toDate || "",
+    });
+}
+function migrateLegacy(out) {
+  const byActivity = new Map(out.activities.map((x) => [x.id, x]));
+  for (const activity of legacyActivities(out)) {
+    if (!byActivity.has(activity.id)) {
+      out.activities.push(activity);
+      byActivity.set(activity.id, activity);
+    }
+  }
+  (out.maintenanceStatus || []).forEach((status) => {
+    if (!status.actionNeed && !(Number(status.estimatedCost) > 0)) return;
+    const id = "STATUS-ACT|" + status.id;
+    if (byActivity.has(id)) return;
+    const activity = {
+      id,
+      type: "Underhåll",
+      propertyId: status.propertyId || "",
+      contractId: status.contractId || "",
+      responsiblePersonId: status.responsiblePersonId || "",
+      title:
+        [status.category, status.actionNeed].filter(Boolean).join(" · ") ||
+        "Åtgärdsbehov",
+      description: status.comment || "",
+      category: status.category || "",
+      status: /bra/i.test(String(status.status || ""))
+        ? "Identifierad"
+        : status.status || "Identifierad",
+      priority: status.priority || "",
+      planningYear: status.budgetYear || "",
+      planningQuarter: status.planningQuarter || "",
+      planningMonth: status.planningMonth || "",
+      budgetCategory: "Underhåll",
+      estimatedCost: Number(status.estimatedCost) || 0,
+      investigationCost: 0,
+      phase: "",
+      startDate: status.assessedDate || "",
+      endDate: "",
+      sourceId: status.id,
+      sourceSheet: "Status",
+      sourceRow: "",
+    };
+    out.activities.push(activity);
+    byActivity.set(id, activity);
+  });
+
+  const personName = (id) => out.people.find((x) => x.id === id)?.name || "";
+  (out.assignments || []).forEach((assignment) => {
+    if (assignment.toDate) return;
+    if (assignment.targetType === "property" && assignment.role === "Ansvarig") {
+      const property = out.properties.find((x) => x.id === assignment.targetId);
+      if (property && !property.responsiblePersonId)
+        property.responsiblePersonId = assignment.personId;
+      return;
+    }
+    if (assignment.targetType === "activity" && assignment.role === "Ansvarig") {
+      const activity = byActivity.get(assignment.targetId);
+      if (activity && !activity.responsiblePersonId)
+        activity.responsiblePersonId = assignment.personId;
+      return;
+    }
+    const mappedType = legacyType(assignment.targetType);
+    if (mappedType && assignment.role === "Ansvarig") {
+      const activity = byActivity.get(assignment.targetId);
+      if (activity && !activity.responsiblePersonId)
+        activity.responsiblePersonId = assignment.personId;
+      return;
+    }
+    if (
+      (assignment.targetType === "activity" || mappedType) &&
+      assignment.role === "Beställare"
+    ) {
+      const activity = byActivity.get(assignment.targetId);
+      if (activity) {
+        activity.orderedByPersonId ||= assignment.personId;
+        activity.orderedBy ||= personName(assignment.personId);
+      }
+      return;
+    }
+    if (assignment.targetType === "object" && assignment.role === "Ansvarig")
+      addContact(
+        out,
+        assignment,
+        "contract",
+        assignment.targetId,
+        "Avtalsansvarig",
+      );
+    else
+      addContact(
+        out,
+        assignment,
+        assignment.targetType,
+        assignment.targetId,
+        assignment.role,
+      );
+  });
+
+  (out.assignmentChanges || []).forEach((change) => {
+    const id =
+      "legacy-assignment|" +
+      String(change.id || change.changedAt || change.targetId || "");
+    if (out.auditLog.some((x) => x.id === id)) return;
+    out.auditLog.push({
+      id,
+      at: change.changedAt || "",
+      by: change.changedBy || "Migrerad historik",
+      collection: "responsibility",
+      recordId: change.targetId || "",
+      action: "Ansvar ändrat",
+      fields: [
+        {
+          field: "responsiblePersonId",
+          from: change.fromPersonId || "",
+          to: change.toPersonId || "",
+        },
+      ],
+    });
+  });
+  legacyCollections.forEach((key) => {
+    out[key] = [];
+  });
+  (out.maintenanceStatus || []).forEach((status) => {
+    delete status.responsiblePersonId;
+  });
+  return out;
+}
+
 export function normalize(data) {
   const out = clone(data || {});
   const metadata = (out.budgetData || []).find(
     (x) => x.id === "lokalblick-v2-workspace",
   );
   if (metadata) Object.assign(out, metadata.workspace);
-  collections.forEach((k) => {
+  [...collections, ...legacyCollections].forEach((k) => {
     if (!Array.isArray(out[k])) out[k] = [];
   });
   out.contracts.forEach((c) => {
@@ -44,59 +353,30 @@ export function normalize(data) {
     c.end = c.end ?? c.currentValidTo ?? "";
     c.notice = c.notice ?? c.noticeBy ?? "";
   });
-  return out;
+  return migrateLegacy(out);
 }
 export function activities(data) {
-  return Object.entries(kinds).flatMap(([collection, label]) =>
-    (data[collection] || []).map((record) => ({
-      collection,
-      label,
-      record,
-      propertyId:
-        record.propertyId ||
-        data.contracts.find((c) => c.id === record.contractId)?.propertyId ||
-        "",
-      title: record.title || record.name || record.category || record.id,
-      cost:
-        Number(
-          record.estimatedCost ??
-            record.cost ??
-            record.preliminaryCost ??
-            record.budget,
-        ) || 0,
-    })),
-  );
-}
-function legacyAssignmentType(collection) {
-  return {
-    properties: "property",
-    contracts: "object",
-    projects: "project",
-    maintenance: "maintenance",
-    maintenanceStatus: "maintenanceStatus",
-    driftIssues: "driftIssue",
-    wishes: "wish",
-    investigations: "investigation",
-    operations: "operation",
-  }[collection] || collection;
-}
-function canonicalAssignmentType(collection) {
-  return Object.prototype.hasOwnProperty.call(kinds, collection)
-    ? "activity"
-    : legacyAssignmentType(collection);
+  return (data.activities || []).map((record) => ({
+    collection: "activities",
+    label: record.type || "Aktivitet",
+    record,
+    propertyId:
+      record.propertyId ||
+      data.contracts.find((c) => c.id === record.contractId)?.propertyId ||
+      "",
+    title: record.title || record.category || record.id,
+    cost: Number(record.estimatedCost) || 0,
+  }));
 }
 export function responsible(data, collection, record) {
-  const canonical = canonicalAssignmentType(collection);
-  const legacy = legacyAssignmentType(collection);
-  const matches = (data.assignments || []).filter(
-    (a) =>
-      a.targetId === record.id &&
-      !a.toDate &&
-      (a.targetType === canonical || a.targetType === legacy),
-  );
-  const assigned =
-    matches.find((a) => a.role === "Ansvarig") || matches[0];
-  return assigned?.personId || record.responsiblePersonId || "";
+  if (!record) return "";
+  if (collection === "properties") return record.responsiblePersonId || "";
+  if (collection === "activities") return record.responsiblePersonId || "";
+  if (collection === "contracts") {
+    const property = data.properties.find((x) => x.id === record.propertyId);
+    return property?.responsiblePersonId || "";
+  }
+  return "";
 }
 export function scope(data, selection) {
   const allItems = activities(data);
@@ -107,13 +387,12 @@ export function scope(data, selection) {
       (!selection.unit || c.unitId === selection.unit) &&
       (!selection.owner || (c.ownerOrgId || p.owner) === selection.owner) &&
       (!selection.person ||
-        responsible(data, "contracts", c) === selection.person ||
         responsible(data, "properties", p) === selection.person ||
         allItems.some(
           (x) =>
             (x.record.contractId === c.id ||
               (!x.record.contractId && x.propertyId === c.propertyId)) &&
-            responsible(data, x.collection, x.record) === selection.person,
+            responsible(data, "activities", x.record) === selection.person,
         )) &&
       (!selection.q ||
         [c.number, c.use, p.address, p.designation]
@@ -122,9 +401,8 @@ export function scope(data, selection) {
           .includes(selection.q.toLocaleLowerCase("sv")))
     );
   });
-  const cids = new Set(contracts.map((x) => x.id)),
-    pids = new Set(contracts.map((x) => x.propertyId));
-  // Properties with no contracts remain visible when no contract-level filter excludes them.
+  const cids = new Set(contracts.map((x) => x.id));
+  const pids = new Set(contracts.map((x) => x.propertyId));
   const properties = data.properties.filter(
     (p) =>
       pids.has(p.id) ||
@@ -137,7 +415,7 @@ export function scope(data, selection) {
           allItems.some(
             (x) =>
               x.propertyId === p.id &&
-              responsible(data, x.collection, x.record) === selection.person,
+              responsible(data, "activities", x.record) === selection.person,
           )) &&
         (!selection.q ||
           [p.address, p.designation]
@@ -146,7 +424,7 @@ export function scope(data, selection) {
             .includes(selection.q.toLocaleLowerCase("sv")))),
   );
   properties.forEach((p) => pids.add(p.id));
-  const items = activities(data).filter((x) =>
+  const items = allItems.filter((x) =>
     x.record.contractId
       ? cids.has(x.record.contractId)
       : pids.has(x.propertyId),
@@ -161,80 +439,61 @@ export function audit(data, collection, id, before, after, actor) {
     by: actor,
     collection,
     recordId: id,
-    action: !Object.keys(before).length ? "Skapad" : !Object.keys(after).length ? "Raderad" : "Ändrad",
-    fields: [...new Set([...Object.keys(before),...Object.keys(after)])]
-      .filter((k) => !["versions","createdAt","createdBy","updatedAt","updatedBy"].includes(k) && JSON.stringify(before[k]) !== JSON.stringify(after[k]))
-      .map((k) => ({ field: k, from: before[k] ?? "", to: after[k] ?? "" })),
+    action: !Object.keys(before).length
+      ? "Skapad"
+      : !Object.keys(after).length
+        ? "Raderad"
+        : "Ändrad",
+    fields: [...new Set([...Object.keys(before), ...Object.keys(after)])]
+      .filter(
+        (k) =>
+          !["versions", "createdAt", "createdBy", "updatedAt", "updatedBy"].includes(
+            k,
+          ) && JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+      )
+      .map((k) => ({
+        field: k,
+        from: before[k] ?? "",
+        to: after[k] ?? "",
+      })),
   });
 }
 export function assign(data, collection, id, person, actor) {
-  const record = data[collection].find((x) => x.id === id);
-  if (!record) throw Error("Posten finns inte");
-  const old = responsible(data, collection, record);
-  if (old === person) return;
-  const at = new Date().toISOString();
-  const type = canonicalAssignmentType(collection);
-  const legacy = legacyAssignmentType(collection);
-  data.assignments
-    .filter(
-      (a) =>
-        a.targetId === id &&
-        !a.toDate &&
-        (a.targetType === type || a.targetType === legacy),
+  let targetCollection = collection;
+  if (!["properties", "activities"].includes(targetCollection)) {
+    if (
+      ["projects", "maintenance", "driftIssues", "wishes", "investigations"].includes(
+        targetCollection,
+      )
     )
-    .forEach((a) => {
-      a.toDate = at.slice(0, 10);
-    });
-  if (person)
-    data.assignments.push({
-      id: crypto.randomUUID(),
-      personId: person,
-      targetType: type,
-      targetId: id,
-      role: "Ansvarig",
-      fromDate: at.slice(0, 10),
-      toDate: "",
-    });
-  data.assignmentChanges.push({
-    id: crypto.randomUUID(),
-    targetType: type,
-    targetId: id,
-    fromPersonId: old,
-    toPersonId: person,
-    changedAt: at,
-    changedBy: actor,
-  });
+      targetCollection = "activities";
+    else throw Error("Ansvar kan sättas på fastighet eller aktivitet");
+  }
+  const record = data[targetCollection].find((x) => x.id === id);
+  if (!record) throw Error("Posten finns inte");
+  const old = record.responsiblePersonId || "";
+  if (old === person) return;
+  const before = clone(record);
+  record.responsiblePersonId = person || "";
+  audit(data, targetCollection, id, before, record, actor);
 }
 export function moveWish(data, id, target, actor) {
-  if (!["maintenance", "driftIssues"].includes(target))
-    throw Error("Ogiltig målsamling");
-  const i = data.wishes.findIndex((x) => x.id === id);
-  if (i < 0) throw Error("Önskemålet saknas");
-  const wish = data.wishes[i];
-  const record = {
-    ...wish,
-    originWishId: id,
-    year: Number(wish.budgetYear) || new Date().getFullYear() + 1,
-    cost: Number(wish.estimatedCost) || 0,
-    includeInBudget: "Ja",
-    status: "Planerad",
-  };
-  data.assignments
-    .filter((a) => a.targetType === "wish" && a.targetId === id)
-    .forEach((a) => {
-      a.targetType = "activity";
-    });
-  data[target].push(record);
-  data.wishes.splice(i, 1);
-  data.auditLog.push({
-    id: crypto.randomUUID(),
-    at: new Date().toISOString(),
-    by: actor,
-    collection: target,
-    recordId: id,
-    action: "Flyttad från önskemål",
-    fields: [],
-  });
+  const nextType =
+    target === "maintenance" || target === "Underhåll"
+      ? "Underhåll"
+      : target === "driftIssues" || target === "Drift"
+        ? "Drift"
+        : "";
+  if (!nextType) throw Error("Ogiltig aktivitetstyp");
+  const activity = data.activities.find((x) => x.id === id);
+  if (!activity || activity.type !== "Önskemål")
+    throw Error("Önskemålet saknas");
+  const before = clone(activity);
+  activity.type = nextType;
+  activity.status = "Planerad";
+  activity.budgetCategory =
+    nextType === "Underhåll" ? "Underhåll" : "Driftkostnader";
+  audit(data, "activities", id, before, activity, actor);
 }
 export function resolveReview(data, id, decision, targetId, actor) {
   const item = data.importReview.find((x) => x.id === id);
@@ -249,9 +508,14 @@ export function resolveReview(data, id, decision, targetId, actor) {
         : "confirmed";
     }
     if (decision === "reject" && person?.provisional) {
-      data.assignments = data.assignments.filter(
-        (a) => a.personId !== person.id,
-      );
+      data.contacts = data.contacts.filter((x) => x.personId !== person.id);
+      data.properties.forEach((x) => {
+        if (x.responsiblePersonId === person.id) x.responsiblePersonId = "";
+      });
+      data.activities.forEach((x) => {
+        if (x.responsiblePersonId === person.id) x.responsiblePersonId = "";
+        if (x.orderedByPersonId === person.id) x.orderedByPersonId = "";
+      });
       data.people = data.people.filter((x) => x.id !== person.id);
     }
     item.status = decision === "accept" ? "accepted" : "rejected";
@@ -301,9 +565,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
     if (decision === "accept") {
       const property = data.properties.find((p) => p.id === targetId);
       if (!property) throw Error("Välj en befintlig fastighet");
-      const record = data[item.collection]?.find(
-        (x) => x.id === item.recordId,
-      );
+      const record = data.activities.find((x) => x.id === item.recordId);
       if (!record) throw Error("Aktiviteten finns inte");
       const before = clone(record);
       record.propertyId = targetId;
@@ -324,7 +586,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
           ].filter(Boolean),
         ),
       ];
-      audit(data, item.collection, record.id, before, record, actor);
+      audit(data, "activities", record.id, before, record, actor);
     }
     item.status = decision === "accept" ? "accepted" : "rejected";
     item.resolvedBy = actor;
@@ -334,9 +596,8 @@ export function resolveReview(data, id, decision, targetId, actor) {
 
   if (item.kind === "operational-conflict") {
     if (decision === "accept") {
-      const record = data[item.collection]?.find(
-        (x) => x.id === item.recordId,
-      );
+      const collection = item.collection === "activities" ? "activities" : item.collection;
+      const record = data[collection]?.find((x) => x.id === item.recordId);
       if (!record) throw Error("Posten finns inte");
       const before = clone(record);
       record[item.field] = item.proposed;
@@ -348,7 +609,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
         value: item.proposed,
         confirmedBy: actor,
       };
-      audit(data, item.collection, record.id, before, record, actor);
+      audit(data, collection, record.id, before, record, actor);
     }
     item.status = decision === "accept" ? "accepted" : "rejected";
     item.resolvedBy = actor;
@@ -357,15 +618,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
   }
 
   if (decision === "accept" && item.kind === "record") {
-    const allowed = [
-      "projects",
-      "maintenance",
-      "operations",
-      "investigations",
-      "maintenanceStatus",
-      "driftIssues",
-      "wishes",
-    ];
+    const allowed = ["activities", "operations", "maintenanceStatus"];
     if (!allowed.includes(item.collection)) throw Error("Ogiltig importtyp");
     const existing = data[item.collection].find((r) => r.id === item.recordId);
     const record = clone(item.record);
@@ -405,6 +658,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
     item.resolvedAt = new Date().toISOString();
     return;
   }
+
   if (decision === "accept") {
     const contract = data.contracts.find(
       (x) => x.id === (item.contractId || targetId),
