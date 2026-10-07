@@ -273,6 +273,15 @@ function migrateLegacy(out) {
         activity.responsiblePersonId = assignment.personId;
       return;
     }
+    if (
+      assignment.targetType === "maintenanceStatus" &&
+      assignment.role === "Ansvarig"
+    ) {
+      const activity = byActivity.get("STATUS-ACT|" + assignment.targetId);
+      if (activity && !activity.responsiblePersonId)
+        activity.responsiblePersonId = assignment.personId;
+      return;
+    }
     const mappedType = legacyType(assignment.targetType);
     if (mappedType && assignment.role === "Ansvarig") {
       const activity = byActivity.get(assignment.targetId);
