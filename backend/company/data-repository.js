@@ -124,7 +124,7 @@ function legacyActivities(entities) {
   }));
   return rows;
 }
-function ensureStoreShape(value) {
+function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
   const store = emptyStore();
   if (!value || typeof value !== "object" || Array.isArray(value)) return store;
   const entities = value.entities || {};
@@ -186,7 +186,7 @@ function ensureStoreShape(value) {
       return;
     }
     if ((a.targetType==="object"||a.targetType==="contract") && isOurPerson(a.personId) && responsibilityRole(a.role)) {
-      const contract=(this?.core?.contracts||[]).find?.((x)=>x.id===a.targetId);
+      const contract=(core.contracts||[]).find((x)=>x.id===a.targetId);
       if(contract)ensurePropertyResponsibility(contract.propertyId,a.personId);
       else ensureContact(a,"contract",a.targetId,a.role);
       return;
@@ -268,15 +268,15 @@ export class LokalblickRepository {
 
   async initialize() {
     await fs.mkdir(path.dirname(path.resolve(this.dataPath)), { recursive: true });
+    if (this.sourceAdapter) this.core = await this.sourceAdapter.loadCore();
     try {
       const rawStore = JSON.parse(await fs.readFile(this.dataPath, "utf8"));
-      this.store = ensureStoreShape(rawStore);
+      this.store = ensureStoreShape(rawStore, this.core);
       if (Number(rawStore.version || 1) < 2) await this.persist(this.store);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
       await this.persist(this.store);
     }
-    if (this.sourceAdapter) this.core = await this.sourceAdapter.loadCore();
     await this.applyCoordinates();
     return this;
   }
