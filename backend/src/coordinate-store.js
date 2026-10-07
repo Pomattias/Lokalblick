@@ -21,7 +21,7 @@ function emptyStore() {
 }
 
 function validCoordinate(value) {
-  return Number.isFinite(Number(value));
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
 }
 
 function sanitizeEntry(entry) {
