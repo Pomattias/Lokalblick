@@ -993,7 +993,16 @@
       orgMap.set(org.id,found.id);
     });
 
-    (incoming.people||[]).forEach(function(person){
+    const primaryPersonIds=new Set();
+    (incoming.properties||[]).forEach(function(row){
+      if(row.ownerResponsiblePersonId)primaryPersonIds.add(row.ownerResponsiblePersonId);
+      if(row.responsiblePersonId)primaryPersonIds.add(row.responsiblePersonId);
+    });
+    (incoming.contracts||[]).forEach(function(row){
+      if(row.businessResponsiblePersonId)primaryPersonIds.add(row.businessResponsiblePersonId);
+    });
+
+    (incoming.people||[]).filter(function(person){return primaryPersonIds.has(person.id);}).forEach(function(person){
       const mappedOrg=orgMap.get(person.organizationId)||person.organizationId||"";
       let found=base.people.find(function(x){return x.id===person.id;});
       if(!found&&person.email)found=base.people.find(function(x){return importNorm(x.email)===importNorm(person.email);});
