@@ -183,7 +183,7 @@
     const oldIndex = (before && before.indexSeries) || [];
     const newIndex = (after && after.indexSeries) || [];
     if (JSON.stringify(oldIndex) !== JSON.stringify(newIndex)) {
-      changes.push({ sheet:"KPI", key:"indexSeries", id:"kpi", action:"Ändrad", fields:["indexSeries"], before:null, after:null });
+      changes.push({ sheet:"Index", key:"indexSeries", id:"index", action:"Ändrad", fields:["indexSeries"], before:null, after:null });
     }
     if(JSON.stringify(extraRows(before||{}))!==JSON.stringify(extraRows(after||{}))) changes.push({sheet:"Tilläggsdata",key:"metadata",id:"metadata",action:"Ändrad",fields:[],before:null,after:null});
     return changes;
@@ -637,8 +637,9 @@
     const plans = budgetRows(budgetSheet,[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"],["lockedBy","Låst av"],["preliminaryIndex","Preliminärt oktoberindex"],["targetRent","Hyra + drift"],["targetMaintenance","Underhåll"],["targetProject","Projekt"],["targetOperations","Driftkostnader"],["targetInvestigations","Utredningar"]]);
     const targets = workbook.Sheets["Budgetmål"] ? budgetRows("Budgetmål",[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]) : [];
     const lines = budgetRows("Budgetrader",[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["contractId","_contractId"],["propertyId","_propertyId"],["amount","Belopp"],["sourceType","Typ"],["sourceId","_sourceId"],["status","Värdestatus"]]);
-    data.indexSeries = budgetRows("KPI",[["year","År"],["month","Månad"],["value","Värde"],["source","Källa"]])
-      .map(function(row){ return {year:Number(row.year)||0,month:Number(row.month)||10,value:Number(row.value)||0,source:row.source||""}; })
+    const indexSheet = workbook.Sheets["Index"] ? "Index" : "KPI";
+    data.indexSeries = budgetRows(indexSheet,[["year","År"],["month","Månad"],["value",indexSheet==="Index"?"Indextal":"Värde"],["seriesBase","Serie basår"],["source","Källa"]])
+      .map(function(row){ return {year:Number(row.year)||0,month:Number(row.month)||10,value:Number(row.value)||0,seriesBase:String(row.seriesBase||"1980"),source:row.source||""}; })
       .filter(function(row){ return row.year && row.value; });
 
     data.budgetPlans = plans.map(function(plan) {
@@ -740,6 +741,40 @@
     return ws;
   }
 
+  function workbookIndexRows(data) {
+    const defaults =
+      window.LokalblickCalculations &&
+      typeof window.LokalblickCalculations.defaultOctoberSeries === "function"
+        ? window.LokalblickCalculations.defaultOctoberSeries()
+        : [];
+    const merged=new Map();
+    defaults.forEach(function(row){
+      const normalized={
+        year:Number(row.year)||0,
+        month:Number(row.month)||10,
+        value:Number(row.value)||0,
+        seriesBase:String(row.seriesBase||"1980"),
+        source:row.source||"SCB KPI"
+      };
+      if(normalized.year&&normalized.value)
+        merged.set(normalized.year+"|"+normalized.month+"|"+normalized.seriesBase,normalized);
+    });
+    ((data&&data.indexSeries)||[]).forEach(function(row){
+      const normalized={
+        year:Number(row.year)||0,
+        month:Number(row.month)||10,
+        value:Number(row.value)||0,
+        seriesBase:String(row.seriesBase||"1980"),
+        source:row.source||"Importerad indexserie"
+      };
+      if(normalized.year&&normalized.value)
+        merged.set(normalized.year+"|"+normalized.month+"|"+normalized.seriesBase,normalized);
+    });
+    return Array.from(merged.values()).sort(function(a,b){
+      return a.year-b.year || a.month-b.month || a.seriesBase.localeCompare(b.seriesBase);
+    });
+  }
+
   function dataToWorkbook(data) {
     const canonical=canonicalizeModel(clone(data||{}));
     ensureStableIds(canonical);
@@ -771,7 +806,7 @@
       });
     });
     XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["contractId","_contractId",true],["propertyId","_propertyId",true],["sourceType","Typ"],["sourceId","_sourceId",true],["status","Värdestatus"]]),"Budgetrader");
-    XLSX.utils.book_append_sheet(workbook,simpleSheet((canonical&&canonical.indexSeries)||[],[["year","År"],["month","Månad"],["value","Värde"],["source","Källa"]]),"KPI");
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(workbookIndexRows(canonical),[["year","År"],["month","Månad"],["value","Indextal"],["seriesBase","Serie basår"],["source","Källa"]]),"Index");
     const registry=(canonical&&canonical.sourceRegistry)||[];
     XLSX.utils.book_append_sheet(workbook,simpleSheet(registry.map(function(x){return {
       name:x.name||"",kind:x.kind||"",rows:Number(x.rows)||0,matched:Number(x.matched)||0,created:Number(x.created)||0,
@@ -1074,6 +1109,52 @@
     return {file:file,buffer:buffer,workbook:XLSX.read(buffer,{type:"array",cellDates:false})};
   }
 
+
+  function cityImportStatus(data) {
+    const properties=(data&&data.properties)||[];
+    const missing=properties.filter(function(property){
+      return String(property.address||"").trim() && !String(property.city||"").trim();
+    });
+    const knownCities=Array.from(new Set(properties.map(function(property){
+      return String(property.city||"").trim();
+    }).filter(Boolean))).sort(function(a,b){return a.localeCompare(b,"sv");});
+    return {
+      missingIds:missing.map(function(property){return property.id;}),
+      missingCount:missing.length,
+      knownCities:knownCities
+    };
+  }
+
+  function applyCityToProperties(data,propertyIds,city,by) {
+    const value=String(city||"").trim();
+    if(!value) return data;
+    canonicalizeModel(data);
+    const wanted=new Set(propertyIds||[]);
+    const at=new Date().toISOString();
+    data.auditLog=Array.isArray(data.auditLog)?data.auditLog:[];
+    (data.properties||[]).forEach(function(property,index){
+      if(!wanted.has(property.id) || String(property.city||"").trim()) return;
+      const before=property.city||"";
+      property.city=value;
+      property.provenance=property.provenance||{};
+      property.provenance.city={
+        source:"Komplettering vid import",
+        value:value,
+        confirmedBy:by||"Import",
+        at:at
+      };
+      data.auditLog.push({
+        id:"city|"+at+"|"+index,
+        at:at,
+        by:by||"Import",
+        collection:"properties",
+        recordId:property.id,
+        action:"Ändrad",
+        fields:[{field:"city",from:before,to:value}]
+      });
+    });
+    return data;
+  }
 
   function importNorm(value) {
     return String(value == null ? "" : value).trim().toLowerCase()
@@ -1513,6 +1594,8 @@
     connect:connect,
     reconnect:reconnect,
     createFile:createFile,
+    cityImportStatus:cityImportStatus,
+    applyCityToProperties:applyCityToProperties,
     prepareImportWorkbook:prepareImportWorkbook,
     importPreparedWorkbook:importPreparedWorkbook,
     importWorkbook:importWorkbook,
