@@ -1143,14 +1143,26 @@
       if(mapped.ownerPartyId)mapped.ownerPartyId=orgMap.get(mapped.ownerPartyId)||mapped.ownerPartyId;
       if(mapped.ownerResponsiblePersonId)mapped.ownerResponsiblePersonId=personMap.get(mapped.ownerResponsiblePersonId)||mapped.ownerResponsiblePersonId;
       if(mapped.responsiblePersonId)mapped.responsiblePersonId=personMap.get(mapped.responsiblePersonId)||mapped.responsiblePersonId;
-      let found=mapped.sourceId?base.properties.find(function(x){return x.sourceId&&String(x.sourceId)===String(mapped.sourceId);}):null;
-      if(!found&&mapped.id)found=base.properties.find(function(x){return x.id===mapped.id;});
+      const incomingSourceId=String(mapped.sourceId||"").trim();
+      const compatibleIdentity=function(property){
+        if(!incomingSourceId) return true;
+        const existingSourceId=String(property.sourceId||"").trim();
+        return !existingSourceId || existingSourceId===incomingSourceId;
+      };
+      let found=incomingSourceId?base.properties.find(function(x){return x.sourceId&&String(x.sourceId)===incomingSourceId;}):null;
+      if(!found&&mapped.id){
+        const byId=base.properties.find(function(x){return x.id===mapped.id;});
+        if(byId&&compatibleIdentity(byId))found=byId;
+      }
       if(!found&&mapped.address){
         const key=importAddress(mapped.address);
-        found=base.properties.find(function(x){return key&&importAddress(x.address)===key;});
+        const hits=base.properties.filter(function(x){return compatibleIdentity(x)&&key&&importAddress(x.address)===key;});
+        if(hits.length===1)found=hits[0];
       }
       if(!found&&mapped.designation){
-        const hits=base.properties.filter(function(x){return importNorm(x.designation)===importNorm(mapped.designation);});
+        const hits=base.properties.filter(function(x){
+          return compatibleIdentity(x)&&importNorm(x.designation)===importNorm(mapped.designation);
+        });
         if(hits.length===1)found=hits[0];
       }
       if(!found){
