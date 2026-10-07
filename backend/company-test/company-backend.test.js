@@ -107,13 +107,14 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   assert.equal((await repository.get("orders", "ORD-TEST")).activityId, "ACT-TEST");
   await repository.saveWorkspace({
     properties: [{ id: "PROP-1", address: "förfalskad", latitude: 60, longitude: 19, note: "Syntetisk komplettering" }],
-    contracts: [{ ...core.contracts[0], annualRent: 1234, address: "förfalskad" }]
+    contracts: [{ ...core.contracts[0], baseRent: 1234, annualRent: 999999, address: "förfalskad" }]
   });
   assert.equal((await repository.bootstrap()).properties.find((item) => item.id === "PROP-1").latitude, 60);
   assert.equal((await repository.bootstrap()).properties.find((item) => item.id === "PROP-1").note, "Syntetisk komplettering");
   assert.equal((await repository.bootstrap()).properties.find((item) => item.id === "PROP-2").latitude, undefined);
   assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).address, "Testgata 1");
-  assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).annualRent, 1234);
+  assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).baseRent, 1234);
+  assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).annualRent, undefined);
   assert.equal(await repository.delete("contracts", "SF|PROP-1|SF-100"), true);
   assert.equal(await repository.delete("people", person.id), true);
   await repository.refreshSource();
