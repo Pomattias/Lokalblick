@@ -152,7 +152,10 @@
       var k = aliasKey(value); if (!k || !id) return;
       if (!aliases.has(k)) aliases.set(k, new Set()); aliases.get(k).add(id);
     }
-    (data.properties || []).forEach(function (p) { addAlias(p.id, p.id); addAlias(p.address, p.id); addAlias(p.designation, p.id); addAlias(p.name, p.id); });
+    (data.properties || []).forEach(function (p) {
+      addAlias(p.id, p.id); addAlias(p.address, p.id); addAlias(p.designation, p.id); addAlias(p.name, p.id);
+      (p.sourceAliases || []).forEach(function (alias) { addAlias(alias, p.id); });
+    });
     function addressScore(a, b) {
       a = compact(a); b = compact(b); if (!a || !b) return 0;
       if (a === b) return 100;
