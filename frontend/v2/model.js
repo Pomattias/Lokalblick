@@ -389,9 +389,11 @@ function migrateLegacy(out) {
       ],
     });
   });
-  legacyCollections.forEach((key) => {
-    out[key] = [];
-  });
+  legacyCollections
+    .filter((key) => key !== "contacts")
+    .forEach((key) => {
+      out[key] = [];
+    });
   (out.maintenanceStatus || []).forEach((status) => {
     delete status.responsiblePersonId;
   });
