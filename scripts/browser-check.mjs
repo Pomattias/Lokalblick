@@ -29,6 +29,7 @@ try {
     }),
     errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  await page.route("https://**/*",route=>route.abort());
   await page.goto("http://127.0.0.1:8799/v2/index.html");
   await page.waitForSelector("tbody tr");
   assert.equal(await page.locator("tbody tr").count(), 3);

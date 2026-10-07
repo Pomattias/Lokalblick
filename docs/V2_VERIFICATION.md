@@ -16,13 +16,15 @@
 
 ## Automatiserad verifiering
 
-`npm test`: 27 tester, syntetiska data, inga verkliga kundfiler.
+`npm test`: 38 tester, syntetiska data, inga verkliga kundfiler.
 
 Täcker INT/EXT/SF, flera avtal per fastighet, tomma nummer, unika respektive osäkra matchningar, konflikter, indexandel noll, olika bastal och indexandelar, oktoberkrav, preliminärt index, uttryckligen olika KPI-serier, skottårsperiodisering, låst budget, utfall, Excel-binary roundtrip, projektens budgetdelar, provenance, långa metadata, dokumentresolver, pending changes vid skrivfel och efter lyckad retry, API save/load/restart, ansvarshistorik och flyttat önskemål.
 
 `npm run test:browser`: verklig Chromium, desktop 1440×900 och mobil 390×844. Kontrollerar alla centrala vyer, editor utan desktop-scroll, avtalsändring och omladdning, ansvarstillsättning med historik, inget horisontellt mobilöverflöde och inga JavaScript-pageerrors.
 
-Preflight och `git diff --check` passerar. Main och utveckling ändras inte.
+Preflight och `git diff --check` passerar. V2 och budgetändringen integreras i utveckling; main ändras inte.
+
+`npm run test:integration-browser` verifierar att startadressen öppnar V2, att budgetens danger/versionshistorik/slutkostnad noll överlever omladdning, att aktiva mobil- och desktopknappar har identiska färger samt att verkliga Leaflet-lager inte blockerar mobilnavigationen. `npm run test:budget-browser` och `npm run test:map-browser` verifierar även den tidigare vyn.
 
 ## Återstående verifiering / avgränsningar
 

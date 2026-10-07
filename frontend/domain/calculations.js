@@ -243,6 +243,7 @@
       .forEach((x) =>
         add(x, x.budgetCategory, number(x.estimatedCost), "wish"),
       );
+    rows.push(...(plan?.lines||[]).filter(r=>r.sourceType==="manual"&&r.included!==false).map(r=>({...r})));
     if (!Array.isArray(contracts)) return rows;
     const ids = new Set(contracts.map((x) => x.id)),
       pids = new Set(

@@ -85,3 +85,9 @@ Se `docs/LOKALBLICK_V2.md` för inventering, bevarandegräns, målarkitektur och
 - `npx playwright install chromium`, sedan `npm run test:browser` för desktop/mobil. En befintlig Chromium kan anges med `CHROMIUM_EXECUTABLE_PATH`.
 
 Verkliga arbetsfiler, dokument och företagsdata ska fortsatt ligga utanför repo. V2 är en stegvis migrering; den tidigare frontend behålls tills återstående specialflöden och verklig företagsanslutning verifierats.
+
+## Aktuell frontend i utveckling
+
+Startadressen öppnar Lokalblick V2. Budgetens låsbekräftelse (`danger`), versionshistorik och slutkostnad använder samma service i V2 och den tidigare vyn. Mobil och desktop använder samma färgvariabler. Den tidigare vyn finns på `index.html?legacy=1` och via länken **Tidigare vy**.
+
+Verifiering: `npm ci`, `npm test`, `npx playwright install chromium --only-shell`, därefter `npm run test:browser`, `npm run test:integration-browser`, `npm run test:budget-browser` och `npm run test:map-browser`. Verklig företagsfil och Windows/OneDrive-filhandtag återstår att verifiera lokalt.

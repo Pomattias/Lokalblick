@@ -3,6 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    if (!new URLSearchParams(location.search).has("legacy")) {
+      location.replace(new URL("v2/index.html" + location.search + location.hash, location.href));
+    }
+  </script>
   <title>Lokalblick · Publik demo</title>
   <meta name="description" content="Publik demo av Lokalblick. Ingen företagsdata lagras eller importeras här." />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -23,6 +28,9 @@
   <script src="services/contract-enrichment-adapter.js" defer></script>
   <script src="services/source-service.js" defer></script>
   <script src="services/geocoding-service.js" defer></script>
+  <link rel="stylesheet" href="budget-followup.css">
+  <script src="domain/budget-followup.js" defer></script>
+  <script src="budget-followup-ui.js" defer></script>
   <script src="app.js" defer></script>
   <script src="overview-list-tight.js" defer></script>
 </head>

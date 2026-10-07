@@ -505,8 +505,7 @@
     });
   }
 
-  // Additional metadata is isolated from the established human-readable worksheets.
-  const EXTRA_KEYS = ["auditLog","sourceRegistry","importReview","documents","currentUser"];
+  const EXTRA_KEYS = ["auditLog","sourceRegistry","importReview","documents","assignmentChanges"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
@@ -520,7 +519,7 @@
       (data[schema.key]||[]).forEach(row=>{const extras=Object.fromEntries(Object.entries(row).filter(([key])=>!represented.has(key)));if(Object.keys(extras).length)add(schema.key,String(row.id),extras);});
     });
     EXTRA_KEYS.forEach(key=>{if(data[key]!=null)add("workspace",key,data[key]);});
-    (data.budgetPlans||[]).forEach(p=>{const extras=Object.fromEntries(Object.entries(p).filter(([k])=>!["year","status","createdAt","lockedAt","preliminaryIndex","targets","notes","lines"].includes(k)));if(Object.keys(extras).length)add("budgetPlans",String(p.year),extras);});
+    (data.budgetPlans||[]).forEach(p=>{const extras=Object.fromEntries(Object.entries(p).filter(([k])=>!["year","status","createdAt","lockedAt","preliminaryIndex","targets","notes"].includes(k)));if(Object.keys(extras).length)add("budgetPlans",String(p.year),extras);});
     (data.indexSeries||[]).forEach(p=>{const extras=Object.fromEntries(Object.entries(p).filter(([k])=>!["year","month","value","source"].includes(k)));if(Object.keys(extras).length)add("indexSeries",p.year+"|"+p.month,extras);});
     return rows;
   }

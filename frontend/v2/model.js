@@ -148,9 +148,9 @@ export function audit(data, collection, id, before, after, actor) {
     by: actor,
     collection,
     recordId: id,
-    action: "Ändrad",
-    fields: Object.keys(after)
-      .filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
+    action: !Object.keys(before).length ? "Skapad" : !Object.keys(after).length ? "Raderad" : "Ändrad",
+    fields: [...new Set([...Object.keys(before),...Object.keys(after)])]
+      .filter((k) => !["versions","createdAt","createdBy","updatedAt","updatedBy"].includes(k) && JSON.stringify(before[k]) !== JSON.stringify(after[k]))
       .map((k) => ({ field: k, from: before[k] ?? "", to: after[k] ?? "" })),
   });
 }

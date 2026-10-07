@@ -97,7 +97,7 @@
       };
 
       addPoints(handle, options.points || []);
-      setTimeout(function() { map.invalidateSize(); }, 0);
+      handle.resizeTimer = setTimeout(function() { map.invalidateSize(); }, 0);
       return handle;
     },
 
@@ -110,6 +110,9 @@
     },
 
     destroy(handle) {
+      clearTimeout(handle.resizeTimer);
+      // Leaflet 1.9.4 leaves its deferred wheel zoom running after remove().
+      clearTimeout(handle.map.scrollWheelZoom && handle.map.scrollWheelZoom._timer);
       handle.map.remove();
     }
   };

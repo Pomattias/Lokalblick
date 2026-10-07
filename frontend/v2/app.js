@@ -1,4 +1,5 @@
 import {
+  collections,
   normalize,
   clone,
   scope,
@@ -48,7 +49,40 @@ const labels = {
 const actor = () =>
   data.currentUser?.name ||
   data.currentUser?.displayName ||
-  (data.isDemo ? "Demoanvändare" : "Lokal användare");
+  data.currentUser?.email ||
+  (data.isDemo ? "Demoanvändare" : "Okänd användare");
+function requireActorIdentity(){
+  if(!data.isDemo&&!data.currentUser?.name&&!data.currentUser?.email){
+    const name=prompt('Ange ditt namn för ändringshistoriken (själv angivet namn):');
+    if(!name?.trim())throw Error('Namn krävs för att spara ändringar.');
+    data.currentUser={...data.currentUser,name:name.trim(),identitySource:'self-declared'};
+  }
+}
+function captureChanges(before){
+  const logged=new Set(data.auditLog.slice(before.auditLog.length).map(h=>h.collection+'|'+h.recordId));
+  for(const col of collections.filter(c=>!['auditLog','indexSeries','assignmentChanges','importReview','sourceRegistry','documents','activities'].includes(c))){
+    const id=r=>String(col==='budgetPlans'?r.year:r.id),old=new Map(before[col].map(r=>[id(r),r])),next=new Map(data[col].map(r=>[id(r),r]));
+    for(const key of new Set([...old.keys(),...next.keys()])){
+      const a=old.get(key)||{},b=next.get(key)||{};
+      if(JSON.stringify(a)===JSON.stringify(b)||logged.has(col+'|'+key))continue;
+      audit(data,col,key,a,b,actor());
+    }
+  }
+}
+function showHistory(type='',id=''){
+  const collection={contract:'contracts',project:'projects',maintenance:'maintenance',operation:'operations',investigation:'investigations',maintenanceStatus:'maintenanceStatus',driftIssue:'driftIssues',wish:'wishes'}[type]||type;
+  const entries=data.auditLog.slice().reverse().filter(h=>!collection||(h.collection===collection&&String(h.recordId)===String(id)));
+  const d=document.createElement('dialog');d.className='followup-dialog';
+  d.innerHTML='<h2>Ändringshistorik</h2>'+entries.map(h=>'<article><strong>'+esc(h.action)+' · '+esc(h.collection)+' · '+esc(h.recordId)+'</strong><p>'+esc(h.by)+' · '+esc(new Date(h.at).toLocaleString('sv-SE'))+'</p><ul>'+(h.fields||[]).map(f=>'<li>'+esc(f.label||f.field)+': '+esc(typeof f.from==='object'?JSON.stringify(f.from):f.from)+' → '+esc(typeof f.to==='object'?JSON.stringify(f.to):f.to)+'</li>').join('')+'</ul></article>').join('')+'<form method="dialog"><button>Stäng</button></form>';
+  document.body.append(d);d.onclose=()=>d.remove();d.showModal();
+}
+function bindBudget(){
+  const before=clone(data),hasScope=()=>Boolean(Object.values(selection).some(Boolean));
+  globalThis.LokalblickBudgetUI.bind({state:data,esc,money,clone,selectedBudgetYear:ui.year,budgetPlan:y=>data.budgetPlans.find(p=>Number(p.year)===Number(y)),hasPortfolioScope:hasScope,portfolioScopeContracts:()=>scope(data,selection).contracts,budgetRowsForContracts:(rows,contracts)=>rows.filter(r=>r.contractId?contracts.some(c=>c.id===r.contractId):scope(data,selection).properties.some(p=>p.id===r.propertyId)),budgetRows:y=>calc().budgetRows(data,y,hasScope()?scope(data,selection).contracts:undefined,hasScope()?scope(data,selection).properties:undefined),canEdit,currentActorLabel:actor,requireActorIdentity,render,showHistory,budgetCategories:()=>categories,saveState:async()=>{
+    if(busy||!canEdit())throw Error('Ändringen kan inte sparas nu.');
+    busy=true;try{requireActorIdentity();captureChanges(before);data=await transport.save(data);}catch(e){data=before;throw e;}finally{busy=false;}
+  }});
+}
 function notice(message, error = false) {
   const node = document.querySelector("#notice");
   node.textContent = message;
@@ -68,6 +102,7 @@ function canEdit() {
   );
 }
 function render() {
+  document.querySelector("#history").onclick=()=>showHistory();
   globalThis.LokalblickMapService?.destroy();
   document.querySelector("#title").textContent = labels[ui.view];
   document.querySelectorAll("[data-view]").forEach((x) => {
@@ -113,6 +148,7 @@ function render() {
     });
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
   if (ui.view === "budget") content.innerHTML = budget(data, selection, ui);
+  if (ui.view === "budget") bindBudget();
   if (ui.view === "sources") content.innerHTML = sources(data, transport);
   if (ui.view === "people") content.innerHTML = organization(data);
   if (ui.view === "map") {
@@ -155,10 +191,12 @@ function render() {
 async function mutation(change) {
   if (busy) throw Error("En ändring sparas redan");
   if (!canEdit()) throw Error("Denna anslutning är skrivskyddad");
+  requireActorIdentity();
   const before = clone(data);
   busy = true;
   try {
     change(data);
+    captureChanges(before);
     data = await transport.save(data);
     notice(
       transport.company()
@@ -332,7 +370,7 @@ document.addEventListener("click", (event) =>
           notes: {},
         });
       });
-    if (b.hasAttribute("data-budget-lock"))
+    if (b.hasAttribute("data-budget-lock") && confirm('Lås budget '+ui.year+' som baslinje?'))
       await mutation((d) => {
         const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
         if (!plan || plan.status === "Låst") return;

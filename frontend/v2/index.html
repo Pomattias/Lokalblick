@@ -35,6 +35,9 @@
     <script src="../services/contract-enrichment-adapter.js" defer></script>
     <script src="../domain/supplemental-adapter.js" defer></script>
     <script src="../services/source-service.js" defer></script>
+    <link rel="stylesheet" href="../budget-followup.css" />
+    <script src="../domain/budget-followup.js" defer></script>
+    <script src="../budget-followup-ui.js" defer></script>
     <script type="module" src="app.js"></script>
   </head>
   <body>
@@ -54,7 +57,7 @@
         ><button data-view="sources">Datakällor</button
         ><button data-view="people">Organisation</button>
       </nav>
-      <a class="previous" href="../index.html">Öppna tidigare version</a>
+      <a class="previous" href="../index.html?legacy=1">Öppna tidigare version</a>
     </aside>
     <main>
       <header>
@@ -63,7 +66,7 @@
           <h1 id="title">Översikt</h1>
         </div>
         <div class="actions">
-          <span id="source-label" class="badge">Läser data…</span
+          <button id="history">Historik</button><a href="../index.html?legacy=1">Tidigare vy</a><span id="source-label" class="badge">Läser data…</span
           ><button id="save" class="primary" hidden>Spara till Excel</button
           ><button id="add" hidden>Lägg till</button>
         </div>

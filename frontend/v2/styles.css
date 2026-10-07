@@ -372,6 +372,9 @@ details .table-wrap {
   color: var(--muted);
 }
 #property-map {
+  position:relative;
+  isolation:isolate;
+  z-index:0;
   height: 58vh;
   min-height: 350px;
   border: 1px solid var(--line);
@@ -609,7 +612,7 @@ details .table-wrap {
     width: 100%;
   }
   #property-map {
-    min-height: 350px;
-    height: 52vh;
+    min-height: 180px;
+    height: clamp(180px,calc(100dvh - 440px),560px);
   }
 }

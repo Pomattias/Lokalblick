@@ -135,6 +135,10 @@ tr:hover td { background: #fbfcfc; }
 
 /* Map */
 .property-map {
+  /* Keep Leaflet panes and controls inside the map stacking context. */
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
   width: 100%;
   height: min(64vh, 680px);
   min-height: 440px;
@@ -3188,7 +3192,7 @@ button.property-control-card:hover {
 
   body { background:#f4f6f8; }
   .sidebar { display:none !important; }
-  .main { padding-bottom:92px; }
+  .main { padding-bottom:calc(92px + env(safe-area-inset-bottom)); }
   .topbar {
     position:sticky;
     top:0;
@@ -3207,7 +3211,7 @@ button.property-control-card:hover {
 
   .mobile-dock {
     position:fixed;
-    z-index:70;
+    z-index:1000;
     left:8px;
     right:8px;
     bottom:calc(8px + env(safe-area-inset-bottom));
@@ -3244,7 +3248,7 @@ button.property-control-card:hover {
   .mobile-more-sheet {
     position:fixed;
     inset:0;
-    z-index:90;
+    z-index:1100;
     display:block !important;
   }
   .mobile-sheet-backdrop {
@@ -4291,8 +4295,8 @@ button.property-control-card:hover {
   }
 
   .map-page .property-map {
-    height:calc(100vh - 300px);
-    min-height:420px;
+    height:clamp(180px, calc(100dvh - 410px), 560px);
+    min-height:0;
     border:0;
     border-radius:15px;
   }

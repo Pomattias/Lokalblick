@@ -10,14 +10,18 @@
     "company": "node backend/server.mjs",
     "company:api": "node backend/company/server.js",
     "setup:company": "node scripts/setup-company.mjs",
-    "test:browser": "node scripts/browser-check.mjs"
+    "test:browser": "node scripts/browser-check.mjs",
+    "test:budget-browser": "node scripts/budget-browser-check.mjs",
+    "test:integration-browser": "node scripts/integration-browser-check.mjs",
+    "test:map-browser": "node scripts/mobile-map-check.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "playwright": "^1.62.1",
-    "xlsx": "^0.18.5"
+    "playwright": "1.51.1",
+    "xlsx": "0.18.5",
+    "leaflet": "1.9.4"
   },
   "dependencies": {
     "exceljs": "^4.4.0"

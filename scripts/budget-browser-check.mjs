@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {chromium} from 'playwright';
+const server=spawn(process.execPath,['backend/server.mjs'],{env:{...process.env,LOKALBLICK_PORT:'8798'}});
+let browser;
+try {
+ await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('error',reject);server.once('exit',code=>reject(Error('Server exited '+code)));});
+ browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+ const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+ await page.route('https://**/*',route=>route.abort()); // Budget flow is independent of map/CDN resources.
+ page.on('pageerror',e=>{errors.push(e.message);console.error("Page error:",e.message);});
+ page.on("response",r=>{if(r.status()>=400)console.error("HTTP",r.status(),r.url());});
+ await page.goto('http://127.0.0.1:8798/index.html?legacy=1',{waitUntil:'domcontentloaded'});
+ await page.waitForSelector('#content:not(:empty)');
+ await page.locator('[data-access-mode="edit"]').click();
+ await page.locator('[data-mobile-dock="budget"]').click();
+ await page.locator('#mobile-budget-year').selectOption('2027');
+ await page.locator('.budget-danger-zone summary').click();
+ await page.locator('[data-followup-layer]').click();
+ await page.locator('.followup-dialog [name=amount]').fill('1000');
+ await page.locator('.followup-dialog [name=reason]').fill('Test av beslutad justering');
+ await page.locator('.followup-dialog [name=confirmation]').fill('Danger');
+ await page.locator('.followup-dialog [type=submit]').click();
+ assert.equal(await page.locator('.followup-dialog').count(),1,'Wrong confirmation must not save');
+ await page.locator('.followup-dialog [name=confirmation]').fill('danger');
+ await page.locator('.followup-dialog [type=submit]').click();
+ await page.waitForSelector('.followup-dialog',{state:'detached'});
+ let data=await page.evaluate(()=>JSON.parse(localStorage.getItem('lokalblick-public-demo-v1')));
+ const plan=data.budgetPlans.find(p=>p.year===2027);
+ assert.equal(plan.status,'Låst');assert.equal(plan.versions.length,1);assert.equal(plan.versions[0].reason,'Test av beslutad justering');
+ assert.equal(plan.targets['Hyra + drift']-plan.versions[0].snapshot.targets['Hyra + drift'],1000);
+ const action=page.locator('.budget-comparison tr').filter({hasText:'Underhåll'}).locator('[data-followup-final]').first();
+ await action.click();await page.locator('.followup-dialog [name=amount]').fill('0');await page.locator('.followup-dialog [type=submit]').click();await page.waitForSelector('.followup-dialog',{state:'detached'});
+ data=await page.evaluate(()=>JSON.parse(localStorage.getItem('lokalblick-public-demo-v1')));
+ assert.ok(data.auditLog.some(h=>h.fields.some(f=>f.field==='finalCosts')));
+ assert.ok(data.auditLog.some(h=>h.collection==='budgetPlans'&&h.recordId==='2027'&&h.by&&h.at));
+ await page.reload();await page.locator('[data-mobile-dock="budget"]').click();await page.locator('#mobile-budget-year').selectOption('2027');
+ assert.ok(await page.locator('.budget-comparison').isVisible());
+ assert.ok(await page.locator('.budget-comparison tr').filter({hasText:'Utförd'}).count()>0);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.screenshot({path:'/tmp/lokalblick-budget-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:900});await page.screenshot({path:'/tmp/lokalblick-budget-desktop.png',fullPage:true});
+ assert.equal(errors.length,0,errors.join('\n'));
+ console.log('Budget browser flow OK: danger gate, version, zero final cost, audit persistence, reload, mobile width and desktop.');
+}finally {await browser?.close();server.kill();}
