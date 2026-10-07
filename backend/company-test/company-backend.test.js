@@ -103,6 +103,8 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   await repository.update("people", person.id, { role: "Testroll" });
   assert.equal((await repository.get("people", person.id)).role, "Testroll");
   await repository.create("activities", { id: "ACT-TEST", type: "Projekt", title: "Syntetiskt projekt" });
+  await repository.create("orders", { id: "ORD-TEST", activityId: "ACT-TEST", orderedCost: 5000, finalCost: 4500 });
+  assert.equal((await repository.get("orders", "ORD-TEST")).activityId, "ACT-TEST");
   await repository.saveWorkspace({
     properties: [{ id: "PROP-1", address: "förfalskad", latitude: 60, longitude: 19, note: "Syntetisk komplettering" }],
     contracts: [{ ...core.contracts[0], annualRent: 1234, address: "förfalskad" }]
@@ -128,7 +130,7 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   assert.equal(await repository.get("people", person.id), null);
 });
 
-test("legacy company store migrates once to direct responsibility, activities and contacts", async (t) => {
+test("legacy company store migrates once to explicit responsibility, activities and orders", async (t) => {
   const directory = await tempDirectory();
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const dataPath = path.join(directory, "legacy-data.json");
@@ -181,6 +183,11 @@ test("legacy company store migrates once to direct responsibility, activities an
               title: "Tak",
               year: 2027,
               cost: 100000,
+              orderedAt: "2026-10-01",
+              orderedByPersonId: "P-INTERN",
+              supplier: "Syntetisk leverantör",
+              orderedCost: 90000,
+              finalCost: 88000,
             },
           ],
           maintenanceStatus: [],
@@ -217,14 +224,23 @@ test("legacy company store migrates once to direct responsibility, activities an
   assert.equal(workspace.activities[0].id, "UH1");
   assert.equal(workspace.activities[0].type, "Underhåll");
   assert.equal(workspace.activities[0].responsiblePersonId, "P-INTERN");
-  assert.equal(workspace.contacts.length, 1);
-  assert.equal(workspace.contacts[0].personId, "P-EXTERN");
-  assert.equal(workspace.contacts[0].role, "Fastighetsförvaltare");
+  assert.equal(Object.hasOwn(workspace.activities[0], "orderedCost"), false);
+  assert.equal(
+    workspace.properties.find((x) => x.id === "PROP-1").ownerResponsiblePersonId,
+    "P-EXTERN",
+  );
+  assert.equal(workspace.orders.length, 1);
+  assert.equal(workspace.orders[0].activityId, "UH1");
+  assert.equal(workspace.orders[0].orderedByPersonId, "P-INTERN");
+  assert.equal(workspace.orders[0].finalCost, 88000);
+  assert.equal(Object.hasOwn(workspace, "contacts"), false);
   const stored = JSON.parse(await fs.readFile(dataPath, "utf8"));
-  assert.equal(stored.version, 2);
+  assert.equal(stored.version, 3);
+  assert.equal(Object.hasOwn(stored.entities, "contacts"), false);
   assert.equal(Object.hasOwn(stored.entities, "assignments"), false);
   assert.equal(Object.hasOwn(stored.entities, "maintenance"), false);
   assert.equal(stored.entities.activities.length, 1);
+  assert.equal(stored.entities.orders.length, 1);
 });
 
 test("workspace rejects invalid data and LEB core cannot be updated", async (t) => {
