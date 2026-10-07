@@ -5,20 +5,20 @@ import assert from 'node:assert/strict';
 import XLSX from 'xlsx';
 const context=vm.createContext({});vm.runInContext(readFileSync('frontend/domain/budget-followup.js','utf8'),context);
 const service=context.LokalblickBudgetFollowup;
-const line=(id,amount=100)=>({sourceType:'maintenance',sourceId:id,category:'Underhåll',sub:'Tak',source:'Tak',amount});
+const line=(id,amount=100)=>({sourceType:'activity',sourceId:id,category:'Underhåll',sub:'Tak',source:'Tak',amount});
 test('union keeps removed baseline and distinguishes new and changed rows',()=>{
  const rows=service.compare({},[line('1'),line('2')],[line('1',120),line('3')],2026);
  assert.deepEqual(Array.from(rows,r=>r.change),['Ändrad','Utgår · finns i budget','Ny · ej budgeterad']);
  assert.equal(rows[1].budget,100);assert.equal(rows[1].forecast,0);assert.equal(rows[2].budget,null);
 });
 test('zero final cost is settled, never falls back to estimate',()=>{
- const rows=service.compare({maintenance:[{id:'1',finalCosts:{2026:{Underhåll:0}}}]},[line('1')],[line('1')],2026);
+ const rows=service.compare({activities:[{id:'1',type:'Underhåll',finalCosts:{2026:{Underhåll:0}}}]},[line('1')],[line('1')],2026);
  assert.equal(rows[0].finalCost,0);assert.equal(rows[0].forecast,0);
 });
-test('project final costs are separate by category and year',()=>{
- const row={...line('1'),sourceType:'project'};
- const data={projects:[{id:'1',finalCost:500,finalCosts:{2026:{Underhåll:80}}}]};
- assert.equal(service.finalCost(data,row,2026),80);
+test('project activity final costs are separate from investigation budget',()=>{
+ const row={...line('1'),sourceType:'activity',category:'Projekt'};
+ const data={activities:[{id:'1',type:'Projekt',finalCost:500,finalCosts:{2026:{Projekt:500}},status:'Klar'}]};
+ assert.equal(service.finalCost(data,row,2026),500);
  assert.equal(service.finalCost(data,{...row,category:'Utredningar'},2026),null);
  assert.equal(service.finalCost(data,row,2027),null);
 });
@@ -36,14 +36,16 @@ function workbookAdapter(){
  let text=readFileSync('frontend/services/source-service.js','utf8').replace('schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]),','schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]), _read:workbookToData, _write:dataToWorkbook,');
  vm.runInContext(text,c);return c.window.LokalblickSourceService;
 }
-test('real XLSX roundtrip keeps snapshot identities, versions, zero final costs and full history',()=>{
+test('real XLSX roundtrip keeps canonical activity identities, versions, zero final costs and full history',()=>{
  const adapter=workbookAdapter();
- const data={properties:[{id:'P1',address:'Demogatan 1'}],contracts:[{id:'C1',propertyId:'P1',number:'DEMO-1'}],maintenance:[{id:'UH1',propertyId:'P1',title:'Tak',year:2026,cost:100,finalCosts:{2026:{Underhåll:0}},budgetIncluded:false}],budgetPlans:[{year:2026,status:'Låst',lines:[line('UH1')],targets:{Underhåll:100},versions:[{by:'Mattias',reason:'Test',snapshot:{year:2026,lines:[line('UH1')]}}]}],auditLog:[{id:'H1',by:'Mattias',at:'2026-10-07',fields:[{field:'cost',from:80,to:100}],description:'x'.repeat(65000)}],assignmentChanges:[{id:'AL1',changedBy:'Mattias'}]};
+ const data={properties:[{id:'P1',address:'Demogatan 1',responsiblePersonId:'P1-INTERN'}],contracts:[{id:'C1',propertyId:'P1',number:'DEMO-1'}],people:[{id:'P1-INTERN',name:'Intern'}],activities:[{id:'UH1',type:'Underhåll',propertyId:'P1',title:'Tak',planningYear:2026,estimatedCost:100,budgetCategory:'Underhåll',finalCosts:{2026:{Underhåll:0}},budgetIncluded:false,responsiblePersonId:'P1-INTERN'}],budgetPlans:[{year:2026,status:'Låst',lines:[line('UH1')],targets:{Underhåll:100},versions:[{by:'Mattias',reason:'Test',snapshot:{year:2026,lines:[line('UH1')]}}]}],auditLog:[{id:'H1',by:'Mattias',at:'2026-10-07',fields:[{field:'responsiblePersonId',from:'',to:'P1-INTERN'}],description:'x'.repeat(65000)}]};
  const workbook=adapter._write(data);const bytes=XLSX.write(workbook,{type:'buffer',bookType:'xlsx'});
  const restored=adapter._read(XLSX.read(bytes,{type:'buffer'}));
  assert.equal(restored.budgetPlans[0].lines[0].sourceId,'UH1');assert.equal(restored.budgetPlans[0].versions[0].by,'Mattias');
- assert.equal(restored.maintenance[0].finalCosts[2026].Underhåll,0);assert.equal(restored.maintenance[0].budgetIncluded,false);
- assert.equal(restored.auditLog[0].description.length,65000);assert.equal(restored.assignmentChanges[0].changedBy,'Mattias');
+ assert.equal(restored.activities[0].finalCosts[2026].Underhåll,0);assert.equal(restored.activities[0].budgetIncluded,false);
+ assert.equal(restored.activities[0].responsiblePersonId,'P1-INTERN');assert.equal(restored.properties[0].responsiblePersonId,'P1-INTERN');
+ assert.equal(restored.auditLog[0].description.length,65000);assert.equal(restored.assignments?.length||0,0);
+ assert.equal(Boolean(workbook.Sheets.Ansvar),false);assert.equal(Boolean(workbook.Sheets.Projekt),false);
 });
 test('legacy snapshot matches only a unique source, ambiguous rows need review',()=>{
  const old={category:'Underhåll',source:'Tak',contractId:'C1',amount:100};
@@ -53,7 +55,7 @@ test('legacy snapshot matches only a unique source, ambiguous rows need review',
  assert.equal(ambiguous.length,3);assert.match(ambiguous[0].change,/Behöver kontroll/);
 });
 test('removed completed action retains incurred final cost from deletion history',()=>{
- const data={auditLog:[{collection:'maintenance',recordId:'1',action:'Raderad',fields:[{field:'finalCosts',from:{2026:{Underhåll:40}}}]}]};
+ const data={auditLog:[{collection:'activities',recordId:'1',action:'Raderad',fields:[{field:'finalCosts',from:{2026:{Underhåll:40}}}]}]};
  const rows=service.compare(data,[line('1')],[],2026);assert.equal(rows[0].forecast,40);assert.equal(rows[0].finalCost,40);
 });
 function appContext() {
