@@ -36,6 +36,12 @@
       ["orderedAt","Beställningsdatum"],["supplier","Leverantör"],["orderReference","Beställningsreferens"],["orderedCost","Beställt belopp"],
       ["deliveryText","Leverans"],["completedAt","Utförd"],["finalCost","Utfall"],["paymentStatus","Betalstatus"],["paidAt","Betald"],["invoiceComment","Kommentar"],["ownerPays","Betalas av fastighetsägaren"]
     ], display:["Aktivitet","Beställd av"] },
+  ];
+  SCHEMAS.forEach(function(schema) { schema.fields = schema.columns.map(function(column){ return column[0]; }); });
+
+  // Compatibility-only data: preserved for older imports and calculations,
+  // but not written as parallel visible business sheets in model v5.
+  const AUXILIARY_SCHEMAS = [
     { sheet:"Kostnader", key:"operations", prefix:"KOST", columns:[
       ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],
       ["period","År"],["category","Kategori"],["budget","Budget"],["actual","Utfall"]
@@ -44,7 +50,7 @@
       ["id","_id",true],["contractId","_contractId",true],["propertyId","_propertyId",true],["category","Kategori"],["assessedDate","Bedömd"],["status","Status"],["priority","Prioritet"],["comment","Kommentar"],["actionNeed","Åtgärdsbehov"],["budgetYear","Budgetår"],["estimatedCost","Bedömd kostnad"],["includeInBudget","Ta med i budget"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
     ], display:["Fastighet","Avtal"] }
   ];
-  SCHEMAS.forEach(function(schema) { schema.fields = schema.columns.map(function(column){ return column[0]; }); });
+  AUXILIARY_SCHEMAS.forEach(function(schema) { schema.fields = schema.columns.map(function(column){ return column[0]; }); });
 
   const ACTIVITY_SCHEMA = {
     sheet:"Aktiviteter", key:"activities", prefix:"ACT",
@@ -319,7 +325,7 @@
   }
 
   function ensureStableIds(data) {
-    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(LEGACY_SCHEMAS).forEach(function(schema) {
+    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).concat(LEGACY_SCHEMAS).forEach(function(schema) {
       const rows = data[schema.key] || [];
       rows.forEach(function(row) {
         if (!row.id) row.id = nextStableId(schema.prefix || "ID", rows);
@@ -403,7 +409,7 @@
       }
     }
     (data.contacts||[]).forEach(resolveRelation); (data.assignments||[]).forEach(resolveRelation);
-    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(LEGACY_SCHEMAS).forEach(function(schema) { (data[schema.key]||[]).forEach(function(row) { Object.keys(row).filter(function(key){return key.indexOf("__display_")===0;}).forEach(function(key){delete row[key];}); }); });
+    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).concat(LEGACY_SCHEMAS).forEach(function(schema) { (data[schema.key]||[]).forEach(function(row) { Object.keys(row).filter(function(key){return key.indexOf("__display_")===0;}).forEach(function(key){delete row[key];}); }); });
   }
 
   function assignedPersonId(data,id,legacyType,fallback) {
@@ -530,8 +536,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["importReview","documents"];
-  const RESTORE_EXTRA_KEYS = ["auditLog","sourceRegistry","importReview","documents"];
+  const EXTRA_KEYS = ["operations","maintenanceStatus","importReview","documents"];
+  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","auditLog","sourceRegistry","importReview","documents"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
@@ -567,6 +573,9 @@
     const data = { isDemo:false, sourceName:source.fileName || "Excel-källa" };
     SCHEMAS.forEach(function(schema) {
       data[schema.key] = schemaRowsFromSheet(workbook, schema);
+    });
+    AUXILIARY_SCHEMAS.forEach(function(schema) {
+      data[schema.key] = workbook.Sheets[schema.sheet] ? schemaRowsFromSheet(workbook, schema) : [];
     });
     LEGACY_SCHEMAS.forEach(function(schema) {
       data[schema.key] = workbook.Sheets[schema.sheet] ? schemaRowsFromSheet(workbook, schema) : [];
@@ -1033,7 +1042,7 @@
   }
 
   window.LokalblickSourceService = {
-    schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]),
+    schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS),
     workbookToData:workbookToData,
     dataToWorkbook:dataToWorkbook,
     canonicalizeModel:canonicalizeModel,
@@ -1045,7 +1054,7 @@
     enrichOperational:enrichOperational,
     importIndexSeries:importIndexSeries,
     async importSupplement(data,key){
-      const schema=SCHEMAS.concat([ACTIVITY_SCHEMA]).find(function(s){return s.key===key;});
+      const schema=SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).find(function(s){return s.key===key;});
       if(!schema||!["activities","operations","maintenanceStatus"].includes(key))throw new Error("Denna kompletterande källa stöds inte.");
       const picked=await readSecondaryWorkbook(schema.sheet);
       return window.LokalblickSupplementalAdapter.analyze(picked.workbook,data,schema,picked.file.name);
