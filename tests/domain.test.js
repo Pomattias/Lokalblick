@@ -535,6 +535,42 @@ test("supplemental lists stage canonical activities and require property confirm
     "underlag.xlsx",
   );
 });
+test("Excel import trims phantom formatted rows before adapters read the sheet", async () => {
+  const svc = services();
+  const sourceWorkbook = workbook({
+    SF: [
+      ["Förvaltningsobjekt", "Avtalsnummer", "Gatuadress"],
+      ...Array.from({ length: 109 }, (_, index) => [
+        "OBJ-" + (index + 1),
+        "A-" + (index + 1),
+        "Testgatan " + (index + 1),
+      ]),
+    ],
+  });
+  sourceWorkbook.Sheets.SF["!ref"] = "A1:Z1048576";
+  const bytes = XLSX.write(sourceWorkbook, { type: "array", bookType: "xlsx" });
+  svc.showOpenFilePicker = async () => [
+    {
+      name: "phantom.xlsx",
+      queryPermission: async () => "granted",
+      requestPermission: async () => "granted",
+      getFile: async () => ({
+        name: "phantom.xlsx",
+        arrayBuffer: async () => bytes,
+      }),
+    },
+  ];
+  await svc.LokalblickSourceService.prepareImportWorkbook();
+  const progress = [];
+  const result = await svc.LokalblickSourceService.importPreparedWorkbook(
+    normalize({ isDemo: false }),
+    ["SF"],
+    (x) => progress.push(plain(x)),
+  );
+  const parsed = progress.find((x) => x.stage === "parsed-sheets");
+  assert.equal(parsed.sheets[0].rows, 110);
+  assert.equal(result.report.sheets[0], "SF");
+});
 test("prepared Excel import lists sheets and imports only selected sheets with progress", async () => {
   const svc = services();
   const api = svc.LokalblickSourceService;
