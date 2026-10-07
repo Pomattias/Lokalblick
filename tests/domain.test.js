@@ -65,17 +65,18 @@ const contract = {
   number: "A-1",
   propertyId: "p1",
   baseRent: 100000,
-  rentBaseIndex: 300,
   rentBaseYear: 2020,
   rentIndexPercent: 0.8,
-  annualRent: 99999,
   baseAdditions: 20000,
-  additionBaseIndex: 320,
   additionBaseYear: 2021,
   additionIndexPercent: 0.5,
-  annualAdditions: 20000,
 };
-const series = [{ year: 2025, month: 10, value: 400, source: "known" }];
+const series = [
+  { year: 2020, month: 10, value: 300, source: "known" },
+  { year: 2021, month: 10, value: 320, source: "known" },
+  { year: 2025, month: 10, value: 400, source: "known" },
+];
+const currentIndex = series.find((x) => x.year === 2025);
 test("rent and addition have independent index basis and shares", () => {
   const v = C.annualValues(contract, 2026, 0, series);
   assert.equal(v.rent.amount, 100000 * (1 + 0.8 * (400 / 300 - 1)));
@@ -109,22 +110,25 @@ test("known index takes precedence over preliminary budget index", () => {
     budgetPlans: [{ year: 2026, preliminaryIndex: 420 }],
   });
   assert.equal(C.budgetRows(data, 2026)[0].status, "Beräknad");
-  data.indexSeries = [];
+  data.indexSeries = series.filter((x) => x.year !== 2025);
   const rows = C.budgetRows(data, 2026);
   assert.equal(rows[0].status, "Preliminär");
-  assert.equal(rows[0].amount, C.annualValues(contract, 2026, 420, []).total);
+  assert.equal(
+    rows[0].amount,
+    C.annualValues(contract, 2026, 420, data.indexSeries).total,
+  );
 });
 test("different KPI series require review; duplicate indices cannot silently win", () => {
   assert.equal(
     C.component({ ...contract, rentSeriesBase: "1980" }, "rent", 2026, 0, [
-      { ...series[0], seriesBase: "2020" },
+      { ...currentIndex, seriesBase: "2020" },
     ]).status,
     "Behöver kontroll",
   );
   assert.equal(
     C.component(contract, "rent", 2026, 0, [
       ...series,
-      { ...series[0], value: 401 },
+      { ...currentIndex, value: 401 },
     ]).status,
     "Behöver kontroll",
   );
@@ -272,10 +276,18 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
         responsiblePersonId: "person1",
       },
     ],
-    auditLog: [{ id: "log1", by: "Test", description: "x".repeat(40000) }],
-    sourceRegistry: [{ id: "s1", name: "source" }],
+    auditLog: [{
+      id: "log1",
+      at: "2026-10-07T10:00:00.000Z",
+      by: "Test",
+      collection: "activities",
+      recordId: "uh1",
+      action: "Ändrad",
+      fields: [{ field: "estimatedCost", from: 200, to: 300 }],
+    }],
+    sourceRegistry: [{ id: "s1", name: "source", kind: "test" }],
     importReview: [{ id: "r1", field: "area", status: "pending" }],
-    indexSeries: [{ ...series[0], seriesBase: "1980" }],
+    indexSeries: series.map((x) => ({ ...x, seriesBase: "1980" })),
     budgetPlans: [
       {
         year: 2026,
@@ -297,7 +309,7 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
   });
   assert.equal(d.projects.length, 0);
   assert.equal(d.maintenance.length, 0);
-  assert.equal(d.activities.length, 2);
+  assert.equal(d.activities.length, 3);
   const bytes = XLSX.write(
     svc.LokalblickSourceService.dataToWorkbook(clone(d)),
     { type: "buffer", bookType: "xlsx" },
@@ -314,15 +326,19 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
     d.contracts[0].provenance,
   );
   const project = out.activities.find((x) => x.id === "pr1");
+  const investigation = out.activities.find((x) => x.id === "MIG-UTR|pr1");
   const maintenance = out.activities.find((x) => x.id === "uh1");
-  assert.equal(project.investigationCost, 10);
+  assert.equal(Object.hasOwn(project, "investigationCost"), false);
   assert.equal(project.estimatedCost, 230);
+  assert.equal(investigation.type, "Utredning");
+  assert.equal(investigation.estimatedCost, 10);
   assert.equal(project.responsiblePersonId, "person1");
   assert.equal(project.includeInBudget, "Nej");
   assert.equal(Object.hasOwn(project, "budgetIncluded"), false);
   assert.equal(maintenance.responsiblePersonId, "person1");
   assert.equal(out.properties[0].responsiblePersonId, "person1");
-  assert.equal(out.auditLog[0].description.length, 40000);
+  assert.equal(out.auditLog[0].action, "Ändrad");
+  assert.equal(out.auditLog[0].fields[0].field, "estimatedCost");
   assert.equal(out.indexSeries[0].seriesBase, "1980");
   assert.equal(out.budgetPlans[0].lines[0].sourceId, "uh1");
   assert.equal(out.budgetPlans[0].lines[0].sourceType, "activity");
@@ -447,7 +463,7 @@ test("failed Excel write keeps pending changes and baseline until retry succeeds
   svc.showOpenFilePicker = async () => [handle];
   svc.showSaveFilePicker = async () => handle;
   const loaded = await api.connect("readwrite");
-  loaded.contracts[0].annualRent = 123456;
+  loaded.contracts[0].baseRent = 123456;
   await svc.LokalblickDataService.save(loaded);
   assert.equal(api.status().dirty, true);
   await assert.rejects(api.write());
@@ -460,7 +476,7 @@ test("failed Excel write keeps pending changes and baseline until retry succeeds
   assert.equal(
     XLSX.utils.sheet_to_json(
       XLSX.read(bytes, { type: "array" }).Sheets.Avtal,
-    )[0]["Årshyra"],
+    )[0]["Bashyra"],
     123456,
   );
 });
@@ -498,7 +514,7 @@ test("supplemental lists stage canonical activities and require property confirm
     "underlag.xlsx",
   );
 });
-test("operational enrichment writes direct responsibility, contacts and avoids duplicate reimport", () => {
+test("operational enrichment writes explicit responsibilities and orders without duplicate reimport", () => {
   const svc = services(),
     base = normalize({
       isDemo: false,
@@ -543,20 +559,18 @@ test("operational enrichment writes direct responsibility, contacts and avoids d
   const activity = first.activities.find((x) => x.title === "Nytt skalskydd");
   assert.ok(manager);
   assert.equal(omid.provisional, true);
-  assert.ok(
-    first.contacts.some(
-      (x) =>
-        x.personId === manager.id &&
-        x.targetType === "property" &&
-        x.role === "Fastighetsförvaltare",
-    ),
+  assert.equal(
+    first.properties.find((x) => x.id === "1081").ownerResponsiblePersonId,
+    manager.id,
   );
   assert.equal(activity.responsiblePersonId, omid.id);
-  assert.equal(activity.orderedByPersonId, omid.id);
-  assert.equal(activity.orderedCost, 166512);
+  assert.equal(Object.hasOwn(activity, "orderedCost"), false);
+  const order = first.orders.find((x) => x.activityId === activity.id);
+  assert.equal(order.orderedByPersonId, omid.id);
+  assert.equal(order.orderedCost, 166512);
   const counts = {
     people: first.people.length,
-    contacts: first.contacts.length,
+    orders: first.orders.length,
     activities: first.activities.length,
   };
   const second = svc.LokalblickOperationalEnrichmentAdapter.enrich(
@@ -565,7 +579,7 @@ test("operational enrichment writes direct responsibility, contacts and avoids d
     "hvo.xlsx",
   ).data;
   assert.equal(second.people.length, counts.people);
-  assert.equal(second.contacts.length, counts.contacts);
+  assert.equal(second.orders.length, counts.orders);
   assert.equal(second.activities.length, counts.activities);
   assert.equal(
     second.sourceRegistry.filter(
@@ -581,9 +595,17 @@ test("Lokalblick workbook exposes human source sheet and hides technical extras"
     sourceRegistry: [{ id: "s1", name: "underlag.xlsx", kind: "operational-enrichment", rows: 10, matched: 8, created: 2, review: 1 }],
   }));
   assert.ok(w.Sheets["Källor"]);
+  assert.ok(w.Sheets["Ändringslogg"]);
+  assert.ok(w.Sheets["Parter"]);
+  assert.ok(w.Sheets["Beställningar"]);
+  assert.ok(w.Sheets["Budget"]);
+  assert.ok(w.Sheets["Budgetrader"]);
+  assert.equal(Boolean(w.Sheets["Kontakter"]), false);
   assert.ok(w.Sheets["Tilläggsdata"]);
   const meta = (w.Workbook?.Sheets || []).find((x) => x.name === "Tilläggsdata");
+  const audit = (w.Workbook?.Sheets || []).find((x) => x.name === "Ändringslogg");
   assert.equal(meta?.Hidden, 1);
+  assert.notEqual(audit?.Hidden, 1);
 });
 
 test("supplemental activities cannot create an unknown property or move a contract", () => {
