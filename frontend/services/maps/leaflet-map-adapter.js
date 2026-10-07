@@ -1,5 +1,5 @@
-// Leaflet/OpenStreetMap adapter for the public demo.
-// Replace this adapter to use another approved map provider.
+// Leaflet adapter using the same CARTO Voyager basemap as Velovista.
+// Falls back to OSM if CARTO cannot be used.
 (function () {
   function validPoint(point) {
     return Number.isFinite(Number(point.latitude)) && Number.isFinite(Number(point.longitude));
@@ -67,7 +67,7 @@
   }
 
   const adapter = {
-    name: "leaflet-osm",
+    name: "leaflet-carto",
 
     create(options) {
       if (!window.L) throw new Error("Leaflet is not available");
@@ -84,10 +84,38 @@
         scrollWheelZoom: true
       });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap"
-      }).addTo(map);
+      const cartoKey =
+        window.LokalblickRuntime && window.LokalblickRuntime.cartoApiKey
+          ? String(window.LokalblickRuntime.cartoApiKey).trim()
+          : "";
+      const cartoBase =
+        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+      const cartoUrl = cartoKey
+        ? cartoBase + "?key=" + encodeURIComponent(cartoKey)
+        : cartoBase;
+      const primary = L.tileLayer(cartoUrl, {
+        subdomains: "abcd",
+        maxZoom: 20,
+        attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+      });
+      const fallback = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          subdomains: "abc",
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors"
+        }
+      );
+      let fallbackActivated = false;
+      primary.on("tileerror", function () {
+        if (fallbackActivated) return;
+        fallbackActivated = true;
+        try {
+          map.removeLayer(primary);
+          fallback.addTo(map);
+        } catch (_) {}
+      });
+      primary.addTo(map);
 
       const handle = {
         map: map,
