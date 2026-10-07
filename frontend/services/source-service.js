@@ -33,7 +33,7 @@
     ], display:["Organisation","Område"] },
     { sheet:"Ansvar", key:"assignments", prefix:"A", columns:[
       ["id","_id",true],["personId","_personId",true],["targetType","_targetType",true],["targetId","_targetId",true],["role","Roll"],["fromDate","Från"],["toDate","Till"],["allocation","Omfattning %"]
-    ], display:["Person","Mål"] },
+    ], display:["Person","Måltyp","Mål"] },
     { sheet:"Projekt", key:"projects", prefix:"PR", columns:[
       ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["name","Projekt"],["description","Beskrivning"],["status","Status"],["phase","Fas"],["start","Start"],["end","Slut"],["moveIn","Inflytt"],["budgetYear","Budgetår"],["budgetInvestigation","Utredning budget"],["budgetExecution","Genomförande budget"],["budgetFurnishing","Inredning budget"],["preliminaryCost","Prognos"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
     ], display:["Fastighet","Avtal"] },
@@ -99,6 +99,8 @@
     migrationReport:null,
     enrichmentReport:null,
     enrichmentFileName:"",
+    operationalReports:[],
+    operationalFileNames:[],
     indexReport:null,
     indexFileName:"",
     writeRecoveryNeeded:false,
@@ -383,6 +385,7 @@
         const wanted=String(row.__display_Mål||"").trim().toLowerCase();
         const groups=[
           ["property",properties,propertyDisplay],["object",contracts,contractDisplay],
+          ["activity",data.activities||[],function(x){return x.title||x.id;}],
           ["project",data.projects||[],function(x){return x.name||x.id;}],
           ["maintenance",data.maintenance||[],function(x){return x.title||x.id;}],
           ["driftIssue",data.driftIssues||[],function(x){return x.title||x.id;}],
@@ -402,6 +405,14 @@
     });
   }
 
+  function assignedPersonId(data,id,legacyType,fallback) {
+    const active=(data.assignments||[]).filter(function(a){
+      return a.targetId===id && !a.toDate && (a.targetType==="activity" || a.targetType===legacyType);
+    });
+    const responsible=active.find(function(a){return a.role==="Ansvarig";}) || active[0];
+    return responsible ? responsible.personId : (fallback||"");
+  }
+
   function activityRowsFromData(data) {
     const rows = [];
     function orderFields(item) {
@@ -414,7 +425,7 @@
     }
     (data.projects||[]).forEach(function(item){
       rows.push(Object.assign({
-        id:item.id,type:"Projekt",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        id:item.id,type:"Projekt",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"project",item.responsiblePersonId||""),
         title:item.name||"",description:item.description||"",category:"",status:item.status||"",priority:"",
         planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
         budgetCategory:"Projekt",estimatedCost:Number(item.preliminaryCost)||Number(item.budgetExecution)||0,
@@ -423,7 +434,7 @@
     });
     (data.maintenance||[]).forEach(function(item){
       rows.push(Object.assign({
-        id:item.id,type:"Underhåll",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        id:item.id,type:"Underhåll",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"maintenance",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
         budgetCategory:"Underhåll",estimatedCost:Number(item.cost)||0,phase:"",startDate:"",endDate:""
@@ -431,7 +442,7 @@
     });
     (data.driftIssues||[]).forEach(function(item){
       rows.push(Object.assign({
-        id:item.id,type:"Drift",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        id:item.id,type:"Drift",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"driftIssue",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
         budgetCategory:"Driftkostnader",estimatedCost:Number(item.estimatedCost)||0,phase:"",startDate:item.createdDate||"",endDate:item.targetDate||""
@@ -439,7 +450,7 @@
     });
     (data.wishes||[]).forEach(function(item){
       rows.push(Object.assign({
-        id:item.id,type:"Önskemål",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        id:item.id,type:"Önskemål",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"wish",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
         budgetCategory:item.budgetCategory||"Ej budget",estimatedCost:Number(item.estimatedCost)||0,phase:"",startDate:item.createdDate||"",endDate:item.targetDate||""
@@ -447,7 +458,7 @@
     });
     (data.investigations||[]).forEach(function(item){
       rows.push(Object.assign({
-        id:item.id,type:"Utredning",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:item.responsiblePersonId||"",
+        id:item.id,type:"Utredning",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"investigation",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
         budgetCategory:"Utredningar",estimatedCost:Number(item.cost)||0,phase:"",startDate:"",endDate:""
@@ -602,9 +613,16 @@
     if (label==="Person") return personDisplay(people.find(function(x){return x.id===row.personId;}));
     if (label==="Från person") return personDisplay(people.find(function(x){return x.id===row.fromPersonId;}));
     if (label==="Till person") return personDisplay(people.find(function(x){return x.id===row.toPersonId;}));
+    if (label==="Måltyp") {
+      if (row.targetType==="property") return "Fastighet";
+      if (row.targetType==="object") return "Avtal";
+      if (["activity","project","maintenance","driftIssue","wish","maintenanceStatus","investigation"].includes(row.targetType)) return "Aktivitet";
+      return row.targetType || "";
+    }
     if (label==="Mål") {
       const lookups=[
         [properties,propertyDisplay],[contracts,contractDisplay],
+        [data.activities||[],function(x){return x.title||x.id;}],
         [data.projects||[],function(x){return x.name||x.id;}],[data.maintenance||[],function(x){return x.title||x.id;}],
         [data.driftIssues||[],function(x){return x.title||x.id;}],[data.wishes||[],function(x){return x.title||x.id;}]
       ];
@@ -694,7 +712,16 @@
     XLSX.utils.book_append_sheet(workbook,simpleSheet(targetRows,[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]),"Budgetmål");
     XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["contractId","_contractId",true],["propertyId","_propertyId",true],["sourceType","Typ"],["sourceId","_sourceId",true],["status","Värdestatus"]]),"Budgetrader");
     XLSX.utils.book_append_sheet(workbook,simpleSheet((data&&data.indexSeries)||[],[["year","År"],["month","Månad"],["value","Värde"],["source","Källa"]]),"KPI");
+    const registry=(data&&data.sourceRegistry)||[];
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(registry.map(function(x){return {
+      name:x.name||"",kind:x.kind||"",rows:Number(x.rows)||0,matched:Number(x.matched)||0,created:Number(x.created)||0,
+      review:Number(x.review)||0,importedAt:x.importedAt||"",sheets:x.sheets||""
+    };}),[
+      ["name","Fil"],["kind","Typ"],["rows","Rader"],["matched","Matchade"],["created","Skapade"],["review","Granska"],["importedAt","Importerad"],["sheets","Flikar"]
+    ]),"Källor");
     XLSX.utils.book_append_sheet(workbook,simpleSheet(extraRows(data),[["collection","Collection"],["id","ID"],["part","Del"],["json","JSON"]]),"Tilläggsdata");
+    workbook.Workbook=workbook.Workbook||{};
+    workbook.Workbook.Sheets=workbook.SheetNames.map(function(name){return {name:name,Hidden:name==="Tilläggsdata"?1:0};});
     return workbook;
   }
 
@@ -890,6 +917,17 @@
     return {data:clone(result.data),report:clone(result.report)};
   }
 
+  async function enrichOperational(data) {
+    if(!window.LokalblickOperationalEnrichmentAdapter) throw new Error("Den operativa berikningsadaptern är inte tillgänglig.");
+    const picked=await readSecondaryWorkbook("Fastighets-, person- och åtgärdsberikning");
+    const result=window.LokalblickOperationalEnrichmentAdapter.enrich(picked.workbook,clone(data||source.data||{}),picked.file.name);
+    source.operationalReports=source.operationalReports||[];
+    source.operationalFileNames=source.operationalFileNames||[];
+    source.operationalReports.push(clone(result.report||null));
+    source.operationalFileNames.push(picked.file.name||"");
+    return {data:clone(result.data),report:clone(result.report)};
+  }
+
   async function importIndexSeries(data) {
     if(!window.LokalblickContractEnrichmentAdapter) throw new Error("Indexadaptern är inte tillgänglig.");
     const picked=await readSecondaryWorkbook("KPI / indexserie");
@@ -930,6 +968,8 @@
     source.migrationReport = null;
     source.enrichmentReport = null;
     source.enrichmentFileName = "";
+    source.operationalReports = [];
+    source.operationalFileNames = [];
     source.indexReport = null;
     source.indexFileName = "";
     source.writeRecoveryNeeded = false;
@@ -953,6 +993,8 @@
       migrationReport:clone(source.migrationReport || null),
       enrichmentReport:clone(source.enrichmentReport || null),
       enrichmentFileName:source.enrichmentFileName || "",
+      operationalReports:clone(source.operationalReports || []),
+      operationalFileNames:clone(source.operationalFileNames || []),
       indexReport:clone(source.indexReport || null),
       indexFileName:source.indexFileName || "",
       writeRecoveryNeeded:Boolean(source.writeRecoveryNeeded),
@@ -969,6 +1011,7 @@
     reconnect:reconnect,
     createFile:createFile,
     enrichContracts:enrichContracts,
+    enrichOperational:enrichOperational,
     importIndexSeries:importIndexSeries,
     async importSupplement(data,key){
       const schema=SCHEMAS.find(function(s){return s.key===key;});
