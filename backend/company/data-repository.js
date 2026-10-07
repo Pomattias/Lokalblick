@@ -144,6 +144,14 @@ function ensureStoreShape(value) {
   }
 
   const people = new Map(store.entities.people.map((x) => [x.id, x]));
+  const organizations = new Map(store.entities.organizations.map((x) => [x.id, x]));
+  function isOurPerson(id) {
+    const person=people.get(id);
+    if(!person)return false;
+    if(!person.organizationId)return true;
+    return organizations.get(person.organizationId)?.type==="our";
+  }
+  function responsibilityRole(role) { return /ansvar|projektledare|objektansvar/i.test(String(role||"")); }
   function ensureContact(a, targetType, targetId, role) {
     if (!a?.personId || !targetId) return;
     const type = targetType === "object" ? "contract" : targetType;
@@ -163,13 +171,13 @@ function ensureStoreShape(value) {
   const legacyType = (type) => ({project:"Projekt",maintenance:"Underhåll",driftIssue:"Drift",wish:"Önskemål",investigation:"Utredning"}[type]||"");
   (entities.assignments || []).forEach((a) => {
     if (a.toDate) return;
-    if (a.targetType==="property" && a.role==="Ansvarig") {
+    if (a.targetType==="property" && isOurPerson(a.personId) && responsibilityRole(a.role)) {
       ensurePropertyResponsibility(a.targetId,a.personId); return;
     }
-    if (a.targetType==="maintenanceStatus" && a.role==="Ansvarig") {
+    if (a.targetType==="maintenanceStatus" && isOurPerson(a.personId) && responsibilityRole(a.role)) {
       const activity=byActivity.get("STATUS-ACT|"+a.targetId); if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId; return;
     }
-    if ((a.targetType==="activity" || legacyType(a.targetType)) && a.role==="Ansvarig") {
+    if ((a.targetType==="activity" || legacyType(a.targetType)) && isOurPerson(a.personId) && responsibilityRole(a.role)) {
       const activity=byActivity.get(a.targetId); if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId; return;
     }
     if ((a.targetType==="activity" || legacyType(a.targetType)) && a.role==="Beställare") {
@@ -177,8 +185,13 @@ function ensureStoreShape(value) {
       if(activity){activity.orderedByPersonId ||= a.personId; activity.orderedBy ||= people.get(a.personId)?.name || "";}
       return;
     }
-    if (a.targetType==="object" && a.role==="Ansvarig") ensureContact(a,"contract",a.targetId,"Avtalsansvarig");
-    else ensureContact(a,a.targetType,a.targetId,a.role);
+    if ((a.targetType==="object"||a.targetType==="contract") && isOurPerson(a.personId) && responsibilityRole(a.role)) {
+      const contract=(this?.core?.contracts||[]).find?.((x)=>x.id===a.targetId);
+      if(contract)ensurePropertyResponsibility(contract.propertyId,a.personId);
+      else ensureContact(a,"contract",a.targetId,a.role);
+      return;
+    }
+    ensureContact(a,a.targetType,a.targetId,a.role);
   });
 
   store.entities.maintenanceStatus.forEach((status) => {
