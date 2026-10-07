@@ -568,55 +568,6 @@
     return data;
   }
 
-  function applyActivityRows(data, rows) {
-    data.activities = rows || [];
-    data.projects=[];data.maintenance=[];data.investigations=[];data.driftIssues=[];data.wishes=[];
-    (rows||[]).forEach(function(a){
-      const order={
-        orderedAt:a.orderedAt||"",orderedBy:a.orderedBy||"",supplier:a.supplier||"",orderReference:a.orderReference||"",
-        orderedCost:Number(a.orderedCost)||0,deliveryText:a.deliveryText||"",completedAt:a.completedAt||"",
-        finalCost:Number(a.finalCost)||0,paymentStatus:a.paymentStatus||"",paidAt:a.paidAt||"",invoiceComment:a.invoiceComment||"",
-        sourceId:a.sourceId||"",sourceSheet:a.sourceSheet||"",sourceRow:a.sourceRow||"",ownerPays:a.ownerPays||""
-      };
-      if(a.type==="Projekt") {
-        data.projects.push(Object.assign({
-          id:a.id,propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
-          name:a.title||"",description:a.description||"",status:a.status||"Planerad",phase:a.phase||"Förstudie",
-          start:a.startDate||"",end:a.endDate||"",moveIn:"",budgetYear:a.planningYear||"",
-          budgetInvestigation:0,budgetExecution:Number(a.estimatedCost)||0,budgetFurnishing:0,preliminaryCost:Number(a.estimatedCost)||0,
-          planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||""
-        },order));
-      } else if(a.type==="Underhåll") {
-        data.maintenance.push(Object.assign({
-          id:a.id,propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
-          title:a.title||"",description:a.description||"",category:a.category||"",year:a.planningYear||"",cost:Number(a.estimatedCost)||0,
-          priority:a.priority||"",status:a.status||"Identifierad",planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||""
-        },order));
-      } else if(a.type==="Drift") {
-        data.driftIssues.push(Object.assign({
-          id:a.id,contractId:a.contractId||"",propertyId:a.propertyId||"",category:a.category||"Övrigt",title:a.title||"",
-          description:a.description||"",createdDate:a.startDate||"",targetDate:a.endDate||"",decisionDate:"",
-          completedDate:a.completedAt||"",status:a.status||"Nytt",priority:a.priority||"",responsiblePersonId:a.responsiblePersonId||"",
-          budgetYear:a.planningYear||"",estimatedCost:Number(a.estimatedCost)||0,finalCost:Number(a.finalCost)||0,
-          includeInBudget:"Ja",planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||""
-        },order));
-      } else if(a.type==="Önskemål") {
-        data.wishes.push(Object.assign({
-          id:a.id,contractId:a.contractId||"",propertyId:a.propertyId||"",category:a.category||"Övrigt",title:a.title||"",
-          description:a.description||"",createdDate:a.startDate||"",targetDate:a.endDate||"",decisionDate:"",
-          completedDate:a.completedAt||"",status:a.status||"Nytt",responsiblePersonId:a.responsiblePersonId||"",
-          budgetYear:a.planningYear||"",budgetCategory:a.budgetCategory||"Ej budget",estimatedCost:Number(a.estimatedCost)||0,
-          finalCost:Number(a.finalCost)||0,includeInBudget:"Ja"
-        },order));
-      } else if(a.type==="Utredning") {
-        data.investigations.push(Object.assign({
-          id:a.id,propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
-          title:a.title||"",description:a.description||"",year:a.planningYear||"",cost:Number(a.estimatedCost)||0,status:a.status||"Planerad"
-        },order));
-      }
-    });
-  }
-
   const EXTRA_KEYS = ["auditLog","sourceRegistry","importReview","documents"];
   function extraRows(data) {
     const rows=[];
@@ -1114,6 +1065,7 @@
     schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]),
     workbookToData:workbookToData,
     dataToWorkbook:dataToWorkbook,
+    canonicalizeModel:canonicalizeModel,
     diffData:diffData,
     connect:connect,
     reconnect:reconnect,
@@ -1122,8 +1074,8 @@
     enrichOperational:enrichOperational,
     importIndexSeries:importIndexSeries,
     async importSupplement(data,key){
-      const schema=SCHEMAS.find(function(s){return s.key===key;});
-      if(!schema||["properties","contracts"].includes(key))throw new Error("Denna källa måste använda primäradaptern.");
+      const schema=SCHEMAS.concat([ACTIVITY_SCHEMA]).find(function(s){return s.key===key;});
+      if(!schema||!["activities","operations","maintenanceStatus"].includes(key))throw new Error("Denna kompletterande källa stöds inte.");
       const picked=await readSecondaryWorkbook(schema.sheet);
       return window.LokalblickSupplementalAdapter.analyze(picked.workbook,data,schema,picked.file.name);
     },
