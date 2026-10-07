@@ -2,10 +2,12 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { geocodeProperties, isGeocodingConfigured } from "./src/geocoding-service.js";
+import { geocodeProperties, isGeocodingConfigured, geocodingProvider } from "./src/geocoding-service.js";
+import { loadLocalEnvironment } from "./company/env.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
+await loadLocalEnvironment(path.join(repoRoot, ".env.local"));
 const frontendRoot = path.join(repoRoot, "frontend");
 const host = process.env.LOKALBLICK_HOST || "127.0.0.1";
 const port = Number(process.env.LOKALBLICK_PORT || 8787);
@@ -107,7 +109,7 @@ async function handle(req, res) {
     return sendJson(res, 200, {
       ok: true,
       service: "lokalblick-backend",
-      geocoding: { provider: "azure-maps", configured: isGeocodingConfigured() }
+      geocoding: { provider: geocodingProvider(), configured: isGeocodingConfigured() }
     }, headers);
   }
 
@@ -117,7 +119,7 @@ async function handle(req, res) {
       const results = await geocodeProperties(body.properties);
       return sendJson(res, 200, {
         ok: true,
-        provider: "azure-maps",
+        provider: geocodingProvider(),
         results,
         summary: {
           total: results.length,
@@ -130,6 +132,18 @@ async function handle(req, res) {
       const status = Number(error.status) || (error.code === "GEOCODING_NOT_CONFIGURED" ? 503 : 500);
       return sendJson(res, status, { ok: false, error: error.message || "Geokodning misslyckades", code: error.code || "GEOCODING_ERROR" }, headers);
     }
+  }
+
+  if (url.pathname === "/runtime-config.js" && req.method === "GET") {
+    const cartoKey = process.env.VITE_CARTO_API_KEY || process.env.CARTO_API_KEY || "";
+    res.writeHead(200, {
+      "content-type": "text/javascript; charset=utf-8",
+      "cache-control": "no-store"
+    });
+    return res.end(
+      "window.LokalblickRuntime=Object.assign({},window.LokalblickRuntime||{},{" +
+      "cartoApiKey:" + JSON.stringify(cartoKey) + "});"
+    );
   }
 
   if (req.method !== "GET" && req.method !== "HEAD") {
@@ -147,5 +161,6 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, host, () => {
   console.log(`Lokalblick backend: http://${host}:${port}`);
-  console.log(`Azure Maps geokodning: ${isGeocodingConfigured() ? "konfigurerad" : "inte konfigurerad"}`);
+  console.log(`ORS geokodning: ${isGeocodingConfigured() ? "konfigurerad" : "inte konfigurerad"}`);
+  console.log(`CARTO karta: ${(process.env.VITE_CARTO_API_KEY || process.env.CARTO_API_KEY) ? "nyckel konfigurerad" : "utan nyckel / OSM fallback"}`);
 });
