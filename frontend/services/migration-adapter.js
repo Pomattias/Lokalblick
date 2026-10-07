@@ -257,6 +257,7 @@
       const sourceObject=text(cell(r,h,["Förvaltningsobjekt"]));
       const number=text(cell(r,h,["Avtalsnummer"]));
       const address=text(cell(r,h,["Gatuadress","Adress"]));
+      const city=text(cell(r,h,["Ort","Postort","Stad"]));
       if(!sourceObject && !number && !address) return;
       const rawOwner=text(cell(r,h,["Kundtyp avtal","Lev.namn"]));
       const ownerName=rawOwner && norm(rawOwner)!=="intern" ? rawOwner : "Stadsfastigheter";
@@ -267,7 +268,7 @@
       const designation=/[A-Za-zÅÄÖåäö]/.test(costCenter) ? costCenter : "";
       const sourceSheet=item.sourceSheet||"Lokallista";
       const property=ensureProperty(data,sourceObject,address,{
-        designation:designation,owner:ownerName,manager:manager.name||"",sourceSheet:sourceSheet,sourceRow:item.sourceRow
+        city:city,designation:designation,owner:ownerName,manager:manager.name||"",sourceSheet:sourceSheet,sourceRow:item.sourceRow
       });
       const sourceType=sourceSheet==="EXT" ? "EXT" : (sourceSheet==="INT" || sourceSheet==="SF") ? "INT" : (/^INH/i.test(sourceObject) ? "EXT" : "INT");
       ensureContract(data,number,property,{
@@ -284,6 +285,7 @@
     rows(workbook,"Fastighetslista",0).forEach(function(item){
       const r=item.row,h=item.headers;
       const address=text(cell(r,h,["Postadress"]));
+      const city=text(cell(r,h,["Ort","Postort","Stad"]));
       const sourceId=text(cell(r,h,["Objekt. nr","Objekt nr"]));
       if(!address && !sourceId) return;
       let property=sourceId ? data.properties.find(function(p){return p.sourceId===sourceId;}) : null;
@@ -300,6 +302,7 @@
       const managerEmail=text(cell(r,h,["Email (förvaltare)"]));
       const managerId=managerName ? ensurePerson(data,managerName,unitId(cell(r,h,["Avd"])),"Fastighetsförvaltare","",managerEmail,ownerOrgId||"") : "";
       property.address=address||property.address;
+      property.city=city||property.city||"";
       property.designation=text(cell(r,h,["Fastighetsbeteckning"]))||property.designation;
       property.owner=ownerName||property.owner;
       property.ownerPhone=ownerPhone||property.ownerPhone||"";
