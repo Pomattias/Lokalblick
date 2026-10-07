@@ -524,6 +524,14 @@
     });
 
     function personName(id){const p=(data.people||[]).find(function(x){return x.id===id;});return p?(p.name||p.id):"";}
+    function isOurPerson(id){
+      const p=(data.people||[]).find(function(x){return x.id===id;});
+      if(!p)return false;
+      if(!p.organizationId)return true;
+      const org=(data.organizations||[]).find(function(x){return x.id===p.organizationId;});
+      return Boolean(org&&org.type==="our");
+    }
+    function responsibilityRole(role){return /ansvar|projektledare|objektansvar/i.test(String(role||""));}
     function ensureContact(a,targetType,targetId,role){
       if(!a.personId||!targetId)return;
       const normalizedType=targetType==="object"?"contract":targetType;
@@ -533,20 +541,20 @@
     }
     (data.assignments||[]).forEach(function(a){
       if(a.toDate)return;
-      if(a.targetType==="property"&&a.role==="Ansvarig"){
+      if(a.targetType==="property"&&isOurPerson(a.personId)&&responsibilityRole(a.role)){
         const p=(data.properties||[]).find(function(x){return x.id===a.targetId;});if(p&&!p.responsiblePersonId)p.responsiblePersonId=a.personId;
         return;
       }
-      if(a.targetType==="activity"&&a.role==="Ansvarig"){
+      if(a.targetType==="activity"&&isOurPerson(a.personId)&&responsibilityRole(a.role)){
         const activity=byActivity.get(a.targetId);if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId;
         return;
       }
-      if(a.targetType==="maintenanceStatus"&&a.role==="Ansvarig"){
+      if(a.targetType==="maintenanceStatus"&&isOurPerson(a.personId)&&responsibilityRole(a.role)){
         const activity=byActivity.get("STATUS-ACT|"+a.targetId);if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId;
         return;
       }
       const legacyType=legacyActivityType(a.targetType);
-      if(legacyType&&a.role==="Ansvarig"){
+      if(legacyType&&isOurPerson(a.personId)&&responsibilityRole(a.role)){
         const activity=byActivity.get(a.targetId);if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId;
         return;
       }
@@ -554,8 +562,13 @@
         const activity=byActivity.get(a.targetId);if(activity){if(!activity.orderedByPersonId)activity.orderedByPersonId=a.personId;if(!activity.orderedBy)activity.orderedBy=personName(a.personId);}
         return;
       }
-      if(a.targetType==="object"&&a.role==="Ansvarig") ensureContact(a,"contract",a.targetId,"Avtalsansvarig");
-      else ensureContact(a,a.targetType,a.targetId,a.role||"Kontakt");
+      if((a.targetType==="object"||a.targetType==="contract")&&isOurPerson(a.personId)&&responsibilityRole(a.role)){
+        const contract=(data.contracts||[]).find(function(x){return x.id===a.targetId;});
+        const property=contract&&(data.properties||[]).find(function(x){return x.id===contract.propertyId;});
+        if(property&&!property.responsiblePersonId)property.responsiblePersonId=a.personId;
+        return;
+      }
+      ensureContact(a,a.targetType,a.targetId,a.role||"Kontakt");
     });
 
     (data.assignmentChanges||[]).forEach(function(change){
