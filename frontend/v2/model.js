@@ -345,6 +345,26 @@ function migrateLegacy(out) {
   (out.maintenanceStatus || []).forEach((status) => {
     delete status.responsiblePersonId;
   });
+  const migrateLine = (line) => {
+    if (!line) return line;
+    if (
+      ["project", "maintenance", "investigation", "driftIssue", "wish"].includes(
+        line.sourceType,
+      )
+    )
+      line.sourceType = "activity";
+    if (line.sourceType === "maintenanceStatus") {
+      line.sourceType = "activity";
+      line.sourceId = "STATUS-ACT|" + line.sourceId;
+    }
+    return line;
+  };
+  (out.budgetPlans || []).forEach((plan) => {
+    (plan.lines || []).forEach(migrateLine);
+    (plan.versions || []).forEach((version) =>
+      (version.snapshot?.lines || []).forEach(migrateLine),
+    );
+  });
   return out;
 }
 
