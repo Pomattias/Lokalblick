@@ -619,7 +619,15 @@ document.addEventListener("click", (event) =>
             status: "Låst",
             included: true,
           }));
+        const lockedIndex = calc().budgetIndex(
+          d,
+          ui.year,
+          plan.preliminaryIndex,
+        );
         plan.lines = live.concat(adjustments);
+        plan.lockedIndexYear = lockedIndex.year;
+        plan.lockedIndexValue = lockedIndex.value;
+        plan.lockedIndexSource = lockedIndex.source;
         plan.status = "Låst";
         plan.lockedAt = new Date().toISOString();
         plan.lockedBy = actor();
