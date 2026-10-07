@@ -125,6 +125,10 @@ async function callAzureBatch(properties) {
   });
 }
 
+function validCoordinate(value) {
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
 function validateProperties(properties) {
   if (!Array.isArray(properties) || properties.length < 1 || properties.length > MAX_BATCH_SIZE) {
     const error = new Error(`Geokodning tar 1–${MAX_BATCH_SIZE} fastigheter per anrop.`);
@@ -137,8 +141,8 @@ function validateProperties(properties) {
     sourceId: String(property && property.sourceId || "").trim(),
     address: String(property && property.address || "").trim(),
     city: String(property && property.city || process.env.LOKALBLICK_DEFAULT_CITY || "Malmö").trim(),
-    latitude: Number.isFinite(Number(property && property.latitude)) ? Number(property.latitude) : null,
-    longitude: Number.isFinite(Number(property && property.longitude)) ? Number(property.longitude) : null
+    latitude: validCoordinate(property && property.latitude) ? Number(property.latitude) : null,
+    longitude: validCoordinate(property && property.longitude) ? Number(property.longitude) : null
   })).filter((property) => property.id && property.address);
 }
 
