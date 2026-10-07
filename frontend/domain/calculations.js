@@ -73,7 +73,7 @@
           c[prefix + "Floor"] !== false,
         )
       : sourceAmount;
-    const preliminary = calculated && (!knownIndex || !explicit);
+    const preliminary = calculated && !knownIndex;
     const needsReview =
       incompatible || conflicting || (base > 0 && !calculated);
     return {
@@ -130,6 +130,17 @@
       tax,
       total: rent.amount + addition.amount + media + tax,
     };
+  }
+  function noticeDate(c) {
+    if (!c?.end || !Number(c.noticePeriodMonths)) return "";
+    const end = new Date(c.end + "T00:00:00Z");
+    if (!Number.isFinite(end.getTime())) return "";
+    const day=end.getUTCDate();
+    end.setUTCDate(1);
+    end.setUTCMonth(end.getUTCMonth()-Number(c.noticePeriodMonths));
+    const maxDay=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth()+1,0)).getUTCDate();
+    end.setUTCDate(Math.min(day,maxDay));
+    return end.toISOString().slice(0,10);
   }
   function yearFactor(c, year) {
     const from = Date.UTC(Number(year), 0, 1),
@@ -266,6 +277,7 @@
     indexedAmount,
     component,
     annualValues,
+    noticeDate,
     yearFactor,
     budgetRows,
     actualRows,

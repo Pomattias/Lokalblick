@@ -520,7 +520,7 @@
     });
     EXTRA_KEYS.forEach(function(key){if(data[key]!=null)add("workspace",key,data[key]);});
     (data.budgetPlans||[]).forEach(function(p){
-      const extras=Object.fromEntries(Object.entries(p).filter(function(entry){return !["year","status","createdAt","lockedAt","preliminaryIndex","targets","notes"].includes(entry[0]);}));
+      const extras=Object.fromEntries(Object.entries(p).filter(function(entry){return !["year","status","createdAt","lockedAt","lockedBy","preliminaryIndex","targets","notes"].includes(entry[0]);}));
       if(Object.keys(extras).length)add("budgetPlans",String(p.year),extras);
     });
     (data.indexSeries||[]).forEach(function(p){
@@ -550,6 +550,8 @@
     data.activities = workbook.Sheets[ACTIVITY_SCHEMA.sheet]
       ? schemaRowsFromSheet(workbook, ACTIVITY_SCHEMA)
       : [];
+    if (!(data.organizations||[]).length && (data.legacyOrganizations||[]).length)
+      data.organizations = data.legacyOrganizations.map(function(x){ return clone(x); });
     const legacyStatusRows=normalizeRows(rowsFromSheet(workbook,"Status"));
     (data.maintenanceStatus||[]).forEach(function(status,index){
       const raw=legacyStatusRows[index]||{};
@@ -584,7 +586,7 @@
       const notes = {};
       targets.filter(function(x){ return String(x.year) === String(year); }).forEach(function(x) { if(!planTargets[x.category])planTargets[x.category]=Number(x.amount)||0;if(x.note)notes[x.category]=x.note; });
       return {
-        year: year, status: plan.status || "", createdAt: plan.createdAt || "", lockedAt: plan.lockedAt || "",
+        year: year, status: plan.status || "", createdAt: plan.createdAt || "", lockedAt: plan.lockedAt || "", lockedBy: plan.lockedBy || "",
         preliminaryIndex:Number(plan.preliminaryIndex)||0,
         notes: notes, targets: planTargets,
         lines: lines.filter(function(x){ return String(x.year) === String(year); }).map(function(x) {
