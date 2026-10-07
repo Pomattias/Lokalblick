@@ -252,6 +252,7 @@
       category: spec.category || "", status: spec.status || "Planerad", priority: spec.priority || "",
       planningYear: spec.planningYear || "", planningQuarter: spec.planningQuarter || "", planningMonth: spec.planningMonth || "",
       budgetCategory: spec.budgetCategory || (spec.type === "Projekt" ? "Projekt" : spec.type === "Underhåll" ? "Underhåll" : spec.type === "Drift" ? "Driftkostnader" : spec.type === "Utredning" ? "Utredningar" : "Ej budget"),
+      includeInBudget: spec.includeInBudget || "Ja",
       estimatedCost: Number(spec.estimatedCost) || 0, investigationCost: Number(spec.investigationCost) || 0,
       phase: spec.phase || (spec.type === "Projekt" ? "Förstudie" : ""), startDate: spec.startDate || "", endDate: spec.endDate || "",
       orderedAt: "", orderedBy: "", supplier: "", orderReference: "", orderedCost: 0, deliveryText: "",
