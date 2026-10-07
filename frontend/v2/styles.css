@@ -396,6 +396,112 @@ details .table-wrap {
 .primary-action:hover {
   background: var(--accent);
 }
+.import-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(82vh, 760px);
+  border: 0;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 22px 70px #18392f33;
+}
+.import-dialog::backdrop {
+  background: #17352d55;
+}
+.import-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.import-dialog-head h2 {
+  margin: 3px 0 0;
+  font-size: 22px;
+}
+.import-dialog-head p {
+  margin: 5px 0 0;
+}
+.import-sheet-tools {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 14px 0 10px;
+}
+.import-sheet-tools button {
+  font-size: 12px;
+  padding: 6px 9px;
+}
+.import-sheet-list {
+  display: grid;
+  gap: 7px;
+  max-height: 48vh;
+  overflow: auto;
+  padding: 2px;
+}
+.import-sheet {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 10px 12px;
+  background: var(--paper);
+  cursor: pointer;
+}
+.import-sheet input {
+  width: auto;
+  margin: 0;
+}
+.import-sheet strong,
+.import-sheet small {
+  display: block;
+}
+.import-dialog-actions {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.import-progress-track {
+  height: 8px;
+  overflow: hidden;
+  margin: 18px 0 14px;
+  border-radius: 999px;
+  background: var(--soft);
+}
+.import-progress-track span {
+  display: block;
+  width: 8%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 180ms ease;
+}
+.import-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: import-spin 0.8s linear infinite;
+}
+@keyframes import-spin {
+  to { transform: rotate(360deg); }
+}
+.import-progress-sheets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 15px;
+}
+.import-progress-sheets span {
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: var(--soft);
+  font-size: 11px;
+}
+.import-progress-hint {
+  margin: 16px 0 0;
+  font-size: 12px;
+}
 .notice:empty {
   display: none;
 }
