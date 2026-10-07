@@ -765,6 +765,95 @@ test("unified Excel import seeds empty property and contract data before enrichm
     false,
   );
 });
+test("different property object IDs never merge through designation or address fallback", () => {
+  const svc = services();
+  const base = normalize({
+    isDemo: false,
+    properties: [
+      {
+        id: "PROP|INH0234",
+        sourceId: "INH0234",
+        address: "LUNDAVÄGEN 6",
+        designation: "SVANTE 19",
+        sourceSheet: "Lokallista",
+        sourceRow: 103,
+      },
+    ],
+  });
+  const w = workbook({
+    Lokallista: [
+      [
+        "Förvaltningsobjekt",
+        "Avtalsnummer",
+        "Gatuadress",
+        "Kostnadsställe",
+        "Area",
+        "Användning",
+      ],
+      ["INH0233", "A-233", "LUNDAVÄGEN 4", "SVANTE 19", 100, "Test"],
+    ],
+  });
+  const result = svc.LokalblickSourceService.analyzeImportWorkbook(
+    w,
+    base,
+    "Fastighetslista II.xlsx",
+  );
+  assert.equal(result.data.properties.length, 2);
+  assert.ok(result.data.properties.some((x) => x.sourceId === "INH0234"));
+  assert.ok(result.data.properties.some((x) => x.sourceId === "INH0233"));
+  assert.equal(
+    result.data.importReview.some(
+      (x) => x.status === "pending" && ["sourceId", "address"].includes(x.field),
+    ),
+    false,
+  );
+});
+test("old cross-object review groups become obsolete automatically", () => {
+  const data = normalize({
+    isDemo: false,
+    properties: [
+      {
+        id: "PROP|INH0234",
+        sourceId: "INH0234",
+        address: "LUNDAVÄGEN 6",
+      },
+    ],
+    sourceRegistry: [
+      { id: "s1", name: "Fastighetslista II.xlsx", review: 18 },
+    ],
+    importReview: [
+      {
+        id: "r1",
+        kind: "operational-conflict",
+        source: "Fastighetslista II.xlsx",
+        sheet: "Lokallista",
+        row: 88,
+        entity: "Fastighet",
+        recordId: "PROP|INH0233",
+        field: "sourceId",
+        current: "INH0234",
+        proposed: "INH0233",
+        status: "pending",
+      },
+      {
+        id: "r2",
+        kind: "operational-conflict",
+        source: "Fastighetslista II.xlsx",
+        sheet: "Lokallista",
+        row: 88,
+        entity: "Fastighet",
+        recordId: "PROP|INH0233",
+        field: "address",
+        current: "LUNDAVÄGEN 6",
+        proposed: "LUNDAVÄGEN 4",
+        status: "pending",
+      },
+    ],
+  });
+  assert.equal(data.importReview.filter((x) => x.status === "pending").length, 0);
+  assert.ok(data.importReview.every((x) => x.status === "obsolete"));
+  assert.equal(data.sourceRegistry[0].review, 0);
+});
 test("legacy core conflict can still resolve against the registered record", () => {
   const data = normalize({
     isDemo: false,
