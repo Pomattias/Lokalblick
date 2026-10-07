@@ -569,6 +569,16 @@
 
     ["projects","maintenance","investigations","driftIssues","wishes","assignments","assignmentChanges","legacyOperations"].forEach(function(key){data[key]=[];});
     (data.maintenanceStatus||[]).forEach(function(status){delete status.responsiblePersonId;});
+    function migrateBudgetLine(line){
+      if(!line)return line;
+      if(["project","maintenance","investigation","driftIssue","wish"].includes(line.sourceType))line.sourceType="activity";
+      if(line.sourceType==="maintenanceStatus"){line.sourceType="activity";line.sourceId="STATUS-ACT|"+line.sourceId;}
+      return line;
+    }
+    (data.budgetPlans||[]).forEach(function(plan){
+      (plan.lines||[]).forEach(migrateBudgetLine);
+      (plan.versions||[]).forEach(function(version){((version.snapshot||{}).lines||[]).forEach(migrateBudgetLine);});
+    });
     return data;
   }
 
