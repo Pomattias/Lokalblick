@@ -49,6 +49,7 @@
         id: property.id,
         sourceId: property.sourceId || "",
         address: property.address || "",
+        city: property.city || "",
         latitude: validCoordinate(property.latitude) ? Number(property.latitude) : null,
         longitude: validCoordinate(property.longitude) ? Number(property.longitude) : null
       };
@@ -115,6 +116,7 @@
       property.geocodeProvider = result.provider || "";
       property.geocodeMatchCode = result.matchCode || "";
       property.geocodedAddress = result.address || property.address || "";
+      property.geocodedCity = result.city || property.city || "";
       property.geocodedAt = result.geocodedAt || null;
 
       if (validCoordinate(result.latitude) && validCoordinate(result.longitude)) {
