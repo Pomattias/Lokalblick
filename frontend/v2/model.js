@@ -240,6 +240,13 @@ function migrateLegacy(out) {
       byActivity.set(activity.id, activity);
     }
   }
+  out.activities.forEach((activity) => {
+    if (!activity.includeInBudget && activity.budgetIncluded === false)
+      activity.includeInBudget = "Nej";
+    else if (!activity.includeInBudget && activity.budgetIncluded === true)
+      activity.includeInBudget = "Ja";
+    delete activity.budgetIncluded;
+  });
   (out.maintenanceStatus || []).forEach((status) => {
     if (!status.actionNeed && !(Number(status.estimatedCost) > 0)) return;
     const id = "STATUS-ACT|" + status.id;
