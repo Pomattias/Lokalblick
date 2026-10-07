@@ -58,7 +58,7 @@
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["orderedByPersonId","_orderedByPersonId",true],["investigationCost","_utredningskostnad",true],
       ["type","Typ"],["title","Aktivitet"],["description","Beskrivning"],["category","Kategori"],["status","Status"],["priority","Prioritet"],
-      ["planningYear","Planår"],["planningQuarter","Kvartal"],["planningMonth","Månad"],["budgetCategory","Budgetkategori"],
+      ["planningYear","Planår"],["planningQuarter","Kvartal"],["planningMonth","Månad"],["budgetCategory","Budgetkategori"],["includeInBudget","Ta med i budget"],
       ["estimatedCost","Bedömd kostnad"],["phase","Fas"],["startDate","Start"],["endDate","Slut"],
       ["orderedAt","Beställd"],["orderedBy","Beställd av"],["supplier","Leverantör"],["orderReference","Beställningsreferens"],["orderedCost","Beställningsbelopp"],
       ["deliveryText","Leverans"],["completedAt","Utförd"],["finalCost","Slutkostnad"],["paymentStatus","Betalstatus"],["paidAt","Betald"],["invoiceComment","Faktura / kommentar"],
@@ -442,6 +442,15 @@
     const rows = (data.activities||[]).map(function(item){return clone(item);});
     const seen = new Set(rows.map(function(item){return item.id;}));
     function pushLegacy(item){ if(item && item.id && !seen.has(item.id)){rows.push(item);seen.add(item.id);} }
+    function legacyExtras(item) {
+      return {
+        includeInBudget:item.includeInBudget || (item.budgetIncluded===false ? "Nej" : "Ja"),
+        finalCosts:item.finalCosts||undefined,
+        finalCostConfirmed:Boolean(item.finalCostConfirmed),
+        provenance:clone(item.provenance||{}),
+        createdAt:item.createdAt||"",createdBy:item.createdBy||"",updatedAt:item.updatedAt||"",updatedBy:item.updatedBy||""
+      };
+    }
     function orderFields(item) {
       return {
         orderedAt:item.orderedAt||"",orderedBy:item.orderedBy||"",orderedByPersonId:item.orderedByPersonId||"",supplier:item.supplier||"",orderReference:item.orderReference||"",
@@ -452,7 +461,7 @@
     }
     (data.projects||[]).forEach(function(item){
       const execution=Number(item.budgetExecution)||0, furnishing=Number(item.budgetFurnishing)||0, preliminary=Number(item.preliminaryCost)||0;
-      pushLegacy(Object.assign({
+      pushLegacy(Object.assign({},legacyExtras(item),{
         id:item.id,type:"Projekt",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"project",item.responsiblePersonId||""),
         title:item.name||"",description:item.description||"",category:"",status:item.status||"",priority:"",
         planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -461,7 +470,7 @@
       },orderFields(item)));
     });
     (data.maintenance||[]).forEach(function(item){
-      pushLegacy(Object.assign({
+      pushLegacy(Object.assign({},legacyExtras(item),{
         id:item.id,type:"Underhåll",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"maintenance",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -469,7 +478,7 @@
       },orderFields(item)));
     });
     (data.driftIssues||[]).forEach(function(item){
-      pushLegacy(Object.assign({
+      pushLegacy(Object.assign({},legacyExtras(item),{
         id:item.id,type:"Drift",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"driftIssue",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -477,7 +486,7 @@
       },orderFields(item)));
     });
     (data.wishes||[]).forEach(function(item){
-      pushLegacy(Object.assign({
+      pushLegacy(Object.assign({},legacyExtras(item),{
         id:item.id,type:"Önskemål",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"wish",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -485,7 +494,7 @@
       },orderFields(item)));
     });
     (data.investigations||[]).forEach(function(item){
-      pushLegacy(Object.assign({
+      pushLegacy(Object.assign({},legacyExtras(item),{
         id:item.id,type:"Utredning",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"investigation",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -517,7 +526,7 @@
         title:[status.category,status.actionNeed].filter(Boolean).join(" · ")||"Åtgärdsbehov",description:status.comment||"",category:status.category||"",
         status:/bra/i.test(String(status.status||""))?"Identifierad":(status.status||"Identifierad"),priority:status.priority||"",
         planningYear:status.budgetYear||"",planningQuarter:status.planningQuarter||"",planningMonth:status.planningMonth||"",
-        budgetCategory:"Underhåll",estimatedCost:Number(status.estimatedCost)||0,investigationCost:0,phase:"",startDate:status.assessedDate||"",endDate:"",
+        budgetCategory:"Underhåll",includeInBudget:status.includeInBudget||"Ja",estimatedCost:Number(status.estimatedCost)||0,investigationCost:0,phase:"",startDate:status.assessedDate||"",endDate:"",
         sourceId:status.id,sourceSheet:"Status",sourceRow:""
       };
       data.activities.push(a);byActivity.set(id,a);
