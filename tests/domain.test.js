@@ -415,6 +415,18 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
   );
   const workbookOut = XLSX.read(bytes, { type: "buffer" });
   assert.ok(workbookOut.Sheets.Aktiviteter);
+  assert.ok(workbookOut.Sheets.Index);
+  assert.equal(Boolean(workbookOut.Sheets.KPI), false);
+  const indexRows = XLSX.utils.sheet_to_json(workbookOut.Sheets.Index, { defval: "" });
+  assert.ok(
+    indexRows.some(
+      (row) =>
+        Number(row["År"]) === 2025 &&
+        Number(row["Månad"]) === 10 &&
+        Number(row["Indextal"]) === 419.35 &&
+        String(row["Serie basår"]) === "1980",
+    ),
+  );
   assert.equal(Boolean(workbookOut.Sheets.Projekt), false);
   assert.equal(Boolean(workbookOut.Sheets.Underhåll), false);
   assert.equal(Boolean(workbookOut.Sheets.Ansvar), false);
@@ -448,6 +460,36 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
   assert.equal(out.budgetPlans[0].lockedBy, "Test");
   assert.equal(out.importReview.length, 1);
 });
+test("missing city can be completed once and persists to Lokalblick-data with audit", () => {
+  const svc = services();
+  const api = svc.LokalblickSourceService;
+  const data = normalize({
+    isDemo: false,
+    properties: [
+      { id: "p1", address: "Testgatan 1", city: "" },
+      { id: "p2", address: "Testgatan 2", city: "" },
+      { id: "p3", address: "Testgatan 3", city: "Lund" },
+    ],
+  });
+  const status = api.cityImportStatus(data);
+  assert.equal(status.missingCount, 2);
+  assert.deepEqual(plain(status.knownCities), ["Lund"]);
+  api.applyCityToProperties(data, status.missingIds, "Malmö", "Test");
+  assert.equal(data.properties.find((x) => x.id === "p1").city, "Malmö");
+  assert.equal(data.properties.find((x) => x.id === "p2").city, "Malmö");
+  assert.equal(data.properties.find((x) => x.id === "p3").city, "Lund");
+  assert.equal(data.auditLog.filter((x) => x.fields?.[0]?.field === "city").length, 2);
+
+  const bytes = XLSX.write(api.dataToWorkbook(clone(data)), {
+    type: "buffer",
+    bookType: "xlsx",
+  });
+  const out = api.workbookToData(XLSX.read(bytes, { type: "buffer" }));
+  assert.equal(out.properties.find((x) => x.id === "p1").city, "Malmö");
+  assert.equal(out.properties.find((x) => x.id === "p2").city, "Malmö");
+  assert.ok(out.indexSeries.some((x) => Number(x.year) === 2025 && Number(x.value) === 419.35));
+});
+
 test("metadata-only edits contribute to pending changes", () => {
   const svc = services();
   const d = normalize({ isDemo: false });
