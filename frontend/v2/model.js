@@ -755,9 +755,22 @@ export function resolveReview(data, id, decision, targetId, actor) {
 
   if (item.kind === "operational-conflict") {
     if (decision === "accept") {
-      const collection = item.collection === "activities" ? "activities" : item.collection;
-      const record = data[collection]?.find((x) => x.id === item.recordId);
-      if (!record) throw Error("Posten finns inte");
+      const collection =
+        item.collection ||
+        (item.entity === "Fastighet"
+          ? "properties"
+          : item.entity === "Avtal"
+            ? "contracts"
+            : "");
+      const rows = Array.isArray(data[collection]) ? data[collection] : [];
+      let record = rows.find((x) => x.id === item.recordId);
+      if (!record && item.field) {
+        const matches = rows.filter(
+          (x) => JSON.stringify(x[item.field] ?? "") === JSON.stringify(item.current ?? ""),
+        );
+        if (matches.length === 1) record = matches[0];
+      }
+      if (!record) throw Error("Den registrerade posten kunde inte identifieras. Läs in filen på nytt.");
       const before = clone(record);
       record[item.field] = item.proposed;
       record.provenance = record.provenance || {};
