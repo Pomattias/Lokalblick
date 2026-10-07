@@ -61,6 +61,11 @@ export function createTransport() {
         throw Error("Berikning kräver en backendadapter i företagsläget");
       return source().enrichContracts(data);
     },
+    async operational(data) {
+      if (company())
+        throw Error("Operativ berikning kräver en backendadapter i företagsläget");
+      return source().enrichOperational(data);
+    },
     async supplement(data, key) {
       if (company())
         throw Error("Import kräver en backendadapter i företagsläget");
