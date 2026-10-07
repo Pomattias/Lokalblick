@@ -225,9 +225,9 @@ function closeEditor() {
   editor = null;
   document.body.classList.remove("editing");
 }
-function openEditor(col, id) {
+function openEditor(col, id, defaults = {}) {
   if (!canEdit()) return;
-  const result = editorHtml(data, col, id, transport.company());
+  const result = editorHtml(data, col, id, transport.company(), defaults);
   editor = { col, id, record: result.record };
   document.querySelector("#editor-root").innerHTML = result.html;
   document.body.classList.add("editing");
@@ -339,13 +339,9 @@ document.addEventListener("click", (event) =>
       const col =
         ui.view === "contracts" || ui.perspective === "Avtal"
           ? "contracts"
-          : {
-              Fastigheter: "properties",
-              Projekt: "projects",
-              Underhåll: "maintenance",
-              Drift: "driftIssues",
-              Önskemål: "wishes",
-            }[ui.perspective];
+          : ui.perspective === "Fastigheter"
+            ? "properties"
+            : "activities";
       if (
         (col === "contracts" && !data.isDemo) ||
         (transport.company() && col === "properties")
@@ -355,7 +351,25 @@ document.addEventListener("click", (event) =>
         );
         return;
       }
-      openEditor(col, "");
+      openEditor(
+        col,
+        "",
+        col === "activities"
+          ? {
+              type: ui.perspective,
+              budgetCategory:
+                ui.perspective === "Projekt"
+                  ? "Projekt"
+                  : ui.perspective === "Underhåll"
+                    ? "Underhåll"
+                    : ui.perspective === "Drift"
+                      ? "Driftkostnader"
+                      : "Ej budget",
+              status: ui.perspective === "Önskemål" ? "Nytt" : "Planerad",
+              propertyId: selection.propertyId || "",
+            }
+          : {},
+      );
     }
     if (b.hasAttribute("data-budget-create"))
       await mutation((d) => {
@@ -465,11 +479,6 @@ document.addEventListener("submit", (event) => {
             };
           });
         d[col][index] = next;
-        const person = next.responsiblePersonId;
-        if (person !== before.responsiblePersonId) {
-          next.responsiblePersonId = before.responsiblePersonId;
-          assign(d, col, id, person, actor());
-        }
         audit(d, col, id, before, next, actor());
       }
     });
