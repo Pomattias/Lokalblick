@@ -191,7 +191,7 @@ export function summary(data, s, year, ui = {}) {
     return summaryCards([
       ["Fastigheter", num(view.properties.length)],
       ["Avtal", num(view.contracts.length)],
-      ["Total hyra " + year, money(rent.rent)],
+      ["Total hyra " + year, money(rent.rent), rent.needsReview ? rent.needsReview + " avtal behöver hyresunderlag" : "Beräknad från avtalsvillkor"],
       ["Hyra / kvm", rent.area > 0 ? money(rent.rentPerSqm) : "–"],
     ]);
   }
@@ -200,7 +200,7 @@ export function summary(data, s, year, ui = {}) {
     return summaryCards([
       ["Avtal", num(view.contracts.length)],
       ["Area", num(rent.area) + " m²"],
-      ["Total hyra " + year, money(rent.rent)],
+      ["Total hyra " + year, money(rent.rent), rent.needsReview ? rent.needsReview + " avtal behöver hyresunderlag" : "Beräknad från avtalsvillkor"],
       ["Hyra / kvm", rent.area > 0 ? money(rent.rentPerSqm) : "–"],
     ]);
   }
