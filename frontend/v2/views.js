@@ -38,19 +38,20 @@ export function options(items, value, label, selected = "", empty = "Alla") {
       .join("")
   );
 }
+const organizationLabel = (data, id) =>
+  data.organizations.find((x) => x.id === id)?.name || id || "";
+const propertyOwnerLabel = (data, property) =>
+  organizationLabel(data, property?.ownerOrgId);
 export function filters(data, s) {
   const owners = new Map();
   data.contracts.forEach((c) => {
     const p = data.properties.find((x) => x.id === c.propertyId) || {};
-    const id = c.ownerOrgId || p.owner;
-    if (id)
-      owners.set(
-        id,
-        data.organizations.find((x) => x.id === id)?.name || p.owner || id,
-      );
+    const id = c.ownerOrgId || p.ownerOrgId;
+    if (id) owners.set(id, organizationLabel(data, id));
   });
   data.properties.forEach((p) => {
-    if (p.owner) owners.set(p.owner, p.owner);
+    if (p.ownerOrgId)
+      owners.set(p.ownerOrgId, organizationLabel(data, p.ownerOrgId));
   });
   return `<div class="filters"><label>Ansvarig hos oss<select data-filter="person">${options(
     internalPeople(data),
@@ -144,7 +145,7 @@ export function overview(data, s, ui) {
       v.properties.map((p) => {
         const cs = v.contracts.filter((c) => c.propertyId === p.id);
         return row([
-          `<button class="text-button" data-property="${esc(p.id)}">${esc(p.address || p.designation || p.id)}</button><small>${esc(p.owner || "")}</small>`,
+          `<button class="text-button" data-property="${esc(p.id)}">${esc(p.address || p.designation || p.id)}</button><small>${esc(propertyOwnerLabel(data, p))}</small>`,
           esc(personLabel(data, p.responsiblePersonId)),
           num(cs.length) + " avtal",
           num(cs.reduce((sum, c) => sum + (Number(c.area) || 0), 0)) + " m²",
