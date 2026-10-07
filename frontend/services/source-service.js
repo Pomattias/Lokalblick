@@ -285,15 +285,24 @@
     });
   }
 
+  const READ_LABEL_ALIASES = {
+    organizations:{name:["Företag"]},
+    people:{role:["Roll"]}
+  };
   function schemaRowsFromSheet(workbook, schema) {
     const rows = normalizeRows(rowsFromSheet(workbook, schema.sheet));
     return rows.map(function(row) {
       const out = {};
       schema.columns.forEach(function(column) {
         const field = column[0], label = column[1];
+        const aliases=((READ_LABEL_ALIASES[schema.key]||{})[field]||[]);
         if (Object.prototype.hasOwnProperty.call(row, label)) out[field] = row[label];
-        else if (Object.prototype.hasOwnProperty.call(row, field)) out[field] = row[field];
-        else out[field] = "";
+        else {
+          const oldLabel=aliases.find(function(alias){return Object.prototype.hasOwnProperty.call(row,alias);});
+          if(oldLabel)out[field]=row[oldLabel];
+          else if (Object.prototype.hasOwnProperty.call(row, field)) out[field] = row[field];
+          else out[field] = "";
+        }
       });
       (schema.display || []).forEach(function(label) {
         out["__display_" + label] = row[label] == null ? "" : row[label];
@@ -652,6 +661,11 @@
     data.activities = workbook.Sheets[ACTIVITY_SCHEMA.sheet]
       ? schemaRowsFromSheet(workbook, ACTIVITY_SCHEMA)
       : [];
+    const legacyStatusRows=normalizeRows(rowsFromSheet(workbook,"Status"));
+    (data.maintenanceStatus||[]).forEach(function(status,index){
+      const raw=legacyStatusRows[index]||{};
+      if(!status.responsiblePersonId && raw._responsiblePersonId)status.responsiblePersonId=raw._responsiblePersonId;
+    });
     ensureStableIds(data);
     resolveHumanRelations(data);
 
