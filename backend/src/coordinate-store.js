@@ -12,6 +12,10 @@ function normalizeAddress(address) {
     .toLocaleLowerCase("sv-SE");
 }
 
+function normalizeLocation(address, city) {
+  return normalizeAddress([address, city].filter(Boolean).join(", "));
+}
+
 function emptyStore() {
   return { version: 1, entries: {} };
 }
@@ -26,7 +30,8 @@ function sanitizeEntry(entry) {
     propertyId: String(entry.propertyId || ""),
     sourceId: String(entry.sourceId || ""),
     geocodedAddress: String(entry.geocodedAddress || ""),
-    geocodedAddressKey: String(entry.geocodedAddressKey || normalizeAddress(entry.geocodedAddress)),
+    geocodedCity: String(entry.geocodedCity || ""),
+    geocodedAddressKey: String(entry.geocodedAddressKey || normalizeLocation(entry.geocodedAddress, entry.geocodedCity)),
     latitude: validCoordinate(entry.latitude) ? Number(entry.latitude) : null,
     longitude: validCoordinate(entry.longitude) ? Number(entry.longitude) : null,
     status: String(entry.status || "unknown"),
@@ -71,10 +76,13 @@ export function getStoredCoordinate(store, propertyId) {
 
 export function getCachedCoordinate(store, property) {
   const propertyId = String(property && property.id || "");
-  const addressKey = normalizeAddress(property && property.address);
+  const addressKey = normalizeLocation(property && property.address, property && property.city);
   if (!propertyId || !addressKey) return null;
   const entry = getStoredCoordinate(store, propertyId);
-  if (!entry || entry.geocodedAddressKey !== addressKey) return null;
+  if (!entry) return null;
+  const legacyKey = normalizeAddress(property && property.address);
+  if (entry.geocodedAddressKey !== addressKey && entry.geocodedAddressKey !== legacyKey)
+    return null;
   return entry;
 }
 
@@ -82,15 +90,17 @@ export function upsertCoordinate(store, property, result) {
   const propertyId = String(property && property.id || "");
   if (!propertyId) return;
   const address = String(property.address || "").trim();
+  const city = String(property.city || "").trim();
   const now = new Date().toISOString();
   store.entries[propertyId] = sanitizeEntry(Object.assign({}, result, {
     propertyId,
     sourceId: property.sourceId || "",
     geocodedAddress: address,
-    geocodedAddressKey: normalizeAddress(address),
+    geocodedCity: city,
+    geocodedAddressKey: normalizeLocation(address, city),
     updatedAt: now,
     geocodedAt: result && result.geocodedAt ? result.geocodedAt : now
   }));
 }
 
-export { normalizeAddress };
+export { normalizeAddress, normalizeLocation };
