@@ -1064,41 +1064,63 @@ test("actual costs aggregate once from operations and activities", () => {
   );
   assert.equal(rows.find((r) => r.sourceId === "m1").category, "Underhåll");
 });
-test("responsible scope uses direct property and activity responsibility", () => {
+test("responsible scope filters each record by its own responsibility", () => {
   const d = normalize({
-    contracts: [contract],
-    properties: [
-      { id: "p1", address: "Testgatan 1" },
-      { id: "p2", address: "Annat" },
+    contracts: [
+      { ...contract, id: "c1", propertyId: "p1" },
+      { ...contract, id: "c2", number: "A-2", propertyId: "p2" },
     ],
-    activities: [
+    properties: [
       {
-        id: "m1",
-        type: "Underhåll",
-        propertyId: "p1",
-        planningYear: 2027,
-        estimatedCost: 100,
-        budgetCategory: "Underhåll",
+        id: "p1",
+        address: "Testgatan 1",
         responsiblePersonId: "person1",
       },
       {
-        id: "m2",
-        type: "Underhåll",
-        propertyId: "p2",
+        id: "p2",
+        address: "Annat",
+        responsiblePersonId: "person2",
+      },
+    ],
+    activities: [
+      {
+        id: "a1",
+        type: "Drift",
+        propertyId: "p1",
+        planningYear: 2027,
+        estimatedCost: 100,
+        budgetCategory: "Driftkostnader",
+        responsiblePersonId: "person1",
+      },
+      {
+        id: "a2",
+        type: "Drift",
+        propertyId: "p1",
         planningYear: 2027,
         estimatedCost: 200,
-        budgetCategory: "Underhåll",
+        budgetCategory: "Driftkostnader",
+        responsiblePersonId: "person2",
+      },
+      {
+        id: "a3",
+        type: "Drift",
+        propertyId: "p2",
+        planningYear: 2027,
+        estimatedCost: 300,
+        budgetCategory: "Driftkostnader",
         responsiblePersonId: "person1",
       },
     ],
   });
   const v = scope(d, { person: "person1" });
-  assert.equal(v.properties.length, 2);
-  assert.equal(v.items.length, 2);
+  assert.deepEqual(v.properties.map((x) => x.id), ["p1"]);
+  assert.deepEqual(v.contracts.map((x) => x.id), ["c1"]);
+  assert.deepEqual(
+    v.items.map((x) => x.record.id).sort(),
+    ["a1", "a3"],
+  );
   assert.equal(
-    C.budgetRows(d, 2027, v.contracts, v.properties)
-      .filter((r) => r.category === "Underhåll")
-      .reduce((sum, r) => sum + r.amount, 0),
-    300,
+    v.items.some((x) => x.record.id === "a2"),
+    false,
   );
 });
