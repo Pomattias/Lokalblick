@@ -154,6 +154,11 @@ function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
       byActivity.set(activity.id, activity);
     }
   }
+  store.entities.activities.forEach((activity) => {
+    if (!activity.includeInBudget && activity.budgetIncluded === false) activity.includeInBudget = "Nej";
+    else if (!activity.includeInBudget && activity.budgetIncluded === true) activity.includeInBudget = "Ja";
+    delete activity.budgetIncluded;
+  });
   if (!store.entities.operations.length && Array.isArray(entities.driftCosts)) {
     store.entities.operations = structuredClone(entities.driftCosts);
   }
