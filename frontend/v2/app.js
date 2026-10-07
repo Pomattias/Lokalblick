@@ -214,6 +214,7 @@ function render() {
         ui.view === "budget" || ui.view === "plan"
           ? ui.year
           : new Date().getFullYear(),
+        ui,
       );
   const st = transport.status();
   document.querySelector("#source-label").textContent = data.isDemo
@@ -360,8 +361,17 @@ async function sourceAction(action) {
         updateImportProgress(progressDialog, progress);
         if (progress.message) notice(progress.message + (progress.counts ? " " + importCountLabel(progress.counts) : ""));
       });
+      if (globalThis.LokalblickGeocodingService && !result.data.isDemo) {
+        updateImportProgress(progressDialog, {
+          message: "Berikar fastigheter med koordinater…",
+          step: 4,
+          totalSteps: 5,
+          counts: result.report?.counts,
+        });
+        result.data = await globalThis.LokalblickGeocodingService.enrichData(result.data);
+      }
       if (beforeStatus.connected && beforeStatus.sourceKind !== "migration") {
-        updateImportProgress(progressDialog, { message:"Sparar berikad Lokalblick-data…", step:4, totalSteps:4, counts:result.report?.counts });
+        updateImportProgress(progressDialog, { message:"Sparar berikad Lokalblick-data…", step:5, totalSteps:5, counts:result.report?.counts });
         data = await transport.save(result.data);
         notice(
           "Excel inläst. " + selectedSheets.length + " flik(ar) behandlades. Granska eventuella konflikter.",
