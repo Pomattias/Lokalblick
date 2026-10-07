@@ -102,7 +102,7 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   assert.equal((await repository.get("people", person.id)).name, "Syntetisk person");
   await repository.update("people", person.id, { role: "Testroll" });
   assert.equal((await repository.get("people", person.id)).role, "Testroll");
-  await repository.create("projects", { id: "PR-TEST", name: "Syntetiskt projekt" });
+  await repository.create("activities", { id: "ACT-TEST", type: "Projekt", title: "Syntetiskt projekt" });
   await repository.saveWorkspace({
     properties: [{ id: "PROP-1", address: "förfalskad", latitude: 60, longitude: 19, note: "Syntetisk komplettering" }],
     contracts: [{ ...core.contracts[0], annualRent: 1234, address: "förfalskad" }]
@@ -122,7 +122,7 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   core = parseLebWorkbook(syntheticWorkbook());
   repository = await new LokalblickRepository({ sourceAdapter: adapter, dataPath }).initialize();
   const workspace = await repository.bootstrap();
-  assert.equal(workspace.projects[0].name, "Syntetiskt projekt");
+  assert.equal(workspace.activities[0].title, "Syntetiskt projekt");
   assert.equal(workspace.properties.find((property) => property.id === "PROP-1").latitude, 60);
   assert.deepEqual(workspace.contracts.map((contract) => contract.id), ["SF|PROP-1|SF-101", "EXT|PROP-2|EXT-200"]);
   assert.equal(await repository.get("people", person.id), null);
