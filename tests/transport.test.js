@@ -57,14 +57,26 @@ test("V2 API save persists budget, review, provenance and audit across backend r
     const transport = createTransport();
     const data = await transport.load();
     assert.equal(data.contracts[0].end, "2030-12-31");
-    data.contracts[0].annualRent = 123456;
+    data.contracts[0].baseRent = 123456;
+    data.contracts[0].annualRent = 999999;
+    data.contracts[0].businessName = "Testverksamheten";
+    data.contracts[0].businessPartyId = "party-business";
+    data.contracts[0].businessResponsiblePersonId = "person3";
     data.contracts[0].provenance = {
-      annualRent: { source: "Test", value: 123456 },
+      baseRent: { source: "Test", value: 123456 },
     };
-    data.people = [
-      { id: "person1", name: "Intern ansvarig", role: "Lokalstrateg" },
-      { id: "person2", name: "Extern förvaltare", role: "Fastighetsförvaltare" },
+    data.organizations = [
+      { id: "party-our", name: "Vår organisation", type: "our" },
+      { id: "party-owner", name: "Fastighetsägare AB", type: "owner" },
+      { id: "party-business", name: "Vårdbo", type: "business" },
     ];
+    data.people = [
+      { id: "person1", name: "Intern ansvarig", role: "Lokalstrateg", organizationId: "party-our" },
+      { id: "person2", name: "Extern förvaltare", role: "Fastighetsförvaltare", organizationId: "party-owner" },
+      { id: "person3", name: "Verksamhetsansvarig", role: "Chef", organizationId: "party-business" },
+    ];
+    data.properties[0].ownerPartyId = "party-owner";
+    data.properties[0].ownerResponsiblePersonId = "person2";
     data.properties[0].responsiblePersonId = "person1";
     data.activities = [
       {
@@ -78,35 +90,55 @@ test("V2 API save persists budget, review, provenance and audit across backend r
         estimatedCost: 500,
       },
     ];
-    data.contacts = [
+    data.orders = [
       {
-        id: "contact1",
-        personId: "person2",
-        targetType: "property",
-        targetId: "p1",
-        role: "Fastighetsförvaltare",
+        id: "order1",
+        activityId: "act1",
+        orderedByPersonId: "person1",
+        orderedAt: "2026-10-01",
+        supplier: "Leverantör AB",
+        orderedCost: 450,
+        finalCost: 425,
+        completedAt: "2026-10-10",
       },
     ];
     data.budgetPlans = [
       { year: 2027, status: "Låst", targets: { Underhåll: 500 }, lines: [] },
     ];
     data.importReview = [{ id: "r1", status: "pending" }];
-    data.auditLog = [{ id: "a1", by: "Test" }];
+    data.auditLog = [{
+      id: "a1",
+      at: "2026-10-07T10:00:00.000Z",
+      by: "Test",
+      collection: "activities",
+      recordId: "act1",
+      action: "Ändrad",
+      fields: [{ field: "estimatedCost", from: 400, to: 500 }],
+    }];
     await transport.save(data);
     const restarted = await new LokalblickRepository({
       sourceAdapter,
       dataPath,
     }).initialize();
     const out = normalize(await restarted.bootstrap());
-    assert.equal(out.contracts[0].annualRent, 123456);
+    assert.equal(out.contracts[0].baseRent, 123456);
+    assert.equal(out.contracts[0].annualRent, undefined);
+    assert.equal(out.contracts[0].businessName, "Testverksamheten");
+    assert.equal(out.contracts[0].businessPartyId, "party-business");
+    assert.equal(out.contracts[0].businessResponsiblePersonId, "person3");
     assert.equal(out.budgetPlans[0].status, "Låst");
     assert.equal(out.importReview[0].id, "r1");
     assert.equal(out.auditLog[0].by, "Test");
-    assert.equal(out.contracts[0].provenance.annualRent.source, "Test");
+    assert.equal(out.contracts[0].provenance.baseRent.source, "Test");
+    assert.equal(out.properties[0].ownerPartyId, "party-owner");
+    assert.equal(out.properties[0].ownerResponsiblePersonId, "person2");
     assert.equal(out.properties[0].responsiblePersonId, "person1");
     assert.equal(out.activities[0].responsiblePersonId, "person1");
     assert.equal(out.activities[0].title, "Tak");
-    assert.equal(out.contacts[0].role, "Fastighetsförvaltare");
+    assert.equal(out.orders[0].activityId, "act1");
+    assert.equal(out.orders[0].finalCost, 425);
+    assert.equal(Object.hasOwn(out, "contacts"), true);
+    assert.equal(out.contacts.length, 0);
     assert.equal(out.assignments.length, 0);
   } finally {
     await new Promise((r) => server.close(r));
@@ -116,7 +148,7 @@ test("V2 API save persists budget, review, provenance and audit across backend r
 });
 test("locked budget baseline and adjustments remain unchanged by live activity forecast", () => {
   const d = normalize({
-    contracts: [{ id: "c1", propertyId: "p1", annualRent: 100 }],
+    contracts: [{ id: "c1", propertyId: "p1", baseRent: 100 }],
     properties: [{ id: "p1", address: "Testgatan 1" }],
     activities: [
       {
