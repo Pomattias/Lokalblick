@@ -33,12 +33,12 @@ const group = (key) =>
                   )
                 ? "Tidplan"
                 : "Uppgifter";
-export function editorHtml(data, col, id, company = false) {
+export function editorHtml(data, col, id, company = false, defaults = {}) {
   const schema = window.LokalblickSourceService.schemas.find(
     (s) => s.key === col,
   );
   if (!schema) throw Error("Denna posttyp saknar editor");
-  const record = clone(data[col].find((x) => x.id === id) || {});
+  const record = Object.assign(clone(data[col].find((x) => x.id === id) || {}), defaults || {});
   const fieldLabels = {
     propertyId: "Fastighet",
     contractId: "Avtal",
@@ -75,7 +75,23 @@ export function editorHtml(data, col, id, company = false) {
     if (relations[key]) {
       const [collection, fn] = relations[key];
       control = `<select name="${key}">${options(data[collection], (x) => x.id, fn, record[key], "Ej kopplad")}</select>`;
-    } else if (key === "unitId")
+    } else if (key === "type" && col === "activities")
+      control = `<select name="type">${options(
+        ["Projekt", "Underhåll", "Drift", "Önskemål", "Utredning"],
+        (x) => x,
+        (x) => x,
+        record.type,
+        "Välj typ",
+      )}</select>`;
+    else if (key === "targetType" && col === "contacts")
+      control = `<select name="targetType">${options(
+        ["property", "contract"],
+        (x) => x,
+        (x) => (x === "property" ? "Fastighet" : "Avtal"),
+        record.targetType,
+        "Välj måltyp",
+      )}</select>`;
+    else if (key === "unitId")
       control = `<select name="${key}">${options(
         Object.entries(units),
         (x) => x[0],
