@@ -417,6 +417,44 @@ function migrateLegacy(out) {
   return out;
 }
 
+function normalizeOwnerRelations(out) {
+  const key = (name) =>
+    String(name || "")
+      .trim()
+      .toLocaleLowerCase("sv")
+      .replace(/[^a-zåäö0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+  const ensureOwner = (name) => {
+    const label = String(name || "").trim();
+    if (!label) return "";
+    let org = out.organizations.find(
+      (x) =>
+        x.type === "owner" &&
+        String(x.name || "").trim().toLocaleLowerCase("sv") ===
+          label.toLocaleLowerCase("sv"),
+    );
+    if (!org) {
+      org = {
+        id: "OWNER|" + key(label),
+        name: label,
+        type: "owner",
+        ownerClass: "",
+      };
+      out.organizations.push(org);
+    }
+    return org.id;
+  };
+  out.properties.forEach((property) => {
+    if (property.owner && !property.ownerOrgId)
+      property.ownerOrgId = ensureOwner(property.owner);
+    if (property.owner && !property.sourceOwner)
+      property.sourceOwner = property.owner;
+    if (property.manager && !property.sourceManager)
+      property.sourceManager = property.manager;
+    delete property.owner;
+    delete property.manager;
+  });
+}
 export function normalize(data) {
   const out = clone(data || {});
   const metadata = (out.budgetData || []).find(
@@ -426,6 +464,7 @@ export function normalize(data) {
   [...collections, ...legacyCollections].forEach((k) => {
     if (!Array.isArray(out[k])) out[k] = [];
   });
+  normalizeOwnerRelations(out);
   out.contracts.forEach((c) => {
     c.start = c.start ?? c.originalValidFrom ?? "";
     c.end = c.end ?? c.currentValidTo ?? "";
