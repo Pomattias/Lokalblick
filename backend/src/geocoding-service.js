@@ -73,9 +73,8 @@ async function callAzureBatch(properties) {
   const key = process.env.AZURE_MAPS_SUBSCRIPTION_KEY;
   if (!key) throw configError();
 
-  const defaultCity = String(process.env.LOKALBLICK_DEFAULT_CITY || "Malmö").trim();
   const batchItems = properties.map((property) => ({
-    query: [String(property.address).trim(), String(property.city || defaultCity).trim(), "Sverige"].filter(Boolean).join(", "),
+    query: [String(property.address).trim(), String(property.city).trim(), "Sverige"].filter(Boolean).join(", "),
     top: 5,
     optionalId: String(property.id)
   }));
@@ -140,10 +139,10 @@ function validateProperties(properties) {
     id: String(property && property.id || "").trim(),
     sourceId: String(property && property.sourceId || "").trim(),
     address: String(property && property.address || "").trim(),
-    city: String(property && property.city || process.env.LOKALBLICK_DEFAULT_CITY || "Malmö").trim(),
+    city: String(property && property.city || "").trim(),
     latitude: validCoordinate(property && property.latitude) ? Number(property.latitude) : null,
     longitude: validCoordinate(property && property.longitude) ? Number(property.longitude) : null
-  })).filter((property) => property.id && property.address);
+  })).filter((property) => property.id && property.address && property.city);
 }
 
 export function isGeocodingConfigured() {
