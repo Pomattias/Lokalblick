@@ -524,7 +524,7 @@
     });
     migratedInvestigations.forEach(function(a){if(a.contractId&&data.contracts.some(function(c){return c.id===a.contractId;}))delete a.propertyId;data.activities.push(a);byActivity.set(a.id,a);});
     (data.assignmentChanges||[]).forEach(function(ch){const id="legacy-assignment|"+String(ch.id||ch.changedAt||ch.targetId||"");if(data.auditLog.some(function(x){return x.id===id;}))return;data.auditLog.push({id:id,at:ch.changedAt||"",by:ch.changedBy||"Migrerad historik",collection:"responsibility",recordId:ch.targetId||"",action:"Ansvar ändrat",fields:[{field:"responsiblePersonId",from:ch.fromPersonId||"",to:ch.toPersonId||""}]});});
-    data.contacts=[];["legacyOrganizations","projects","maintenance","investigations","driftIssues","wishes","assignments","assignmentChanges","legacyOperations"].forEach(function(k){data[k]=[];});data.maintenanceStatus.forEach(function(s){delete s.responsiblePersonId;});
+    delete data.contacts;["legacyOrganizations","projects","maintenance","investigations","driftIssues","wishes","assignments","assignmentChanges","legacyOperations"].forEach(function(k){data[k]=[];});data.maintenanceStatus.forEach(function(s){delete s.responsiblePersonId;});
     function migrateBudgetLine(line){if(!line)return line;if(["project","maintenance","investigation","driftIssue","wish"].includes(line.sourceType))line.sourceType="activity";if(line.sourceType==="maintenanceStatus"){line.sourceType="activity";line.sourceId="STATUS-ACT|"+line.sourceId;}return line;}
     (data.budgetPlans||[]).forEach(function(p){(p.lines||[]).forEach(migrateBudgetLine);(p.versions||[]).forEach(function(v){((v.snapshot||{}).lines||[]).forEach(migrateBudgetLine);});});
     return data;
@@ -827,7 +827,7 @@
     });
     const base = blank ? {
       isDemo:false, sourceName:handle.name || "Lokalblick-data.xlsx",
-      properties:[], contracts:[], organizations:[], people:[], contacts:[], orders:[], activities:[],
+      properties:[], contracts:[], organizations:[], people:[], orders:[], activities:[],
       operations:[], maintenanceStatus:[], budgetPlans:[], auditLog:[], sourceRegistry:[], importReview:[], documents:[], indexSeries:[]
     } : clone(data || {});
     base.isDemo = false;
