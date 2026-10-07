@@ -52,7 +52,7 @@ export function filters(data, s) {
   data.properties.forEach((p) => {
     if (p.owner) owners.set(p.owner, p.owner);
   });
-  return `<div class="filters"><label>Ansvarig<select data-filter="person">${options(
+  return `<div class="filters"><label>Ansvarig hos oss<select data-filter="person">${options(
     data.people,
     (x) => x.id,
     (x) => x.name,
@@ -132,11 +132,12 @@ export function overview(data, s, ui) {
   let body = "";
   if (ui.perspective === "Fastigheter") {
     body = table(
-      ["Fastighet", "Avtal", "Area", "Årskostnad", ""],
+      ["Fastighet", "Ansvarig hos oss", "Avtal", "Area", "Årskostnad", ""],
       v.properties.map((p) => {
         const cs = v.contracts.filter((c) => c.propertyId === p.id);
         return row([
           `<button class="text-button" data-property="${esc(p.id)}">${esc(p.address || p.designation || p.id)}</button><small>${esc(p.owner || "")}</small>`,
+          esc(personLabel(data, p.responsiblePersonId)),
           num(cs.length) + " avtal",
           num(cs.reduce((sum, c) => sum + (Number(c.area) || 0), 0)) + " m²",
           money(
@@ -161,11 +162,7 @@ export function overview(data, s, ui) {
       ["Aktivitet", "Ansvarig", "Status", "Kostnad", ""],
       activityRows(
         data,
-        v.items.filter(
-          (x) =>
-            x.label === ui.perspective ||
-            (ui.perspective === "Underhåll" && x.label === "Status"),
-        ),
+        v.items.filter((x) => x.label === ui.perspective),
       ),
     );
   return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div><div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
@@ -200,8 +197,14 @@ export function planning(data, s, ui) {
     (x) => !responsible(data, x.collection, x.record),
   );
   if (ui.unassigned) items = missing;
+  const history = (data.auditLog || [])
+    .filter((h) =>
+      (h.fields || []).some((f) => f.field === "responsiblePersonId"),
+    )
+    .slice(-30)
+    .reverse();
   return `<div class="section-title"><h2>Fördela och planera</h2><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button></div>${table(
-    ["Uppgift", "Ansvarig", "År / period", "Kostnad", ""],
+    ["Uppgift", "Ansvarig hos oss", "År / period", "Kostnad", ""],
     items.map((x) =>
       row([
         `<strong>${esc(x.title)}</strong><small>${esc(propertyLabel(data, x.propertyId))} · ${esc(x.label)}</small>`,
@@ -212,32 +215,34 @@ export function planning(data, s, ui) {
           responsible(data, x.collection, x.record),
           "Ej fördelat",
         )}</select>`,
-        `<small>${esc(x.record.year || x.record.budgetYear || x.record.period || "År saknas")}</small><select aria-label="Kvartal för ${esc(x.title)}" data-quarter="${x.collection}" data-id="${esc(x.record.id)}">${options(
-          [1, 2, 3, 4],
-          (n) => n,
-          (n) => "Kvartal " + n,
-          x.record.planningQuarter,
-          "Ej tidsatt",
-        )}</select>`,
+        x.collection === "activities"
+          ? `<small>${esc(x.record.planningYear || "År saknas")}</small><select aria-label="Kvartal för ${esc(x.title)}" data-quarter="activities" data-id="${esc(x.record.id)}">${options(
+              [1, 2, 3, 4],
+              (n) => n,
+              (n) => "Kvartal " + n,
+              x.record.planningQuarter,
+              "Ej tidsatt",
+            )}</select>`
+          : "<small>Löpande fastighetsansvar</small>",
         money(x.cost),
-        `${edit(x.collection, x.record.id)}${x.collection === "wishes" ? `<button data-move="maintenance" data-id="${esc(x.record.id)}">Till UH</button><button data-move="driftIssues" data-id="${esc(x.record.id)}">Till drift</button>` : ""}`,
+        `${edit(x.collection, x.record.id)}${x.collection === "activities" && x.record.type === "Önskemål" ? `<button data-move="Underhåll" data-id="${esc(x.record.id)}">Till UH</button><button data-move="Drift" data-id="${esc(x.record.id)}">Till drift</button>` : ""}`,
       ]),
     ),
-  )}<details><summary>Ansvarsändringar (${data.assignmentChanges.length})</summary>${table(
+  )}<details><summary>Ansvarsändringar (${history.length})</summary>${table(
     ["Tid", "Post", "Från → till", "Av"],
-    data.assignmentChanges
-      .slice(-30)
-      .reverse()
-      .map((x) =>
-        row([
-          esc(x.changedAt),
-          esc(x.targetId),
-          esc(personLabel(data, x.fromPersonId)) +
-            " → " +
-            esc(personLabel(data, x.toPersonId)),
-          esc(x.changedBy),
-        ]),
-      ),
+    history.map((x) => {
+      const change = (x.fields || []).find(
+        (f) => f.field === "responsiblePersonId",
+      ) || { from: "", to: "" };
+      return row([
+        esc(x.at),
+        esc(x.recordId),
+        esc(personLabel(data, change.from)) +
+          " → " +
+          esc(personLabel(data, change.to)),
+        esc(x.by),
+      ]);
+    }),
   )}</details>`;
 }
 export const categories = [
@@ -264,7 +269,7 @@ export function sources(data, transport) {
   const st = transport.status(),
     company = transport.company();
   const reviews = data.importReview.filter((x) => x.status === "pending");
-  return `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och organisationer</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Read-only underlag. Skapa Lokalblick-data innan du ändrar eller berikar." : "Källunderlag läses. Godkända ändringar sparas i Lokalblick-data."}</p>${company ? "" : `<div class="actions"><button data-source="connect">Anslut arbetsfil / INT–EXT</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom arbetsfil</button><button data-source="enrich" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika avtal</button><button data-source="operational" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika fastigheter & åtgärder</button><button data-source="index" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs KPI</button><label>Kompletterande lista<select id="supplement-kind"><option value="projects">Projekt</option><option value="maintenance">Underhåll</option><option value="driftIssues">Driftärenden</option><option value="wishes">Önskemål</option><option value="operations">Driftbudget / utfall</option></select></label><button data-source="supplement" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs lista</button></div>`}</section>${table(
+  return `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och organisationer</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Read-only underlag. Skapa Lokalblick-data innan du ändrar eller berikar." : "Källunderlag läses. Godkända ändringar sparas i Lokalblick-data."}</p>${company ? "" : `<div class="actions"><button data-source="connect">Anslut arbetsfil / INT–EXT</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom arbetsfil</button><button data-source="enrich" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika avtal</button><button data-source="operational" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Berika fastigheter & åtgärder</button><button data-source="index" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs KPI</button><label>Kompletterande lista<select id="supplement-kind"><option value="activities">Aktiviteter</option><option value="operations">Kostnader</option><option value="maintenanceStatus">Status / inventering</option></select></label><button data-source="supplement" ${!st.connected || st.sourceKind === "migration" ? "disabled" : ""}>Läs lista</button></div>`}</section>${table(
     ["Källa", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
     data.sourceRegistry.map((x) =>
       row([
@@ -346,8 +351,21 @@ export function sources(data, transport) {
   )}</details>`;
 }
 export function organization(data) {
+  const target = (contact) => {
+    if (contact.targetType === "property")
+      return propertyLabel(data, contact.targetId);
+    if (contact.targetType === "contract") {
+      const contract = data.contracts.find((x) => x.id === contact.targetId);
+      return contract
+        ? (contract.number || contract.id) +
+            " · " +
+            propertyLabel(data, contract.propertyId)
+        : contact.targetId;
+    }
+    return contact.targetId || "";
+  };
   return `<div class="section-title"><h2>Personer och organisationer</h2><div>${edit("people", "", "Lägg till person")}${edit("organizations", "", "Lägg till organisation")}</div></div>${table(
-    ["Person", "Roll", "Organisation", ""],
+    ["Person", "Befattning", "Organisation", ""],
     data.people.map((x) =>
       row([
         esc(x.name),
@@ -356,6 +374,16 @@ export function organization(data) {
           data.organizations.find((o) => o.id === x.organizationId)?.name || "",
         ),
         edit("people", x.id),
+      ]),
+    ),
+  )}<h3>Kontakter</h3>${table(
+    ["Person", "Roll", "Kopplad till", ""],
+    (data.contacts || []).map((x) =>
+      row([
+        esc(personLabel(data, x.personId)),
+        esc(x.role || "Kontakt"),
+        esc(target(x)),
+        edit("contacts", x.id),
       ]),
     ),
   )}${table(
