@@ -489,7 +489,13 @@ export class LokalblickRepository {
         "address", "customerType", "landlord", "area", "contractType",
         "originalValidFrom", "originalValidTo", "currentValidTo", "extensionPeriod",
         "noticePeriod", "terminatedOn", "terminationReason", "noticeBy", "category",
-        "use", "manager"
+        "use", "manager",
+        "notice", "annualRent", "annualAdditions", "rentPerSqm", "rentBaseIndex",
+        "derivedRentBaseIndex", "rentIndexCurrent", "rentIndexYear", "rentCalculationYear",
+        "calculatedAnnualRent", "rentCalculationVariance", "rentCalculationStatus",
+        "additionBaseIndex", "derivedAdditionBaseIndex", "additionIndexCurrent",
+        "additionIndexYear", "additionCalculationYear", "calculatedAnnualAdditions",
+        "additionCalculationVariance", "additionCalculationStatus"
       ]);
       const overlays = new Map(this.store.entities.contractOverlays.map((record) => [record.contractId, record]));
       for (const contract of payload.contracts) {
