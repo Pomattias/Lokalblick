@@ -11,16 +11,20 @@ test('union keeps removed baseline and distinguishes new and changed rows',()=>{
  assert.deepEqual(Array.from(rows,r=>r.change),['Ändrad','Utgår · finns i budget','Ny · ej budgeterad']);
  assert.equal(rows[1].budget,100);assert.equal(rows[1].forecast,0);assert.equal(rows[2].budget,null);
 });
-test('zero final cost is settled, never falls back to estimate',()=>{
- const rows=service.compare({activities:[{id:'1',type:'Underhåll',finalCosts:{2026:{Underhåll:0}}}]},[line('1')],[line('1')],2026);
+test('zero order outcome is settled, never falls back to estimate',()=>{
+ const data={activities:[{id:'1',type:'Underhåll'}],orders:[{id:'o1',activityId:'1',finalCost:0,completedAt:'2026-10-07'}]};
+ const rows=service.compare(data,[line('1')],[line('1')],2026);
  assert.equal(rows[0].finalCost,0);assert.equal(rows[0].forecast,0);
 });
-test('project activity final costs are separate from investigation budget',()=>{
- const row={...line('1'),sourceType:'activity',category:'Projekt'};
- const data={activities:[{id:'1',type:'Projekt',finalCost:500,finalCosts:{2026:{Projekt:500}},status:'Klar'}]};
- assert.equal(service.finalCost(data,row,2026),500);
- assert.equal(service.finalCost(data,{...row,category:'Utredningar'},2026),null);
- assert.equal(service.finalCost(data,row,2027),null);
+test('project and investigation outcomes belong to separate activities',()=>{
+ const project={...line('1'),sourceType:'activity',category:'Projekt'};
+ const investigation={...line('2'),sourceType:'activity',category:'Utredningar'};
+ const data={
+   activities:[{id:'1',type:'Projekt'},{id:'2',type:'Utredning'}],
+   orders:[{id:'o1',activityId:'1',finalCost:500,completedAt:'2026-10-07'},{id:'o2',activityId:'2',finalCost:40,completedAt:'2026-10-06'}]
+ };
+ assert.equal(service.finalCost(data,project,2026),500);
+ assert.equal(service.finalCost(data,investigation,2026),40);
 });
 test('danger and reason required; previous locked version retained',()=>{
  const plan={year:2026,status:'Låst',lines:[line('1')],targets:{Underhåll:100}};
@@ -38,13 +42,14 @@ function workbookAdapter(){
 }
 test('real XLSX roundtrip keeps canonical activity identities, versions, zero final costs and full history',()=>{
  const adapter=workbookAdapter();
- const data={properties:[{id:'P1',address:'Demogatan 1',responsiblePersonId:'P1-INTERN'}],contracts:[{id:'C1',propertyId:'P1',number:'DEMO-1'}],people:[{id:'P1-INTERN',name:'Intern'}],activities:[{id:'UH1',type:'Underhåll',propertyId:'P1',title:'Tak',planningYear:2026,estimatedCost:100,budgetCategory:'Underhåll',finalCosts:{2026:{Underhåll:0}},budgetIncluded:false,responsiblePersonId:'P1-INTERN'}],budgetPlans:[{year:2026,status:'Låst',lines:[line('UH1')],targets:{Underhåll:100},versions:[{by:'Mattias',reason:'Test',snapshot:{year:2026,lines:[line('UH1')]}}]}],auditLog:[{id:'H1',by:'Mattias',at:'2026-10-07',fields:[{field:'responsiblePersonId',from:'',to:'P1-INTERN'}],description:'x'.repeat(65000)}]};
+ const data={properties:[{id:'P1',address:'Demogatan 1',responsiblePersonId:'P1-INTERN'}],contracts:[{id:'C1',propertyId:'P1',number:'DEMO-1'}],people:[{id:'P1-INTERN',name:'Intern'}],activities:[{id:'UH1',type:'Underhåll',propertyId:'P1',title:'Tak',planningYear:2026,estimatedCost:100,budgetCategory:'Underhåll',includeInBudget:'Nej',responsiblePersonId:'P1-INTERN'}],orders:[{id:'O1',activityId:'UH1',finalCost:0,completedAt:'2026-10-07'}],budgetPlans:[{year:2026,status:'Låst',lines:[line('UH1')],targets:{Underhåll:100},versions:[{by:'Mattias',reason:'Test',snapshot:{year:2026,lines:[line('UH1')]}}]}],auditLog:[{id:'H1',by:'Mattias',at:'2026-10-07',collection:'activities',recordId:'UH1',action:'Ändrad',fields:[{field:'responsiblePersonId',from:'',to:'P1-INTERN'}]}]};
  const workbook=adapter._write(data);const bytes=XLSX.write(workbook,{type:'buffer',bookType:'xlsx'});
  const restored=adapter._read(XLSX.read(bytes,{type:'buffer'}));
  assert.equal(restored.budgetPlans[0].lines[0].sourceId,'UH1');assert.equal(restored.budgetPlans[0].versions[0].by,'Mattias');
- assert.equal(restored.activities[0].finalCosts[2026].Underhåll,0);assert.equal(restored.activities[0].budgetIncluded,false);
+ assert.equal(restored.activities[0].includeInBudget,'Nej');assert.equal(Object.hasOwn(restored.activities[0],'finalCosts'),false);
+ assert.equal(restored.orders[0].activityId,'UH1');assert.equal(restored.orders[0].finalCost,0);
  assert.equal(restored.activities[0].responsiblePersonId,'P1-INTERN');assert.equal(restored.properties[0].responsiblePersonId,'P1-INTERN');
- assert.equal(restored.auditLog[0].description.length,65000);assert.equal(restored.assignments?.length||0,0);
+ assert.equal(restored.auditLog[0].recordId,'UH1');assert.equal(restored.assignments?.length||0,0);
  assert.equal(Boolean(workbook.Sheets.Ansvar),false);assert.equal(Boolean(workbook.Sheets.Projekt),false);
 });
 test('legacy snapshot matches only a unique source, ambiguous rows need review',()=>{
