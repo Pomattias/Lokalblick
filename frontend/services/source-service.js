@@ -964,13 +964,21 @@
     do { id="review:import:"+n++; } while((data.importReview||[]).some(function(x){return x.id===id;}));
     return id;
   }
-  function importConflict(data,fileName,entity,row,field,current,proposed) {
+  function importConflict(data,fileName,collection,entity,target,row,field,current,proposed) {
     if (!hasImportValue(current) || !hasImportValue(proposed) || sameImportValue(current,proposed)) return;
     data.importReview=data.importReview||[];
+    const currentProvenance=(target.provenance||{})[field]||{};
     data.importReview.push({
       id:nextImportReviewId(data),kind:"operational-conflict",source:fileName||"Excelimport",
-      sheet:row.sourceSheet||"",row:row.sourceRow||"",entity:entity,recordId:row.id||"",
-      field:field,current:current,proposed:proposed,status:"pending"
+      sheet:row.sourceSheet||"",row:row.sourceRow||"",collection:collection,entity:entity,
+      recordId:target.id||"",incomingRecordId:row.id||"",field:field,current:current,proposed:proposed,
+      currentSource:currentProvenance.source||target.sourceSheet||"Lokalblick-data",
+      currentSheet:currentProvenance.sheet||target.sourceSheet||"",
+      currentRow:currentProvenance.row||target.sourceRow||"",
+      recordLabel:entity==="Fastighet"
+        ? [target.address,target.designation,target.sourceId].filter(Boolean).join(" · ")
+        : [target.number,target.businessName||target.use].filter(Boolean).join(" · "),
+      status:"pending"
     });
   }
   function mergePrimaryData(base,incoming,fileName) {
@@ -1019,13 +1027,13 @@
       personMap.set(person.id,found.id);
     });
 
-    function mergeFields(target,row,fields,entity) {
+    function mergeFields(target,row,fields,collection,entity) {
       let changed=false;
       fields.forEach(function(field){
         const proposed=row[field];
         if(!hasImportValue(proposed))return;
         if(!hasImportValue(target[field])){target[field]=proposed;changed=true;return;}
-        if(!sameImportValue(target[field],proposed))importConflict(base,fileName,entity,row,field,target[field],proposed);
+        if(!sameImportValue(target[field],proposed))importConflict(base,fileName,collection,entity,target,row,field,target[field],proposed);
       });
       return changed;
     }
@@ -1048,7 +1056,7 @@
       if(!found){
         if(base.properties.some(function(x){return x.id===mapped.id;}))mapped.id=nextStableId("FAST",base.properties);
         base.properties.push(mapped);found=mapped;report.counts.propertiesCreated++;
-      } else if(mergeFields(found,mapped,["sourceId","address","designation","type","ownerPartyId","ownerResponsiblePersonId","responsiblePersonId","latitude","longitude","unitId"],"Fastighet")) {
+      } else if(mergeFields(found,mapped,["sourceId","address","designation","type","ownerPartyId","ownerResponsiblePersonId","responsiblePersonId","latitude","longitude","unitId"],"properties","Fastighet")) {
         report.counts.propertiesUpdated++;
       }
       propertyMap.set(row.id,found.id);
@@ -1076,7 +1084,7 @@
         "start","end","noticePeriodMonths","renewalPeriodMonths","originalTerm","baseRent","baseAdditions","rentBaseYear","rentIndexPercent",
         "additionBaseYear","additionIndexPercent","annualContractDrift","annualPropertyTax","costCenterOperations","costCenterPremises","ekotObject",
         "contractDocumentUrl","contractDocumentName","contractDocumentKind","unitId","employees","users","rooms","commonArea","apartmentArea"
-      ],"Avtal")) {
+      ],"contracts","Avtal")) {
         report.counts.contractsUpdated++;
       }
     });
