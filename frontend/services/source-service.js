@@ -541,6 +541,10 @@
         const activity=byActivity.get(a.targetId);if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId;
         return;
       }
+      if(a.targetType==="maintenanceStatus"&&a.role==="Ansvarig"){
+        const activity=byActivity.get("STATUS-ACT|"+a.targetId);if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId;
+        return;
+      }
       const legacyType=legacyActivityType(a.targetType);
       if(legacyType&&a.role==="Ansvarig"){
         const activity=byActivity.get(a.targetId);if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId;
