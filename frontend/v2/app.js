@@ -28,7 +28,8 @@ const transport = createTransport(),
   filterArea = document.querySelector("#filters");
 let data,
   editor = null,
-  busy = false;
+  busy = false,
+  switchingView = false;
 const selection = { unit: "", owner: "", person: "", q: "", propertyId: "" };
 const ui = {
   view: "overview",
@@ -630,7 +631,7 @@ document.addEventListener("submit", (event) => {
   });
 });
 window.addEventListener("beforeunload", (event) => {
-  if (hasPending() || editor) {
+  if (!switchingView && (hasPending() || editor)) {
     event.preventDefault();
     event.returnValue = "";
   }
@@ -638,10 +639,45 @@ window.addEventListener("beforeunload", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeEditor();
 });
+async function restoreSharedViewState() {
+  const bridge = globalThis.LokalblickViewBridge;
+  if (!bridge) return false;
+  const saved = await bridge.load();
+  if (!saved?.data) return false;
+  const source = globalThis.LokalblickSourceService;
+  if (!transport.company() && source?.status().connected && source.adoptViewState) {
+    source.adoptViewState(saved.data);
+    return true;
+  }
+  const mode = globalThis.LokalblickDataService?.mode || "";
+  if (!["company-api", "m365-api", "local-excel"].includes(mode)) {
+    bridge.activate();
+    return true;
+  }
+  return false;
+}
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("a[data-ui-version]");
+  if (!link || !data) return;
+  event.preventDefault();
+  run(async () => {
+    switchingView = true;
+    await globalThis.LokalblickViewBridge?.save(data, {
+      from: "v2",
+      sourceMode: globalThis.LokalblickDataService?.mode || "",
+    });
+    location.href = link.href;
+  });
+});
 async function init() {
   try {
-    if (!transport.company())
-      await globalThis.LokalblickSourceService.restoreRemembered();
+    if (!transport.company()) {
+      if (globalThis.LokalblickSourceService.resumeRemembered)
+        await globalThis.LokalblickSourceService.resumeRemembered();
+      else
+        await globalThis.LokalblickSourceService.restoreRemembered();
+    }
+    await restoreSharedViewState();
     data = await transport.load();
     render();
     notice("");
