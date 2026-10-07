@@ -105,21 +105,108 @@ function scopedBudgetRows(data, s, year, view) {
   if (!activeScope) return rows;
   return rows.filter((row) => budgetRowInScope(row, view));
 }
-export function summary(data, s, year) {
-  const view = scope(data, s),
-    rows = scopedBudgetRows(data, s, year, view),
-    tot = calc().summarize(rows);
-  return `<div class="summary">${[
-    ["Avtal", view.contracts.length + " st"],
-    ["Hyra + drift", money(tot["Hyra + drift"])],
-    ["Projekt", money(tot.Projekt)],
-    ["Löpande", money((tot.Underhåll || 0) + (tot.Driftkostnader || 0))],
-  ]
+function rentMetrics(data, contracts, year) {
+  let rent = 0, area = 0, needsReview = 0;
+  (contracts || []).forEach((contract) => {
+    const values = calc().annualValues(contract, year, 0, data.indexSeries);
+    rent += Number(values.rent.amount || 0) + Number(values.addition.amount || 0);
+    area += Number(contract.area || 0);
+    if (values.rent.status === "Behöver kontroll" || values.addition.status === "Behöver kontroll")
+      needsReview++;
+  });
+  return {
+    rent,
+    area,
+    rentPerSqm: area > 0 ? rent / area : 0,
+    needsReview,
+  };
+}
+function activityMetrics(data, items, year) {
+  const rows = items || [];
+  return {
+    count: rows.length,
+    cost: rows.reduce((sum, item) => sum + (Number(item.cost) || 0), 0),
+    inYear: rows.filter((item) => Number(item.record.planningYear) === Number(year)).length,
+    unassigned: rows.filter(
+      (item) => !responsible(data, item.collection, item.record),
+    ).length,
+  };
+}
+function summaryCards(cards) {
+  return `<div class="summary">${cards
     .map(
-      ([label, value]) =>
-        `<div><span>${label}</span><strong>${value}</strong></div>`,
+      ([label, value, foot]) =>
+        `<div><span>${label}</span><strong>${value}</strong>${foot ? `<small>${foot}</small>` : ""}</div>`,
     )
     .join("")}</div>`;
+}
+export function summary(data, s, year, ui = {}) {
+  const view = scope(data, s);
+  const perspective =
+    ui.view === "contracts" ? "Avtal" : ui.perspective || "Fastigheter";
+  const rent = rentMetrics(data, view.contracts, year);
+
+  if (ui.view === "map") {
+    const mapped = view.properties.filter(
+      (p) =>
+        Number.isFinite(Number(p.latitude)) &&
+        Number.isFinite(Number(p.longitude)),
+    ).length;
+    return summaryCards([
+      ["Fastigheter", num(view.properties.length)],
+      ["På karta", num(mapped)],
+      ["Saknar koordinat", num(view.properties.length - mapped)],
+      ["Total hyra", money(rent.rent)],
+    ]);
+  }
+
+  if (ui.view === "budget") {
+    const rows = scopedBudgetRows(data, s, year, view);
+    const totals = calc().summarize(rows);
+    return summaryCards([
+      ["Hyra + drift", money(totals["Hyra + drift"] || 0)],
+      ["Underhåll", money(totals.Underhåll || 0)],
+      ["Projekt", money(totals.Projekt || 0)],
+      ["Löpande", money(totals.Driftkostnader || 0)],
+    ]);
+  }
+
+  if (ui.view === "plan") {
+    const metrics = activityMetrics(data, view.items, year);
+    return summaryCards([
+      ["Aktiviteter", num(metrics.count)],
+      ["Utan ansvarig", num(metrics.unassigned)],
+      ["Planerade " + year, num(metrics.inYear)],
+      ["Bedömd kostnad", money(metrics.cost)],
+    ]);
+  }
+
+  if (perspective === "Fastigheter") {
+    return summaryCards([
+      ["Fastigheter", num(view.properties.length)],
+      ["Avtal", num(view.contracts.length)],
+      ["Total hyra " + year, money(rent.rent)],
+      ["Hyra / kvm", rent.area > 0 ? money(rent.rentPerSqm) : "–"],
+    ]);
+  }
+
+  if (perspective === "Avtal") {
+    return summaryCards([
+      ["Avtal", num(view.contracts.length)],
+      ["Area", num(rent.area) + " m²"],
+      ["Total hyra " + year, money(rent.rent)],
+      ["Hyra / kvm", rent.area > 0 ? money(rent.rentPerSqm) : "–"],
+    ]);
+  }
+
+  const matchingItems = view.items.filter((item) => item.label === perspective);
+  const metrics = activityMetrics(data, matchingItems, year);
+  return summaryCards([
+    [perspective, num(metrics.count) + " st"],
+    ["Bedömd kostnad", money(metrics.cost)],
+    ["Planerade " + year, num(metrics.inYear)],
+    ["Utan ansvarig", num(metrics.unassigned)],
+  ]);
 }
 function contractRows(data, contracts, year) {
   return contracts.map((c) => {
