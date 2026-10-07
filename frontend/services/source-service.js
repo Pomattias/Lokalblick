@@ -234,6 +234,33 @@
     } catch (_) { return null; }
   }
 
+  async function resumeRemembered() {
+    const restored = await restoreRemembered();
+    if (!restored || !source.handle) return restored;
+    const wanted = source.mode === "readwrite" ? "readwrite" : "read";
+    const access = await permission(source.handle, wanted, false);
+    if (access !== "granted") return status();
+    try {
+      await readHandle(source.handle, source.mode, false);
+      return status();
+    } catch (_) {
+      return status();
+    }
+  }
+
+  function adoptViewState(data) {
+    if (!source.connected || !source.baselineData) return null;
+    const next = clone(data || {});
+    next.isDemo = false;
+    next.sourceName = source.fileName || next.sourceName || "Excel-källa";
+    canonicalizeModel(next);
+    source.data = next;
+    source.pendingChanges = diffData(source.baselineData || {}, next);
+    source.dirty = source.pendingChanges.length > 0;
+    activateAdapter();
+    return clone(source.data);
+  }
+
   async function permission(handle, mode, requestIt) {
     if (!handle) return "denied";
     const opts = { mode: mode === "readwrite" ? "readwrite" : "read" };
@@ -1503,6 +1530,8 @@
     setMode:setMode,
     disconnect:disconnect,
     status:status,
-    restoreRemembered:restoreRemembered
+    restoreRemembered:restoreRemembered,
+    resumeRemembered:resumeRemembered,
+    adoptViewState:adoptViewState
   };
 })();
