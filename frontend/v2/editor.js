@@ -93,6 +93,14 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
         record.type,
         "Välj typ",
       )}</select>`;
+    else if (key === "includeInBudget" && col === "activities")
+      control = `<select name="includeInBudget">${options(
+        ["Ja", "Nej"],
+        (x) => x,
+        (x) => x,
+        record.includeInBudget || "Ja",
+        "Välj",
+      )}</select>`;
     else if (key === "targetType" && col === "contacts")
       control = `<select name="targetType">${options(
         ["property", "contract"],
