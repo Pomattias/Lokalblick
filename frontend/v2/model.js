@@ -3,7 +3,6 @@ export const collections = [
   "contracts",
   "organizations",
   "people",
-  "contacts",
   "orders",
   "activities",
   "operations",
@@ -23,6 +22,7 @@ export const kinds = {
 export const clone = (x) => JSON.parse(JSON.stringify(x));
 
 const legacyCollections = [
+  "contacts",
   "assignments",
   "projects",
   "maintenance",
@@ -443,7 +443,7 @@ function canonicalRelations(out) {
     ["orderedAt","orderedBy","orderedByPersonId","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost","paymentStatus","paidAt","invoiceComment","ownerPays","finalCosts","finalCostConfirmed","investigationCost"].forEach((k)=>delete a[k]);
   });
   migratedInvestigations.forEach((a)=>{if(a.contractId&&out.contracts.some((c)=>c.id===a.contractId))delete a.propertyId;out.activities.push(a);});
-  out.contacts=[];return out;
+  delete out.contacts;return out;
 }
 
 function normalizeOwnerRelations(out) {
@@ -668,7 +668,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
         : "confirmed";
     }
     if (decision === "reject" && person?.provisional) {
-      data.contacts = [];
+      delete data.contacts;
       data.properties.forEach((x) => { if (x.responsiblePersonId === person.id) x.responsiblePersonId = ""; if (x.ownerResponsiblePersonId === person.id) x.ownerResponsiblePersonId = ""; });
       data.contracts.forEach((x) => { if (x.businessResponsiblePersonId === person.id) x.businessResponsiblePersonId = ""; });
       data.activities.forEach((x) => { if (x.responsiblePersonId === person.id) x.responsiblePersonId = ""; });
