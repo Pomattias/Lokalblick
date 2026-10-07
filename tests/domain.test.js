@@ -646,15 +646,52 @@ test("unified Excel import seeds empty property and contract data before enrichm
     changed.data.contracts.find((x) => x.number === "12345").area,
     500,
   );
-  assert.ok(
-    changed.data.importReview.some(
-      (x) => x.field === "area" && Number(x.proposed) === 510,
-    ),
+  const areaConflict = changed.data.importReview.find(
+    (x) => x.field === "area" && Number(x.proposed) === 510,
   );
+  assert.ok(areaConflict);
+  assert.equal(areaConflict.collection, "contracts");
+  assert.equal(
+    areaConflict.recordId,
+    changed.data.contracts.find((x) => x.number === "12345").id,
+  );
+  assert.equal(areaConflict.entity, "Avtal");
+  assert.equal(areaConflict.currentSource, "SF");
   assert.equal(
     changed.data.importReview.some((x) => x.field === "source"),
     false,
   );
+});
+test("legacy core conflict can still resolve against the registered record", () => {
+  const data = normalize({
+    isDemo: false,
+    properties: [
+      {
+        id: "PROP|INH0234",
+        sourceId: "INH0234",
+        address: "LUNDAVÄGEN 6",
+      },
+    ],
+    importReview: [
+      {
+        id: "legacy-conflict",
+        kind: "operational-conflict",
+        source: "Fastighetslista II.xlsx",
+        sheet: "Fastighetslista",
+        row: 58,
+        entity: "Fastighet",
+        recordId: "PROP|INH0233",
+        field: "sourceId",
+        current: "INH0234",
+        proposed: "INH0233",
+        status: "pending",
+      },
+    ],
+  });
+  resolveReview(data, "legacy-conflict", "accept", "", "Test");
+  assert.equal(data.properties[0].sourceId, "INH0233");
+  assert.equal(data.importReview[0].status, "accepted");
+  assert.equal(data.auditLog.length, 1);
 });
 test("operational enrichment writes explicit responsibilities and orders without duplicate reimport", () => {
   const svc = services(),
