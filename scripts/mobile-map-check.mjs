@@ -20,12 +20,15 @@ try {
    return route.abort();
   });
   if(baseline)for(const css of ['styles.css','unified-design.css'])await page.route('**/'+css,route=>route.fulfill({contentType:'text/css',body:execFileSync('git',['show','59d89651770c9eaa2316769c9258951235aef345:frontend/'+css],{cwd:root,encoding:'utf8'})}));
-  await page.goto('http://127.0.0.1:8797/index.html');await page.locator('[data-mobile-dock=map]').click();await page.waitForSelector('.leaflet-pane',{state:'attached'});
+  await page.goto('http://127.0.0.1:8797/index.html?legacy=1');await page.locator('[data-mobile-dock=map]').click();await page.waitForSelector('.leaflet-pane',{state:'attached'});
   const check=()=>page.evaluate(()=>{
    const dock=document.querySelector('#mobile-dock'),map=document.querySelector('#property-map'),box=map.getBoundingClientRect();
    return {mapHeight:box.height,dockTop:dock.getBoundingClientRect().top,mapBottom:box.bottom,hits:[...dock.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===b;})};
   });
-  if(baseline)await page.evaluate(()=>scrollBy(0,18));
+  if(baseline)await page.evaluate(()=>{
+    const map=document.querySelector('#property-map').getBoundingClientRect(),b=document.querySelector('[data-mobile-dock=more]').getBoundingClientRect();
+    scrollBy(0,map.bottom-(b.y+b.height/2)-3);
+  });
   const result=await check();console.log(baseline?'Baseline':'Fixed',result);
   if(baseline){assert.ok(result.hits.some(x=>!x),'Must reproduce original navigation obstruction');await page.close();continue;}
   assert.ok(result.hits.every(Boolean));assert.ok(result.mapBottom<=result.dockTop);

@@ -60,6 +60,7 @@ function appContext() {
  const c=vm.createContext({console,Intl,Date,crypto:globalThis.crypto});c.window=c;
  vm.runInContext(readFileSync('frontend/data/demo-data.js','utf8'),c);
  c.LokalblickDataService={save:async data=>JSON.parse(JSON.stringify(data))};
+ vm.runInContext(readFileSync('frontend/domain/calculations.js','utf8'),c);
  vm.runInContext(readFileSync('frontend/domain/budget-followup.js','utf8'),c);
  const app=readFileSync('frontend/app.js','utf8').split('document.getElementById("clear-data").addEventListener')[0];
  vm.runInContext(app,c);vm.runInContext(readFileSync("frontend/budget-followup-ui.js","utf8"),c);return c;

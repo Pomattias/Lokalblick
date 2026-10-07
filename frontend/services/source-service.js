@@ -161,6 +161,7 @@
     if (JSON.stringify(oldIndex) !== JSON.stringify(newIndex)) {
       changes.push({ sheet:"KPI", key:"indexSeries", id:"kpi", action:"Ändrad", fields:["indexSeries"], before:null, after:null });
     }
+    if(JSON.stringify(extraRows(before||{}))!==JSON.stringify(extraRows(after||{}))) changes.push({sheet:"Tilläggsdata",key:"metadata",id:"metadata",action:"Ändrad",fields:[],before:null,after:null});
     return changes;
   }
 
@@ -560,7 +561,7 @@
 
     const plans = budgetRows("Budgetplaner",[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"],["preliminaryIndex","Preliminärt oktoberindex"]]);
     const targets = budgetRows("Budgetmål",[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]);
-    const lines = budgetRows("Budgetrader",[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["contractId","_contractId"],["propertyId","_propertyId"],["amount","Belopp"]]);
+    const lines = budgetRows("Budgetrader",[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["contractId","_contractId"],["propertyId","_propertyId"],["amount","Belopp"],["sourceType","Typ"],["sourceId","_sourceId"],["status","Värdestatus"]]);
     data.indexSeries = budgetRows("KPI",[["year","År"],["month","Månad"],["value","Värde"],["source","Källa"]])
       .map(function(row){ return {year:Number(row.year)||0,month:Number(row.month)||10,value:Number(row.value)||0,source:row.source||""}; })
       .filter(function(row){ return row.year && row.value; });
@@ -580,7 +581,7 @@
         lines: lines.filter(function(x){ return String(x.year) === String(year); }).map(function(x) {
           return {
             category:x.category || "", sub:x.sub || "", source:x.source || "",
-            contractId:x.contractId || "", propertyId:x.propertyId || "", amount:Number(x.amount) || 0
+            contractId:x.contractId || "", propertyId:x.propertyId || "", amount:Number(x.amount) || 0, sourceType:x.sourceType||"", sourceId:x.sourceId||"", status:x.status||""
           };
         })
       };
@@ -686,12 +687,12 @@
       (plan.lines||[]).forEach(function(line) {
         lineRows.push({
           year:plan.year,category:line.category||"",sub:line.sub||"",source:line.source||"",
-          contractId:line.contractId||"",propertyId:line.propertyId||"",amount:Number(line.amount)||0
+          contractId:line.contractId||"",propertyId:line.propertyId||"",amount:Number(line.amount)||0,sourceType:line.sourceType||"",sourceId:line.sourceId||"",status:line.status||""
         });
       });
     });
     XLSX.utils.book_append_sheet(workbook,simpleSheet(targetRows,[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]),"Budgetmål");
-    XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["contractId","_contractId",true],["propertyId","_propertyId",true]]),"Budgetrader");
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["contractId","_contractId",true],["propertyId","_propertyId",true],["sourceType","Typ"],["sourceId","_sourceId",true],["status","Värdestatus"]]),"Budgetrader");
     XLSX.utils.book_append_sheet(workbook,simpleSheet((data&&data.indexSeries)||[],[["year","År"],["month","Månad"],["value","Värde"],["source","Källa"]]),"KPI");
     XLSX.utils.book_append_sheet(workbook,simpleSheet(extraRows(data),[["collection","Collection"],["id","ID"],["part","Del"],["json","JSON"]]),"Tilläggsdata");
     return workbook;
@@ -961,11 +962,20 @@
 
   window.LokalblickSourceService = {
     schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]),
+    workbookToData:workbookToData,
+    dataToWorkbook:dataToWorkbook,
+    diffData:diffData,
     connect:connect,
     reconnect:reconnect,
     createFile:createFile,
     enrichContracts:enrichContracts,
     importIndexSeries:importIndexSeries,
+    async importSupplement(data,key){
+      const schema=SCHEMAS.find(function(s){return s.key===key;});
+      if(!schema||["properties","contracts"].includes(key))throw new Error("Denna källa måste använda primäradaptern.");
+      const picked=await readSecondaryWorkbook(schema.sheet);
+      return window.LokalblickSupplementalAdapter.analyze(picked.workbook,data,schema,picked.file.name);
+    },
     write:write,
     setMode:setMode,
     disconnect:disconnect,

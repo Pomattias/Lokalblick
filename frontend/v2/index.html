@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lokalblick V2</title>
+    <meta
+      name="description"
+      content="Överblick, planering och beslut i samma fastighetsmodell."
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      defer
+    ></script>
+    <script src="../services/map-service.js" defer></script>
+    <script src="../services/maps/leaflet-map-adapter.js" defer></script>
+    <script src="../data/demo-data.js" defer></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+      defer
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"
+      defer
+    ></script>
+    <script src="../services/data-service.js" defer></script>
+    <script src="../domain/calculations.js" defer></script>
+    <script src="../domain/documents.js" defer></script>
+    <script src="../services/migration-adapter.js" defer></script>
+    <script src="../services/contract-enrichment-adapter.js" defer></script>
+    <script src="../domain/supplemental-adapter.js" defer></script>
+    <script src="../services/source-service.js" defer></script>
+    <link rel="stylesheet" href="../budget-followup.css" />
+    <script src="../domain/budget-followup.js" defer></script>
+    <script src="../budget-followup-ui.js" defer></script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <a class="brand" href="index.html"
+        ><span>L</span
+        ><strong
+          >Lokalblick<small>Överblick · Planering · Beslut</small></strong
+        ></a
+      >
+      <nav aria-label="Huvudnavigation">
+        <button data-view="overview">Översikt</button
+        ><button data-view="contracts">Avtal</button
+        ><button data-view="plan">Planera</button
+        ><button data-view="budget">Budget</button
+        ><button data-view="map">Karta</button
+        ><button data-view="sources">Datakällor</button
+        ><button data-view="people">Organisation</button>
+      </nav>
+      <a class="previous" href="../index.html?legacy=1">Öppna tidigare version</a>
+    </aside>
+    <main>
+      <header>
+        <div>
+          <span class="eyebrow">LOKALBLICK V2</span>
+          <h1 id="title">Översikt</h1>
+        </div>
+        <div class="actions">
+          <button id="history">Historik</button><a href="../index.html?legacy=1">Tidigare vy</a><span id="source-label" class="badge">Läser data…</span
+          ><button id="save" class="primary" hidden>Spara till Excel</button
+          ><button id="add" hidden>Lägg till</button>
+        </div>
+      </header>
+      <div id="context" class="context"></div>
+      <section id="filters" aria-label="Gemensamt urval"></section>
+      <div id="notice" role="status" class="notice"></div>
+      <section id="summary" aria-label="Summering"></section>
+      <section id="content"></section>
+    </main>
+    <nav class="mobile-nav" aria-label="Mobilnavigation">
+      <button data-view="overview">Översikt</button
+      ><button data-view="map">Karta</button
+      ><button data-view="plan">Planera</button
+      ><button data-view="budget">Budget</button
+      ><button data-view="sources">Datakällor</button>
+    </nav>
+    <div id="editor-root"></div>
+  </body>
+</html>

@@ -10,7 +10,7 @@ try {
  await page.route('https://**/*',route=>route.abort()); // Budget flow is independent of map/CDN resources.
  page.on('pageerror',e=>{errors.push(e.message);console.error("Page error:",e.message);});
  page.on("response",r=>{if(r.status()>=400)console.error("HTTP",r.status(),r.url());});
- await page.goto('http://127.0.0.1:8798/index.html',{waitUntil:'domcontentloaded'});
+ await page.goto('http://127.0.0.1:8798/index.html?legacy=1',{waitUntil:'domcontentloaded'});
  await page.waitForSelector('#content:not(:empty)');
  await page.locator('[data-access-mode="edit"]').click();
  await page.locator('[data-mobile-dock="budget"]').click();

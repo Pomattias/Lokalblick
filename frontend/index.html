@@ -3,6 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    if (!new URLSearchParams(location.search).has("legacy")) {
+      location.replace(new URL("v2/index.html" + location.search + location.hash, location.href));
+    }
+  </script>
   <title>Lokalblick · Publik demo</title>
   <meta name="description" content="Publik demo av Lokalblick. Ingen företagsdata lagras eller importeras här." />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -18,6 +23,8 @@
   <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js" defer></script>
   <script src="services/data-service.js" defer></script>
   <script src="services/migration-adapter.js" defer></script>
+  <script src="domain/calculations.js" defer></script>
+  <script src="domain/documents.js" defer></script>
   <script src="services/contract-enrichment-adapter.js" defer></script>
   <script src="services/source-service.js" defer></script>
   <script src="services/geocoding-service.js" defer></script>
@@ -51,6 +58,7 @@
         </div>
         <div class="topbar-actions">
           <span class="badge amber">DEMO</span>
+          <a class="button secondary" href="v2/index.html">Prova Lokalblick V2</a>
           <button id="header-edit" class="button secondary header-edit-button" type="button">Redigera</button>
           <button id="clear-data" class="button secondary" type="button">Återställ demo</button>
         </div>

@@ -67,10 +67,10 @@ async function readJson(req, maxBytes = 2 * 1024 * 1024) {
 
 function safeStaticPath(urlPath) {
   const decoded = decodeURIComponent(urlPath);
-  const relative = decoded.startsWith("/frontend/")
-    ? decoded.slice("/frontend/".length)
-    : decoded === "/frontend" || decoded === "/frontend/"
-      ? "index.html"
+  const relative = decoded === "/frontend" || decoded === "/frontend/"
+    ? "index.html"
+    : decoded.startsWith("/frontend/")
+      ? decoded.slice("/frontend/".length)
       : decoded.slice(1);
   const normalized = path.normalize(relative);
   if (normalized.startsWith("..") || path.isAbsolute(normalized)) return null;

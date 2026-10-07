@@ -33,7 +33,7 @@ function walk(dir) {
 
 const jsFiles = ["frontend", "backend"]
   .flatMap((dir) => walk(path.join(root, dir)))
-  .filter((file) => file.endsWith(".js"));
+  .filter((file) => /\.(js|mjs)$/.test(file));
 
 let failed = false;
 for (const file of jsFiles) {

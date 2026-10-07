@@ -79,7 +79,7 @@ function ensureShape(data) {
   const base = clone(demo);
   const source = data || {};
   function list(name) {
-    return Array.isArray(source[name]) ? source[name] : clone(base[name] || []);
+    return Array.isArray(source[name]) ? source[name] : (source.isDemo === false ? [] : clone(base[name] || []));
   }
   return Object.assign(base, source, {
     properties: list("properties"),
@@ -225,48 +225,11 @@ function personLoad(personId) {
     return sum + (Number(a.allocation) || 0);
   }, 0);
 }
-function indexSeriesValue(year) {
-  const rows=(state.indexSeries||[]).filter(function(x){return Number(x.year)===Number(year);});
-  if(!rows.length) return 0;
-  const october=rows.find(function(x){return Number(x.month)===10 || String(x.period||"").toLowerCase()==="oktober";});
-  return Number((october||rows[0]).value)||0;
-}
-function calculateIndexedAmount(baseAmount,baseIndex,indexShare,currentIndex) {
-  const base=Number(baseAmount)||0, bastal=Number(baseIndex)||0, share=Number(indexShare)||0, index=Number(currentIndex)||0;
-  if(!base || !bastal || !index) return 0;
-  return Math.max(base, base * (1 + share * ((index-bastal)/bastal)));
-}
-function contractIndexedComponent(c, kind, targetYear, preliminaryIndex) {
-  const isAddition=kind==="addition";
-  const base=Number(isAddition?c.baseAdditions:c.baseRent)||0;
-  const bastal=Number(isAddition?c.additionBaseIndex:c.rentBaseIndex)||0;
-  const share=Number(isAddition?c.additionIndexPercent:c.rentIndexPercent)||0;
-  const sourceAmount=Number(isAddition?c.annualAdditions:c.annualRent)||0;
-  const indexYear=Number(targetYear)-1;
-  const known=indexSeriesValue(indexYear);
-  const usedIndex=known || Number(preliminaryIndex)||0;
-  const amount=calculateIndexedAmount(base,bastal,share,usedIndex);
-  return {
-    amount:amount||sourceAmount,
-    calculated:Boolean(amount),
-    preliminary:Boolean(amount && !known && usedIndex),
-    knownIndex:known,
-    usedIndex:usedIndex,
-    indexYear:indexYear,
-    sourceAmount:sourceAmount,
-    base:base,bastal:bastal,share:share
-  };
-}
-function contractAnnualValues(c,targetYear,preliminaryIndex) {
-  const rent=contractIndexedComponent(c,"rent",targetYear,preliminaryIndex);
-  const addition=contractIndexedComponent(c,"addition",targetYear,preliminaryIndex);
-  const media=Number(c.annualContractDrift)||0;
-  const tax=Number(c.annualPropertyTax)||0;
-  return {rent:rent,addition:addition,media:media,tax:tax,total:rent.amount+addition.amount+media+tax};
-}
-function totalContractCost(c) {
-  return contractAnnualValues(c,new Date().getFullYear(),0).total;
-}
+function indexSeriesValue(year) { return Number(window.LokalblickCalculations.october(state.indexSeries,year)?.value)||0; }
+function calculateIndexedAmount(baseAmount,baseIndex,indexShare,currentIndex) { return window.LokalblickCalculations.indexedAmount(baseAmount,baseIndex,indexShare,currentIndex); }
+function contractIndexedComponent(c,kind,targetYear,preliminaryIndex) { return window.LokalblickCalculations.component(c,kind,targetYear,preliminaryIndex,state.indexSeries); }
+function contractAnnualValues(c,targetYear,preliminaryIndex) { return window.LokalblickCalculations.annualValues(c,targetYear,preliminaryIndex,state.indexSeries); }
+function totalContractCost(c) { return contractAnnualValues(c,new Date().getFullYear(),0).total; }
 function projectBudgetTotal(p) {
   return (Number(p.budgetInvestigation) || 0) + (Number(p.budgetExecution) || 0) + (Number(p.budgetFurnishing) || 0);
 }
@@ -277,18 +240,7 @@ function activeInYear(c, year) {
   const to = new Date(String(year) + "-12-31T23:59:59");
   return (!start || start <= to) && (!end || end >= from);
 }
-function contractYearFactor(c, year) {
-  if (!activeInYear(c, year)) return 0;
-  const yearStart = new Date(String(year) + "-01-01T00:00:00");
-  const nextYear = new Date(String(Number(year) + 1) + "-01-01T00:00:00");
-  const contractStart = c.start ? new Date(c.start + "T00:00:00") : yearStart;
-  const contractEndExclusive = c.end ? new Date(new Date(c.end + "T00:00:00").getTime() + 86400000) : nextYear;
-  const start = contractStart > yearStart ? contractStart : yearStart;
-  const end = contractEndExclusive < nextYear ? contractEndExclusive : nextYear;
-  const covered = Math.max(0, end - start);
-  const yearMs = nextYear - yearStart;
-  return yearMs ? covered / yearMs : 0;
-}
+function contractYearFactor(c,year) { return window.LokalblickCalculations.yearFactor(c,year); }
 function statusBadge(status) {
   const s = String(status || "");
   let cls = "";
@@ -600,51 +552,7 @@ function bindAnnualPlannerControls() {
   });
 }
 function budgetIncluded(item){if(!item)return true;if(item.budgetIncluded===false)return false;if(item.includeInBudget==="Nej")return false;return true;}
-function budgetRows(year, contracts) {
-  const rows = [];
-  const plan=budgetPlan(year);
-  const preliminaryIndex=plan ? Number(plan.preliminaryIndex)||0 : 0;
-  state.contracts.filter(function(c) { return activeInYear(c, year); }).forEach(function(c) {
-    const factor = contractYearFactor(c, year);
-    const values=contractAnnualValues(c,year,preliminaryIndex);
-    const amount = values.total * factor;
-    const indexMode=(values.rent.preliminary||values.addition.preliminary) ? " · preliminärt index" :
-      ((values.rent.calculated||values.addition.calculated) ? " · KPI-beräknat" : "");
-    if (amount > 0) rows.push({
-      category: "Hyra + drift",
-      sub: (factor < 0.999 ? "Avtal · periodiserat " + percent(factor * 100) : "Avtal") + indexMode,
-      source: c.number || c.id,
-      contractId: c.id,
-      propertyId: c.propertyId,
-      sourceType:"contract", sourceId:c.id,
-      amount: amount
-    });
-  });
-  state.projects.filter(function(p) { return Number(p.budgetYear) === Number(year); }).forEach(function(p) {
-    const investigation = Number(p.budgetInvestigation) || 0;
-    const project = (Number(p.budgetExecution) || 0) + (Number(p.budgetFurnishing) || 0);
-    if (!budgetIncluded(p)) return;
-    if (investigation > 0) rows.push({category:"Utredningar",sub:"Projektutredning",source:p.name,contractId:p.contractId,propertyId:p.propertyId,sourceType:"project",sourceId:p.id,amount:investigation,timing:maintenanceTimingLabel(p)});
-    if (project > 0) rows.push({category:"Projekt",sub:"Genomförande + inredning",source:p.name,contractId:p.contractId,propertyId:p.propertyId,sourceType:"project",sourceId:p.id,amount:project,timing:maintenanceTimingLabel(p)});
-  });
-  state.maintenance.filter(function(u) { return Number(u.year) === Number(year) && Number(u.cost) > 0; }).forEach(function(u) {
-    if (!budgetIncluded(u)) return;
-    rows.push({category:"Underhåll",sub:u.title,source:u.title,contractId:u.contractId,propertyId:u.propertyId,sourceType:"maintenance",sourceId:u.id,amount:Number(u.cost),timing:maintenanceTimingLabel(u)});
-  });
-  state.operations.filter(function(o) { return Number(o.period) === Number(year) && Number(o.budget) > 0; }).forEach(function(o) {
-    if (!budgetIncluded(o)) return;
-    rows.push({category:"Driftkostnader",sub:o.category,source:o.category,contractId:o.contractId,propertyId:o.propertyId,sourceType:"operation",sourceId:o.id,amount:Number(o.budget)});
-  });
-  state.investigations.filter(function(u) { return Number(u.year) === Number(year) && Number(u.cost) > 0; }).forEach(function(u) {
-    if (!budgetIncluded(u)) return;
-    rows.push({category:"Utredningar",sub:u.title,source:u.title,contractId:u.contractId,propertyId:u.propertyId,sourceType:"investigation",sourceId:u.id,amount:Number(u.cost)});
-  });
-  state.maintenanceStatus.filter(function(x){return budgetIncluded(x)&&x.includeInBudget==="Ja"&&Number(x.budgetYear)===Number(year)&&Number(x.estimatedCost)>0;}).forEach(function(x){rows.push({category:"Underhåll",sub:x.category,source:"Status: "+x.category,contractId:x.contractId,propertyId:x.propertyId,sourceType:"maintenanceStatus",sourceId:x.id,amount:Number(x.estimatedCost),timing:maintenanceTimingLabel(x)});});
-  state.driftIssues.filter(function(x){return budgetIncluded(x)&&x.includeInBudget==="Ja"&&Number(x.budgetYear)===Number(year)&&Number(x.estimatedCost)>0&&x.status!=="Klar";}).forEach(function(x){rows.push({category:"Driftkostnader",sub:x.category,source:"Ärende: "+x.title,contractId:x.contractId,propertyId:x.propertyId,sourceType:"driftIssue",sourceId:x.id,amount:Number(x.estimatedCost),timing:maintenanceTimingLabel(x)});});
-  state.wishes.filter(function(x){return budgetIncluded(x)&&x.includeInBudget==="Ja"&&x.budgetCategory&&x.budgetCategory!=="Ej budget"&&Number(x.budgetYear)===Number(year)&&Number(x.estimatedCost)>0&&x.status!=="Avslaget";}).forEach(function(x){rows.push({category:x.budgetCategory,sub:x.category,source:"Önskemål: "+x.title,contractId:x.contractId,propertyId:x.propertyId,sourceType:"wish",sourceId:x.id,amount:Number(x.estimatedCost)});});
-  if(plan) rows.push(...(plan.lines||[]).filter(r=>r.sourceType==="manual"&&r.included!==false).map(r=>Object.assign({},r)));
-  return Array.isArray(contracts) ? budgetRowsForContracts(rows,contracts) : rows;
-}
+function budgetRows(year,contracts) { return window.LokalblickCalculations.budgetRows(state,year,contracts); }
 function budgetYears() {
   const years = new Set([new Date().getFullYear(), new Date().getFullYear() + 1, new Date().getFullYear() + 2]);
   state.projects.forEach(function(x) { if (x.budgetYear) years.add(Number(x.budgetYear)); });
@@ -2153,7 +2061,7 @@ function renderBudget() {
   const filters = portfolioFilterOptions();
   const scopedContracts = portfolioScopeContracts();
   const scoped = hasPortfolioScope();
-  const liveRows = budgetRows(selectedBudgetYear, scopedContracts);
+  const liveRows = budgetRows(selectedBudgetYear, scoped ? scopedContracts : undefined);
   const plan = budgetPlan(selectedBudgetYear);
   const rawBaselineRows = plan && Array.isArray(plan.lines) ? plan.lines : budgetRows(selectedBudgetYear);
   const baselineRows = (scoped ? budgetRowsForContracts(rawBaselineRows, scopedContracts) : rawBaselineRows).filter(function(r){return r.included!==false;});
