@@ -1,19 +1,50 @@
 /* Shared pure calculation engine. Inputs are canonical records, never DOM/state. */
 (function (root) {
   const number = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-  function october(series, year) {
-    const rows = (series || []).filter(
+  // SCB KPI, fastställda oktoberindextal, 1980=100. These public reference
+  // values make normal lease calculations independent of a separate KPI import.
+  // Imported index rows still take precedence when present.
+  const DEFAULT_OCTOBER_1980 = Object.freeze({
+    1980:104.20,1981:115.00,1982:124.60,1983:135.60,1984:145.50,
+    1985:155.50,1986:161.90,1987:170.10,1988:180.20,1989:191.80,
+    1990:213.40,1991:230.10,1992:235.10,1993:245.20,1994:251.00,
+    1995:256.90,1996:255.90,1997:259.60,1998:257.30,1999:259.70,
+    2000:262.60,2001:269.10,2002:275.40,2003:278.90,2004:281.00,
+    2005:282.40,2006:286.07,2007:293.85,2008:305.56,2009:301.11,
+    2010:305.57,2011:313.42,2012:314.59,2013:314.40,2014:314.02,
+    2015:314.29,2016:318.00,2017:323.38,2018:330.72,2019:336.04,
+    2020:336.97,2021:346.44,2022:384.04,2023:409.07,2024:415.51,
+    2025:419.35
+  });
+  const seriesBase = (value) => String(value || "").replace(/[^0-9]/g, "");
+  function defaultOctober(year) {
+    const value=DEFAULT_OCTOBER_1980[Number(year)];
+    return value
+      ? {year:Number(year),month:10,value,seriesBase:"1980",source:"SCB KPI · fastställt oktober"}
+      : null;
+  }
+  function october(series, year, preferredBase) {
+    const targetYear=Number(year), preferred=seriesBase(preferredBase);
+    let rows = (series || []).filter(
       (x) =>
-        Number(x.year) === Number(year) &&
+        Number(x.year) === targetYear &&
         (Number(x.month) === 10 ||
           String(x.period || "").toLowerCase() === "oktober"),
     );
-    if (
-      !rows.length ||
-      rows.some((x) => number(x.value) !== number(rows[0].value))
-    )
-      return null;
-    return rows[0];
+    if(preferred){
+      const matching=rows.filter((x)=>{
+        const base=seriesBase(x.seriesBase);
+        return !base || base===preferred;
+      });
+      if(matching.length) rows=matching;
+    }
+    if(rows.length){
+      const values=new Set(rows.map((x)=>number(x.value)));
+      if(values.size!==1) return null;
+      return rows[0];
+    }
+    if(!preferred || preferred==="1980") return defaultOctober(targetYear);
+    return null;
   }
   function indexedAmount(base, basis, share, index, floor = true) {
     base = number(base);
@@ -25,40 +56,51 @@
     const amount = base * (1 + share * (index / basis - 1));
     return floor ? Math.max(base, amount) : amount;
   }
+  function normalizedShare(value) {
+    const raw=number(value);
+    if(raw>1&&raw<=100) return raw/100;
+    return raw;
+  }
   function component(c, kind, year, preliminaryIndex, series) {
     const prefix = kind === "addition" ? "addition" : "rent";
     const base = number(kind === "addition" ? c.baseAdditions : c.baseRent);
     const sourceAmount = number(
       kind === "addition" ? c.annualAdditions : c.annualRent,
     );
-    const indexYear = number(year) - 1,
-      row = october(series, indexYear);
+    const baseYear=number(c[prefix+"BaseYear"]);
+    const explicitBaseIndex=number(c[prefix+"BaseIndex"]);
+    const requestedSeriesBase=seriesBase(c[prefix+"SeriesBase"]) || "1980";
+    const basisRow=explicitBaseIndex ? null : october(series,baseYear,requestedSeriesBase);
+    const basisSeries=seriesBase(c[prefix+"SeriesBase"] || basisRow?.seriesBase) || requestedSeriesBase;
+    const indexYear = number(year) - 1;
+    const row = october(series,indexYear,basisSeries);
     const knownIndex =
       row && !row.preliminary && !/prelim|prognos/i.test(row.source || "")
         ? number(row.value)
         : 0;
     const usedIndex =
       knownIndex || number(preliminaryIndex) || number(row?.value);
-    const basisRow = october(series, c[prefix + "BaseYear"]);
-    const bastal = number(basisRow?.value);
+    const bastal = explicitBaseIndex || number(basisRow?.value);
     const rawShare = c[prefix + "IndexPercent"];
-    const share = number(rawShare),
-      validShare =
-        rawShare !== "" && rawShare != null && share >= 0 && share <= 1;
-    const basisSeries = c[prefix + "SeriesBase"] || basisRow?.seriesBase;
+    const share = normalizedShare(rawShare);
+    const validShare =
+      rawShare !== "" && rawShare != null && share >= 0 && share <= 1;
     const incompatible = Boolean(
       basisSeries &&
         row?.seriesBase &&
-        String(basisSeries) !== String(row.seriesBase),
+        seriesBase(row.seriesBase) &&
+        basisSeries !== seriesBase(row.seriesBase),
     );
-    const conflicting =
-      new Set(
-        (series || [])
-          .filter((x) => Number(x.year) === indexYear && Number(x.month) === 10)
-          .map((x) => number(x.value)),
-      ).size > 1;
+    const comparableRows=(series||[]).filter((x)=>{
+      const baseCode=seriesBase(x.seriesBase);
+      return Number(x.year)===indexYear &&
+        (Number(x.month)===10||String(x.period||"").toLowerCase()==="oktober") &&
+        (!baseCode||baseCode===basisSeries);
+    });
+    const conflicting = new Set(comparableRows.map((x)=>number(x.value))).size > 1;
     const calculated =
       base > 0 &&
+      baseYear > 0 &&
       bastal > 0 &&
       usedIndex > 0 &&
       validShare &&
@@ -85,8 +127,10 @@
       indexYear,
       sourceAmount,
       base,
+      baseYear,
       bastal,
       share,
+      seriesBase:basisSeries,
       status: needsReview
         ? "Behöver kontroll"
         : preliminary
@@ -99,10 +143,10 @@
         : conflicting
           ? "Motstridiga oktoberindex"
           : needsReview
-            ? "Bastal, indexandel eller oktoberindex saknas"
+            ? "Bashyra, basår, indexandel eller oktoberindex saknas"
             : "",
       source: calculated
-        ? "calculated"
+        ? (row?.source || "SCB KPI")
         : c.provenance?.[kind === "addition" ? "annualAdditions" : "annualRent"]
             ?.source ||
           c.enrichmentSource ||
@@ -110,10 +154,11 @@
           "Källvärde",
       basedOn: calculated
         ? [
-            kind === "addition" ? "Grundtillägg" : "Grundhyra",
-            "Bastal",
-            "Indexandel",
-            "KPI oktober " + indexYear,
+            kind === "addition" ? "Bastillägg" : "Bashyra",
+            "Basår " + baseYear,
+            "KPI oktober " + baseYear + " = " + bastal,
+            "Indexandel " + Math.round(share*10000)/100 + " %",
+            "KPI oktober " + indexYear + " = " + usedIndex,
           ]
         : [],
     };
@@ -270,6 +315,8 @@
   }
   root.LokalblickCalculations = {
     october,
+    defaultOctober,
+    defaultOctoberSeries:()=>Object.entries(DEFAULT_OCTOBER_1980).map(([year,value])=>({year:Number(year),month:10,value,seriesBase:"1980",source:"SCB KPI · fastställt oktober"})),
     indexedAmount,
     component,
     annualValues,
