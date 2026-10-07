@@ -252,7 +252,7 @@ async function sourceAction(action) {
   if (action === "create" || action === "blank")
     data = await transport.create(data, action === "blank");
   if (action === "refresh") data = await transport.refresh();
-  if (["enrich", "index", "supplement"].includes(action)) {
+  if (["enrich", "operational", "index", "supplement"].includes(action)) {
     result = await transport[action](
       data,
       document.querySelector("#supplement-kind")?.value,
