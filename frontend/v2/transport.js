@@ -2,7 +2,6 @@ import { normalize, clone } from "./model.js";
 const metadataKeys = [
   "budgetPlans",
   "indexSeries",
-  "assignmentChanges",
   "auditLog",
   "sourceRegistry",
   "importReview",
