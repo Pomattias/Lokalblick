@@ -10,9 +10,9 @@
   const SCHEMAS = [
     { sheet:"Fastigheter", key:"properties", prefix:"FAST", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
-      ["responsiblePersonId","_responsiblePersonId",true],
-      ["type","Typ"],["address","Adress"],["designation","Fastighetsbeteckning"],["owner","Fastighetsägare"],["manager","Förvaltare"],["latitude","Latitud"],["longitude","Longitud"]
-    ], display:["Ansvarig hos oss"] },
+      ["responsiblePersonId","_responsiblePersonId",true],["ownerOrgId","_ownerOrgId",true],
+      ["type","Typ"],["address","Adress"],["designation","Fastighetsbeteckning"],["latitude","Latitud"],["longitude","Longitud"]
+    ], display:["Ansvarig hos oss","Fastighetsägare"] },
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["propertyId","_propertyId",true],["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["use","Verksamhet"],
@@ -523,6 +523,18 @@
     });
     if ((!data.operations.length) && Array.isArray(data.legacyOperations)) data.operations=data.legacyOperations.map(function(x){return clone(x);});
 
+    function ensureOwnerOrganization(name){
+      const label=String(name||"").trim();if(!label)return "";
+      let org=(data.organizations||[]).find(function(x){return x.type==="owner"&&String(x.name||"").trim().toLowerCase()===label.toLowerCase();});
+      if(!org){org={id:nextStableId("ORG",data.organizations),name:label,type:"owner",ownerClass:""};data.organizations.push(org);}
+      return org.id;
+    }
+    (data.properties||[]).forEach(function(property){
+      if(property.owner&&!property.ownerOrgId)property.ownerOrgId=ensureOwnerOrganization(property.owner);
+      if(property.owner&&!property.sourceOwner)property.sourceOwner=property.owner;
+      if(property.manager&&!property.sourceManager)property.sourceManager=property.manager;
+      delete property.owner;delete property.manager;
+    });
     const canonicalActivities=activityRowsFromData(data), byActivity=new Map((data.activities||[]).map(function(x){return [x.id,x];}));
     canonicalActivities.forEach(function(a){ if(a&&a.id&&!byActivity.has(a.id)){data.activities.push(a);byActivity.set(a.id,a);} });
     (data.activities||[]).forEach(function(activity){
@@ -720,7 +732,14 @@
     if (label==="Fastighet") return propertyDisplay(properties.find(function(x){return x.id===row.propertyId;}));
     if (label==="Avtal") return contractDisplay(contracts.find(function(x){return x.id===row.contractId;}));
     if (label==="Hyresgäst") return orgDisplay(organizations.find(function(x){return x.id===row.tenantOrgId;}));
-    if (label==="Fastighetsägare") return orgDisplay(organizations.find(function(x){return x.id===row.ownerOrgId;})) || row.owner || "";
+    if (label==="Fastighetsägare") {
+      let ownerId=row.ownerOrgId||"";
+      if(!ownerId&&schema.key==="contracts"){
+        const property=properties.find(function(x){return x.id===row.propertyId;});
+        ownerId=property&&property.ownerOrgId||"";
+      }
+      return orgDisplay(organizations.find(function(x){return x.id===ownerId;}));
+    }
     if (label==="Organisation") return orgDisplay(organizations.find(function(x){return x.id===row.organizationId;}));
     if (label==="Område") return unitDisplay(row.unitId);
     if (label==="Ansvarig" || label==="Ansvarig hos oss") return personDisplay(people.find(function(x){return x.id===row.responsiblePersonId;}));
