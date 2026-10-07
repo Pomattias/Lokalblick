@@ -88,6 +88,96 @@ function notice(message, error = false) {
   node.textContent = message;
   node.className = error ? "notice error" : "notice";
 }
+function importCountLabel(counts = {}) {
+  const parts = [];
+  if (counts.properties != null) parts.push("Fastigheter " + counts.properties);
+  if (counts.contracts != null) parts.push("Avtal " + counts.contracts);
+  if (counts.activities != null) parts.push("Aktiviteter " + counts.activities);
+  if (counts.matched != null) parts.push("Träffar " + counts.matched);
+  if (counts.created != null) parts.push("Skapat " + counts.created);
+  if (counts.review != null) parts.push("Granska " + counts.review);
+  return parts.join(" · ");
+}
+function chooseImportSheets(prepared) {
+  return new Promise((resolve, reject) => {
+    const d = document.createElement("dialog");
+    d.className = "followup-dialog import-dialog";
+    const rows = (prepared.sheets || [])
+      .map(
+        (sheet, index) =>
+          `<label class="import-sheet"><input type="checkbox" data-import-sheet value="${esc(sheet.name)}" ${sheet.recommended ? "checked" : ""}><span><strong>${esc(sheet.name)}</strong><small>${esc(sheet.kind || "Övrig flik")}</small></span></label>`,
+      )
+      .join("");
+    d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Välj flikar att läsa</h2><p><strong>${esc(prepared.fileName)}</strong></p></div></div><p>Lokalblick har hittat ${(prepared.sheets || []).length} flikar. Kända flikar är förvalda. Markera en eller flera flikar.</p><div class="import-sheet-tools"><button type="button" data-import-select="recommended">Föreslagna</button><button type="button" data-import-select="all">Markera alla</button><button type="button" data-import-select="none">Avmarkera alla</button></div><div class="import-sheet-list">${rows}</div><div class="actions import-dialog-actions"><button type="button" data-import-cancel>Avbryt</button><button type="button" class="primary-action" data-import-start>Läs markerade flikar</button></div>`;
+    document.body.append(d);
+    const closeWithAbort = () => {
+      if (d.open) d.close();
+      const error = new Error("Importen avbröts");
+      error.name = "AbortError";
+      reject(error);
+    };
+    d.querySelector("[data-import-cancel]").onclick = closeWithAbort;
+    d.querySelectorAll("[data-import-select]").forEach((button) => {
+      button.onclick = () => {
+        const mode = button.dataset.importSelect;
+        d.querySelectorAll("[data-import-sheet]").forEach((input, index) => {
+          input.checked =
+            mode === "all"
+              ? true
+              : mode === "none"
+                ? false
+                : Boolean(prepared.sheets[index]?.recommended);
+        });
+      };
+    });
+    d.querySelector("[data-import-start]").onclick = () => {
+      const selected = [...d.querySelectorAll("[data-import-sheet]:checked")].map(
+        (input) => input.value,
+      );
+      if (!selected.length) {
+        const button = d.querySelector("[data-import-start]");
+        button.textContent = "Markera minst en flik";
+        return;
+      }
+      d.close();
+      resolve(selected);
+    };
+    d.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      closeWithAbort();
+    });
+    d.addEventListener("close", () => d.remove(), { once: true });
+    d.showModal();
+  });
+}
+function showImportProgress(fileName, selectedSheets) {
+  const d = document.createElement("dialog");
+  d.className = "followup-dialog import-dialog import-progress-dialog";
+  d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Läser och tolkar data</h2><p><strong>${esc(fileName)}</strong></p></div><span class="import-spinner" aria-hidden="true"></span></div><div class="import-progress-track"><span data-import-progress-bar></span></div><strong data-import-progress-message>Förbereder import…</strong><small data-import-progress-counts></small><div class="import-progress-sheets">${selectedSheets.map((name) => `<span data-import-progress-sheet="${esc(name)}">${esc(name)}</span>`).join("")}</div><p class="import-progress-hint">Du kan fortsätta vänta även om filen är stor. Lokalblick arbetar med de markerade flikarna.</p>`;
+  document.body.append(d);
+  d.showModal();
+  return d;
+}
+function updateImportProgress(dialog, progress = {}) {
+  if (!dialog?.isConnected) return;
+  const message = dialog.querySelector("[data-import-progress-message]");
+  const counts = dialog.querySelector("[data-import-progress-counts]");
+  const bar = dialog.querySelector("[data-import-progress-bar]");
+  if (message && progress.message) message.textContent = progress.message;
+  if (counts) counts.textContent = importCountLabel(progress.counts);
+  if (bar) {
+    const total = Number(progress.totalSteps) || 0;
+    const step = Number(progress.step) || 0;
+    const percent = total ? Math.max(4, Math.min(100, Math.round((step / total) * 100))) : 8;
+    bar.style.width = percent + "%";
+  }
+  (progress.sheets || []).forEach((sheet) => {
+    const node = [...dialog.querySelectorAll("[data-import-progress-sheet]")].find(
+      (x) => x.dataset.importProgressSheet === sheet.name,
+    );
+    if (node && sheet.rows != null) node.textContent = sheet.name + " · " + sheet.rows + " rader";
+  });
+}
 function canEdit() {
   const st = transport.status();
   if (st.sourceKind === "migration") return false;
@@ -253,19 +343,38 @@ async function sourceAction(action) {
     data = await transport.create(data, action === "blank");
   if (action === "refresh") data = await transport.refresh();
   if (action === "import") {
-    const beforeStatus = transport.status();
-    const base = data.isDemo ? { isDemo:false, sourceName:"Excelimport" } : data;
-    result = await transport.import(base);
-    if (beforeStatus.connected && beforeStatus.sourceKind !== "migration") {
-      data = await transport.save(result.data);
-      notice(
-        "Excel inläst. Fastigheter och avtal har byggts eller matchats först. Granska konflikter innan du sparar till Excel.",
-      );
-    } else {
-      data = normalize(result.data);
-      notice(
-        "Excel inläst. Skapa Lokalblick-data för att spara den nya strukturen permanent.",
-      );
+    if (busy) throw Error("En import pågår redan");
+    busy = true;
+    let progressDialog = null;
+    try {
+      const beforeStatus = transport.status();
+      const base = data.isDemo ? { isDemo:false, sourceName:"Excelimport" } : data;
+      notice("Öppnar Excel och läser fliklistan…");
+      const prepared = await transport.prepareImport((progress) => {
+        if (progress.message) notice(progress.message);
+      });
+      const selectedSheets = await chooseImportSheets(prepared);
+      progressDialog = showImportProgress(prepared.fileName, selectedSheets);
+      result = await transport.importPrepared(base, selectedSheets, (progress) => {
+        updateImportProgress(progressDialog, progress);
+        if (progress.message) notice(progress.message + (progress.counts ? " " + importCountLabel(progress.counts) : ""));
+      });
+      if (beforeStatus.connected && beforeStatus.sourceKind !== "migration") {
+        updateImportProgress(progressDialog, { message:"Sparar berikad Lokalblick-data…", step:4, totalSteps:4, counts:result.report?.counts });
+        data = await transport.save(result.data);
+        notice(
+          "Excel inläst. " + selectedSheets.length + " flik(ar) behandlades. Granska eventuella konflikter.",
+        );
+      } else {
+        data = normalize(result.data);
+        notice(
+          "Excel inläst från " + selectedSheets.length + " flik(ar). Skapa Lokalblick-data för att spara strukturen permanent.",
+        );
+      }
+    } finally {
+      if (progressDialog?.open) progressDialog.close();
+      progressDialog?.remove();
+      busy = false;
     }
   } else if (["enrich", "operational", "index", "supplement"].includes(action)) {
     result = await transport[action](
