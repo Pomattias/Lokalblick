@@ -424,7 +424,25 @@ function canonicalRelations(out) {
   out.properties.forEach((p)=>{if(!p.ownerPartyId&&p.ownerOrgId)p.ownerPartyId=p.ownerOrgId;delete p.ownerOrgId;});
   out.contracts.forEach((c)=>{if(!c.businessPartyId&&c.tenantOrgId)c.businessPartyId=c.tenantOrgId;delete c.tenantOrgId;delete c.ownerOrgId;["notice","rentPerSqm","rentBaseIndex","derivedRentBaseIndex","rentIndexCurrent","rentIndexYear","rentCalculationYear","calculatedAnnualRent","rentCalculationVariance","rentCalculationStatus","additionBaseIndex","derivedAdditionBaseIndex","additionIndexCurrent","additionIndexYear","additionCalculationYear","calculatedAnnualAdditions","additionCalculationVariance","additionCalculationStatus"].forEach((k)=>delete c[k]);});
   (out.contacts||[]).filter((x)=>!x.toDate).forEach((c)=>{if(isOur(c.personId))return;const t=c.targetType==="object"?"contract":c.targetType;if(t==="property"){const p=out.properties.find((x)=>x.id===c.targetId);if(p&&!p.ownerResponsiblePersonId)p.ownerResponsiblePersonId=c.personId;}else if(t==="contract"){const a=out.contracts.find((x)=>x.id===c.targetId);if(a&&!a.businessResponsiblePersonId)a.businessResponsiblePersonId=c.personId;}});
-  out.activities.forEach((a)=>{if(a.contractId&&out.contracts.some((c)=>c.id===a.contractId))delete a.propertyId;const has=a.orderedAt||a.orderedBy||a.orderedByPersonId||a.supplier||a.orderReference||Number(a.orderedCost)||a.deliveryText||a.completedAt||Number(a.finalCost)||a.paymentStatus||a.paidAt||a.invoiceComment||a.ownerPays;if(has){const id="ORD|"+a.id;if(!out.orders.some((o)=>o.id===id))out.orders.push({id,activityId:a.id,orderedAt:a.orderedAt||"",orderedByPersonId:a.orderedByPersonId||"",supplier:a.supplier||"",orderReference:a.orderReference||"",orderedCost:Number(a.orderedCost)||0,deliveryText:a.deliveryText||"",completedAt:a.completedAt||"",finalCost:Number(a.finalCost)||0,paymentStatus:a.paymentStatus||"",paidAt:a.paidAt||"",invoiceComment:a.invoiceComment||"",ownerPays:a.ownerPays||""});}["orderedAt","orderedBy","orderedByPersonId","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost","paymentStatus","paidAt","invoiceComment","ownerPays","finalCosts","finalCostConfirmed","investigationCost"].forEach((k)=>delete a[k]);});
+  const migratedInvestigations=[];
+  out.activities.forEach((a)=>{
+    const investigationCost=Number(a.investigationCost)||0;
+    if(investigationCost>0){
+      const id="MIG-UTR|"+a.id;
+      if(!out.activities.some((x)=>x.id===id)&&!migratedInvestigations.some((x)=>x.id===id))migratedInvestigations.push({
+        id,type:"Utredning",propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
+        title:(a.title||"Aktivitet")+" · utredning",description:"Migrerad separat utredningsbudget",category:a.category||"",status:a.status||"Planerad",
+        priority:a.priority||"",planningYear:a.planningYear||"",planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||"",
+        budgetCategory:"Utredningar",includeInBudget:a.includeInBudget||"Ja",estimatedCost:investigationCost,phase:"Utredning",
+        startDate:a.startDate||"",endDate:a.endDate||"",sourceId:a.sourceId||a.id,sourceSheet:a.sourceSheet||"",sourceRow:a.sourceRow||""
+      });
+    }
+    if(a.contractId&&out.contracts.some((c)=>c.id===a.contractId))delete a.propertyId;
+    const has=a.orderedAt||a.orderedBy||a.orderedByPersonId||a.supplier||a.orderReference||Number(a.orderedCost)||a.deliveryText||a.completedAt||Number(a.finalCost)||a.paymentStatus||a.paidAt||a.invoiceComment||a.ownerPays;
+    if(has){const id="ORD|"+a.id;if(!out.orders.some((o)=>o.id===id))out.orders.push({id,activityId:a.id,orderedAt:a.orderedAt||"",orderedByPersonId:a.orderedByPersonId||"",supplier:a.supplier||"",orderReference:a.orderReference||"",orderedCost:Number(a.orderedCost)||0,deliveryText:a.deliveryText||"",completedAt:a.completedAt||"",finalCost:Number(a.finalCost)||0,paymentStatus:a.paymentStatus||"",paidAt:a.paidAt||"",invoiceComment:a.invoiceComment||"",ownerPays:a.ownerPays||""});}
+    ["orderedAt","orderedBy","orderedByPersonId","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost","paymentStatus","paidAt","invoiceComment","ownerPays","finalCosts","finalCostConfirmed","investigationCost"].forEach((k)=>delete a[k]);
+  });
+  migratedInvestigations.forEach((a)=>{if(a.contractId&&out.contracts.some((c)=>c.id===a.contractId))delete a.propertyId;out.activities.push(a);});
   out.contacts=[];return out;
 }
 
