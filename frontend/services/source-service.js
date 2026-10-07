@@ -56,7 +56,7 @@
     prefix:"ACT",
     columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
-      ["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["orderedByPersonId","_orderedByPersonId",true],
+      ["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["orderedByPersonId","_orderedByPersonId",true],["investigationCost","_utredningskostnad",true],
       ["type","Typ"],["title","Aktivitet"],["description","Beskrivning"],["category","Kategori"],["status","Status"],["priority","Prioritet"],
       ["planningYear","Planår"],["planningQuarter","Kvartal"],["planningMonth","Månad"],["budgetCategory","Budgetkategori"],
       ["estimatedCost","Bedömd kostnad"],["phase","Fas"],["startDate","Start"],["endDate","Slut"],
@@ -310,7 +310,7 @@
   }
 
   function ensureStableIds(data) {
-    SCHEMAS.forEach(function(schema) {
+    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(LEGACY_SCHEMAS).forEach(function(schema) {
       const rows = data[schema.key] || [];
       rows.forEach(function(row) {
         if (!row.id) row.id = nextStableId(schema.prefix || "ID", rows);
