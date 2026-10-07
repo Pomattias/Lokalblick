@@ -139,18 +139,21 @@ test("legacy company store migrates once to direct responsibility, activities an
       {
         version: 1,
         entities: {
-          organizations: [],
+          organizations: [
+            { id: "ORG-OUR", name: "Vår organisation", type: "our" },
+            { id: "ORG-OWNER", name: "Fastighetsägare", type: "owner" },
+          ],
           people: [
-            { id: "P-INTERN", name: "Intern ansvarig" },
-            { id: "P-EXTERN", name: "Extern förvaltare" },
+            { id: "P-INTERN", name: "Intern ansvarig", organizationId: "ORG-OUR" },
+            { id: "P-EXTERN", name: "Extern förvaltare", organizationId: "ORG-OWNER" },
           ],
           assignments: [
             {
               id: "A1",
               personId: "P-INTERN",
-              targetType: "property",
-              targetId: "PROP-1",
-              role: "Ansvarig",
+              targetType: "object",
+              targetId: source.contracts[0].id,
+              role: "Objektansvarig",
               toDate: "",
             },
             {
