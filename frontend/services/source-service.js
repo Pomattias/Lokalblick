@@ -977,22 +977,52 @@
     emitImportProgress(onProgress,{stage:"ready",message:sheets.length+" flikar hittades.",fileName:source.pendingImport.fileName,sheets:sheets});
     return {fileName:source.pendingImport.fileName,sheets:clone(sheets)};
   }
+  function meaningfulSheetInfo(sheet) {
+    if(!sheet) return {ref:"",rows:0,cells:0};
+    let minRow=Infinity,maxRow=-1,minCol=Infinity,maxCol=-1;
+    const rows=new Set();
+    let cells=0;
+    Object.keys(sheet).forEach(function(address){
+      if(address[0]==="!") return;
+      const cell=sheet[address];
+      if(!cell) return;
+      const value=cell.v;
+      const meaningful=cell.f || (value!==undefined && value!==null && String(value).trim()!=="");
+      if(!meaningful) return;
+      let pos;
+      try { pos=XLSX.utils.decode_cell(address); } catch (_) { return; }
+      minRow=Math.min(minRow,pos.r);maxRow=Math.max(maxRow,pos.r);
+      minCol=Math.min(minCol,pos.c);maxCol=Math.max(maxCol,pos.c);
+      rows.add(pos.r);cells++;
+    });
+    if(maxRow<0) return {ref:"",rows:0,cells:0};
+    return {
+      ref:XLSX.utils.encode_range({s:{r:minRow,c:minCol},e:{r:maxRow,c:maxCol}}),
+      rows:rows.size,
+      cells:cells
+    };
+  }
+  function trimSheetToContent(sheet) {
+    const info=meaningfulSheetInfo(sheet);
+    if(info.ref) sheet["!ref"]=info.ref;
+    else delete sheet["!ref"];
+    return info;
+  }
   function selectedImportWorkbook(buffer, selectedSheets) {
     const wanted=new Set(selectedSheets||[]);
     const workbook=XLSX.read(buffer,{type:"array",cellDates:false,sheets:selectedSheets});
     workbook.SheetNames=(workbook.SheetNames||[]).filter(function(name){return wanted.has(name) && workbook.Sheets[name];});
     const filtered={};
-    workbook.SheetNames.forEach(function(name){filtered[name]=workbook.Sheets[name];});
+    workbook.SheetNames.forEach(function(name){
+      const sheet=workbook.Sheets[name];
+      trimSheetToContent(sheet);
+      filtered[name]=sheet;
+    });
     workbook.Sheets=filtered;
     return workbook;
   }
   function sheetRowCount(workbook,name) {
-    const ref=workbook.Sheets[name] && workbook.Sheets[name]["!ref"];
-    if(!ref) return 0;
-    try {
-      const range=XLSX.utils.decode_range(ref);
-      return Math.max(0,range.e.r-range.s.r+1);
-    } catch (_) { return 0; }
+    return meaningfulSheetInfo(workbook.Sheets[name]).rows;
   }
   function importProgressCounts(data, extra) {
     return Object.assign({
