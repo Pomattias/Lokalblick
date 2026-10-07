@@ -21,8 +21,15 @@ synthetic browser-storage exception remain unchanged.
 
 User-owned entities support `GET /api/{entity}`, `POST /api/{entity}`,
 `GET /api/{entity}/{id}`, `PATCH /api/{entity}/{id}`, and
-`DELETE /api/{entity}/{id}`. Entity path names include `maintenance-status`,
-`drift-costs`, `drift-issues`, `budget-data`, and `contract-overlays`.
+`DELETE /api/{entity}/{id}`. Canonical business entities are
+`organizations`, `people`, `contacts`, `activities`,
+`maintenance-status`, `operations`, `budget-data`, and overlays.
+
+Responsibility is stored directly as `responsiblePersonId` on a property
+overlay or activity. External/role-based relations use `contacts`. Legacy
+`assignments`, `projects`, `maintenance`, `drift-issues`, `wishes`,
+and `investigations` are migration inputs only and are not active API
+entities.
 
 Properties and imported contracts are read-only LEB core. Their DELETE
 operations persist backend tombstones; editable property and contract
