@@ -166,6 +166,9 @@ function ensureStoreShape(value) {
     if (a.targetType==="property" && a.role==="Ansvarig") {
       ensurePropertyResponsibility(a.targetId,a.personId); return;
     }
+    if (a.targetType==="maintenanceStatus" && a.role==="Ansvarig") {
+      const activity=byActivity.get("STATUS-ACT|"+a.targetId); if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId; return;
+    }
     if ((a.targetType==="activity" || legacyType(a.targetType)) && a.role==="Ansvarig") {
       const activity=byActivity.get(a.targetId); if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId; return;
     }
