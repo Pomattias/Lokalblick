@@ -3,11 +3,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const USER_ENTITIES = [
-  "organizations", "people", "contacts", "activities", "maintenanceStatus",
+  "organizations", "people", "orders", "activities", "maintenanceStatus",
   "operations", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
 ];
 const LEGACY_USER_ENTITIES = [
-  "assignments", "projects", "maintenance", "driftCosts", "driftIssues",
+  "contacts", "assignments", "projects", "maintenance", "driftCosts", "driftIssues",
   "wishes", "investigations"
 ];
 
@@ -16,7 +16,7 @@ const ALL_ENTITIES = [...CORE_ENTITIES, ...USER_ENTITIES];
 
 function emptyStore() {
   return {
-    version: 2,
+    version: 3,
     entities: Object.fromEntries(USER_ENTITIES.map((entity) => [entity, []])),
     deleted: { properties: [], contracts: [] },
     updatedAt: null
@@ -172,22 +172,48 @@ function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
     return organizations.get(person.organizationId)?.type==="our";
   }
   function responsibilityRole(role) { return /ansvar|projektledare|objektansvar/i.test(String(role||"")); }
-  function ensureContact(a, targetType, targetId, role) {
-    if (!a?.personId || !targetId) return;
-    const type = targetType === "object" ? "contract" : targetType;
-    if (!["property", "contract"].includes(type)) return;
-    if (store.entities.contacts.some((x) => x.personId===a.personId && x.targetType===type && x.targetId===targetId && (x.role||"")===(role||"") && !x.toDate)) return;
-    store.entities.contacts.push({id:a.id||randomUUID(),personId:a.personId,targetType:type,targetId,role:role||"Kontakt",fromDate:a.fromDate||"",toDate:a.toDate||""});
-  }
-  function ensurePropertyResponsibility(propertyId, personId) {
-    if (!propertyId || !personId) return;
+  function propertyOverlay(propertyId) {
+    if (!propertyId) return null;
     let overlay=store.entities.propertyOverlays.find((x) => x.propertyId===propertyId);
     if (!overlay) {
       overlay={id:propertyId,propertyId};
       store.entities.propertyOverlays.push(overlay);
     }
-    if (!overlay.responsiblePersonId) overlay.responsiblePersonId=personId;
+    return overlay;
   }
+  function contractOverlay(contractId) {
+    if (!contractId) return null;
+    let overlay=store.entities.contractOverlays.find((x) => x.contractId===contractId);
+    if (!overlay) {
+      overlay={id:contractId,contractId};
+      store.entities.contractOverlays.push(overlay);
+    }
+    return overlay;
+  }
+  function ensurePropertyResponsibility(propertyId, personId) {
+    if (!propertyId || !personId) return;
+    const overlay=propertyOverlay(propertyId);
+    if (overlay && !overlay.responsiblePersonId) overlay.responsiblePersonId=personId;
+  }
+  function mapExternalResponsibility(personId,targetType,targetId) {
+    if (!personId || !targetId || isOurPerson(personId)) return false;
+    const type=targetType==="object"?"contract":targetType;
+    if (type==="property") {
+      const overlay=propertyOverlay(targetId);
+      if (overlay && !overlay.ownerResponsiblePersonId) overlay.ownerResponsiblePersonId=personId;
+      return Boolean(overlay);
+    }
+    if (type==="contract") {
+      const overlay=contractOverlay(targetId);
+      if (overlay && !overlay.businessResponsiblePersonId) overlay.businessResponsiblePersonId=personId;
+      return Boolean(overlay);
+    }
+    return false;
+  }
+  (entities.contacts || []).filter((x)=>!x.toDate).forEach((contact)=>{
+    mapExternalResponsibility(contact.personId,contact.targetType,contact.targetId);
+  });
+
   const legacyType = (type) => ({project:"Projekt",maintenance:"Underhåll",driftIssue:"Drift",wish:"Önskemål",investigation:"Utredning"}[type]||"");
   (entities.assignments || []).forEach((a) => {
     if (a.toDate) return;
@@ -208,13 +234,12 @@ function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
     if ((a.targetType==="object"||a.targetType==="contract") && isOurPerson(a.personId) && responsibilityRole(a.role)) {
       const contract=(core.contracts||[]).find((x)=>x.id===a.targetId);
       if(contract)ensurePropertyResponsibility(contract.propertyId,a.personId);
-      else ensureContact(a,"contract",a.targetId,a.role);
       return;
     }
-    ensureContact(a,a.targetType,a.targetId,a.role);
+    mapExternalResponsibility(a.personId,a.targetType,a.targetId);
   });
 
-  store.entities.maintenanceStatus.forEach((status) => {
+  store.entities.maintenanceStatus.forEach((status) => {  store.entities.maintenanceStatus.forEach((status) => {
     if (status.actionNeed || Number(status.estimatedCost)>0) {
       const id="STATUS-ACT|"+status.id;
       if(!byActivity.has(id)){
@@ -232,10 +257,55 @@ function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
     delete status.responsiblePersonId;
   });
 
+  const knownContracts=new Set((core.contracts||[]).map((x)=>x.id));
+  const legacyInvestigationActivities=[];
+  store.entities.activities.forEach((activity)=>{
+    if (activity.contractId && knownContracts.has(activity.contractId)) delete activity.propertyId;
+
+    const investigationCost=Number(activity.investigationCost)||0;
+    if (investigationCost>0) {
+      const id="MIG-UTR|"+activity.id;
+      if (!byActivity.has(id)) {
+        legacyInvestigationActivities.push({
+          id,type:"Utredning",propertyId:activity.propertyId||"",contractId:activity.contractId||"",
+          responsiblePersonId:activity.responsiblePersonId||"",
+          title:(activity.title||"Aktivitet")+" · utredning",description:"Migrerad separat utredningsbudget",
+          category:activity.category||"",status:activity.status||"Planerad",priority:activity.priority||"",
+          planningYear:activity.planningYear||"",planningQuarter:activity.planningQuarter||"",planningMonth:activity.planningMonth||"",
+          budgetCategory:"Utredningar",includeInBudget:activity.includeInBudget||"Ja",estimatedCost:investigationCost,
+          phase:"Utredning",startDate:activity.startDate||"",endDate:activity.endDate||"",
+          sourceId:activity.sourceId||activity.id,sourceSheet:activity.sourceSheet||"",sourceRow:activity.sourceRow||""
+        });
+      }
+    }
+
+    const hasOrder=activity.orderedAt||activity.orderedBy||activity.orderedByPersonId||activity.supplier||activity.orderReference||
+      Number(activity.orderedCost)||activity.deliveryText||activity.completedAt||Number(activity.finalCost)||activity.paymentStatus||
+      activity.paidAt||activity.invoiceComment||activity.ownerPays;
+    if (hasOrder) {
+      const id="ORD|"+activity.id;
+      if (!store.entities.orders.some((x)=>x.id===id)) {
+        store.entities.orders.push({
+          id,activityId:activity.id,orderedAt:activity.orderedAt||"",orderedByPersonId:activity.orderedByPersonId||"",
+          supplier:activity.supplier||"",orderReference:activity.orderReference||"",orderedCost:Number(activity.orderedCost)||0,
+          deliveryText:activity.deliveryText||"",completedAt:activity.completedAt||"",finalCost:Number(activity.finalCost)||0,
+          paymentStatus:activity.paymentStatus||"",paidAt:activity.paidAt||"",invoiceComment:activity.invoiceComment||"",ownerPays:activity.ownerPays||""
+        });
+      }
+    }
+    ["orderedAt","orderedBy","orderedByPersonId","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost",
+     "paymentStatus","paidAt","invoiceComment","ownerPays","finalCosts","finalCostConfirmed","investigationCost"].forEach((key)=>delete activity[key]);
+  });
+  legacyInvestigationActivities.forEach((activity)=>{
+    if (activity.contractId && knownContracts.has(activity.contractId)) delete activity.propertyId;
+    store.entities.activities.push(activity);
+    byActivity.set(activity.id,activity);
+  });
+
   for (const entity of CORE_ENTITIES) {
     if (Array.isArray(value.deleted?.[entity])) store.deleted[entity] = value.deleted[entity];
   }
-  store.version = 2;
+  store.version = 3;
   store.updatedAt = typeof value.updatedAt === "string" ? value.updatedAt : null;
   return store;
 }
@@ -292,7 +362,7 @@ export class LokalblickRepository {
     try {
       const rawStore = JSON.parse(await fs.readFile(this.dataPath, "utf8"));
       this.store = ensureStoreShape(rawStore, this.core);
-      if (Number(rawStore.version || 1) < 2) await this.persist(this.store);
+      if (Number(rawStore.version || 1) < 3) await this.persist(this.store);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
       await this.persist(this.store);
