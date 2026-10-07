@@ -302,7 +302,9 @@
       if (!pm.property) { review(data, report, { kind: "property-match", source: source, sheet: "Lokalbestånd", row: i + 1, record: clone(spec), address: spec.address, message: "Fastigheten kunde inte matchas säkert." }); continue; }
       report.counts.propertiesMatched++;
       matcher.addAlias(spec.name, pm.property.id); matcher.addAlias(spec.address, pm.property.id); matcher.addAlias(spec.designation, pm.property.id); matcher.addAlias(spec.objectNo, pm.property.id);
-      setIfBlank(pm.property, "owner", cell(row, hit.headers, ["Fastighetsägare"]), source, "Lokalbestånd", i + 1, data, report);
+      var ownerName=cell(row, hit.headers, ["Fastighetsägare"]), ownerId=ownerName?ensureOrg(data,ownerName,"owner"):"";
+      setIfBlank(pm.property, "ownerOrgId", ownerId, source, "Lokalbestånd", i + 1, data, report);
+      if(ownerName&&!pm.property.sourceOwner)pm.property.sourceOwner=ownerName;
       setIfBlank(pm.property, "name", spec.name, source, "Lokalbestånd", i + 1, data, report);
       var contractNo = cell(row, hit.headers, ["Avtalsnummer"]), c = matchContract(data, contractNo, pm.property.id);
       if (c) {
@@ -332,10 +334,10 @@
       report.counts.propertiesMatched++;
       matcher.addAlias(spec.name, pm.property.id); matcher.addAlias(spec.address, pm.property.id); matcher.addAlias(spec.designation, pm.property.id); matcher.addAlias(spec.objectNo, pm.property.id);
       var owner = cell(row, hit.headers, ["Fastighetsägare"]), ownerId = owner ? ensureOrg(data, owner, "owner") : "";
-      setIfBlank(pm.property, "owner", owner, source, "Fastighetslista", i + 1, data, report);
+      setIfBlank(pm.property, "ownerOrgId", ownerId, source, "Fastighetslista", i + 1, data, report);
+      if(owner&&!pm.property.sourceOwner)pm.property.sourceOwner=owner;
       setIfBlank(pm.property, "name", spec.name, source, "Fastighetslista", i + 1, data, report);
       setIfBlank(pm.property, "boundaryMaintenance", cell(row, hit.headers, ["Gränsdragningslist underhåll","Gränsdragningslista underhåll"]), source, "Fastighetslista", i + 1, data, report);
-      (data.contracts || []).filter(function (c) { return c.propertyId === pm.property.id; }).forEach(function (c) { if (ownerId && !c.ownerOrgId) { c.ownerOrgId = ownerId; addProvenance(c, "ownerOrgId", ownerId, source, "Fastighetslista", i + 1); } });
       var names = splitNames(cell(row, hit.headers, ["Förvaltare"])), mailList = emails(cell(row, hit.headers, ["Email (förvaltare)","E-post förvaltare"])), phone = text(cell(row, hit.headers, ["Förvaltare nr.","Förvaltare nr"]));
       names.forEach(function (name, idx) {
         var p = ensurePerson(data, report, { name: name, email: mailList[idx] || (names.length === 1 ? mailList[0] : ""), organizationId: ownerId, role: "Fastighetsförvaltare", source: source, sheet: "Fastighetslista", row: i + 1 });
