@@ -1,20 +1,22 @@
 (function(root) {
   const copy = x => JSON.parse(JSON.stringify(x));
-  const collections = {contract:'contracts',project:'projects',maintenance:'maintenance',operation:'operations',investigation:'investigations',maintenanceStatus:'maintenanceStatus',driftIssue:'driftIssues',wish:'wishes'};
-  function key(row) { return [row.sourceType || 'legacy',row.sourceId || row.contractId || row.source,row.category,row.sourceType ? '' : row.sub || ''].join('|'); }
-  function record(data,row) { return (data[collections[row.sourceType]]||[]).find(x=>String(x.id)===String(row.sourceId)); }
+  const actionTypes = new Set(['activity','project','maintenance','investigation','maintenanceStatus','driftIssue','wish']);
+  function collection(row) { return row.sourceType==='contract'?'contracts':row.sourceType==='operation'?'operations':actionTypes.has(row.sourceType)?'activities':null; }
+  function key(row) { return [actionTypes.has(row.sourceType)?'activity':row.sourceType || 'legacy',row.sourceId || row.contractId || row.source,row.category,row.sourceType ? '' : row.sub || ''].join('|'); }
+  function record(data,row) { const col=collection(row); return col ? (data[col]||[]).find(x=>String(x.id)===String(row.sourceId)) : null; }
   function finalCost(data,row,year) {
     if(row.sourceType==='contract') return null;
     let item=record(data,row);
     if(!item) {
-      const deleted=(data.auditLog||[]).slice().reverse().find(h=>h.collection===collections[row.sourceType] && String(h.recordId)===String(row.sourceId) && h.action==='Raderad');
+      const deleted=(data.auditLog||[]).slice().reverse().find(h=>h.collection===collection(row) && String(h.recordId)===String(row.sourceId) && h.action==='Raderad');
       if(deleted)item=Object.fromEntries((deleted.fields||[]).map(f=>[f.field,f.from]));
     }
     if(!item)return null;
     const value=item.finalCosts?.[year]?.[row.category];
     if(value != null) return Number(value);
-    // Projects can have two budget categories; never count one final cost twice.
-    if(row.sourceType!=='project' && (item.finalCostConfirmed || item.completedDate || item.completedAt || /^(Utförd|Klar|Klart)$/.test(item.status||''))) return Number(item.finalCost)||0;
+    // A project can carry a separate investigation budget; never count one final cost twice.
+    if(item.type==='Projekt' && row.category==='Utredningar') return null;
+    if(item.finalCostConfirmed || item.completedDate || item.completedAt || /^(Utförd|Klar|Klart)$/.test(item.status||'')) return Number(item.finalCost)||0;
     return null;
   }
   function compare(data,baseline,live,year) {
