@@ -499,7 +499,30 @@
     function mapExternal(personId,targetType,targetId){if(!personId||!targetId||isOurPerson(personId))return false;const type=targetType==="object"?"contract":targetType;if(type==="property"){const p=data.properties.find(function(x){return x.id===targetId;});if(p&&!p.ownerResponsiblePersonId){p.ownerResponsiblePersonId=personId;return true;}}if(type==="contract"){const c=data.contracts.find(function(x){return x.id===targetId;});if(c&&!c.businessResponsiblePersonId){c.businessResponsiblePersonId=personId;return true;}}return false;}
     data.contacts.filter(function(x){return !x.toDate;}).forEach(function(c){mapExternal(c.personId,c.targetType,c.targetId);});
     (data.assignments||[]).forEach(function(a){if(a.toDate)return;if(a.targetType==="property"&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const p=data.properties.find(function(x){return x.id===a.targetId;});if(p&&!p.responsiblePersonId)p.responsiblePersonId=a.personId;return;}if(a.targetType==="activity"&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const x=byActivity.get(a.targetId);if(x&&!x.responsiblePersonId)x.responsiblePersonId=a.personId;return;}if(a.targetType==="maintenanceStatus"&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const x=byActivity.get("STATUS-ACT|"+a.targetId);if(x&&!x.responsiblePersonId)x.responsiblePersonId=a.personId;return;}const lt=legacyActivityType(a.targetType);if(lt&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const x=byActivity.get(a.targetId);if(x&&!x.responsiblePersonId)x.responsiblePersonId=a.personId;return;}if((a.targetType==="object"||a.targetType==="contract")&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const c=data.contracts.find(function(x){return x.id===a.targetId;});const p=c&&data.properties.find(function(x){return x.id===c.propertyId;});if(p&&!p.responsiblePersonId)p.responsiblePersonId=a.personId;return;}mapExternal(a.personId,a.targetType,a.targetId);});
-    data.activities.forEach(function(a){if(!a.includeInBudget&&a.budgetIncluded===false)a.includeInBudget="Nej";else if(!a.includeInBudget&&a.budgetIncluded===true)a.includeInBudget="Ja";delete a.budgetIncluded;if(a.contractId&&data.contracts.some(function(c){return c.id===a.contractId;}))delete a.propertyId;const has=a.orderedAt||a.orderedBy||a.orderedByPersonId||a.supplier||a.orderReference||Number(a.orderedCost)||a.deliveryText||a.completedAt||Number(a.finalCost)||a.paymentStatus||a.paidAt||a.invoiceComment||a.ownerPays;if(has){const id="ORD|"+a.id;if(!data.orders.some(function(x){return x.id===id;}))data.orders.push({id:id,activityId:a.id,orderedAt:a.orderedAt||"",orderedByPersonId:a.orderedByPersonId||"",supplier:a.supplier||"",orderReference:a.orderReference||"",orderedCost:Number(a.orderedCost)||0,deliveryText:a.deliveryText||"",completedAt:a.completedAt||"",finalCost:Number(a.finalCost)||0,paymentStatus:a.paymentStatus||"",paidAt:a.paidAt||"",invoiceComment:a.invoiceComment||"",ownerPays:a.ownerPays||""});}["orderedAt","orderedBy","orderedByPersonId","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost","paymentStatus","paidAt","invoiceComment","ownerPays","finalCosts","finalCostConfirmed","investigationCost"].forEach(function(k){delete a[k];});});
+    const migratedInvestigations=[];
+    data.activities.forEach(function(a){
+      if(!a.includeInBudget&&a.budgetIncluded===false)a.includeInBudget="Nej";
+      else if(!a.includeInBudget&&a.budgetIncluded===true)a.includeInBudget="Ja";
+      delete a.budgetIncluded;
+      const investigationCost=Number(a.investigationCost)||0;
+      if(investigationCost>0){
+        const investigationId="MIG-UTR|"+a.id;
+        if(!byActivity.has(investigationId)){
+          migratedInvestigations.push({
+            id:investigationId,type:"Utredning",propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
+            title:(a.title||"Aktivitet")+" · utredning",description:"Migrerad separat utredningsbudget",category:a.category||"",
+            status:a.status||"Planerad",priority:a.priority||"",planningYear:a.planningYear||"",planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||"",
+            budgetCategory:"Utredningar",includeInBudget:a.includeInBudget||"Ja",estimatedCost:investigationCost,phase:"Utredning",startDate:a.startDate||"",endDate:a.endDate||"",
+            sourceId:a.sourceId||a.id,sourceSheet:a.sourceSheet||"",sourceRow:a.sourceRow||""
+          });
+        }
+      }
+      if(a.contractId&&data.contracts.some(function(c){return c.id===a.contractId;}))delete a.propertyId;
+      const has=a.orderedAt||a.orderedBy||a.orderedByPersonId||a.supplier||a.orderReference||Number(a.orderedCost)||a.deliveryText||a.completedAt||Number(a.finalCost)||a.paymentStatus||a.paidAt||a.invoiceComment||a.ownerPays;
+      if(has){const id="ORD|"+a.id;if(!data.orders.some(function(x){return x.id===id;}))data.orders.push({id:id,activityId:a.id,orderedAt:a.orderedAt||"",orderedByPersonId:a.orderedByPersonId||"",supplier:a.supplier||"",orderReference:a.orderReference||"",orderedCost:Number(a.orderedCost)||0,deliveryText:a.deliveryText||"",completedAt:a.completedAt||"",finalCost:Number(a.finalCost)||0,paymentStatus:a.paymentStatus||"",paidAt:a.paidAt||"",invoiceComment:a.invoiceComment||"",ownerPays:a.ownerPays||""});}
+      ["orderedAt","orderedBy","orderedByPersonId","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost","paymentStatus","paidAt","invoiceComment","ownerPays","finalCosts","finalCostConfirmed","investigationCost"].forEach(function(k){delete a[k];});
+    });
+    migratedInvestigations.forEach(function(a){if(a.contractId&&data.contracts.some(function(c){return c.id===a.contractId;}))delete a.propertyId;data.activities.push(a);byActivity.set(a.id,a);});
     (data.assignmentChanges||[]).forEach(function(ch){const id="legacy-assignment|"+String(ch.id||ch.changedAt||ch.targetId||"");if(data.auditLog.some(function(x){return x.id===id;}))return;data.auditLog.push({id:id,at:ch.changedAt||"",by:ch.changedBy||"Migrerad historik",collection:"responsibility",recordId:ch.targetId||"",action:"Ansvar ändrat",fields:[{field:"responsiblePersonId",from:ch.fromPersonId||"",to:ch.toPersonId||""}]});});
     data.contacts=[];["legacyOrganizations","projects","maintenance","investigations","driftIssues","wishes","assignments","assignmentChanges","legacyOperations"].forEach(function(k){data[k]=[];});data.maintenanceStatus.forEach(function(s){delete s.responsiblePersonId;});
     function migrateBudgetLine(line){if(!line)return line;if(["project","maintenance","investigation","driftIssue","wish"].includes(line.sourceType))line.sourceType="activity";if(line.sourceType==="maintenanceStatus"){line.sourceType="activity";line.sourceId="STATUS-ACT|"+line.sourceId;}return line;}
@@ -507,7 +530,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["auditLog","sourceRegistry","importReview","documents"];
+  const EXTRA_KEYS = ["importReview","documents"];
+  const RESTORE_EXTRA_KEYS = ["auditLog","sourceRegistry","importReview","documents"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
@@ -534,7 +558,7 @@
     rowsFromSheet(workbook,"Tilläggsdata").forEach(row=>{const key=String(row.Collection)+"|"+String(row.ID);if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(row);});
     grouped.forEach(parts=>{
       parts.sort((a,b)=>Number(a.Del)-Number(b.Del));const first=parts[0],value=JSON.parse(parts.map(x=>x.JSON||"").join(""));
-      if(first.Collection==="workspace"&&EXTRA_KEYS.includes(first.ID))data[first.ID]=value;
+      if(first.Collection==="workspace"&&RESTORE_EXTRA_KEYS.includes(first.ID))data[first.ID]=value;
       else {const list=data[first.Collection];if(!Array.isArray(list))return;const row=list.find(x=>String(first.Collection==="budgetPlans"?x.year:first.Collection==="indexSeries"?x.year+"|"+x.month:x.id)===String(first.ID));if(row)Object.keys(value).filter(k=>!["__proto__","constructor","prototype","id","year"].includes(k)).forEach(k=>{row[k]=value[k];});}
     });
   }
@@ -597,6 +621,20 @@
         })
       };
     });
+
+    data.sourceRegistry = budgetRows("Källor",[["name","Fil"],["kind","Typ"],["rows","Rader"],["matched","Matchade"],["created","Skapade"],["review","Granska"],["importedAt","Importerad"],["sheets","Flikar"]])
+      .filter(function(x){return x.name||x.kind;})
+      .map(function(x){return {name:x.name||"",kind:x.kind||"",rows:Number(x.rows)||0,matched:Number(x.matched)||0,created:Number(x.created)||0,review:Number(x.review)||0,importedAt:x.importedAt||"",sheets:x.sheets||""};});
+    const auditRows=budgetRows("Ändringslogg",[["id","_id"],["at","Tid"],["by","Ändrad av"],["collection","Tabell"],["recordId","Post-ID"],["action","Ändring"],["field","Fält"],["from","Från"],["to","Till"]]);
+    if(auditRows.length){
+      const groupedAudit=new Map();
+      auditRows.forEach(function(x){
+        const id=x.id||("AUDIT|"+x.at+"|"+x.collection+"|"+x.recordId);
+        if(!groupedAudit.has(id))groupedAudit.set(id,{id:id,at:x.at||"",by:x.by||"",collection:x.collection||"",recordId:x.recordId||"",action:x.action||"",fields:[]});
+        if(x.field)groupedAudit.get(id).fields.push({field:x.field,from:x.from??"",to:x.to??""});
+      });
+      data.auditLog=Array.from(groupedAudit.values());
+    }
 
     restoreExtras(workbook,data);
     canonicalizeModel(data);
@@ -704,6 +742,12 @@
     };}),[
       ["name","Fil"],["kind","Typ"],["rows","Rader"],["matched","Matchade"],["created","Skapade"],["review","Granska"],["importedAt","Importerad"],["sheets","Flikar"]
     ]),"Källor");
+    const auditRows=[];
+    (canonical.auditLog||[]).forEach(function(entry){
+      const fields=(entry.fields||[]).length?entry.fields:[{field:"",from:"",to:""}];
+      fields.forEach(function(field){auditRows.push({id:entry.id||"",at:entry.at||"",by:entry.by||"",collection:entry.collection||"",recordId:entry.recordId||"",action:entry.action||"",field:field.field||"",from:typeof field.from==="object"?JSON.stringify(field.from):(field.from??""),to:typeof field.to==="object"?JSON.stringify(field.to):(field.to??"")});});
+    });
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(auditRows,[["id","_id",true],["at","Tid"],["by","Ändrad av"],["collection","Tabell"],["recordId","Post-ID"],["action","Ändring"],["field","Fält"],["from","Från"],["to","Till"]]),"Ändringslogg");
     XLSX.utils.book_append_sheet(workbook,simpleSheet(extraRows(canonical),[["collection","Collection"],["id","ID"],["part","Del"],["json","JSON"]]),"Tilläggsdata");
     workbook.Workbook=workbook.Workbook||{};
     workbook.Workbook.Sheets=workbook.SheetNames.map(function(name){return {name:name,Hidden:name==="Tilläggsdata"?1:0};});
