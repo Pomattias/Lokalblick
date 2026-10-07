@@ -186,7 +186,7 @@ export function createLokalblickServer(repository, { host = DEFAULT_HOST, port =
           });
         }
       }
-      if (pathname === "/runtime-config.js" && request.method === "GET") {
+      if (["/runtime-config.js","/frontend/runtime-config.js"].includes(pathname) && request.method === "GET") {
         const cartoKey = process.env.VITE_CARTO_API_KEY || process.env.CARTO_API_KEY || "";
         response.writeHead(200, {
           "Content-Type": "text/javascript; charset=utf-8",
