@@ -151,6 +151,65 @@ function chooseImportSheets(prepared) {
     d.showModal();
   });
 }
+function askMissingCity(importData) {
+  const service = globalThis.LokalblickSourceService;
+  const status = service?.cityImportStatus?.(importData) || {
+    missingIds: [],
+    missingCount: 0,
+    knownCities: [],
+  };
+  if (!status.missingCount)
+    return Promise.resolve({ data: importData, filled: 0, skipped: 0 });
+
+  return new Promise((resolve) => {
+    const d = document.createElement("dialog");
+    d.className = "followup-dialog import-dialog city-dialog";
+    const suggested =
+      status.knownCities.length === 1 ? status.knownCities[0] : "";
+    const knownText =
+      status.knownCities.length === 1
+        ? `Övriga fastigheter har orten <strong>${esc(suggested)}</strong>. Om de saknade också ligger där kan du använda samma ort.`
+        : status.knownCities.length > 1
+          ? `Det finns redan flera orter i materialet: ${status.knownCities.map(esc).join(", ")}.`
+          : "Ingen ort kunde hämtas från den importerade filen.";
+    d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">DATKVALITET</span><h2>Ort saknas</h2></div></div><p>Ort saknas för <strong>${status.missingCount} fastigheter</strong>. Finns alla dessa i samma ort?</p><p>${knownText}</p><label class="city-input">Ort<input type="text" data-city-value value="${esc(suggested)}" placeholder="Ange ort"></label><p><small>För framtida importer kan du lägga till en kolumn <strong>Ort</strong>, <strong>Postort</strong> eller <strong>Stad</strong> i Excel-filen. Lokalblick sparar orten i Lokalblick-data när du anger den här.</small></p><div class="actions import-dialog-actions"><button type="button" data-city-skip>Inte samma ort – komplettera senare</button><button type="button" class="primary-action" data-city-apply>Använd ort för alla ${status.missingCount}</button></div>`;
+    document.body.append(d);
+    const finish = (result) => {
+      if (d.open) d.close();
+      resolve(result);
+    };
+    d.querySelector("[data-city-skip]").onclick = () =>
+      finish({ data: importData, filled: 0, skipped: status.missingCount });
+    d.querySelector("[data-city-apply]").onclick = () => {
+      const input = d.querySelector("[data-city-value]");
+      const city = String(input?.value || "").trim();
+      if (!city) {
+        input?.focus();
+        return;
+      }
+      const updated = service.applyCityToProperties(
+        importData,
+        status.missingIds,
+        city,
+        actor(),
+      );
+      finish({
+        data: updated,
+        filled: status.missingCount,
+        skipped: 0,
+        city,
+      });
+    };
+    d.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      finish({ data: importData, filled: 0, skipped: status.missingCount });
+    });
+    d.addEventListener("close", () => d.remove(), { once: true });
+    d.showModal();
+    d.querySelector("[data-city-value]")?.focus();
+  });
+}
+
 function showImportProgress(fileName, selectedSheets) {
   const d = document.createElement("dialog");
   d.className = "followup-dialog import-dialog import-progress-dialog";
@@ -361,6 +420,20 @@ async function sourceAction(action) {
         updateImportProgress(progressDialog, progress);
         if (progress.message) notice(progress.message + (progress.counts ? " " + importCountLabel(progress.counts) : ""));
       });
+
+      const missingCity =
+        globalThis.LokalblickSourceService?.cityImportStatus?.(result.data)
+          ?.missingCount || 0;
+      let cityResult = { data: result.data, filled: 0, skipped: 0 };
+      if (missingCity) {
+        if (progressDialog?.open) progressDialog.close();
+        progressDialog?.remove();
+        progressDialog = null;
+        cityResult = await askMissingCity(result.data);
+        result.data = cityResult.data;
+        progressDialog = showImportProgress(prepared.fileName, selectedSheets);
+      }
+
       if (globalThis.LokalblickGeocodingService && !result.data.isDemo) {
         updateImportProgress(progressDialog, {
           message: "Berikar fastigheter med koordinater…",
@@ -370,16 +443,19 @@ async function sourceAction(action) {
         });
         result.data = await globalThis.LokalblickGeocodingService.enrichData(result.data);
       }
+      const cityWarning = cityResult.skipped
+        ? " " + cityResult.skipped + " fastigheter saknar fortfarande ort och geokodas inte förrän ort kompletterats."
+        : "";
       if (beforeStatus.connected && beforeStatus.sourceKind !== "migration") {
         updateImportProgress(progressDialog, { message:"Sparar berikad Lokalblick-data…", step:5, totalSteps:5, counts:result.report?.counts });
         data = await transport.save(result.data);
         notice(
-          "Excel inläst. " + selectedSheets.length + " flik(ar) behandlades. Granska eventuella konflikter.",
+          "Excel inläst. " + selectedSheets.length + " flik(ar) behandlades. Granska eventuella konflikter." + cityWarning,
         );
       } else {
         data = normalize(result.data);
         notice(
-          "Excel inläst från " + selectedSheets.length + " flik(ar). Skapa Lokalblick-data för att spara strukturen permanent.",
+          "Excel inläst från " + selectedSheets.length + " flik(ar). Skapa Lokalblick-data för att spara strukturen permanent." + cityWarning,
         );
       }
     } finally {
