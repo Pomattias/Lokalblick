@@ -85,9 +85,29 @@ const internalPeople = (data) =>
       "our"
     );
   });
+function budgetRowInScope(row, view) {
+  const contractIds = new Set((view.contracts || []).map((x) => x.id));
+  const propertyIds = new Set((view.properties || []).map((x) => x.id));
+  const activityIds = new Set((view.items || []).map((x) => x.record.id));
+  if (row.sourceType === "activity")
+    return activityIds.has(row.sourceId);
+  if (row.sourceType === "contract")
+    return contractIds.has(row.sourceId) || contractIds.has(row.contractId);
+  if (row.contractId) return contractIds.has(row.contractId);
+  if (row.propertyId) return propertyIds.has(row.propertyId);
+  return false;
+}
+function scopedBudgetRows(data, s, year, view) {
+  const activeScope = Boolean(
+    s.propertyId || s.unit || s.owner || s.person || s.q,
+  );
+  const rows = calc().budgetRows(data, year);
+  if (!activeScope) return rows;
+  return rows.filter((row) => budgetRowInScope(row, view));
+}
 export function summary(data, s, year) {
   const view = scope(data, s),
-    rows = calc().budgetRows(data, year, view.contracts, view.properties),
+    rows = scopedBudgetRows(data, s, year, view),
     tot = calc().summarize(rows);
   return `<div class="summary">${[
     ["Avtal", view.contracts.length + " st"],
@@ -275,9 +295,9 @@ export const categories = [
 export function budget(data,s,ui) {
   const scoped=Boolean(s.propertyId||s.unit||s.owner||s.person||s.q),view=scope(data,s);
   const plan=data.budgetPlans.find(p=>Number(p.year)===ui.year),locked=plan?.status==='Låst';
-  const rows=calc().budgetRows(data,ui.year,scoped?view.contracts:undefined,scoped?view.properties:undefined);
+  const rows=scopedBudgetRows(data,s,ui.year,view);
   const baselineRows=locked?(plan?.lines||[]):rows;
-  const included=baselineRows.filter(r=>r.included!==false&&(!scoped||(r.contractId?view.contracts.some(c=>c.id===r.contractId):view.properties.some(p=>p.id===r.propertyId))));
+  const included=baselineRows.filter(r=>r.included!==false&&(!scoped||budgetRowInScope(r,view)));
   const comparison=globalThis.LokalblickBudgetFollowup.compare(data,included,rows,ui.year);
   const baseline=calc().summarize(included),forecast=calc().summarize(comparison.map(r=>({...r,amount:r.forecast}))),actual=calc().summarize(comparison.map(r=>({...r,amount:r.finalCost??0})));
   const total=categories.reduce((sum,k)=>sum+(scoped?baseline[k]||0:Number(plan?.targets?.[k]??baseline[k]??0)),0);
