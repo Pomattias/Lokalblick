@@ -526,7 +526,7 @@ export function scope(data, selection) {
       (!data.contracts.some((c) => c.propertyId === p.id) &&
         (!selection.propertyId || p.id === selection.propertyId) &&
         !selection.unit &&
-        (!selection.owner || p.owner === selection.owner) &&
+        (!selection.owner || p.ownerOrgId === selection.owner) &&
         (!selection.person ||
           responsible(data, "properties", p) === selection.person ||
           allItems.some(
