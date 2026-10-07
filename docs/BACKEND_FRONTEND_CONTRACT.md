@@ -63,3 +63,13 @@ orders. `budget-data` keeps the budget header/metadata and UI workspace
 metadata. Budget rows become a frozen snapshot only when a budget is locked.
 After locking, follow-up compares the frozen budget with current forecast,
 ordered values and outcome without rewriting the locked baseline.
+
+
+## Model v5 workbook
+
+The visible Lokalblick workbook is centered on Fastigheter, Avtal, Aktiviteter,
+Beställningar, Parter, Personer, Budget, Budgetrader, Ändringslogg and Källor.
+Older Kostnader and Status collections are accepted for compatibility and may
+still feed calculations, but they are preserved as technical state instead of
+being written as parallel visible business sheets. This avoids creating two
+competing planning models while older data is migrated.
