@@ -61,6 +61,32 @@ test("V2 API save persists budget, review, provenance and audit across backend r
     data.contracts[0].provenance = {
       annualRent: { source: "Test", value: 123456 },
     };
+    data.people = [
+      { id: "person1", name: "Intern ansvarig", role: "Lokalstrateg" },
+      { id: "person2", name: "Extern förvaltare", role: "Fastighetsförvaltare" },
+    ];
+    data.properties[0].responsiblePersonId = "person1";
+    data.activities = [
+      {
+        id: "act1",
+        type: "Underhåll",
+        title: "Tak",
+        propertyId: "p1",
+        responsiblePersonId: "person1",
+        planningYear: 2027,
+        budgetCategory: "Underhåll",
+        estimatedCost: 500,
+      },
+    ];
+    data.contacts = [
+      {
+        id: "contact1",
+        personId: "person2",
+        targetType: "property",
+        targetId: "p1",
+        role: "Fastighetsförvaltare",
+      },
+    ];
     data.budgetPlans = [
       { year: 2027, status: "Låst", targets: { Underhåll: 500 }, lines: [] },
     ];
@@ -77,27 +103,49 @@ test("V2 API save persists budget, review, provenance and audit across backend r
     assert.equal(out.importReview[0].id, "r1");
     assert.equal(out.auditLog[0].by, "Test");
     assert.equal(out.contracts[0].provenance.annualRent.source, "Test");
+    assert.equal(out.properties[0].responsiblePersonId, "person1");
+    assert.equal(out.activities[0].responsiblePersonId, "person1");
+    assert.equal(out.activities[0].title, "Tak");
+    assert.equal(out.contacts[0].role, "Fastighetsförvaltare");
+    assert.equal(out.assignments.length, 0);
   } finally {
     await new Promise((r) => server.close(r));
     await fs.rm(dir, { recursive: true, force: true });
     delete globalThis.window;
   }
 });
-test("locked budget baseline and adjustments remain unchanged by live forecast", () => {
+test("locked budget baseline and adjustments remain unchanged by live activity forecast", () => {
   const d = normalize({
     contracts: [{ id: "c1", propertyId: "p1", annualRent: 100 }],
-    maintenance: [{ id: "m1", propertyId: "p1", year: 2027, cost: 200 }],
+    properties: [{ id: "p1", address: "Testgatan 1" }],
+    activities: [
+      {
+        id: "m1",
+        type: "Underhåll",
+        propertyId: "p1",
+        planningYear: 2027,
+        estimatedCost: 200,
+        budgetCategory: "Underhåll",
+      },
+    ],
     budgetPlans: [
       {
         year: 2027,
         status: "Låst",
         targets: { Underhåll: 250 },
-        lines: [{ category: "Underhåll", amount: 200, sourceId: "m1" }],
+        lines: [
+          {
+            category: "Underhåll",
+            amount: 200,
+            sourceType: "activity",
+            sourceId: "m1",
+          },
+        ],
       },
     ],
   });
   const before = JSON.stringify(d.budgetPlans);
-  d.maintenance[0].cost = 300;
+  d.activities[0].estimatedCost = 300;
   const rows = globalThis.LokalblickCalculations.budgetRows(d, 2027);
   assert.equal(rows.find((x) => x.sourceId === "m1").amount, 300);
   assert.equal(JSON.stringify(d.budgetPlans), before);
