@@ -47,13 +47,14 @@ function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 let auditBaseline = null;
 let accessMode = "read";
 const AUDIT_COLLECTIONS = [["properties","Fastighet"],["contracts","Avtal"],["organizations","Organisation"],["people","Person"],["assignments","Tilldelning"],["projects","Projekt"],["maintenance","Underhåll"],["operations","Driftkostnad"],["investigations","Utredning"],["maintenanceStatus","Underhållsstatus"],["driftIssues","Driftärende"],["wishes","Önskemål"],["budgetPlans","Budget"]];
-const AUDIT_FIELD_LABELS={name:"Namn",title:"Rubrik",status:"Status",priority:"Prioritet",responsiblePersonId:"Ansvarig",contractId:"Avtal",propertyId:"Fastighet",unitId:"Verksamhetsområde",createdDate:"Upplagt",createdAt:"Tillagd",updatedAt:"Senast ändrad",year:"År",budgetYear:"Budgetår",cost:"Kostnad",estimatedCost:"Bedömd kostnad",finalCost:"Slutkostnad",includeInBudget:"Till budget",budgetIncluded:"Ingår i budget",budgetCategory:"Budgetkategori",start:"Start",end:"Slut",decisionDate:"Beslutat",completedDate:"Klart",targetDate:"Tidplan",description:"Beskrivning",phase:"Skede",annualRent:"Årshyra",annualAdditions:"Årligt tillägg",annualContractDrift:"Media per år",annualPropertyTax:"F-skatt per år",baseRent:"Grundhyra",baseAdditions:"Grundtillägg",rentBaseYear:"Hyra basår",rentBaseIndex:"Hyra bastal",rentIndexPercent:"Hyra indexandel",additionBaseYear:"Tillägg basår",additionBaseIndex:"Tillägg bastal",additionIndexPercent:"Tillägg indexandel",noticePeriodMonths:"Uppsägningstid månader",renewalPeriodMonths:"Förlängningstid månader",actual:"Utfall",budget:"Budget",period:"Period",category:"Kategori",customer:"Kund",number:"Avtalsnummer",area:"Area"};
-function auditCollectionForType(type){const m={object:"contracts",person:"people",assignment:"assignments",project:"projects",maintenance:"maintenance",operation:"operations",investigation:"investigations",maintenanceStatus:"maintenanceStatus",driftIssue:"driftIssues",wish:"wishes"};return m[type]||type;}
+const AUDIT_FIELD_LABELS={revisionReason:"Anledning",revisedBy:"Budget ändrad av",revisedAt:"Budget ändrad",finalCosts:"Slutkostnader per år och kategori",targets:"Budgetmål",lines:"Budgetposter",lockedBy:"Budget låst av",lockedAt:"Budget låst",name:"Namn",title:"Rubrik",status:"Status",priority:"Prioritet",responsiblePersonId:"Ansvarig",contractId:"Avtal",propertyId:"Fastighet",unitId:"Verksamhetsområde",createdDate:"Upplagt",createdAt:"Tillagd",updatedAt:"Senast ändrad",year:"År",budgetYear:"Budgetår",cost:"Kostnad",estimatedCost:"Bedömd kostnad",finalCost:"Slutkostnad",includeInBudget:"Till budget",budgetIncluded:"Ingår i budget",budgetCategory:"Budgetkategori",start:"Start",end:"Slut",decisionDate:"Beslutat",completedDate:"Klart",targetDate:"Tidplan",description:"Beskrivning",phase:"Skede",annualRent:"Årshyra",annualAdditions:"Årligt tillägg",annualContractDrift:"Media per år",annualPropertyTax:"F-skatt per år",baseRent:"Grundhyra",baseAdditions:"Grundtillägg",rentBaseYear:"Hyra basår",rentBaseIndex:"Hyra bastal",rentIndexPercent:"Hyra indexandel",additionBaseYear:"Tillägg basår",additionBaseIndex:"Tillägg bastal",additionIndexPercent:"Tillägg indexandel",noticePeriodMonths:"Uppsägningstid månader",renewalPeriodMonths:"Förlängningstid månader",actual:"Utfall",budget:"Budget",period:"Period",category:"Kategori",customer:"Kund",number:"Avtalsnummer",area:"Area"};
+function auditCollectionForType(type){const m={contract:"contracts",object:"contracts",person:"people",assignment:"assignments",project:"projects",maintenance:"maintenance",operation:"operations",investigation:"investigations",maintenanceStatus:"maintenanceStatus",driftIssue:"driftIssues",wish:"wishes"};return m[type]||type;}
 function auditTypeLabel(collection){const h=AUDIT_COLLECTIONS.find(x=>x[0]===collection);return h?h[1]:collection;}
-function auditComparable(record){const c=clone(record||{});delete c.createdAt;delete c.createdBy;delete c.updatedAt;delete c.updatedBy;return c;}
-function auditDiff(a,b){const keys=new Set(Object.keys(a||{}).concat(Object.keys(b||{})));return Array.from(keys).filter(k=>JSON.stringify((a||{})[k])!==JSON.stringify((b||{})[k])).map(k=>({field:k,label:AUDIT_FIELD_LABELS[k]||k,from:a[k]==null?"":a[k],to:b[k]==null?"":b[k]})).slice(0,30);}
-function ensureAuditMetadata(data){const now=new Date().toISOString(),actor=currentActorLabel();AUDIT_COLLECTIONS.forEach(p=>(Array.isArray(data[p[0]])?data[p[0]]:[]).forEach(r=>{if(!r.createdAt)r.createdAt=now;if(!r.createdBy)r.createdBy=actor;}));data.auditLog=Array.isArray(data.auditLog)?data.auditLog:[];return data;}
-function recordAuditChanges(){if(!auditBaseline){auditBaseline=clone(state);return;}ensureAuditMetadata(state);const now=new Date().toISOString(),actor=currentActorLabel();state.auditLog=Array.isArray(state.auditLog)?state.auditLog:[];AUDIT_COLLECTIONS.forEach(function(p){const col=p[0],before=Array.isArray(auditBaseline[col])?auditBaseline[col]:[],after=Array.isArray(state[col])?state[col]:[],bm=new Map(before.map(r=>[String(r.id),r])),am=new Map(after.map(r=>[String(r.id),r]));after.forEach(function(r){const id=String(r.id||""),old=bm.get(id);if(!old){if(!r.createdAt)r.createdAt=now;if(!r.createdBy)r.createdBy=actor;state.auditLog.push({id:nextId("H",state.auditLog),at:now,by:actor,action:"Skapad",collection:col,type:p[1],recordId:id,fields:[]});return;}const fields=auditDiff(auditComparable(old),auditComparable(r));if(!fields.length)return;r.updatedAt=now;r.updatedBy=actor;state.auditLog.push({id:nextId("H",state.auditLog),at:now,by:actor,action:"Ändrad",collection:col,type:p[1],recordId:id,fields});});before.forEach(function(r){const id=String(r.id||"");if(!am.has(id))state.auditLog.push({id:nextId("H",state.auditLog),at:now,by:actor,action:"Raderad",collection:col,type:p[1],recordId:id,fields:[]});});});if(state.auditLog.length>5000)state.auditLog=state.auditLog.slice(-5000);}
+function auditComparable(record){const c=clone(record||{});delete c.createdAt;delete c.createdBy;delete c.updatedAt;delete c.updatedBy;delete c.versions;return c;}
+function auditDiff(a,b){const keys=new Set(Object.keys(a||{}).concat(Object.keys(b||{})));return Array.from(keys).filter(k=>JSON.stringify((a||{})[k])!==JSON.stringify((b||{})[k])).map(k=>({field:k,label:AUDIT_FIELD_LABELS[k]||k,from:a[k]==null?"":a[k],to:b[k]==null?"":b[k]}));}
+function ensureAuditMetadata(data){data.auditLog=Array.isArray(data.auditLog)?data.auditLog:[];return data;}
+function auditRecordKey(col,r){return String(col==="budgetPlans"?r.year:r.id||"");}
+function recordAuditChanges(){if(!auditBaseline){auditBaseline=clone(state);return;}ensureAuditMetadata(state);const now=new Date().toISOString(),actor=currentActorLabel();state.auditLog=Array.isArray(state.auditLog)?state.auditLog:[];AUDIT_COLLECTIONS.forEach(function(p){const col=p[0],before=Array.isArray(auditBaseline[col])?auditBaseline[col]:[],after=Array.isArray(state[col])?state[col]:[],bm=new Map(before.map(r=>[auditRecordKey(col,r),r])),am=new Map(after.map(r=>[auditRecordKey(col,r),r]));after.forEach(function(r){const id=auditRecordKey(col,r),old=bm.get(id);if(!old){if(!r.createdAt)r.createdAt=now;if(!r.createdBy)r.createdBy=actor;state.auditLog.push({id:nextId("H",state.auditLog),at:now,by:actor,action:"Skapad",collection:col,type:p[1],recordId:id,fields:auditDiff({},auditComparable(r))});return;}const fields=auditDiff(auditComparable(old),auditComparable(r));if(!fields.length)return;r.updatedAt=now;r.updatedBy=actor;state.auditLog.push({id:nextId("H",state.auditLog),at:now,by:actor,action:"Ändrad",collection:col,type:p[1],recordId:id,fields});});before.forEach(function(r){const id=auditRecordKey(col,r);if(!am.has(id))state.auditLog.push({id:nextId("H",state.auditLog),at:now,by:actor,action:"Raderad",collection:col,type:p[1],recordId:id,fields:auditDiff(auditComparable(r),{})});});});}
 function resetAuditBaseline(){ensureAuditMetadata(state);auditBaseline=clone(state);}
 function isAdminAvailable(){if(state&&state.isDemo)return true;const u=state&&state.currentUser?state.currentUser:{},r=String(u.role||u.permission||"");return Boolean(u.isAdmin||u.canAdmin||(u.permissions&&u.permissions.admin)||/admin|administratör/i.test(r));}
 function isEditAvailable(){
@@ -112,7 +113,15 @@ async function loadState() {
   resetAuditBaseline();
   return state;
 }
+function requireActorIdentity() {
+  if(!state.isDemo && !(state.currentUser && (state.currentUser.name || state.currentUser.email))) {
+    const name=prompt("Ange ditt namn för ändringshistoriken (själv angivet namn):");
+    if(!name || !name.trim()) throw new Error("Namn krävs för att spara ändringar.");
+    state.currentUser=Object.assign({},state.currentUser,{name:name.trim(),identitySource:"self-declared"});
+  }
+}
 async function saveState() {
+  try { requireActorIdentity(); } catch(error) { if(auditBaseline)state=clone(auditBaseline);throw error; }
   ensureAuditMetadata(state);
   recordAuditChanges();
   state = ensureShape(await window.LokalblickDataService.save(state));
@@ -633,6 +642,7 @@ function budgetRows(year, contracts) {
   state.maintenanceStatus.filter(function(x){return budgetIncluded(x)&&x.includeInBudget==="Ja"&&Number(x.budgetYear)===Number(year)&&Number(x.estimatedCost)>0;}).forEach(function(x){rows.push({category:"Underhåll",sub:x.category,source:"Status: "+x.category,contractId:x.contractId,propertyId:x.propertyId,sourceType:"maintenanceStatus",sourceId:x.id,amount:Number(x.estimatedCost),timing:maintenanceTimingLabel(x)});});
   state.driftIssues.filter(function(x){return budgetIncluded(x)&&x.includeInBudget==="Ja"&&Number(x.budgetYear)===Number(year)&&Number(x.estimatedCost)>0&&x.status!=="Klar";}).forEach(function(x){rows.push({category:"Driftkostnader",sub:x.category,source:"Ärende: "+x.title,contractId:x.contractId,propertyId:x.propertyId,sourceType:"driftIssue",sourceId:x.id,amount:Number(x.estimatedCost),timing:maintenanceTimingLabel(x)});});
   state.wishes.filter(function(x){return budgetIncluded(x)&&x.includeInBudget==="Ja"&&x.budgetCategory&&x.budgetCategory!=="Ej budget"&&Number(x.budgetYear)===Number(year)&&Number(x.estimatedCost)>0&&x.status!=="Avslaget";}).forEach(function(x){rows.push({category:x.budgetCategory,sub:x.category,source:"Önskemål: "+x.title,contractId:x.contractId,propertyId:x.propertyId,sourceType:"wish",sourceId:x.id,amount:Number(x.estimatedCost)});});
+  if(plan) rows.push(...(plan.lines||[]).filter(r=>r.sourceType==="manual"&&r.included!==false).map(r=>Object.assign({},r)));
   return Array.isArray(contracts) ? budgetRowsForContracts(rows,contracts) : rows;
 }
 function budgetYears() {
@@ -806,7 +816,7 @@ function render() {
   else if (currentView === "organisation") html = renderOrganisation();
   else if (currentView === "api") html = renderApi();
   else html = renderAbout();
-  document.getElementById("content").innerHTML = html;
+  document.getElementById("content").innerHTML = accessModeBarHtml() + html;
   bindViewEvents();
   renderMobileDock();
   if (currentView === "map") initPropertyMap();
@@ -2145,11 +2155,12 @@ function renderBudget() {
   const scoped = hasPortfolioScope();
   const liveRows = budgetRows(selectedBudgetYear, scopedContracts);
   const plan = budgetPlan(selectedBudgetYear);
-  const rawBaselineRows = plan && Array.isArray(plan.lines) && plan.lines.length ? plan.lines : budgetRows(selectedBudgetYear);
+  const rawBaselineRows = plan && Array.isArray(plan.lines) ? plan.lines : budgetRows(selectedBudgetYear);
   const baselineRows = (scoped ? budgetRowsForContracts(rawBaselineRows, scopedContracts) : rawBaselineRows).filter(function(r){return r.included!==false;});
   const baseSummary = summarizeBudgetRows(baselineRows);
-  const forecastSummary = summarizeBudgetRows(liveRows);
-  const actualSummary = budgetActualSummary(selectedBudgetYear, scopedContracts);
+  const comparison = LokalblickBudgetFollowup.compare(state,baselineRows,liveRows,selectedBudgetYear);
+  const forecastSummary = summarizeBudgetRows(comparison.map(r=>Object.assign({},r,{amount:r.forecast})));
+  const actualSummary = summarizeBudgetRows(comparison.map(r=>Object.assign({},r,{amount:r.finalCost==null?0:r.finalCost})));
   const targets = {};
   baseSummary.forEach(function(row){
     targets[row.category] = !scoped && plan && plan.targets && Number.isFinite(Number(plan.targets[row.category])) ? Number(plan.targets[row.category]) : row.amount;
@@ -2192,7 +2203,7 @@ function renderBudget() {
     return '<section class="budget-category-card"><div class="budget-category-head"><div><span>DETALJUNDERLAG</span><h3>' + esc(base.category) + '</h3></div><strong>' + money(target) + '</strong></div>' +
       '<div class="budget-equation"><div><span>Detaljer</span><strong>' + money(base.amount) + '</strong></div><div class="budget-plus">+</div><div><span>Justering</span>' +
       adjustmentControl + '</div><div class="budget-equals">=</div><div class="budget-target"><span>Årsbudget</span><strong>' + money(target) + '</strong></div></div>' +
-      '<div class="budget-followup"><span>Prognos <strong>' + money(forecast.amount) + '</strong></span><span>Utfall <strong>' + money(actual.amount) + '</strong></span>' +
+      '<div class="budget-followup"><span>Prognos <strong>' + money(forecast.amount) + '</strong></span><span>Slutkostnad <strong>' + money(actual.amount) + '</strong></span>' +
       '<span>Avvikelse <strong class="' + (forecast.amount-target>0?"negative":"positive") + '">' + (forecast.amount-target>=0?"+":"") + money(forecast.amount-target) + '</strong></span></div></section>';
   }).join("");
 
@@ -2242,7 +2253,7 @@ function renderBudget() {
         '<div class="mobile-budget-category-stats">' +
           '<span>Budget <strong>' + money(target) + '</strong></span>' +
           '<span>Prognos <strong>' + money(forecast.amount) + '</strong></span>' +
-          '<span>Utfall <strong>' + money(actual.amount) + '</strong></span>' +
+          '<span>Slutkostnad <strong>' + money(actual.amount) + '</strong></span>' +
         '</div>' +
         '<div class="mobile-budget-category-underlay"><span>Underlag <strong>' + money(base.amount) + '</strong></span>' + adjustmentHtml + '</div>' +
         '<div class="mobile-budget-detail-list">' + rowHtml + '</div>' +
@@ -2272,7 +2283,7 @@ function renderBudget() {
         budgetIndexHtml +
         '<div class="mobile-budget-summary-kpis">' +
           '<div><span>Prognos</span><strong>' + money(forecastTotal) + '</strong></div>' +
-          '<div><span>Utfall</span><strong>' + money(actualTotal) + '</strong></div>' +
+          '<div><span>Slutkostnad</span><strong>' + money(actualTotal) + '</strong></div>' +
           '<div class="' + (variance>0?"negative":"positive") + '"><span>Avvikelse</span><strong>' +
             (variance>=0?"+":"") + money(variance) + '</strong></div>' +
         '</div>' +
@@ -2283,7 +2294,7 @@ function renderBudget() {
       '</div>' +
     '</section>';
 
-  return '<div class="budget-page unified-budget-shell">' + mobileBudget + excludedHtml + '</div>';
+  return '<div class="budget-page unified-budget-shell">' + mobileBudget + budgetFollowupHtml(plan,comparison,scoped) + excludedHtml + '</div>';
 }
 
 function sourceStatus() {
@@ -2892,6 +2903,7 @@ function bindMobilePlanningControls() {
   });
 }
 function bindViewEvents() {
+  bindBudgetFollowup();
   applyPortfolioFiltersToControls();
   document.querySelectorAll("[data-shared-unit]:not([data-shared-bound])").forEach(function(button) {
     button.dataset.sharedBound="1";
@@ -2989,7 +3001,7 @@ function bindViewEvents() {
   bindMobileScopeFilterControls();
   applyPortfolioSectionVisibility();
   if (currentView === "properties") filterPropertyPortfolio();
-  document.querySelectorAll("[data-budget-toggle]:not([data-budget-bound])").forEach(function(button){button.dataset.budgetBound="1";button.addEventListener("click",async function(){if(!canEdit()){alert("Slå på Redigera för att ändra budgetunderlaget.");return;}const type=button.dataset.budgetSourceType,id=button.dataset.budgetSourceId,collection=auditCollectionForType(type),item=(state[collection]||[]).find(function(x){return String(x.id)===String(id);});if(!item)return;const include=button.dataset.budgetToggle==="include";item.budgetIncluded=include;if(Object.prototype.hasOwnProperty.call(item,"includeInBudget"))item.includeInBudget=include?"Ja":"Nej";const plan=budgetPlan(selectedBudgetYear);if(plan&&Array.isArray(plan.lines))plan.lines.forEach(function(line){if(line.sourceType===type&&String(line.sourceId)===String(id))line.included=include;});await saveState();render();});});
+  document.querySelectorAll("[data-budget-toggle]:not([data-budget-bound])").forEach(function(button){button.dataset.budgetBound="1";button.addEventListener("click",async function(){if(!canEdit()){alert("Slå på Redigera för att ändra budgetunderlaget.");return;}const type=button.dataset.budgetSourceType,id=button.dataset.budgetSourceId,collection=auditCollectionForType(type),item=(state[collection]||[]).find(function(x){return String(x.id)===String(id);});if(!item)return;const include=button.dataset.budgetToggle==="include";item.budgetIncluded=include;if(Object.prototype.hasOwnProperty.call(item,"includeInBudget"))item.includeInBudget=include?"Ja":"Nej";const plan=budgetPlan(selectedBudgetYear);if(plan&&plan.status!=="Låst"&&Array.isArray(plan.lines))plan.lines.forEach(function(line){if(line.sourceType===type&&String(line.sourceId)===String(id))line.included=include;});await saveState();render();});});
   ["budget-year","mobile-budget-year"].forEach(function(id){
     const by = document.getElementById(id);
     if (by) by.addEventListener("change", function() { selectedBudgetYear = Number(by.value); render(); });
@@ -2999,7 +3011,7 @@ function bindViewEvents() {
     const createBudget = document.getElementById(id);
     if (!createBudget) return;
     createBudget.addEventListener("click", async function() {
-    if (hasPortfolioScope()) return;
+    if (!canEdit() || hasPortfolioScope() || budgetPlan(selectedBudgetYear)) return;
     const rows = budgetRows(selectedBudgetYear).map(function(row){return Object.assign({},row);});
     const summary = summarizeBudgetRows(rows);
     const targets = {};
@@ -3014,7 +3026,7 @@ function bindViewEvents() {
   document.querySelectorAll("[data-budget-preliminary-index]").forEach(function(input) {
     input.addEventListener("change", async function() {
       const plan=budgetPlan(selectedBudgetYear);
-      if(!plan || plan.status==="Låst") return;
+      if(!canEdit() || !plan || plan.status==="Låst") return;
       plan.preliminaryIndex=Number(input.value)||0;
       await saveState();
       render();
@@ -3024,7 +3036,7 @@ function bindViewEvents() {
   document.querySelectorAll("[data-budget-adjustment]").forEach(function(input) {
     input.addEventListener("change", async function() {
       const plan = budgetPlan(selectedBudgetYear);
-      if (!plan || plan.status==="Låst") return;
+      if (!canEdit() || !plan || plan.status==="Låst") return;
       const category = input.dataset.budgetAdjustment;
       const base = summarizeBudgetRows(plan.lines || []).find(function(x){return x.category===category;});
       plan.targets = plan.targets || {};
@@ -3040,10 +3052,11 @@ function bindViewEvents() {
     lockBudget.addEventListener("click", async function() {
       if (hasPortfolioScope()) return;
       const plan = budgetPlan(selectedBudgetYear);
-      if (!plan || plan.status==="Låst") return;
+      if (!canEdit() || !plan || plan.status==="Låst") return;
       if (!confirm("Lås budget " + selectedBudgetYear + "? Budgeten blir baslinje för prognos och uppföljning.")) return;
       plan.status = "Låst";
-      plan.lockedAt = new Date().toISOString().slice(0,10);
+      plan.lockedAt = new Date().toISOString();
+      plan.lockedBy = currentActorLabel();
       await saveState();
       render();
     });

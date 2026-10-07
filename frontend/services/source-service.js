@@ -504,6 +504,34 @@
     });
   }
 
+  const EXTRA_KEYS = ["auditLog","sourceRegistry","importReview","documents","assignmentChanges"];
+  function extraRows(data) {
+    const rows=[];
+    function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
+    SCHEMAS.forEach(function(schema){
+      const represented=new Set(schema.fields);
+      if(LEGACY_ACTIVITY_KEYS.has(schema.key)) {
+        const common=["id","propertyId","contractId","responsiblePersonId","description","status","planningQuarter","planningMonth","orderedAt","orderedBy","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost","paymentStatus","paidAt","invoiceComment","sourceId","sourceSheet","sourceRow","ownerPays"];
+        const mapped={projects:["name","phase","start","end","budgetYear","preliminaryCost"],maintenance:["title","category","year","cost","priority"],driftIssues:["title","category","createdDate","targetDate","budgetYear","estimatedCost","priority"],wishes:["title","category","createdDate","targetDate","budgetYear","budgetCategory","estimatedCost"],investigations:["title","year","cost"]};
+        represented.clear();common.concat(mapped[schema.key]||[]).forEach(k=>represented.add(k));
+      }
+      (data[schema.key]||[]).forEach(row=>{const extras=Object.fromEntries(Object.entries(row).filter(([key])=>!represented.has(key)));if(Object.keys(extras).length)add(schema.key,String(row.id),extras);});
+    });
+    EXTRA_KEYS.forEach(key=>{if(data[key]!=null)add("workspace",key,data[key]);});
+    (data.budgetPlans||[]).forEach(p=>{const extras=Object.fromEntries(Object.entries(p).filter(([k])=>!["year","status","createdAt","lockedAt","preliminaryIndex","targets","notes"].includes(k)));if(Object.keys(extras).length)add("budgetPlans",String(p.year),extras);});
+    (data.indexSeries||[]).forEach(p=>{const extras=Object.fromEntries(Object.entries(p).filter(([k])=>!["year","month","value","source"].includes(k)));if(Object.keys(extras).length)add("indexSeries",p.year+"|"+p.month,extras);});
+    return rows;
+  }
+  function restoreExtras(workbook,data){
+    const grouped=new Map();
+    rowsFromSheet(workbook,"Tilläggsdata").forEach(row=>{const key=String(row.Collection)+"|"+String(row.ID);if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(row);});
+    grouped.forEach(parts=>{
+      parts.sort((a,b)=>Number(a.Del)-Number(b.Del));const first=parts[0],value=JSON.parse(parts.map(x=>x.JSON||"").join(""));
+      if(first.Collection==="workspace"&&EXTRA_KEYS.includes(first.ID))data[first.ID]=value;
+      else {const list=data[first.Collection];if(!Array.isArray(list))return;const row=list.find(x=>String(first.Collection==="budgetPlans"?x.year:first.Collection==="indexSeries"?x.year+"|"+x.month:x.id)===String(first.ID));if(row)Object.keys(value).filter(k=>!["__proto__","constructor","prototype","id","year"].includes(k)).forEach(k=>{row[k]=value[k];});}
+    });
+  }
+
   function workbookToData(workbook) {
     const data = { isDemo:false, sourceName:source.fileName || "Excel-källa" };
     SCHEMAS.forEach(function(schema) {
@@ -557,6 +585,7 @@
         })
       };
     });
+    restoreExtras(workbook,data);
     return data;
   }
 
@@ -664,6 +693,7 @@
     XLSX.utils.book_append_sheet(workbook,simpleSheet(targetRows,[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]),"Budgetmål");
     XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["contractId","_contractId",true],["propertyId","_propertyId",true]]),"Budgetrader");
     XLSX.utils.book_append_sheet(workbook,simpleSheet((data&&data.indexSeries)||[],[["year","År"],["month","Månad"],["value","Värde"],["source","Källa"]]),"KPI");
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(extraRows(data),[["collection","Collection"],["id","ID"],["part","Del"],["json","JSON"]]),"Tilläggsdata");
     return workbook;
   }
 
