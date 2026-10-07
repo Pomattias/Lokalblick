@@ -162,31 +162,49 @@
       addAlias(p.id, p.id); addAlias(p.address, p.id); addAlias(p.designation, p.id); addAlias(p.name, p.id);
       (p.sourceAliases || []).forEach(function (alias) { addAlias(alias, p.id); });
     });
+    function addressParts(value) {
+      var raw=norm(value), match=raw.match(/^(.*?)(\d+)(.*)$/);
+      return match
+        ? { street:compact(match[1]), number:Number(match[2]), tail:compact(match[3]) }
+        : { street:compact(raw), number:null, tail:"" };
+    }
     function addressScore(a, b) {
-      a = compact(a); b = compact(b); if (!a || !b) return 0;
-      if (a === b) return 100;
-      if ((a.length >= 6 && b.indexOf(a) === 0) || (b.length >= 6 && a.indexOf(b) === 0)) return 82;
+      var aa=addressParts(a),bb=addressParts(b);
+      if(!aa.street||!bb.street||aa.street!==bb.street) return 0;
+      if(aa.number!=null&&bb.number!=null&&aa.number!==bb.number) return 0;
+      if(compact(a)===compact(b)) return 100;
+      if(aa.number!=null&&bb.number!=null&&aa.number===bb.number) return 88;
+      if(aa.number==null||bb.number==null) return 76;
       return 0;
     }
     function match(spec) {
-      var candidates = [];
-      if (spec.objectNo) {
-        var objectKey = compact(spec.objectNo);
+      var candidates = [], objectKey = spec.objectNo ? compact(spec.objectNo) : "";
+      if (objectKey) {
         candidates = (data.properties || []).filter(function (p) { return compact(p.id) === objectKey || compact(p.sourceId) === objectKey; });
         if (candidates.length === 1) return { property: candidates[0], method: "objektsnummer", score: 100 };
       }
+      function identityCompatible(p) {
+        if(!objectKey) return true;
+        var existingKey=compact(p.sourceId||"");
+        return !existingKey || existingKey===objectKey || compact(p.id)===objectKey;
+      }
       if (spec.designation) {
-        candidates = (data.properties || []).filter(function (p) { return compact(p.designation) && compact(p.designation) === compact(spec.designation); });
+        candidates = (data.properties || []).filter(function (p) {
+          return identityCompatible(p) && compact(p.designation) && compact(p.designation) === compact(spec.designation);
+        });
         if (candidates.length === 1) return { property: candidates[0], method: "fastighetsbeteckning", score: 95 };
       }
       if (spec.address) {
-        var scored = (data.properties || []).map(function (p) { return { p: p, s: addressScore(spec.address, p.address) }; }).filter(function (x) { return x.s > 0; }).sort(function (a, b) { return b.s - a.s; });
+        var scored = (data.properties || []).filter(identityCompatible).map(function (p) { return { p: p, s: addressScore(spec.address, p.address) }; }).filter(function (x) { return x.s > 0; }).sort(function (a, b) { return b.s - a.s; });
         if (scored.length && (!scored[1] || scored[0].s > scored[1].s)) return { property: scored[0].p, method: "adress", score: scored[0].s };
       }
       var keys = [spec.name, spec.business, spec.address].map(aliasKey).filter(Boolean);
       for (var i = 0; i < keys.length; i++) {
         var ids = aliases.get(keys[i]);
-        if (ids && ids.size === 1) { var id = Array.from(ids)[0]; return { property: (data.properties || []).find(function (p) { return p.id === id; }), method: "alias", score: 80 }; }
+        if (ids && ids.size === 1) {
+          var id = Array.from(ids)[0], property=(data.properties||[]).find(function (p) { return p.id === id; });
+          if(property&&identityCompatible(property)) return { property: property, method: "alias", score: 80 };
+        }
       }
       return { property: null, method: "", score: 0 };
     }
