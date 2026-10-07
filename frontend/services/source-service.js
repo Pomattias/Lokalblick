@@ -360,8 +360,8 @@
     const properties=data.properties||[], contracts=data.contracts||[], organizations=data.organizations||[], people=data.people||[];
 
     (data.properties||[]).forEach(function(row) {
-      if (!row.responsiblePersonId && row.__display_Ansvarig_hos_oss) {
-        const match=byDisplay(people,row.__display_Ansvarig_hos_oss,personDisplay); if(match) row.responsiblePersonId=match.id;
+      if (!row.responsiblePersonId && row["__display_Ansvarig hos oss"]) {
+        const match=byDisplay(people,row["__display_Ansvarig hos oss"],personDisplay); if(match) row.responsiblePersonId=match.id;
       }
     });
     (data.contracts||[]).forEach(function(row) {
@@ -390,7 +390,7 @@
       if (!row.contractId && row.__display_Avtal) {
         const match=byDisplay(contracts,row.__display_Avtal,contractDisplay); if(match) row.contractId=match.id;
       }
-      const displayResponsible=row.__display_Ansvarig_hos_oss || row.__display_Ansvarig;
+      const displayResponsible=row["__display_Ansvarig hos oss"] || row.__display_Ansvarig;
       if (!row.responsiblePersonId && displayResponsible) {
         const match=byDisplay(people,displayResponsible,personDisplay); if(match) row.responsiblePersonId=match.id;
       }
@@ -439,8 +439,9 @@
   }
 
   function activityRowsFromData(data) {
-    if (Array.isArray(data.activities) && data.activities.length) return data.activities.map(function(item){return clone(item);});
-    const rows = [];
+    const rows = (data.activities||[]).map(function(item){return clone(item);});
+    const seen = new Set(rows.map(function(item){return item.id;}));
+    function pushLegacy(item){ if(item && item.id && !seen.has(item.id)){rows.push(item);seen.add(item.id);} }
     function orderFields(item) {
       return {
         orderedAt:item.orderedAt||"",orderedBy:item.orderedBy||"",orderedByPersonId:item.orderedByPersonId||"",supplier:item.supplier||"",orderReference:item.orderReference||"",
@@ -451,7 +452,7 @@
     }
     (data.projects||[]).forEach(function(item){
       const execution=Number(item.budgetExecution)||0, furnishing=Number(item.budgetFurnishing)||0, preliminary=Number(item.preliminaryCost)||0;
-      rows.push(Object.assign({
+      pushLegacy(Object.assign({
         id:item.id,type:"Projekt",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"project",item.responsiblePersonId||""),
         title:item.name||"",description:item.description||"",category:"",status:item.status||"",priority:"",
         planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -460,7 +461,7 @@
       },orderFields(item)));
     });
     (data.maintenance||[]).forEach(function(item){
-      rows.push(Object.assign({
+      pushLegacy(Object.assign({
         id:item.id,type:"Underhåll",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"maintenance",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -468,7 +469,7 @@
       },orderFields(item)));
     });
     (data.driftIssues||[]).forEach(function(item){
-      rows.push(Object.assign({
+      pushLegacy(Object.assign({
         id:item.id,type:"Drift",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"driftIssue",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -476,7 +477,7 @@
       },orderFields(item)));
     });
     (data.wishes||[]).forEach(function(item){
-      rows.push(Object.assign({
+      pushLegacy(Object.assign({
         id:item.id,type:"Önskemål",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"wish",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -484,7 +485,7 @@
       },orderFields(item)));
     });
     (data.investigations||[]).forEach(function(item){
-      rows.push(Object.assign({
+      pushLegacy(Object.assign({
         id:item.id,type:"Utredning",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"investigation",item.responsiblePersonId||""),
         title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
         planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
@@ -788,7 +789,7 @@
     const metadata = [
       ["Lokalblick modellversion", MODEL_VERSION],
       ["Skapad", new Date().toISOString()],
-      ["Källa", canonical && canonical.sourceName ? data.sourceName : "Lokalblick Excel-källa"],
+      ["Källa", canonical && canonical.sourceName ? canonical.sourceName : "Lokalblick Excel-källa"],
       ["Så används filen", "Synliga kolumner är för användaren. Kolumner som börjar med _ är tekniska ID:n och är dolda i Excel."],
       ["ID", "Lokalblick skapar och behåller stabila ID:n automatiskt. Ändra dem inte manuellt."]
     ];
