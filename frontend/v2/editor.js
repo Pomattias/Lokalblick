@@ -73,7 +73,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
   };
   const fields = new Map(
     schema.columns
-      .filter(([k]) => !generated.test(k))
+      .filter(([k]) => !generated.test(k) && !(col === "activities" && ["planningQuarter", "planningMonth", "budgetCategory"].includes(k)))
       .map(([key, label]) => [
         key,
         fieldLabels[key] || label.replace(/^_/, ""),

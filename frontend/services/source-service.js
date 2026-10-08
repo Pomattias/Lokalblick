@@ -58,7 +58,7 @@
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["scopeType","Hemvisttyp"],["unitId","Område"],
       ["type","Typ"],["actionKind","Åtgärdens karaktär"],["rentSurchargeStartDate","Hyrespåslag från"],["title","Aktivitet"],["description","Beskrivning"],["category","Kategori"],["status","Status"],["priority","Prioritet"],
-      ["planningYear","Planår"],["planningQuarter","Kvartal"],["planningMonth","Månad"],["budgetCategory","Budgetkategori"],["includeInBudget","Ta med i budget"],
+      ["planningYear","Planår"],["planningQuarter","Kvartal",true],["planningMonth","Månad",true],["budgetCategory","Budgetkategori",true],["includeInBudget","Ta med i budget"],
       ["estimatedCost","Bedömd kostnad"],["phase","Fas"],["startDate","Start"],["endDate","Slut"]
     ],
     display:["Fastighet","Avtal","Ansvarig hos oss"]
@@ -786,7 +786,12 @@
     XLSX.utils.book_append_sheet(workbook,simpleSheet(auditRows,[["id","_id",true],["at","Tid"],["by","Ändrad av"],["collection","Tabell"],["recordId","Post-ID"],["action","Ändring"],["field","Fält"],["from","Från"],["to","Till"]]),"Ändringslogg");
     XLSX.utils.book_append_sheet(workbook,simpleSheet(extraRows(canonical),[["collection","Collection"],["id","ID"],["part","Del"],["json","JSON"]]),"Tilläggsdata");
     workbook.Workbook=workbook.Workbook||{};
-    workbook.Workbook.Sheets=workbook.SheetNames.map(function(name){return {name:name,Hidden:name==="Tilläggsdata"?1:0};});
+    // Only the active business registers and editable budget are visible.
+    // Technical sheets remain intact (and can be unhidden for audits).
+    const technicalSheets=new Set(["Lokalblick","Budgetrader","Källor","Ändringslogg","Tilläggsdata"]);
+    workbook.Workbook.Sheets=workbook.SheetNames.map(function(name){
+      return {name:name,Hidden:technicalSheets.has(name)?1:0};
+    });
     return workbook;
   }
 
@@ -980,7 +985,16 @@
       return {kind:"Lokalblick-data",recommended:true};
     return {kind:"Övrig flik",recommended:false};
   }
+  function isCanonicalDataWorkbook(workbook) {
+    const names=new Set(workbook?.SheetNames||[]);
+    return names.has("Lokalblick") && names.has("Fastigheter") && names.has("Avtal");
+  }
+  function preventCanonicalAsEnrichment(workbook) {
+    if(isCanonicalDataWorkbook(workbook))
+      throw new Error("Detta är en Lokalblick-datafil. Välj Anslut Lokalblick-data i stället för Läs in Excel. Den kontrollen hindrar att arbetsfilen importeras som dubbla grunduppgifter.");
+  }
   async function prepareImportWorkbook(onProgress) {
+    source.pendingImport=null;
     if (!window.showOpenFilePicker) throw new Error("Excelimport kräver Edge eller Chrome med lokal filåtkomst.");
     emitImportProgress(onProgress,{stage:"choose",message:"Välj Excel-fil…"});
     const handles=await window.showOpenFilePicker({
@@ -996,6 +1010,7 @@
     await yieldImportUi();
     emitImportProgress(onProgress,{stage:"sheets",message:"Identifierar flikar i "+file.name+"…"});
     const overview=XLSX.read(buffer,{type:"array",bookSheets:true,bookProps:true});
+    preventCanonicalAsEnrichment(overview);
     const sheets=(overview.SheetNames||[]).map(function(name,index){
       const role=importSheetRole(name);
       return {name:name,index:index,kind:role.kind,recommended:role.recommended};
@@ -1305,6 +1320,7 @@
   }
 
   function analyzeImportWorkbook(workbook,baseData,fileName,arrayBuffer) {
+    preventCanonicalAsEnrichment(workbook);
     let data=clone(baseData||{});
     canonicalizeModel(data);
     const before=clone(data);
@@ -1359,6 +1375,7 @@
   }
 
   async function analyzeImportWorkbookAsync(workbook,baseData,fileName,arrayBuffer,onProgress) {
+    preventCanonicalAsEnrichment(workbook);
     let data=clone(baseData||{});
     canonicalizeModel(data);
     const before=clone(data);
@@ -1564,6 +1581,7 @@
     schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS),
     workbookToData:workbookToData,
     dataToWorkbook:dataToWorkbook,
+    isCanonicalDataWorkbook:isCanonicalDataWorkbook,
     canonicalizeModel:canonicalizeModel,
     diffData:diffData,
     connect:connect,

@@ -683,6 +683,17 @@ export function sources(data, transport) {
   const st = transport.status(),
     company = transport.company();
   const reviews = data.importReview.filter((x) => x.status === "pending");
+  const activities = data.activities || [];
+  const missingHome = activities.filter(a =>
+    !a.contractId && !a.propertyId &&
+    !(a.scopeType==="unit" && a.unitId) && a.scopeType!=="general"
+  ).length;
+  const missingResponsible = activities.filter(a=>!a.responsiblePersonId).length;
+  const simplifiedQuality = '<section class="detail"><div class="section-title"><h3>Att komplettera</h3><button type="button" data-view="plan">Öppna Planera</button></div><p><strong>' +
+    missingHome + '</strong> aktiviteter utan hemvist · <strong>' +
+    missingResponsible + '</strong> utan ansvarig · <strong>' +
+    reviews.length + '</strong> importärenden att granska.</p><small>Komplettera aktivitet och ansvar på ett ställe. Övriga vyer hämtar samma uppgifter.</small></section>';
+
   const allProperties = data.properties || [];
   const hasGeo = p => p.latitude != null && p.longitude != null && p.latitude !== "" && p.longitude !== "" &&
     Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude));
@@ -703,7 +714,7 @@ export function sources(data, transport) {
           esc(p.id) + '">Placera på karta</button></div>').join("") + '</div></details>'
       : '<p>Alla fastigheter har koordinater.</p>') + '</section>';
 
-  return geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? "" : `<div class="actions"><button data-source="import">Läs in Excel</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom Lokalblick-data</button></div><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
+  return simplifiedQuality + geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? "" : `<div class="actions"><button data-source="import">Läs in underlag</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button></div><details><summary>Avancerade filåtgärder</summary><button data-source="blank">Ny tom Lokalblick-data</button><p><small>En tom arbetsfil innehåller ingen tidigare data.</small></p></details><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
     ["Källa", "Flik(ar)", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
     data.sourceRegistry.map((x) =>
       row([
