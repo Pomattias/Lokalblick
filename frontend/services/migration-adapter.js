@@ -280,7 +280,7 @@
         moveOutDate:excelDate(cell(r,h,["Utflyttning","Utflyttningsdatum","Avflyttning","Avflyttningsdatum"])),
         notice:excelDate(cell(r,h,["Säg upp senast"])),ownerOrgId:ownerOrgId,sourceSheet:sourceSheet,sourceRow:item.sourceRow
       });
-      if(managerId && !data.assignments.some(function(a){return a.personId===managerId && a.targetId===property.id;})){
+      if(managerId && sourceSheet!=="EXT" && !data.assignments.some(function(a){return a.personId===managerId && a.targetId===property.id;})){
         data.assignments.push({id:"A|"+hash(managerId+"|"+property.id),personId:managerId,targetType:"property",targetId:property.id,role:"Fastighetsförvaltare",fromDate:"",toDate:"",allocation:0});
       }
     });
