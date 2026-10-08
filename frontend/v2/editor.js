@@ -24,7 +24,7 @@ const internalPeople = (data) =>
 const generated =
   /^(?:id|sourceId|sourceSheet|sourceRow|enrichment|derived|calculated|rentPerSqm|rentCalculation|additionCalculation|rentIndexCurrent|additionIndexCurrent|rentIndexYear|additionIndexYear|provenance|createdAt|createdBy|updatedAt|updatedBy)/;
 const numeric =
-  /^(?:area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths)/;
+  /^(?:area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths|investmentThreshold|rentSurchargeRate)/;
 const group = (key) =>
   /^media/.test(key)
     ? "Media"
@@ -107,6 +107,16 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
         record.type,
         "Välj typ",
       )}</select>`;
+    else if (key === "actionKind" && col === "activities")
+      control = `<select name="actionKind">${options([
+        {id:"",name:"Ej bedömd"},{id:"value_enhancing",name:"Värdehöjande"},
+        {id:"like_for_like",name:"Utbyte 1:1"}
+      ], x=>x.id,x=>x.name,record.actionKind || (record.standardEnhancing===true?"value_enhancing":record.standardEnhancing===false?"like_for_like":""), "Ej bedömd")}</select>`;
+    else if (key === "investmentRule" && col === "organizations")
+      control = `<select name="investmentRule">${options([
+        {id:"",name:"Normalregel (½ prisbasbelopp)"},
+        {id:"stadsfastigheter",name:"Stadsfastigheter – ägarinvestering"}
+      ],x=>x.id,x=>x.name,record.investmentRule||"","Normalregel")}</select>`;
     else if (key === "category" && col === "activities") {
       const unique = [...new Map((data.activities || [])
         .map(a => String(a.category || "").trim())
@@ -132,6 +142,8 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
         record.targetType,
         "Välj måltyp",
       )}</select>`;
+    else if (key === "rentSurchargeStartDate")
+      control = `<input name="${key}" type="date" value="${esc(record[key]||"")}">`;
     else if (key === "unitId")
       control = `<select name="${key}">${options(
         Object.entries(units),
