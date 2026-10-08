@@ -26,7 +26,8 @@ export default async function handler(req,res) {
         const response = await fetch(url,{signal:AbortSignal.timeout(11000)});
         if (!response.ok) {
           const detail = (await response.text()).slice(0,180);
-          return respond(res,502,{ok:false,code:"GEOCODING_PROVIDER_ERROR",error:"OpenRouteService svarade "+response.status+": "+detail});
+          if (response.status === 403 || response.status === 429) return respond(res,429,{ok:false,code:"GEOCODING_QUOTA_EXCEEDED",error:"OpenRouteService har nått sin anropsgräns. Försök igen när kvoten återställts.",results,processed:results.length});
+          return respond(res,502,{ok:false,code:"GEOCODING_PROVIDER_ERROR",error:"OpenRouteService svarade "+response.status+": "+detail,results,processed:results.length});
         }
         const payload = await response.json();
         const feature = payload.features?.[0];
