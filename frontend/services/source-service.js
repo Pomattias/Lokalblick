@@ -972,6 +972,7 @@
     if (["sf","int","ext","lokallista"].includes(n)) return {kind:"Fastigheter & avtal",recommended:true};
     if (n==="lokalbestånd") return {kind:"Avtal & verksamhet",recommended:true};
     if (n==="fastighetslista") return {kind:"Fastighetsberikning",recommended:true};
+    if (n==="2027") return {kind:"Projektplan 2027",recommended:true};
     if (n==="årshjul" || n==="arshjul") return {kind:"Aktiviteter",recommended:true};
     if (n==="beställningar" || n==="bestallningar") return {kind:"Beställningar",recommended:true};
     if (/kpi|index/.test(n)) return {kind:"KPI / index",recommended:true};
