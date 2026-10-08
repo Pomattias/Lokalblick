@@ -37,6 +37,7 @@ const ui = {
   year: new Date().getFullYear() + 1,
   contractId: "",
   unassigned: false,
+  unassignedHome: false,
 };
 const labels = {
   overview: "Översikt",
@@ -692,6 +693,11 @@ document.addEventListener("click", (event) =>
     }
     if (b.hasAttribute("data-unassigned")) {
       ui.unassigned = !ui.unassigned;
+      render();
+    }
+    if (b.hasAttribute("data-unassigned-home")) {
+      ui.unassignedHome = !ui.unassignedHome;
+      if (ui.unassignedHome) ui.unassigned = false;
       render();
     }
     if (b.dataset.move)
