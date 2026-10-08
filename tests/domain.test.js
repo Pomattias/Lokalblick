@@ -41,6 +41,7 @@ function services() {
     "data/demo-data.js",
     "services/data-service.js",
     "services/migration-adapter.js",
+    "services/address-match.js",
     "services/contract-enrichment-adapter.js",
     "services/operational-enrichment-adapter.js",
     "services/source-service.js",
@@ -437,7 +438,7 @@ test("real INT/EXT parser keeps several contracts per property and blank numbers
   assert.equal(d.contracts.filter((c) => !c.number).length, 2);
   assert.ok(!d.contracts.find((c) => c.number === "WRONG"));
 });
-test("secondary exact matching is unique and scored matches are review only", () => {
+test("secondary exact matching is unique and exact address + sole contract matches automatically", () => {
   const svc = services(),
     data = {
       contracts: [contract],
@@ -461,8 +462,8 @@ test("secondary exact matching is unique and scored matches are review only", ()
       address: "Testgatan 1",
       area: 100,
       use: "Boende",
-    }).contract,
-    null,
+    }).contract?.id,
+    "c1",
   );
 });
 test("two sources create conflict and do not overwrite source values", () => {

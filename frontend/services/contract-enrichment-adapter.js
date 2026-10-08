@@ -270,51 +270,11 @@
     return "";
   }
   function propertyForRow(data,designation,address){
-    var d=norm(designation),a=compact(address);
-    var byDesignation=d ? (data.properties||[]).filter(function(p){return norm(p.designation)===d;}) : [];
-    if(byDesignation.length===1) return {property:byDesignation[0],strength:"designation"};
-    var byAddress=a ? (data.properties||[]).filter(function(p){
-      var pa=compact(p.address);
-      return pa && (pa===a || pa.indexOf(a)>=0 || a.indexOf(pa)>=0);
-    }) : [];
-    if(byAddress.length===1) return {property:byAddress[0],strength:"address"};
-    return {property:null,strength:""};
-  }
-  function normalizeContractNo(v){ return text(v).replace(/\s/g,"").toUpperCase(); }
-  function scoreContract(data, contract, rowData){
-    var score=0, reasons=[];
-    var property=(data.properties||[]).find(function(p){return p.id===contract.propertyId;});
-    if(rowData.designation && property && norm(property.designation)===norm(rowData.designation)){score+=40;reasons.push("fastighetsbeteckning");}
-    if(rowData.address && property){
-      var a=compact(rowData.address),pa=compact(property.address);
-      if(a&&pa&&(a===pa||a.indexOf(pa)>=0||pa.indexOf(a)>=0)){score+=30;reasons.push("adress");}
-    }
-    if(rowData.start && contract.start && rowData.start===contract.start){score+=15;reasons.push("start");}
-    if(rowData.use && contract.use && norm(rowData.use)===norm(contract.use)){score+=8;reasons.push("verksamhet");}
-    if(rowData.category && contract.category && norm(rowData.category)===norm(contract.category)){score+=5;reasons.push("avtalstyp");}
-    if(rowData.area && contract.area){
-      var delta=Math.abs(Number(rowData.area)-Number(contract.area));
-      if(delta<=1){score+=8;reasons.push("area");}
-      else if(delta<=Math.max(5,Number(contract.area)*0.03)){score+=4;reasons.push("area nära");}
-    }
-    return {score:score,reasons:reasons};
+    const result=window.LokalblickAddressMatch.matchProperty(data.properties||[],{designation,address});
+    return {property:result.property,strength:result.method,candidates:result.candidates.map(x=>x.id)};
   }
   function matchContract(data,rowData){
-    var number=normalizeContractNo(rowData.number);
-    if(number){
-      var exact=(data.contracts||[]).filter(function(c){return normalizeContractNo(c.number||c.sourceId)===number;});
-      if(exact.length===1) return {contract:exact[0],method:"Avtalsnummer",score:100,reasons:["avtalsnummer"]};
-      if(exact.length>1) return {contract:null,method:"Avtalsnummer",score:100,ambiguous:true,candidates:exact.map(function(c){return c.id;})};
-    }
-    var propertyMatch=propertyForRow(data,rowData.designation,rowData.address);
-    var candidates=(data.contracts||[]).filter(function(c){return !propertyMatch.property || c.propertyId===propertyMatch.property.id;});
-    var scored=candidates.map(function(c){
-      var result=scoreContract(data,c,rowData);
-      return {contract:c,score:result.score,reasons:result.reasons};
-    }).sort(function(a,b){return b.score-a.score;});
-    if(!scored.length || scored[0].score<55) return {contract:null,method:"Poäng",score:scored.length?scored[0].score:0,candidates:scored.slice(0,3).map(function(x){return x.contract.id;})};
-    if(scored[1] && scored[1].score>=scored[0].score-8) return {contract:null,method:"Poäng",score:scored[0].score,ambiguous:true,candidates:scored.slice(0,3).map(function(x){return x.contract.id;})};
-    return {contract:null,method:"Poäng",score:scored[0].score,ambiguous:true,candidates:scored.slice(0,3).map(function(x){return x.contract.id;})};
+    return window.LokalblickAddressMatch.matchContract(data,rowData);
   }
 
   function indexValue(series,year){ return Number(window.LokalblickCalculations.october(series,year)?.value)||0; }

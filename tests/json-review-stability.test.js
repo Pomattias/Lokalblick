@@ -9,6 +9,7 @@ import { overview, sources } from "../frontend/v2/views.js";
 const C=globalThis.LokalblickCalculations;
 function adapter() {
  const context={XLSX,console,Date,Map,Set,Math};
+ vm.runInNewContext(fs.readFileSync("frontend/services/address-match.js","utf8"),context);
  vm.runInNewContext(fs.readFileSync("frontend/services/operational-enrichment-adapter.js","utf8"),context);
  return context.LokalblickOperationalEnrichmentAdapter;
 }

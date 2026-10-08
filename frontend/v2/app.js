@@ -27,6 +27,7 @@ import {
   organization,
   calc,
   categories,
+  reviewCandidateChoices,
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
 const transport = createTransport(),
@@ -829,12 +830,14 @@ document.addEventListener("click", (event) =>
       return;
     }
     if (b.dataset.review) {
-      const target = document.querySelector(
-        `[data-review-target="${CSS.escape(b.dataset.review)}"]`,
-      )?.value;
-      await mutation((d) =>
-        resolveReview(d, b.dataset.review, b.dataset.decision, target, actor()),
-      );
+      const card=b.closest(".review");
+      const target=card?.querySelector('input[data-review-target]:checked')?.value
+        ||card?.querySelector('select[data-review-target]')?.value||"";
+      const item=(data.importReview||[]).find(x=>x.id===b.dataset.review);
+      if(b.dataset.decision==="accept"&&
+        ["match","property-match","activity-property","record"].includes(item?.kind)&&!target)
+        throw Error("Välj först en relevant post. Du kan också söka på adress eller avtalsnummer.");
+      await mutation(d=>resolveReview(d,b.dataset.review,b.dataset.decision,target,actor()));
     }
     if (b.dataset.geoPlace) openGeoPlacement(b.dataset.geoPlace);
     if (b.hasAttribute("data-geo-retry")) startGeoEnrichment();
@@ -953,6 +956,16 @@ function refreshSmartTable(table) {
   });
 }
 document.addEventListener("input",event=>{
+  if(event.target.matches("[data-review-search]")) {
+    const input=event.target;
+    const item=(data?.importReview||[]).find(x=>x.id===input.dataset.reviewSearch);
+    const result=[...document.querySelectorAll("[data-review-search-results]")]
+      .find(x=>x.dataset.reviewSearchResults===input.dataset.reviewSearch);
+    if(item&&result)result.innerHTML=input.value.trim().length<2
+      ? "<small>Ange minst två tecken för att söka.</small>"
+      : reviewCandidateChoices(data,item,input.value);
+    return;
+  }
   if(!event.target.matches("[data-column-filter]"))return;
   const table=event.target.closest("table[data-smart-table]");
   if(table)refreshSmartTable(table);

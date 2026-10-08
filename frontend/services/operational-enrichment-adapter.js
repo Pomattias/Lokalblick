@@ -163,62 +163,41 @@
     data.orders.push(found); report.counts.ordersCreated++; return found;
   }
   function propertyMatcher(data) {
-    var aliases = new Map();
-    function addAlias(value, id) {
-      var k = aliasKey(value); if (!k || !id) return;
-      if (!aliases.has(k)) aliases.set(k, new Set()); aliases.get(k).add(id);
+    // Use the same address rules as contract enrichment and V2.
+    const aliases=new Map();
+    function addAlias(value,id) {
+      const key=aliasKey(value);if(!key||!id)return;
+      if(!aliases.has(key))aliases.set(key,new Set());
+      aliases.get(key).add(id);
     }
-    (data.properties || []).forEach(function (p) {
-      addAlias(p.id, p.id); addAlias(p.address, p.id); addAlias(p.designation, p.id); addAlias(p.name, p.id);
-      (p.sourceAliases || []).forEach(function (alias) { addAlias(alias, p.id); });
-    });
-    function addressParts(value) {
-      var raw=norm(value), match=raw.match(/^(.*?)(\d+)(.*)$/);
-      return match
-        ? { street:compact(match[1]), number:Number(match[2]), tail:compact(match[3]) }
-        : { street:compact(raw), number:null, tail:"" };
-    }
-    function addressScore(a, b) {
-      var aa=addressParts(a),bb=addressParts(b);
-      if(!aa.street||!bb.street||aa.street!==bb.street) return 0;
-      if(aa.number!=null&&bb.number!=null&&aa.number!==bb.number) return 0;
-      if(compact(a)===compact(b)) return 100;
-      if(aa.number!=null&&bb.number!=null&&aa.number===bb.number) return 88;
-      if(aa.number==null||bb.number==null) return 76;
-      return 0;
-    }
+    (data.properties||[]).forEach(p=>[p.id,p.address,p.designation,p.name].concat(p.sourceAliases||[])
+      .forEach(value=>addAlias(value,p.id)));
     function match(spec) {
-      var candidates = [], objectKey = spec.objectNo ? compact(spec.objectNo) : "";
-      if (objectKey) {
-        candidates = (data.properties || []).filter(function (p) { return compact(p.id) === objectKey || compact(p.sourceId) === objectKey; });
-        if (candidates.length === 1) return { property: candidates[0], method: "objektsnummer", score: 100 };
+      const result=root.LokalblickAddressMatch.matchProperty(data.properties||[],spec);
+      if(result.property)return result;
+      if(spec.address) {
+        // Only verified aliases already stored on this property are trusted.
+        // Never treat a new conflicting house number as an automatic match.
+        const key=aliasKey(spec.address);
+        const known=(data.properties||[]).filter(p=>
+          (p.sourceAliases||[]).some(v=>aliasKey(v)===key) &&
+          (!spec.city||!p.city||root.LokalblickAddressMatch.norm(spec.city)===root.LokalblickAddressMatch.norm(p.city)));
+        if(known.length===1)return {property:known[0],score:105,method:"Verifierad adressalias",
+          candidates:[{id:known[0].id,property:known[0],score:105,reason:"Tidigare bekräftad matchning"}]};
       }
-      function identityCompatible(p) {
-        if(!objectKey) return true;
-        var existingKey=compact(p.sourceId||"");
-        return !existingKey || existingKey===objectKey || compact(p.id)===objectKey;
-      }
-      if (spec.designation) {
-        candidates = (data.properties || []).filter(function (p) {
-          return identityCompatible(p) && compact(p.designation) && compact(p.designation) === compact(spec.designation);
-        });
-        if (candidates.length === 1) return { property: candidates[0], method: "fastighetsbeteckning", score: 95 };
-      }
-      if (spec.address) {
-        var scored = (data.properties || []).filter(identityCompatible).map(function (p) { return { p: p, s: addressScore(spec.address, p.address) }; }).filter(function (x) { return x.s > 0; }).sort(function (a, b) { return b.s - a.s; });
-        if (scored.length && (!scored[1] || scored[0].s > scored[1].s)) return { property: scored[0].p, method: "adress", score: scored[0].s };
-      }
-      var keys = [spec.name, spec.business, spec.address].map(aliasKey).filter(Boolean);
-      for (var i = 0; i < keys.length; i++) {
-        var ids = aliases.get(keys[i]);
-        if (ids && ids.size === 1) {
-          var id = Array.from(ids)[0], property=(data.properties||[]).find(function (p) { return p.id === id; });
-          if(property&&identityCompatible(property)) return { property: property, method: "alias", score: 80 };
+      if(!spec.address&&!spec.designation) {
+        const keys=[spec.name,spec.business].map(aliasKey).filter(Boolean);
+        for(const key of keys) {
+          const ids=aliases.get(key);
+          if(ids?.size===1) {
+            const p=(data.properties||[]).find(p=>p.id===Array.from(ids)[0]);
+            if(p)return {property:p,score:105,method:"Tidigare bekräftad alias",candidates:[{id:p.id,property:p,score:105,reason:"Bekräftad alias"}]};
+          }
         }
       }
-      return { property: null, method: "", score: 0 };
+      return result;
     }
-    return { addAlias: addAlias, match: match };
+    return {addAlias,match};
   }
   function normalizeContractNo(v) { return text(v).replace(/\s/g, "").toUpperCase(); }
   function matchContract(data, number, propertyId) {
@@ -345,11 +324,11 @@
     if (!hit || hit.score < 3) return;
     for (var i = hit.row + 1; i < rows.length; i++) {
       var row = rows[i];
-      var spec = { objectNo: cell(row, hit.headers, ["Objektsnummer / Förvaltningsobjekt"]), name: cell(row, hit.headers, ["Benämning"]), address: cell(row, hit.headers, ["Adress"]), city: cell(row, hit.headers, ["Ort","Postort","Stad"]), designation: cell(row, hit.headers, ["Fastighetsbeteckning"]) };
+      var spec = { objectNo: cell(row, hit.headers, ["Objektsnummer / Förvaltningsobjekt"]), name: cell(row, hit.headers, ["Benämning"]), address: cell(row, hit.headers, ["Adress"]), city: cell(row, hit.headers, ["Ort","Postort","Stad"]), designation: cell(row, hit.headers, ["Fastighetsbeteckning"]), ownerName: cell(row, hit.headers, ["Fastighetsägare"]) };
       if (!text(spec.objectNo) && !text(spec.address) && !text(spec.designation)) continue;
       report.counts.sourceRows++;
       var pm = matcher.match(spec);
-      if (!pm.property) { review(data, report, { kind: "property-match", source: source, sheet: "Lokalbestånd", row: i + 1, record: clone(spec), address: spec.address, message: "Fastigheten kunde inte matchas säkert." }); continue; }
+      if (!pm.property) { review(data, report, { kind: "property-match", source: source, sheet: "Lokalbestånd", row: i + 1, record: clone(spec), address: spec.address, candidates:pm.candidates.map(x=>x.id), message: "Ingen entydig adressmatchning. Kontrollera endast relevanta förslag." }); continue; }
       report.counts.propertiesMatched++;
       matcher.addAlias(spec.name, pm.property.id); matcher.addAlias(spec.address, pm.property.id); matcher.addAlias(spec.designation, pm.property.id); matcher.addAlias(spec.objectNo, pm.property.id);
       var ownerName=cell(row, hit.headers, ["Fastighetsägare"]), ownerId=ownerName?ensureOrg(data,ownerName,"owner"):"";
@@ -379,11 +358,11 @@
     var hit = findHeader(rows, [["Benämning"],["Postadress"],["Fastighetsägare"],["Förvaltare"]], 4);
     if (!hit || hit.score < 3) return;
     for (var i = hit.row + 1; i < rows.length; i++) {
-      var row = rows[i], spec = { objectNo: cell(row, hit.headers, ["Objekt. nr","Objekt nr"]), name: cell(row, hit.headers, ["Benämning"]), address: cell(row, hit.headers, ["Postadress"]), city: cell(row, hit.headers, ["Ort","Postort","Stad"]), designation: cell(row, hit.headers, ["Fastighetsbeteckning"]) };
+      var row = rows[i], spec = { objectNo: cell(row, hit.headers, ["Objekt. nr","Objekt nr"]), name: cell(row, hit.headers, ["Benämning"]), address: cell(row, hit.headers, ["Postadress"]), city: cell(row, hit.headers, ["Ort","Postort","Stad"]), designation: cell(row, hit.headers, ["Fastighetsbeteckning"]), ownerName: cell(row, hit.headers, ["Fastighetsägare"]) };
       if (!text(spec.name) && !text(spec.address) && !text(spec.designation)) continue;
       report.counts.sourceRows++;
       var pm = matcher.match(spec);
-      if (!pm.property) { review(data, report, { kind: "property-match", source: source, sheet: "Fastighetslista", row: i + 1, record: clone(spec), address: spec.address, message: "Fastigheten kunde inte matchas säkert." }); continue; }
+      if (!pm.property) { review(data, report, { kind: "property-match", source: source, sheet: "Fastighetslista", row: i + 1, record: clone(spec), address: spec.address, candidates:pm.candidates.map(x=>x.id), message: "Ingen entydig adressmatchning. Kontrollera endast relevanta förslag." }); continue; }
       report.counts.propertiesMatched++;
       matcher.addAlias(spec.name, pm.property.id); matcher.addAlias(spec.address, pm.property.id); matcher.addAlias(spec.designation, pm.property.id); matcher.addAlias(spec.objectNo, pm.property.id);
       var owner = cell(row, hit.headers, ["Fastighetsägare"]), ownerId = owner ? ensureOrg(data, owner, "owner") : "";

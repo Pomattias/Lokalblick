@@ -687,56 +687,71 @@ function reviewConflictCard(data,x) {
     <div class="review-value proposed"><span>2 · Från nya importfilen</span><strong>${esc(reviewValue(data,x,x.proposed))}</strong><small>${esc(reviewIncomingSource(x))}</small><button type="button" data-review="${esc(x.id)}" data-decision="accept">Välj detta värde</button></div>
   </div></div></section>`;
 }
-function reviewStandardCard(data, x) {
-  const title =
-    x.kind === "match"
-      ? "Avtalsmatchning"
-      : x.kind === "record"
-        ? "Import till " + (kinds[x.collection] || x.collection)
-        : x.kind === "person"
-          ? "Komplettera person"
-          : x.kind === "activity-property"
-            ? "Koppla aktivitet till fastighet"
-            : x.kind === "property-match"
-              ? "Kontrollera fastighetsmatchning"
-              : x.field || x.kind;
-  const detail = [
-    x.personName,
-    x.record?.name,
-    x.record?.title,
-    x.record?.number,
-    x.record?.address,
-    x.address,
-    x.record?.use,
-    x.message,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const source = reviewIncomingSource(x);
-  const propertySelect = ["record", "activity-property", "property-match"].includes(x.kind)
-    ? `<label>Fastighet<select data-review-target="${esc(x.id)}">${options(
-        data.properties,
-        (p) => p.id,
-        (p) => propertyReference(p),
-        x.record?.propertyId || "",
-        "Välj fastighet",
-      )}</select></label>`
-    : "";
-  const contractSelect =
-    x.kind === "match"
-      ? `<label>Matcha till avtal<select data-review-target="${esc(x.id)}">${options(
-          data.contracts,
-          (c) => c.id,
-          (c) =>
-            (c.number || "Utan nummer") +
-            " · " +
-            propertyLabel(data, c.propertyId),
-          "",
-          "Välj befintligt avtal",
-        )}</select></label>`
-      : "";
-  const warning=x.kind==="person" ? "<p><small>Ofullständig identitet. Komplettera innan ansvaret bekräftas.</small></p>" : "";
-  return `<section class="review"><div><strong>${esc(title)}</strong><small>${esc(source)}</small><p>${esc(detail)}</p>${warning}</div><div class="actions">${propertySelect}${contractSelect}<button data-review="${esc(x.id)}" data-decision="accept">${x.kind==="person"?"Behåll preliminär person":"Godkänn"}</button><button data-review="${esc(x.id)}" data-decision="reject">${x.kind==="person"?"Ta bort preliminär person":"Avvisa"}</button></div></section>`;
+function importRecordPreview(record) {
+  if(!record)return "<p><small>Källdetaljer saknas. Sök på adress eller nummer.</small></p>";
+  const fields=[["Adress",record.address],["Fastighetsbeteckning",record.designation],
+    ["Ort",record.city],["Objekt",record.objectNo],
+    ["Avtalsnummer",record.number],["Verksamhet",record.use||record.business],
+    ["Area",record.area?num(record.area)+" m²":""],["Start",record.start],["Slut",record.end],
+    ["Bashyra",record.baseRent?money(record.baseRent):""],
+    ["Bastillägg",record.baseAdditions?money(record.baseAdditions):""],
+    ["Ägare",record.ownerName],["Benämning",record.name||record.title]]
+    .filter(([,value])=>value!==""&&value!=null);
+  return `<dl class="review-record-preview">${fields.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+}
+export function reviewCandidateChoices(data,item,searchValue="") {
+  const matcher=globalThis.LokalblickAddressMatch;
+  if(!matcher)return "<p>Adressmatchningen är inte tillgänglig. Ladda om sidan.</p>";
+  const isContract=item.kind==="match",r=item.record||{address:item.address||""};
+  const search=String(searchValue||"").trim();
+  let choices=isContract?matcher.rankContracts(data,r,5):matcher.rankProperties(data.properties||[],r,5);
+  if(search.length>=2){
+    const q=matcher.norm(search);
+    choices=isContract?(data.contracts||[]).filter(c=>{
+      const p=(data.properties||[]).find(p=>p.id===c.propertyId);
+      return matcher.norm([c.number,p?.address,p?.designation,p?.city,c.area,c.businessName].join(" ")).includes(q);
+    }).slice(0,8).map(c=>({id:c.id,contract:c,property:(data.properties||[]).find(p=>p.id===c.propertyId),reason:"Sökresultat"}))
+    :(data.properties||[]).filter(p=>matcher.norm([p.address,p.designation,p.city,p.sourceId,p.name].join(" ")).includes(q))
+      .slice(0,8).map(p=>({id:p.id,property:p,reason:"Sökresultat"}));
+  }
+  if(!choices.length)return '<p class="review-no-candidates">Ingen entydig kandidat. Kontrollera adress och objektsnummer; sök vid behov nedan.</p>';
+  const name="match-"+String(item.id).replace(/[^a-z0-9-]/gi,"-");
+  return `<div class="review-match-options">${choices.map(c=>{
+    const p=c.property||{},contract=c.contract;
+    const title=contract?"Avtal "+(contract.number||"utan nummer"):propertyDesignation(p)||"Fastighetsbeteckning saknas";
+    const details=contract?[
+      propertyAddress(p),propertyDesignation(p),contract.area?num(contract.area)+" m²":"",
+      [contract.start,contract.end].filter(Boolean).join(" – "),contract.businessName||contract.use
+    ]:[
+      propertyAddress(p),p.city,p.sourceId?"Objektsnummer "+p.sourceId:"",
+      organizationLabel(data,p.ownerPartyId)||p.sourceOwner,p.name
+    ];
+    return `<label class="review-match-option"><input type="radio" name="${esc(name)}" data-review-target="${esc(item.id)}" value="${esc(c.id)}">
+      <span><strong>${esc(title)}</strong><small>${esc(details.filter(Boolean).join(" · "))}</small><small class="review-match-reason">${esc(c.reason||"")}</small></span></label>`;
+  }).join("")}</div>`;
+}
+function reviewStandardCard(data,x) {
+  const titles={match:"Matcha importerat avtal",record:"Koppla importerad post",
+    "activity-property":"Koppla aktivitet till fastighet","property-match":"Matcha fastighet via adress",person:"Komplettera person"};
+  const isMatch=["record","activity-property","property-match","match"].includes(x.kind);
+  const preview=isMatch?`<section class="review-source-record"><strong>Inläst post – ${esc(reviewIncomingSource(x))}</strong>${importRecordPreview(x.record)}</section>`:
+    `<p>${esc([x.personName,x.message].filter(Boolean).join(" · "))}</p>`;
+  const picker=isMatch?`<div class="review-candidates">
+    <h4>${x.kind==="match"?"Möjliga avtal":"Möjliga fastigheter"}</h4>
+    <small>Endast relevanta förslag visas. Kontrollera innehållet innan du kopplar.</small>
+    ${reviewCandidateChoices(data,x)}
+    <details class="review-search"><summary>Sök annan ${x.kind==="match"?"avtalspost":"fastighet"}</summary>
+      <label>Adress, beteckning eller nummer
+        <input type="search" autocomplete="off" placeholder="Skriv minst två tecken" data-review-search="${esc(x.id)}">
+      </label><div data-review-search-results="${esc(x.id)}"></div></details></div>`:"";
+  const actions=isMatch?`<div class="review-match-actions">
+    <button data-review="${esc(x.id)}" data-decision="accept" class="primary-action">${x.kind==="match"?"Koppla valt avtal och berika":"Koppla vald fastighet"}</button>
+    <button data-review="${esc(x.id)}" data-decision="reject">Avvisa matchningen</button></div>`:
+    `<div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">${x.kind==="person"?"Behåll preliminär person":"Godkänn"}</button>
+      <button data-review="${esc(x.id)}" data-decision="reject">${x.kind==="person"?"Ta bort preliminär person":"Avvisa"}</button></div>`;
+  return `<section class="review review-match"><div class="review-main">
+    <div class="review-heading"><strong>${esc(titles[x.kind]||x.kind)}</strong></div>
+    ${preview}${picker}${actions}</div></section>`;
 }
 function priorityPanel(data,reviews){
   const groups=new Map();
