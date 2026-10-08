@@ -835,6 +835,20 @@ document.addEventListener("change", (event) =>
       render();
       return;
     }
+    if (x.dataset.priceBaseYear) {
+      const year = Number(x.dataset.priceBaseYear);
+      const amount = Number(x.value);
+      if (!Number.isInteger(year) || !Number.isFinite(amount) || amount <= 0) throw Error("Ange giltigt prisbasbelopp");
+      await mutation(d => {
+        if ((d.budgetPlans||[]).some(p=>Number(p.year)===year&&p.status==="Låst"))
+          throw Error("Året är låst. Prisbasbeloppet får inte ändras här.");
+        d.priceBaseAmounts = d.priceBaseAmounts || [];
+        const record = d.priceBaseAmounts.find(p=>Number(p.year)===year);
+        if (record) record.amount=amount;
+        else d.priceBaseAmounts.push({year,amount,source:"Manuellt angivet",updatedBy:actor(),updatedAt:new Date().toISOString()});
+      });
+      return;
+    }
     if (x.dataset.activityYearAmount) {
       await mutation(d => {
         const activity = d.activities.find(a => String(a.id) === String(x.dataset.activityYearAmount));
