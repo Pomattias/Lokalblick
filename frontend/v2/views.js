@@ -21,8 +21,8 @@ export const units = {
 export const calc = () => globalThis.LokalblickCalculations;
 const edit = (col, id, label = "Ändra") =>
   `<button data-edit="${esc(col)}" data-id="${esc(id)}">${label}</button>`;
-const table = (head, rows) =>
-  `<div class="table-wrap"><table><thead><tr>${head.map((x) => `<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${head.length}" class="empty">Inga poster i aktuellt urval.</td></tr>`}</tbody></table></div>`;
+const table = (head, rows, interactive = false) =>
+  `<div class="table-wrap${interactive?" compact-data-table":""}"><table${interactive?' data-smart-table="1"':""}><thead><tr>${head.map((x,i) => `<th scope="col">${interactive && x ? `<button type="button" class="column-sort" data-column-sort="${i}" aria-label="Sortera på ${esc(x)}">${esc(x)} <span aria-hidden="true">↕</span></button>` : x}</th>`).join("")}</tr>${interactive?`<tr class="column-filters">${head.map((x,i)=>`<th>${x && i<head.length-1 ? `<input type="search" data-column-filter="${i}" aria-label="Filtrera ${esc(x)}" placeholder="Filtrera…" autocomplete="off">`:""}</th>`).join("")}</tr>`:""}</thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${head.length}" class="empty">Inga poster i aktuellt urval.</td></tr>`}</tbody></table></div>`;
 const row = (cells) =>
   `<tr>${cells.map((x, i) => `<td${i === 0 ? ' class="primary-cell"' : ""}>${x}</td>`).join("")}</tr>`;
 const badge = (x) =>
@@ -295,6 +295,7 @@ export function overview(data, s, ui) {
     body = table(
       ["Avtal", "Area", "Hyra / år", "Värdestatus", "Slutdatum", ""],
       contractRows(data, v.contracts, ui.year),
+      true,
     );
   else
     body = table(
@@ -303,6 +304,7 @@ export function overview(data, s, ui) {
         data,
         v.items.filter((x) => x.label === ui.perspective),
       ),
+      true,
     );
   return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div><div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
 }
