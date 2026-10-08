@@ -536,7 +536,20 @@ export function normalize(data) {
     if (!Array.isArray(out[k])) out[k] = [];
   });
   normalizeOwnerRelations(out);
+  // An activity without a home is a planning task, not an import conflict.
+  // Preserve the historical review record while removing it from the open queue.
+  for (const review of out.importReview) {
+    if (review.status === "pending" && review.kind === "activity-property") {
+      review.status = "planning";
+      review.resolutionReason = "Hemvist tilldelas under Planera.";
+    }
+  }
   obsoleteCrossObjectReviews(out);
+  for (const source of out.sourceRegistry) {
+    source.review = out.importReview.filter(item =>
+      item.status === "pending" && (!source.name || item.source === source.name)
+    ).length;
+  }
   out.contracts.forEach((c) => {
     c.start = c.start ?? c.originalValidFrom ?? "";
     c.end = c.end ?? c.currentValidTo ?? "";
