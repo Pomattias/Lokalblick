@@ -499,7 +499,9 @@
       Object.keys(values).forEach(function(key){
         if(values[key]==="" || values[key]==null || values[key]===0)return;
         if(!/^enrichment/.test(key) && c[key]!=="" && c[key]!=null && c[key]!==0 && c[key]!==values[key]) {
-          report.discrepancies.push({contractId:c.id,field:key,primary:c[key],enrichment:values[key],sourceRow:r.sourceRow});return;
+          const rule=(data.importFieldPreferences||{})[["contracts",key,fileName||hit.sheet].map(x=>String(x||"").trim().toLocaleLowerCase("sv")).join("|")];
+          if(rule==="reject")return;
+          if(rule!=="accept"){report.discrepancies.push({contractId:c.id,field:key,primary:c[key],enrichment:values[key],sourceRow:r.sourceRow});return;}
         }
         c[key]=values[key];
       });

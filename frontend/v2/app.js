@@ -8,6 +8,8 @@ import {
   setActivityHome,
   moveWish,
   resolveReview,
+  bulkReviewDecision,
+  clearSourcePreference,
 } from "./model.js";
 import { createTransport } from "./transport.js";
 import { retainImportedData } from "./import-workspace.js";
@@ -509,7 +511,7 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
@@ -773,6 +775,26 @@ document.addEventListener("click", (event) =>
     }
     if (b.dataset.move)
       await mutation((d) => moveWish(d, b.dataset.id, b.dataset.move, actor()));
+    if (b.dataset.priorityApply) {
+      const values=JSON.parse(decodeURIComponent(b.dataset.priorityApply));
+      if(!Array.isArray(values)||values.length!==3)throw Error("Källvalet är ogiltigt.");
+      const [collection,field,source]=values;
+      const select=[...content.querySelectorAll("[data-priority-choice]")].find(x=>x.dataset.priorityChoice===b.dataset.priorityApply);
+      const decision=select?.value;
+      if(!["accept","reject"].includes(decision))throw Error("Välj först vilken källa som ska gälla.");
+      const count=data.importReview.filter(x=>x.status==="pending"&&x.field===field&&x.source===source&&(x.collection||(x.kind==="conflict"?"contracts":""))===collection).length;
+      if(!window.confirm(`Tillämpa ${decision==="accept"?source:"tidigare registrerade data"} för ${count} konflikter i fältet ${field}? Regeln gäller även vid senare importer från denna fil.`))return;
+      let applied=0;
+      await mutation(d=>{applied=bulkReviewDecision(d,{collection,field,source},decision,actor());});
+      notice(`${applied} konflikter lösta för ${field}. Källprioriteten är sparad.`);
+      return;
+    }
+    if(b.dataset.priorityRemove){
+      const key=decodeURIComponent(b.dataset.priorityRemove);
+      await mutation(d=>clearSourcePreference(d,key));
+      notice("Källprioriteten är borttagen. Redan godkänd data är oförändrad.");
+      return;
+    }
     if (b.dataset.review) {
       const target = document.querySelector(
         `[data-review-target="${CSS.escape(b.dataset.review)}"]`,

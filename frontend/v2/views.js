@@ -1,4 +1,4 @@
-import { scope, responsible, kinds } from "./model.js";
+import { scope, responsible, kinds, bulkEligible, reviewCollection } from "./model.js";
 export const esc = (x) =>
   String(x ?? "").replace(
     /[&<>"']/g,
@@ -738,6 +738,39 @@ function reviewStandardCard(data, x) {
   const warning=x.kind==="person" ? "<p><small>Ofullständig identitet. Komplettera innan ansvaret bekräftas.</small></p>" : "";
   return `<section class="review"><div><strong>${esc(title)}</strong><small>${esc(source)}</small><p>${esc(detail)}</p>${warning}</div><div class="actions">${propertySelect}${contractSelect}<button data-review="${esc(x.id)}" data-decision="accept">${x.kind==="person"?"Behåll preliminär person":"Godkänn"}</button><button data-review="${esc(x.id)}" data-decision="reject">${x.kind==="person"?"Ta bort preliminär person":"Avvisa"}</button></div></section>`;
 }
+function priorityPanel(data,reviews){
+  const groups=new Map();
+  reviews.filter(bulkEligible).forEach(x=>{
+    const key=JSON.stringify([reviewCollection(x),x.field,x.source]);
+    const row=groups.get(key)||{collection:reviewCollection(x),field:x.field,source:x.source,count:0,previous:new Set()};
+    row.count++;row.previous.add(x.currentSource||"Tidigare registrerat");groups.set(key,row);
+  });
+  const rules=Object.entries(data.importFieldPreferences||{});
+  if(!groups.size&&!rules.length)return "";
+  const controls=[...groups.values()].sort((a,b)=>b.count-a.count).map(row=>{
+    const key=encodeURIComponent(JSON.stringify([row.collection,row.field,row.source]));
+    const prev=[...row.previous].join(" / ");
+    return `<div class="source-priority-row">
+      <div><strong>${esc(importFieldLabel(row.field))}</strong><small>${row.count} konflikter · ${esc(row.collection==="properties"?"Fastighet":row.collection==="contracts"?"Avtal":"Aktivitet")}</small></div>
+      <label>Prioriterad källa
+        <select data-priority-choice="${esc(key)}"><option value="">Välj källa</option>
+          <option value="reject">Behåll tidigare (${esc(prev.length>80?"Registrerat i Lokalblick":prev)})</option>
+          <option value="accept">Använd ${esc(row.source)}</option>
+        </select>
+      </label>
+      <button type="button" data-priority-apply="${esc(key)}">Välj för alla ${row.count}</button>
+    </div>`;
+  }).join("");
+  const saved=rules.length?`<details><summary>Sparad källprioritet (${rules.length})</summary>
+    ${rules.map(([key,choice])=>`<div class="source-priority-row"><small>${esc(key.split("|").join(" · "))}</small><strong>${choice==="accept"?"Importerad fil":"Tidigare data"}</strong><button type="button" data-priority-remove="${esc(encodeURIComponent(key))}">Ta bort regel</button></div>`).join("")}
+    <small>Att ta bort en regel ändrar inte redan godkända data.</small></details>`:"";
+  return `<section class="detail source-priority">
+    <h3>Välj källa för alla konflikter av samma typ</h3>
+    <p>Exempel: välj Lokallista eller berikningsfilen för alla fastighetsägare. Endast detta fält påverkas. Beslutet sparas även för nästa import från samma fil.</p>
+    ${controls||"<p>Inga kvarvarande fältkonflikter.</p>"}${saved}
+    <small>Avtalsmatchningar och preliminära personer kräver separat kontroll.</small>
+  </section>`;
+}
 export function sources(data, transport) {
   const st = transport.status(),
     company = transport.company();
@@ -795,7 +828,7 @@ export function sources(data, transport) {
       if(String(src.importedAt||"")>String(existing.importedAt))existing.importedAt=src.importedAt;
     }
   });
-  return workingState + simplifiedQuality + geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? "" : `<div class="actions"><button data-source="import">Läs in underlag</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button></div><details><summary>Avancerade filåtgärder</summary><button data-source="blank">Ny tom Lokalblick-data</button><p><small>En tom arbetsfil innehåller ingen tidigare data.</small></p></details><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
+  return workingState + simplifiedQuality + priorityPanel(data,reviews) + geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? "" : `<div class="actions"><button data-source="import">Läs in underlag</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button></div><details><summary>Avancerade filåtgärder</summary><button data-source="blank">Ny tom Lokalblick-data</button><p><small>En tom arbetsfil innehåller ingen tidigare data.</small></p></details><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
     ["Källa", "Flik(ar)", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
     [...sourceGroups.values()].map(x =>
       row([

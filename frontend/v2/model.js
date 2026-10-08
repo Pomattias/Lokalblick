@@ -810,6 +810,54 @@ export function moveWish(data, id, target, actor) {
     nextType === "Underhåll" ? "Underhåll" : "Driftkostnader";
   audit(data, "activities", id, before, activity, actor);
 }
+// Keep one preferred source per canonical field and incoming file.
+export const importPreferenceKey=(col,field,source)=>[col,field,source].map(x=>String(x||"").trim().toLocaleLowerCase("sv")).join("|");
+export const reviewCollection=item=>item.collection||(item.kind==="conflict"||item.entity==="Avtal"?"contracts":item.entity==="Fastighet"?"properties":"");
+export const bulkEligible=item=>item?.status==="pending"&&["conflict","operational-conflict"].includes(item.kind)&&
+  Boolean(item.field)&&Boolean(item.source)&&["properties","contracts","activities"].includes(reviewCollection(item))&&
+  !["id","sourceId","propertyId","contractId","hyresberäkning","tilläggsberäkning"].includes(item.field);
+export function bulkReviewDecision(data,group,decision,actor) {
+  if(!["accept","reject"].includes(decision))throw Error("Välj en prioriterad källa.");
+  const items=(data.importReview||[]).filter(x=>bulkEligible(x)&&reviewCollection(x)===group.collection&&x.field===group.field&&x.source===group.source);
+  if(!items.length)throw Error("Inga konflikter att hantera.");
+  const seen=new Map();
+  for(const item of items) {
+    const id=item.recordId||item.contractId;
+    if(!id)throw Error("Koppling till objekt saknas; välj dessa poster manuellt.");
+    const key=id+"|"+item.field;
+    if(seen.has(key)&&JSON.stringify(seen.get(key))!==JSON.stringify(item.proposed))
+      throw Error("Motstridiga värden för samma objekt; välj dessa manuellt.");
+    seen.set(key,item.proposed);
+    if(decision==="accept"){
+      const row=(data[group.collection]||[]).find(x=>x.id===id);
+      if(!row||JSON.stringify(row[item.field]??"")!==JSON.stringify(item.current??""))
+        throw Error("Befintligt värde har ändrats; granska posten manuellt.");
+    }
+  }
+  // Repeated reports for the very same object/field/value are one real
+  // decision. Mark duplicate review cards as handled without duplicate edits.
+  const handled=new Set();
+  const now=new Date().toISOString();
+  for(const item of items) {
+    const key=(item.recordId||item.contractId)+"|"+item.field;
+    if(handled.has(key)) {
+      item.status=decision==="accept"?"accepted":"rejected";
+      item.resolvedBy=actor;
+      item.resolvedAt=now;
+      item.resolutionReason="Samma värde hanterades redan via källprioritet.";
+    } else {
+      resolveReview(data,item.id,decision,"",actor);
+      handled.add(key);
+    }
+  }
+  data.importFieldPreferences ||= {};
+  data.importFieldPreferences[importPreferenceKey(group.collection,group.field,group.source)]=decision;
+  return items.length;
+}
+export function clearSourcePreference(data,key) {
+  if(!Object.prototype.hasOwnProperty.call(data.importFieldPreferences||{},key))throw Error("Regeln saknas.");
+  delete data.importFieldPreferences[key];
+}
 export function resolveReview(data, id, decision, targetId, actor) {
   const item = data.importReview.find((x) => x.id === id);
   if (!item || item.status !== "pending")

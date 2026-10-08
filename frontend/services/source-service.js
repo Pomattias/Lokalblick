@@ -574,8 +574,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts"];
-  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts"];
+  const EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences"];
+  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
@@ -1238,7 +1238,17 @@
         const proposed=row[field];
         if(!hasImportValue(proposed))return;
         if(!hasImportValue(target[field])){target[field]=proposed;changed=true;return;}
-        if(!sameImportValue(target[field],proposed))importConflict(base,fileName,collection,entity,target,row,field,target[field],proposed);
+        if(!sameImportValue(target[field],proposed)){
+          const key=[collection,field,fileName].map(x=>String(x||"").trim().toLocaleLowerCase("sv")).join("|");
+          const rule=(base.importFieldPreferences||{})[key];
+          if(rule==="reject"&&!["id","sourceId","propertyId","contractId"].includes(field))return;
+          if(rule==="accept"&&!["id","sourceId","propertyId","contractId"].includes(field)){
+            target[field]=proposed;target.provenance||={};
+            target.provenance[field]={source:fileName,sheet:row.sourceSheet||"",row:row.sourceRow||"",value:proposed,confirmedBy:"Källprioritet"};
+            changed=true;return;
+          }
+          importConflict(base,fileName,collection,entity,target,row,field,target[field],proposed);
+        }
       });
       return changed;
     }

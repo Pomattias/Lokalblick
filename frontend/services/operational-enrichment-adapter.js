@@ -66,7 +66,17 @@
   function review(data, report, entry) {
     data.importReview = Array.isArray(data.importReview) ? data.importReview : [];
     var signature = [entry.kind, entry.source, entry.sheet, entry.row, entry.field, entry.targetId, entry.personName].map(text).join("|");
-    if (data.importReview.some(function (x) { return x.status === "pending" && x._signature === signature; })) return;
+    if (data.importReview.some(function (x) {
+      if(x.status!=="pending")return false;
+      if(x._signature===signature)return true;
+      // The first-pass core importer may have already logged the same conflict.
+      // The operational adapter must not show an identical second review.
+      return entry.kind==="operational-conflict"&&x.kind===entry.kind&&
+        x.source===entry.source&&x.collection===entry.collection&&
+        x.recordId===entry.recordId&&x.field===entry.field&&
+        JSON.stringify(x.current??"")===JSON.stringify(entry.current??"")&&
+        JSON.stringify(x.proposed??"")===JSON.stringify(entry.proposed??"");
+    })) return;
     var item = Object.assign({ id: "review:" + hash(signature + "|" + Date.now()), status: "pending", _signature: signature }, entry);
     data.importReview.push(item);
     report.needsReview.push(item);
@@ -238,6 +248,12 @@
       record[key] = value; addProvenance(record, key, value, source, sheet, row); return true;
     }
     if (JSON.stringify(record[key]) !== JSON.stringify(value) && !equivalentField(key,record[key],value)) {
+      const collection=recordCollection(data,record);
+      const rule=(data.importFieldPreferences||{})[[collection,key,source].map(x=>text(x).toLocaleLowerCase("sv")).join("|")];
+      if(rule==="reject"&&!["id","sourceId","propertyId","contractId"].includes(key))return false;
+      if(rule==="accept"&&!["id","sourceId","propertyId","contractId"].includes(key)){
+        record[key]=value;addProvenance(record,key,value,source,sheet,row);return true;
+      }
       review(data, report, { kind: "operational-conflict", source: source, sheet: sheet, row: row, collection: recordCollection(data, record), recordId: record.id, targetId: record.id, field: key, current: record[key], proposed: value });
     }
     return false;
