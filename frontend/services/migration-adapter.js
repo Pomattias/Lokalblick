@@ -263,7 +263,7 @@
       const ownerName=rawOwner && norm(rawOwner)!=="intern" ? rawOwner : "Stadsfastigheter";
       const ownerOrgId=ensureOrg(data,ownerName,"owner",norm(rawOwner)==="intern"?"Intern":"Extern");
       const manager=parseManager(cell(r,h,["Fastighetsförvaltare","Handläggare (id)"]));
-      const managerId=manager.name ? ensurePerson(data,manager.name,"","Fastighetsförvaltare",manager.sourceId,"",ownerOrgId) : "";
+      const managerId=manager.name ? ensurePerson(data,manager.name,"","Fastighetsförvaltare",manager.sourceId,"",sourceSheet==="EXT"?"":ownerOrgId) : "";
       const costCenter=text(cell(r,h,["Kostnadsställe","Fast.bet."]));
       const designation=/[A-Za-zÅÄÖåäö]/.test(costCenter) ? costCenter : "";
       const sourceSheet=item.sourceSheet||"Lokallista";
