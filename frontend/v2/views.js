@@ -606,12 +606,12 @@ export function sources(data, transport) {
     missingGeo.length + ' saknar koordinater.</p>' +
     (missingGeo.length
       ? '<p>Placera återstående fastigheter direkt på kartan. Klicka på adressen och välj byggnadens läge.</p>' +
-        '<div class="geo-missing-list">' + missingGeo.slice().sort((a,b) =>
+        '<details class="geo-details"><summary>Visa fastigheter som saknar position (' + missingGeo.length + ')</summary><div class="geo-missing-list">' + missingGeo.slice().sort((a,b) =>
           new Intl.Collator("sv-SE",{numeric:true,sensitivity:"base"}).compare(a.address || a.designation || "",b.address || b.designation || "")
         ).map(p => '<div class="geo-missing-row"><span><strong>' +
           esc(p.address || p.designation || "Fastighet utan adress") + '</strong><small>' +
           esc(p.city || "Ort saknas") + '</small></span><button type="button" data-geo-place="' +
-          esc(p.id) + '">Placera på karta</button></div>').join("") + '</div>'
+          esc(p.id) + '">Placera på karta</button></div>').join("") + '</div></details>'
       : '<p>Alla fastigheter har koordinater.</p>') + '</section>';
 
   return geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? "" : `<div class="actions"><button data-source="import">Läs in Excel</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom Lokalblick-data</button></div><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
@@ -628,7 +628,7 @@ export function sources(data, transport) {
         esc(x.importedAt),
       ]),
     ),
-  )}<div class="section-title review-title"><h3>Behöver granskas (${reviews.length})</h3><div class="actions"><small>Välj vilket värde som ska gälla. Valet loggas i ändringshistoriken.</small><button type="button" data-export-reviews ${reviews.length ? "" : "disabled"}>Exportera granskningsfel (JSON)</button></div></div>${
+  )}<div class="section-title review-title"><h3>Behöver granskas (${reviews.length})</h3><div class="actions"><small>Välj vilket värde som ska gälla. Valet loggas i ändringshistoriken.</small><button type="button" data-export-reviews ${reviews.length ? "" : "disabled"}>Exportera granskningsfel (JSON)</button></div></div><details class="review-details"><summary>Visa granskningsärenden (${reviews.length})</summary>${
     reviews
       .map((x) =>
         x.kind === "conflict" || x.kind === "operational-conflict"
@@ -636,7 +636,7 @@ export function sources(data, transport) {
           : reviewStandardCard(data, x),
       )
       .join("") || "<p>Inga öppna matchningar eller konflikter.</p>"
-  }<details><summary>Ändringar som väntar på Excel (${st.pendingChanges?.length || 0})</summary>${table(
+  }</details><details><summary>Ändringar som väntar på Excel (${st.pendingChanges?.length || 0})</summary>${table(
     ["Flik", "Post", "Ändring"],
     (st.pendingChanges || []).map((x) =>
       row([esc(x.sheet), esc(x.id), esc(x.action)]),
