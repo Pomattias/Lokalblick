@@ -26,7 +26,7 @@
       ["enrichmentSource","_enrichmentSource",true],["enrichmentSourceRow","_enrichmentSourceRow",true],["enrichmentTargetYear","_enrichmentTargetYear",true]
     ], display:["Fastighet","Verksamhetspart","Verksamhetsansvarig","Område"] },
     { sheet:"Parter", key:"organizations", prefix:"PART", columns:[
-      ["id","_id",true],["name","Part"],["type","Typ"],["ownerClass","Ägarklass"]
+      ["id","_id",true],["name","Part"],["type","Typ"],["ownerClass","Ägarklass"],["investmentRule","Investeringsregel"],["investmentThreshold","Investeringsgräns kr"],["rentSurchargeRate","Hyrespåslag %"]
     ]},
     { sheet:"Personer", key:"people", prefix:"P", columns:[
       ["id","_id",true],["name","Namn"],["organizationId","_organizationId",true],["unitId","_unitId",true],["role","Befattning"],["email","E-post"]
@@ -57,7 +57,7 @@
     columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["scopeType","Hemvisttyp"],["unitId","Område"],
-      ["type","Typ"],["title","Aktivitet"],["description","Beskrivning"],["category","Kategori"],["status","Status"],["priority","Prioritet"],
+      ["type","Typ"],["actionKind","Åtgärdens karaktär"],["rentSurchargeStartDate","Hyrespåslag från"],["title","Aktivitet"],["description","Beskrivning"],["category","Kategori"],["status","Status"],["priority","Prioritet"],
       ["planningYear","Planår"],["planningQuarter","Kvartal"],["planningMonth","Månad"],["budgetCategory","Budgetkategori"],["includeInBudget","Ta med i budget"],
       ["estimatedCost","Bedömd kostnad"],["phase","Fas"],["startDate","Start"],["endDate","Slut"]
     ],
@@ -561,8 +561,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","importReview","documents"];
-  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents"];
+  const EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts"];
+  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
