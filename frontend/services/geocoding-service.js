@@ -103,8 +103,16 @@
           error.code = payload && payload.code ? payload.code : "GEOCODING_ERROR";
           throw error;
         }
-        allResults.push.apply(allResults, Array.isArray(payload.results) ? payload.results : []);
-        if (typeof onProgress === 'function') onProgress({ total: properties.length, pending: missing.length, processed: Math.min(offset + batch.length, missing.length), matched: existing.length + allResults.filter(x => x.status === 'matched').length, review: allResults.filter(x => x.status === 'review').length, notFound: allResults.filter(x => x.status === 'not_found').length });
+        const batchResults = Array.isArray(payload.results) ? payload.results : [];
+        allResults.push.apply(allResults, batchResults);
+        if (typeof onProgress === 'function') onProgress({
+          total: properties.length, pending: missing.length,
+          processed: Math.min(offset + batch.length, missing.length),
+          matched: existing.length + allResults.filter(x => x.status === 'matched').length,
+          review: allResults.filter(x => x.status === 'review').length,
+          notFound: allResults.filter(x => x.status === 'not_found').length,
+          results: batchResults
+        });
       }
     } catch (error) {
       window.LokalblickGeocodingStatus = {
