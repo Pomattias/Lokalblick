@@ -828,10 +828,21 @@ document.addEventListener("change", (event) =>
         if (!record) throw Error("Aktiviteten saknas");
         const before = clone(record);
         const value = x.value;
-        if (value.startsWith("property:")) {
+        if (value.startsWith("contract:")) {
+          const id = value.slice("contract:".length);
+          const contract = d.contracts.find(c => String(c.id) === id);
+          if (!contract) throw Error("Avtalet saknas");
+          if (!d.properties.some(p => String(p.id) === String(contract.propertyId)))
+            throw Error("Avtalet saknar giltig fastighetskoppling");
+          // Avtalet är hemvistens källa; fastigheten härleds via avtalet.
+          record.contractId = contract.id;
+          record.propertyId = "";
+          record.unitId = "";
+          record.scopeType = "contract";
+        } else if (value.startsWith("property:")) {
           const id = value.slice(9);
           if (!d.properties.some(p => String(p.id) === id)) throw Error("Fastigheten saknas");
-          record.propertyId = id; record.unitId = ""; record.scopeType = "property";
+          record.propertyId = id; record.contractId = ""; record.unitId = ""; record.scopeType = "property";
         } else if (value.startsWith("unit:")) {
           record.propertyId = ""; record.contractId = ""; record.unitId = value.slice(5); record.scopeType = "unit";
         } else if (value === "general") {
