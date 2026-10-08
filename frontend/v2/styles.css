@@ -845,3 +845,19 @@ details .table-wrap {
 .compact-data-table .column-filters input { width:100%; min-width:65px; max-width:200px; border:1px solid var(--line,#dae3df); border-radius:5px; padding:4px 6px; background:var(--background,#fff); font-size:11px; text-transform:none; letter-spacing:normal; }
 .compact-data-table tr[hidden] { display:none !important; }
 .compact-data-table td button { padding:4px 8px; }
+
+/* V1 table density, V2 palette */
+.compact-data-table { margin-top:10px; border-radius:11px; }
+.compact-table-heading { display:flex; align-items:center; gap:12px; padding:9px 12px; min-height:34px; border-bottom:1px solid var(--line,#dce4de); font-size:12px; }
+.compact-table-heading strong { font-size:13px; color:var(--text,#163e37); }
+.compact-table-heading span { margin-left:auto; color:var(--muted,#60716d); font-size:11px; }
+.compact-table-heading button { border:0; background:none; padding:2px 4px; color:var(--muted,#60716d); cursor:pointer; }
+.compact-data-table th { padding:6px 9px; font-size:10px; }
+.compact-data-table .column-sort { padding:0; font-size:10px; font-weight:700; }
+.compact-data-table .column-sort span { font-size:9px; opacity:.6; }
+.compact-data-table td { height:34px; padding:6px 9px; font-size:12px; white-space:nowrap; }
+.compact-data-table td button.text-button { padding:0; margin:0; font-size:inherit; }
+.compact-data-table .column-filters[hidden] { display:none !important; }
+.compact-data-table .column-filters input { min-width:0; padding:4px; }
+.compact-data-table .table-pencil { border:0; background:transparent; color:var(--accent,#246b58); font-size:16px; padding:0 4px; }
+.compact-data-table td:last-child { width:32px; text-align:center; }
