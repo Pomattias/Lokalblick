@@ -397,13 +397,15 @@ export function planning(data, s, ui) {
     )
     .slice(-30)
     .reverse();
+  const priceBase = (data.priceBaseAmounts || []).find(p=>Number(p.year)===Number(ui.year));
+  const priceBaseControl = `<div class="plan-price-base"><label>Prisbasbelopp ${ui.year} (kr) <input type="number" min="1" step="1" data-price-base-year="${ui.year}" placeholder="Ange fastställt PBB" value="${priceBase?.amount ?? ""}"></label><small>Normal investeringsgräns: ${priceBase && Number(priceBase.amount)>0 ? money(Number(priceBase.amount)/2) : "Ej fastställd"}</small></div>`;
   const timelineControls = `<div class="actions"><button type="button" data-planning-mode="list" class="${ui.planningMode==="timeline"?"":"active"}">Lista</button><button type="button" data-planning-mode="timeline" class="${ui.planningMode==="timeline"?"active":""}">Tidslinje</button>${ui.planningMode==="timeline"?`<button type="button" data-timeline-span="1" class="${ui.timelineSpan===3?"":"active"}">1 år</button><button type="button" data-timeline-span="3" class="${ui.timelineSpan===3?"active":""}">3 år</button>`:""}</div>`;
   const timelineBody = ui.planningMode==="timeline" ? timelineView(data,items,ui) : null;
-  return `<div class="section-title"><h2>Fördela och planera</h2><div class="actions"><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${timelineControls}${timelineBody||table(
+  return `<div class="section-title"><h2>Fördela och planera</h2><div class="actions"><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${timelineControls}${priceBaseControl}${timelineBody||table(
     ["Uppgift", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
-        `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>`,
+        `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>${x.collection==="activities"&&x.record.actionKind ? `<small>${x.record.actionKind==="value_enhancing"?"Värdehöjande":"Utbyte 1:1"}</small>` : ""}`,
         x.collection === "activities"
           ? `<select data-activity-home="${esc(x.record.id)}" aria-label="Hemvist för ${esc(x.title)}">${options([
               ...(data.contracts || []).map(c => {
