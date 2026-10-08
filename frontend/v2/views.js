@@ -628,7 +628,7 @@ export function sources(data, transport) {
         esc(x.importedAt),
       ]),
     ),
-  )}<div class="section-title review-title"><h3>Behöver granskas (${reviews.length})</h3><small>Välj vilket värde som ska gälla. Valet loggas i ändringshistoriken.</small></div>${
+  )}<div class="section-title review-title"><h3>Behöver granskas (${reviews.length})</h3><div class="actions"><small>Välj vilket värde som ska gälla. Valet loggas i ändringshistoriken.</small><button type="button" data-export-reviews ${reviews.length ? "" : "disabled"}>Exportera granskningsfel (JSON)</button></div></div>${
     reviews
       .map((x) =>
         x.kind === "conflict" || x.kind === "operational-conflict"
