@@ -106,9 +106,26 @@ function startGeoEnrichment() {
     eligible.length + " adresser behandlas. Låt fliken vara öppen.");
   Promise.resolve().then(async () => {
     try {
-      await service.enrichData(snapshot, progress => notice(
-        geoProgressMessage(progress) + " Du kan fortsätta arbeta; låt fliken vara öppen."
-      ));
+      await service.enrichData(snapshot, progress => {
+        for (const item of progress.results || []) {
+          if (item.status !== "matched" || item.latitude == null || item.longitude == null) continue;
+          const source = snapshot.properties.find(p => String(p.id) === String(item.id));
+          const target = data.properties.find(p => String(p.id) === String(item.id));
+          if (!source || !target || target.address !== source.address || target.city !== source.city) continue;
+          target.latitude = item.latitude;
+          target.longitude = item.longitude;
+          source.latitude = item.latitude;
+          source.longitude = item.longitude;
+        }
+        if (ui.view === "map") {
+          const points = scope(data, selection).properties.filter(p =>
+            p.latitude != null && p.longitude != null && p.latitude !== "" && p.longitude !== "" &&
+            Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude))
+          ).map(p => ({...p, popupHtml: esc(p.address)}));
+          globalThis.LokalblickMapService?.update(points);
+        }
+        notice(geoProgressMessage(progress) + " Du kan arbeta vidare medan kartan fylls på; låt fliken vara öppen.");
+      });
       const byId = new Map(snapshot.properties.map(p => [String(p.id), p]));
       for (const current of data.properties) {
         const result = byId.get(String(current.id));
