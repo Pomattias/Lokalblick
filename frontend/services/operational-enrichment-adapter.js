@@ -222,12 +222,22 @@
     for (var i = 0; i < keys.length; i++) if ((data[keys[i]] || []).indexOf(record) >= 0) return keys[i];
     return "";
   }
+  function normalizedAddress(value) {
+    // Do not merge changed house numbers, suffixes, or address ranges.
+    return text(value).toLocaleLowerCase("sv").replace(/\s+/g," ")
+      .replace(/(\d)\s+([a-zåäö])(?=$|[\s,.])/gi,"$1$2").trim();
+  }
+  function equivalentField(key,oldValue,newValue) {
+    if (key==="address") return normalizedAddress(oldValue)===normalizedAddress(newValue);
+    if (typeof oldValue==="string" && typeof newValue==="string") return norm(oldValue)===norm(newValue);
+    return false;
+  }
   function setIfBlank(record, key, value, source, sheet, row, data, report) {
     if (value === "" || value == null || value === 0) return false;
     if (record[key] === "" || record[key] == null || record[key] === 0) {
       record[key] = value; addProvenance(record, key, value, source, sheet, row); return true;
     }
-    if (JSON.stringify(record[key]) !== JSON.stringify(value)) {
+    if (JSON.stringify(record[key]) !== JSON.stringify(value) && !equivalentField(key,record[key],value)) {
       review(data, report, { kind: "operational-conflict", source: source, sheet: sheet, row: row, collection: recordCollection(data, record), recordId: record.id, targetId: record.id, field: key, current: record[key], proposed: value });
     }
     return false;
@@ -252,21 +262,24 @@
     if (/felanm|trasig|larm|service|reparation|strömavbrott|stromavbrott|kärvar|karvar/.test(all)) return "Drift";
     return "Önskemål";
   }
-  function findActivity(data, propertyId, title, type) {
-    var all = activityCollections(data), exact = all.filter(function (x) { return (!propertyId || x.record.propertyId === propertyId) && norm(x.title) === norm(title); });
-    if (exact.length === 1) return exact[0];
-    var scored = all.map(function (x) {
-      if (propertyId && x.record.propertyId && x.record.propertyId !== propertyId) return { x: x, s: 0 };
-      var s = tokenSimilarity(x.title, title);
-      if (type && x.type === type) s += 0.12;
-      return { x: x, s: s };
-    }).filter(function (z) { return z.s >= 0.72; }).sort(function (a, b) { return b.s - a.s; });
-    if (scored.length && (!scored[1] || scored[0].s - scored[1].s >= 0.08)) return scored[0].x;
-    return null;
+  function findActivity(data, propertyId, title, type, sourceId, sourceOnly) {
+    // For orders, only exact source identity is safe. Similar titles can
+    // represent different orders and costs at the same premises.
+    if (sourceId) {
+      const existing=(data.activities||[]).filter(a=>a.sourceId===sourceId);
+      if (existing.length===1) return {collection:"activities",type:existing[0].type,record:existing[0]};
+      if (existing.length>1 || sourceOnly) return null;
+    }
+    if (!propertyId || !norm(title)) return null;
+    const matches=activityCollections(data).filter(x=>{
+      const pid=x.record.propertyId||(data.contracts||[]).find(c=>c.id===x.record.contractId)?.propertyId;
+      return pid===propertyId && x.type===type && norm(x.title)===norm(title);
+    });
+    return matches.length===1 ? matches[0] : null;
   }
   function createActivity(data, report, spec) {
     data.activities = Array.isArray(data.activities) ? data.activities : [];
-    var key = norm(spec.propertyId + "|" + spec.type + "|" + spec.title), id = "ACT|" + hash(key);
+    var key = norm(spec.sourceId || (spec.propertyId + "|" + spec.type + "|" + spec.title)), id = "ACT|" + hash(key);
     var existing = data.activities.find(function (x) { return x.id === id; });
     if (existing) return { collection: "activities", record: existing, created: false };
     var r = {
@@ -413,7 +426,9 @@
       var pm=matcher.match({name:business,business:business,address:business});
       var drift=num(cell(row,hit.headers,["Pris drift & underhåll"])),invest=num(cell(row,hit.headers,["Pris investering"])),type=invest>0?"Projekt":"Drift",cost=invest||drift;
       var done=/klart/i.test(text(cell(row,hit.headers,["Status (Enbart beställt eller klart)","Status"])));
-      var found=findActivity(data,pm.property?pm.property.id:"",title,type),spec={source:source,sheet:"Beställningar",row:i+1,propertyId:pm.property?pm.property.id:"",type:type,title:title,description:text(cell(row,hit.headers,["Kommentarer"])),category:"Beställning",status:done?"Klar":"Beställd",estimatedCost:cost,sourceId:"OP|Beställning|"+hash((pm.property?pm.property.id:aliasKey(business))+"|"+norm(title))};
+      var rowSourceId="OP|Beställning|"+hash(source+"|"+(i+1)+"|"+norm(title));
+      var found=findActivity(data,pm.property?pm.property.id:"",title,type,rowSourceId,true),
+        spec={source:source,sheet:"Beställningar",row:i+1,propertyId:pm.property?pm.property.id:"",type:type,title:title,description:text(cell(row,hit.headers,["Kommentarer"])),category:"Beställning",status:done?"Klar":"Beställd",estimatedCost:cost,sourceId:rowSourceId};
       var ref=found?enrichActivity(data,report,found,spec):createActivity(data,report,spec),r=ref.record;
       var order=createOrder(data,report,r,{id:"ORD|Beställning|"+hash(source+"|"+(i+1)+"|"+title),orderedAt:orderedAt,supplier:text(cell(row,hit.headers,["Leverantör"])),orderReference:text(cell(row,hit.headers,["Reqs","Diarienr"])),orderedCost:cost,deliveryText:text(cell(row,hit.headers,["Leveransdatum"])),completedAt:done?excelDate(cell(row,hit.headers,["Leveransdatum"])):"",finalCost:done?cost:0,paymentStatus:/faktura|betald/i.test(text(cell(row,hit.headers,["Kommentarer"])))?"Faktura registrerad":"",invoiceComment:text(cell(row,hit.headers,["Kommentarer"])),source:source,sheet:"Beställningar",row:i+1});
       previous=order;report.counts.ordersMatched++;

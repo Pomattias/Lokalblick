@@ -176,6 +176,25 @@
       total: rent.amount + addition.amount + media + tax,
     };
   }
+  // Derived display value, not a property field.
+  function propertyAnnualCost(data, propertyId, year) {
+    const plan=(data.budgetPlans||[]).find(p=>Number(p.year)===Number(year));
+    const result={rent:0,addition:0,media:0,tax:0,annualCost:0,activeContracts:0,needsReview:0,preliminary:0};
+    (data.contracts||[]).filter(c=>c.propertyId===propertyId).forEach(c=>{
+      const period=budgetPeriod(c,year);
+      if (!period.days) return;
+      const v=annualValues(c,year,plan?.preliminaryIndex,data.indexSeries);
+      result.rent+=v.rent.amount*period.factor;
+      result.addition+=v.addition.amount*period.factor;
+      result.media+=v.media*period.factor;
+      result.tax+=v.tax*period.factor;
+      result.activeContracts++;
+      if ([v.rent,v.addition].some(x=>x.status==="Behöver kontroll")) result.needsReview++;
+      if ([v.rent,v.addition].some(x=>x.preliminary)) result.preliminary++;
+    });
+    result.annualCost=result.rent+result.addition+result.media+result.tax;
+    return result;
+  }
   function noticeDate(c) {
     if (!c?.end || !Number(c.noticePeriodMonths)) return "";
     const end = new Date(c.end + "T00:00:00Z");
@@ -506,6 +525,7 @@
     indexedAmount,
     component,
     annualValues,
+    propertyAnnualCost,
     noticeDate,
     yearFactor,
     budgetPeriod,

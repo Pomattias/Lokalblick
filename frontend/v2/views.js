@@ -298,7 +298,7 @@ export function overview(data, s, ui) {
   let body = "";
   if (ui.perspective === "Fastigheter") {
     body = table(
-      ["Fastighet", "Adress", "Ansvarig hos oss", "Avtal", "Area", "Årskostnad", ""],
+      ["Fastighet", "Adress", "Ansvarig hos oss", "Avtal", "Area", `Årskostnad ${ui.year}`, ""],
       v.properties.map((p) => {
         const cs = v.contracts.filter((c) => c.propertyId === p.id);
         return row([
@@ -307,14 +307,10 @@ export function overview(data, s, ui) {
           esc(personLabel(data, p.responsiblePersonId)),
           num(cs.length) + " avtal",
           num(cs.reduce((sum, c) => sum + (Number(c.area) || 0), 0)) + " m²",
-          money(
-            cs.reduce(
-              (sum, c) =>
-                sum +
-                calc().annualValues(c, ui.year, 0, data.indexSeries).total,
-              0,
-            ),
-          ),
+          (() => {
+            const calculated=calc().propertyAnnualCost(data,p.id,ui.year);
+            return `<span title="Beräknat från avtalets hyra, tillägg, drift, skatt och aktuella avtalsperioder">${money(calculated.annualCost)}</span>${calculated.needsReview ? `<small class="rent-needs-review">${calculated.needsReview} avtal behöver kontroll</small>` : ""}${calculated.preliminary ? `<small>${calculated.preliminary} preliminära index</small>` : ""}`;
+          })(),
           edit("properties", p.id),
         ]);
       }),
@@ -670,9 +666,26 @@ function reviewValue(data, item, value) {
       : num(value);
   return String(value);
 }
-function reviewConflictCard(data, x) {
-  const label = reviewRecordLabel(data, x);
-  return `<section class="review review-conflict"><div class="review-main"><div class="review-heading"><div><strong>${esc(x.entity || (x.contractId ? "Avtal" : "Datakonflikt"))} · ${esc(importFieldLabel(x.field))}</strong>${label ? `<small class="review-context">${esc(label)}</small>` : ""}</div></div><div class="review-compare"><div class="review-value current"><span>Registrerat i Lokalblick</span><strong>${esc(reviewValue(data, x, x.current))}</strong><small>${esc(reviewCurrentSource(data, x))}</small></div><div class="review-value proposed"><span>Från importen</span><strong>${esc(reviewValue(data, x, x.proposed))}</strong><small>${esc(reviewIncomingSource(x))}</small></div></div></div><div class="actions review-actions"><button data-review="${esc(x.id)}" data-decision="reject">Behåll registrerat</button><button class="primary-action" data-review="${esc(x.id)}" data-decision="accept">Använd från filen</button></div></section>`;
+function reviewSuggestion(data,x) {
+  const normalizeAddress=s=>String(s??"").toLocaleLowerCase("sv")
+    .replace(/\s+/g," ").replace(/(\d)\s+([a-zåäö])(?=$|[\s,.])/gi,"$1$2").trim();
+  if(x.field==="address" && normalizeAddress(x.current)===normalizeAddress(x.proposed))
+    return {side:"current",title:"Samma adress – olika skrivsätt",detail:"Behåll tidigare registrerad stavning."};
+  if(x.field==="designation" && /står för lokalen/i.test(String(x.proposed||"")))
+    return {side:"current",title:"Inte en fastighetsbeteckning",detail:"Texten från filen ser ut att vara en kommentar."};
+  if(x.field==="ownerPartyId") return {side:"",title:"Kontrollera juridiskt bolag",detail:"Liknande företagsnamn innebär inte att fastighetsägaren är samma juridiska part."};
+  if(x.collection==="activities" && ["title","estimatedCost","name"].includes(x.field))
+    return {side:"",title:"Kan vara två skilda aktiviteter",detail:"Jämför källrad och arbetsbeskrivning innan du väljer."};
+  return null;
+}
+function reviewConflictCard(data,x) {
+  const label=reviewRecordLabel(data,x),hint=reviewSuggestion(data,x);
+  const notice=hint?`<p class="review-recommendation"><strong>${esc(hint.title)}</strong> · ${esc(hint.detail)}</p>`:"";
+  return `<section class="review review-conflict"><div class="review-main"><div class="review-heading"><div><strong>${esc(x.entity||(x.contractId?"Avtal":"Datakonflikt"))} · ${esc(importFieldLabel(x.field))}</strong>${label?`<small class="review-context">${esc(label)}</small>`:""}</div></div>${notice}
+  <div class="review-compare">
+    <div class="review-value current"><span>1 · Registrerat tidigare</span><strong>${esc(reviewValue(data,x,x.current))}</strong><small>${esc(reviewCurrentSource(data,x))}</small><button type="button" data-review="${esc(x.id)}" data-decision="reject" class="${hint?.side==="current"?"primary-action":""}">Välj detta värde</button></div>
+    <div class="review-value proposed"><span>2 · Från nya importfilen</span><strong>${esc(reviewValue(data,x,x.proposed))}</strong><small>${esc(reviewIncomingSource(x))}</small><button type="button" data-review="${esc(x.id)}" data-decision="accept">Välj detta värde</button></div>
+  </div></div></section>`;
 }
 function reviewStandardCard(data, x) {
   const title =
@@ -722,7 +735,8 @@ function reviewStandardCard(data, x) {
           "Välj befintligt avtal",
         )}</select></label>`
       : "";
-  return `<section class="review"><div><strong>${esc(title)}</strong><small>${esc(source)}</small><p>${esc(detail)}</p></div><div class="actions">${propertySelect}${contractSelect}<button data-review="${esc(x.id)}" data-decision="accept">Godkänn</button><button data-review="${esc(x.id)}" data-decision="reject">Avvisa</button></div></section>`;
+  const warning=x.kind==="person" ? "<p><small>Ofullständig identitet. Komplettera innan ansvaret bekräftas.</small></p>" : "";
+  return `<section class="review"><div><strong>${esc(title)}</strong><small>${esc(source)}</small><p>${esc(detail)}</p>${warning}</div><div class="actions">${propertySelect}${contractSelect}<button data-review="${esc(x.id)}" data-decision="accept">${x.kind==="person"?"Behåll preliminär person":"Godkänn"}</button><button data-review="${esc(x.id)}" data-decision="reject">${x.kind==="person"?"Ta bort preliminär person":"Avvisa"}</button></div></section>`;
 }
 export function sources(data, transport) {
   const st = transport.status(),
@@ -762,17 +776,36 @@ export function sources(data, transport) {
   const workingState = st.staged
     ? '<section class="detail"><strong>Osparad Lokalblick-arbetsyta</strong><p>Importerna och berikningarna ligger samlade i den här webbläsaren. Du kan läsa in fler filer utan mellansparning. Välj Spara som Lokalblick-data för att skapa din permanenta Excel-fil.</p><button type="button" data-source="create">Spara som Lokalblick-data</button></section>'
     : '';
+  // Source registry may have several processing stages for one physical file.
+  const sourceGroups=new Map();
+  (data.sourceRegistry||[]).forEach(src=>{
+    const name=String(src.name||"").trim(),key=name.toLocaleLowerCase("sv");
+    const sheets=String(src.sheets||"").split(",").map(x=>x.trim()).filter(Boolean);
+    const existing=sourceGroups.get(key);
+    if(!existing)sourceGroups.set(key,{
+      name,sheets:new Set(sheets),kinds:new Set([sourceKindLabel(src.kind)]),
+      rows:Number(src.rows)||0,matched:Number(src.matched)||0,created:Number(src.created)||0,
+      review:Number(src.review)||0,importedAt:src.importedAt||""
+    });
+    else {
+      sheets.forEach(x=>existing.sheets.add(x));existing.kinds.add(sourceKindLabel(src.kind));
+      existing.rows+=Number(src.rows)||0;existing.matched+=Number(src.matched)||0;
+      existing.created+=Number(src.created)||0;
+      existing.review=Math.max(existing.review,Number(src.review)||0);
+      if(String(src.importedAt||"")>String(existing.importedAt))existing.importedAt=src.importedAt;
+    }
+  });
   return workingState + simplifiedQuality + geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? "" : `<div class="actions"><button data-source="import">Läs in underlag</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button></div><details><summary>Avancerade filåtgärder</summary><button data-source="blank">Ny tom Lokalblick-data</button><p><small>En tom arbetsfil innehåller ingen tidigare data.</small></p></details><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
     ["Källa", "Flik(ar)", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
-    data.sourceRegistry.map((x) =>
+    [...sourceGroups.values()].map(x =>
       row([
         esc(x.name),
-        esc(x.sheets || "–"),
-        esc(sourceKindLabel(x.kind)),
+        esc([...x.sheets].join(", ") || "–"),
+        esc([...x.kinds].join(" + ")),
         num(x.rows),
-        num(x.matched || 0),
-        num(x.created || 0),
-        num(x.review || 0),
+        num(x.matched),
+        num(x.created),
+        num(x.review),
         esc(x.importedAt),
       ]),
     ),
