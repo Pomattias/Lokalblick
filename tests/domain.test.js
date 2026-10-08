@@ -261,26 +261,27 @@ test("day periodization includes leap year and end date", () => {
   );
   assert.equal(C.yearFactor({ end: "2023-12-31" }, 2024), 0);
 });
-test("budget period includes only months that affect the budget year", () => {
+test("budget period follows exact move-in and move-out days", () => {
   assert.deepEqual(
     plain(C.budgetPeriod({ moveInDate: "2027-09-01" }, 2027)),
     {
-      months: 3,
-      factor: 0.25,
+      days: 122,
+      daysInYear: 365,
+      factor: 122 / 365,
       from: "2027-09-01",
       to: "",
       startField: "moveInDate",
       endField: "",
-      label: "3/12",
+      label: "122/365",
     },
   );
   assert.equal(
-    C.budgetPeriod({ end: "2026-11-30" }, 2027).months,
+    C.budgetPeriod({ end: "2026-11-30" }, 2027).days,
     0,
   );
   assert.equal(
-    C.budgetPeriod({ start: "2020-01-01", end: "2027-11-30" }, 2027).months,
-    11,
+    C.budgetPeriod({ start: "2020-01-01", end: "2027-11-30" }, 2027).days,
+    334,
   );
   assert.equal(
     C.budgetPeriod(
@@ -290,11 +291,15 @@ test("budget period includes only months that affect the budget year", () => {
         moveInDate: "2027-09-01",
       },
       2027,
-    ).months,
-    3,
+    ).days,
+    122,
+  );
+  assert.equal(
+    C.budgetPeriod({ moveInDate: "2024-02-29", moveOutDate: "2024-02-29" }, 2024).days,
+    1,
   );
 });
-test("budget rows exclude expired contracts and periodize future move-ins", () => {
+test("budget rows exclude expired contracts and prorate from exact move-in day", () => {
   const active = {
     ...contract,
     id: "active",
@@ -317,9 +322,10 @@ test("budget rows exclude expired contracts and periodize future move-ins", () =
   );
   assert.equal(rows.length, 1);
   assert.equal(rows[0].sourceId, "active");
-  assert.equal(rows[0].budgetMonths, 3);
-  assert.equal(rows[0].budgetPeriod, "3/12");
-  assert.equal(rows[0].amount, 30000);
+  assert.equal(rows[0].budgetDays, 122);
+  assert.equal(rows[0].budgetDaysInYear, 365);
+  assert.equal(rows[0].budgetPeriod, "122/365");
+  assert.ok(Math.abs(rows[0].amount - 120000 * 122 / 365) < 0.001);
 });
 test("real INT/EXT parser keeps several contracts per property and blank numbers", () => {
   const svc = services(),
