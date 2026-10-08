@@ -647,7 +647,7 @@ export function scope(data, selection) {
     if (selection.propertyId && propertyId !== selection.propertyId) return false;
     if (selection.owner && property.ownerPartyId !== selection.owner) return false;
     if (selection.unit) {
-      const relatedUnit = contract
+      const relatedUnit = record.scopeType === "unit" ? record.unitId : contract
         ? contract.unitId
         : property.unitId ||
           (contractsByProperty.get(propertyId) || []).find(
