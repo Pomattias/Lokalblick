@@ -365,10 +365,20 @@ export function planning(data, s, ui) {
         `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>`,
         x.collection === "activities"
           ? `<select data-activity-home="${esc(x.record.id)}" aria-label="Hemvist för ${esc(x.title)}">${options([
+              ...(data.contracts || []).map(c => {
+                const property = (data.properties || []).find(p => p.id === c.propertyId);
+                return {
+                  id: "contract:" + c.id,
+                  label: "Avtal " + (c.number || c.id) + " · " +
+                    (c.businessName || c.use || "Verksamhet saknas") + " · " +
+                    (property?.address || property?.designation || "Fastighet saknas")
+                };
+              }),
               ...(data.properties || []).map(p => ({id:"property:"+p.id,label:"Fastighet · "+(p.address||p.id)})),
               ...Object.entries(units).map(([id,label])=>({id:"unit:"+id,label:"Område · "+label})),
               {id:"general",label:"Generell"}
-            ],x=>x.id,x=>x.label,x.record.propertyId?"property:"+x.record.propertyId:
+            ],x=>x.id,x=>x.label,x.record.contractId?"contract:"+x.record.contractId:
+            x.record.propertyId?"property:"+x.record.propertyId:
             x.record.scopeType==="unit"&&x.record.unitId?"unit:"+x.record.unitId:
             x.record.scopeType==="general"?"general":"","Ej fördelad")}</select>`
           : "<small>Fastighet</small>",
