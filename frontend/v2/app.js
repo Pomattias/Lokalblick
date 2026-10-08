@@ -19,6 +19,7 @@ import {
   planning,
   budget,
   sources,
+  economicSettings,
   organization,
   calc,
   categories,
@@ -50,6 +51,7 @@ const labels = {
   map: "Karta",
   sources: "Datakällor",
   people: "Parter",
+  settings: "Inställningar",
 };
 const actor = () =>
   data.currentUser?.name ||
@@ -433,7 +435,7 @@ function render() {
     );
   });
   filterArea.innerHTML = filters(data, selection);
-  document.querySelector("#summary").innerHTML = ["sources", "people"].includes(
+  document.querySelector("#summary").innerHTML = ["sources", "people", "settings"].includes(
     ui.view,
   )
     ? ""
@@ -471,6 +473,7 @@ function render() {
   if (ui.view === "budget") content.innerHTML = budget(data, selection, ui);
   if (ui.view === "budget") bindBudget();
   if (ui.view === "sources") content.innerHTML = sources(data, transport);
+  if (ui.view === "settings") content.innerHTML = economicSettings(data, ui);
   if (ui.view === "people") content.innerHTML = organization(data);
   if (ui.view === "map") {
     content.innerHTML =
@@ -702,6 +705,19 @@ document.addEventListener("click", (event) =>
     if (b.dataset.timelineSpan) {
       ui.timelineSpan = b.dataset.timelineSpan === "3" ? 3 : 1;
       render();
+      return;
+    }
+    if (b.dataset.priceBaseOfficial) {
+      const year=Number(b.dataset.priceBaseOfficial);
+      const known={2026:59200,2027:59600};
+      if (!Object.hasOwn(known,year)) { notice("Inget verifierat officiellt prisbasbelopp är tillgängligt för detta år."); return; }
+      await mutation(d=>{
+        if ((d.budgetPlans||[]).some(p=>Number(p.year)===year&&p.status==="Låst")) throw Error("Budgetåret är låst.");
+        d.priceBaseAmounts=d.priceBaseAmounts||[];
+        const previous=d.priceBaseAmounts.find(p=>Number(p.year)===year);
+        const value={year,amount:known[year],source:"Regeringen / SCB · fastställt prisbasbelopp",sourceUrl:year===2027?"https://www.regeringen.se/artiklar/2026/09/prisbasbelopp-for-2027-faststallt/":"https://www.regeringen.se/artiklar/2025/09/prisbasbelopp-for-2026-faststallt/",updatedAt:new Date().toISOString(),updatedBy:actor()};
+        if(previous)Object.assign(previous,value);else d.priceBaseAmounts.push(value);
+      });
       return;
     }
     if (b.hasAttribute("data-unassigned")) {
