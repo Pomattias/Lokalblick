@@ -231,21 +231,28 @@ export function summary(data, s, year, ui = {}) {
     ["Utan ansvarig", num(metrics.unassigned)],
   ]);
 }
+function contractComponentLabel(v) {
+  if (v.status === "Behöver kontroll")
+    return `<span title="${esc(v.reason || "Kontrollera avtalsunderlaget")}" class="rent-needs-review">${v.amount > 0 ? money(v.amount) + " · " : ""}Kontrollera</span>`;
+  return v.amount > 0
+    ? `<span title="${esc(v.status + " · " + v.source)}">${money(v.amount)}</span>`
+    : "–";
+}
 function contractRows(data, contracts, year) {
   return contracts.map(c=>{
     const p=(data.properties||[]).find(p=>p.id===c.propertyId)||{};
     const v=calc().annualValues(c,year,0,data.indexSeries);
     const area=Number(c.area)||0;
-    const amount=Number(v.rent.amount)||0;
-    const addition=Number(v.addition.amount)||0;
+    const total=v.rent.amount+v.addition.amount;
+    const complete=v.rent.status!=="Behöver kontroll"&&v.addition.status!=="Behöver kontroll";
     return row([
       esc(p.designation||"–"),
       `<button class="text-button" data-property="${esc(p.id||"")}">${esc(p.address||"–")}</button>`,
       `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||"Avtalsnummer saknas")}</strong></button>`,
       num(area),
-      v.rent.status==="Beräknad"?money(amount):amount?money(amount):"–",
-      addition?money(addition):"–",
-      area&&amount?money((amount+addition)/area):"–",
+      contractComponentLabel(v.rent),
+      contractComponentLabel(v.addition),
+      area&&total&&complete?money(total/area):"–",
       esc(c.end||"–"),
       esc(c.noticePeriodMonths==null||c.noticePeriodMonths===""?"–":c.noticePeriodMonths+" mån"),
       `<button class="table-pencil" data-edit="contracts" data-id="${esc(c.id)}" aria-label="Redigera avtal ${esc(c.number||c.id)}" title="Redigera">✎</button>`
@@ -301,7 +308,7 @@ export function overview(data, s, ui) {
     );
   } else if (ui.perspective === "Avtal")
     body = table(
-      ["Fastighet", "Adress", "Avtal", "Kvm", "Hyra / år", "Tillägg", "Kr/kvm", "Avtal t.o.m.", "Uppsägning", ""],
+      ["Fastighet", "Adress", "Avtal", "Kvm", `Hyra ${ui.year}`, `Tillägg ${ui.year}`, "Kr/kvm", "Avtal t.o.m.", "Uppsägning", ""],
       contractRows(data, v.contracts, ui.year),
       true,
       "Avtal",
@@ -318,6 +325,20 @@ export function overview(data, s, ui) {
     );
   return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div><div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
 }
+function contractIndexBreakdown(c, name, v, rawShare) {
+  const amount = v.status === "Behöver kontroll" && v.amount <= 0
+    ? "Kan inte beräknas" : money(v.amount);
+  const indexText = v.calculated && v.share > 0
+    ? `${v.indexYear}: ${indexFormat(v.usedIndex)}${v.preliminary ? " (preliminärt)" : ""}`
+    : v.share === 0 && v.calculated ? "Ej tillämpligt (0 %)" : "Saknas";
+  const basisText = v.calculated && v.share > 0
+    ? `${v.baseYear}: ${indexFormat(v.bastal)}` :
+      v.baseYear ? String(v.baseYear) : "–";
+  const share = rawShare === "" || rawShare == null ? "Saknas" :
+    Number.isFinite(v.share) ? indexFormat(v.share * 100) + " %" : "Ogiltig";
+  return `<tr><th scope="row">${esc(name)}</th><td>${money(v.base)}</td><td>${esc(basisText)}</td><td>${esc(share)}</td><td>${esc(indexText)}</td><td><strong>${esc(amount)}</strong></td><td>${badge(v.status)}</td></tr>`;
+}
+const indexFormat = v => new Intl.NumberFormat("sv-SE", {maximumFractionDigits:4}).format(Number(v)||0);
 export function contractDetail(data, id, year) {
   const c=data.contracts.find((x)=>x.id===id);
   if(!c)return "";
@@ -327,13 +348,22 @@ export function contractDetail(data, id, year) {
   const acts=(data.activities||[]).filter((a)=>a.contractId===c.id);
   const orders=(data.orders||[]).filter((o)=>acts.some((a)=>a.id===o.activityId));
   return `<section class="detail"><div class="section-title"><h2>Avtal ${esc(c.number||c.id)}</h2><button data-close-contract>Stäng detalj</button></div>
+  <section class="rent-calculation">
+    <h3>Årsberäkning ${year}</h3>
+    <p><small>Hyra och tillägg räknas separat: basbelopp × (1 + indexandel × (KPI oktober ${year-1} / bastal − 1)). Indexandelen 0 % innebär oförändrat basbelopp. Avtalets golvregel kan hindra sänkning. Preliminära eller ofullständiga underlag markeras.</small></p>
+    <div class="table-wrap"><table><thead><tr><th>Del</th><th>Basbelopp / år</th><th>Basår / bastal</th><th>Indexandel</th><th>KPI oktober</th><th>Belopp ${year}</th><th>Kontroll</th></tr></thead><tbody>
+    ${contractIndexBreakdown(c,"Hyra",v.rent,c.rentIndexPercent)}
+    ${contractIndexBreakdown(c,"Tillägg",v.addition,c.additionIndexPercent)}
+    </tbody></table></div>
+    <p><small>Indexkälla hyra: ${esc(v.rent.source)}${v.rent.reason ? " · "+esc(v.rent.reason) : ""}. Tillägg: ${esc(v.addition.source)}${v.addition.reason ? " · "+esc(v.addition.reason) : ""}.</small></p>
+  </section>
   <div class="detail-grid">
     <div><small>Verksamhet</small><strong>${esc(c.businessName||c.use||"–")}</strong><small>${esc(organizationLabel(data,c.businessPartyId))}</small></div>
     <div><small>Verksamhetsansvarig</small><strong>${esc(personLabel(data,c.businessResponsiblePersonId))}</strong></div>
     <div><small>Ansvarig hos oss · fastighet</small><strong>${esc(personLabel(data,p.responsiblePersonId))}</strong></div>
     <div><small>Fastighetsägarens ansvarige</small><strong>${esc(personLabel(data,p.ownerResponsiblePersonId))}</strong></div>
-    <div><small>Hyra ${year} · ${esc(v.rent.status)}</small><strong>${money(v.rent.amount)}</strong></div>
-    <div><small>Tillägg · ${esc(v.addition.status)}</small><strong>${money(v.addition.amount)}</strong></div>
+    <div><small>Hyra ${year} · ${esc(v.rent.status)}</small><strong>${v.rent.status==="Behöver kontroll"&&v.rent.amount<=0?"Kontrollera":money(v.rent.amount)}</strong></div>
+    <div><small>Tillägg · ${esc(v.addition.status)}</small><strong>${v.addition.status==="Behöver kontroll"&&v.addition.amount<=0?"Kontrollera":money(v.addition.amount)}</strong></div>
     <div><small>Hyra kr/kvm · beräknat</small><strong>${c.area>0?num(v.rent.amount/c.area):"–"}</strong></div>
     <div><small>Säg upp senast · beräknat</small><strong>${esc(notice||"–")}</strong></div>
   </div>

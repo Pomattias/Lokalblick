@@ -142,6 +142,12 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
         record.targetType,
         "Välj måltyp",
       )}</select>`;
+    else if (col === "contracts" && (key === "rentIndexPercent" || key === "additionIndexPercent")) {
+      const existing = record[key] === "" || record[key] == null ? "" : Number(record[key]);
+      const displayed = existing === "" || !Number.isFinite(existing)
+        ? "" : (existing > 1 ? existing : existing * 100);
+      control = `<input name="${key}" type="number" step="any" min="0" max="100" value="${esc(displayed)}" placeholder="0–100">`;
+    }
     else if (key === "rentSurchargeStartDate")
       control = `<input name="${key}" type="date" value="${esc(record[key]||"")}">`;
     else if (key === "unitId")
@@ -205,6 +211,10 @@ export function readEditor(form, record) {
   const out = clone(record);
   new FormData(form).forEach((value, key) => {
     out[key] = numeric.test(key) && value !== "" ? Number(value) : value;
+    // Editor explicitly shows percentage points (80 means 80 %);
+    // canonical model stores the share as 0.80.
+    if ((key === "rentIndexPercent" || key === "additionIndexPercent") && value !== "")
+      out[key] = Number(value) / 100;
   });
   if (Number(out.planningMonth)) {
     if (out.planningMonth < 1 || out.planningMonth > 12)

@@ -337,8 +337,10 @@
         if(rows.length) return;
       }
     });
+    // Keep conflicting imported October values for validation. Silently replacing
+    // one value with another could otherwise produce an incorrect annual rent.
     var map=new Map();
-    rows.forEach(function(x){map.set(String(x.year)+"|"+String(x.month),x);});
+    rows.forEach(function(x){map.set(String(x.year)+"|"+String(x.month)+"|"+String(x.value),x);});
     return Array.from(map.values()).sort(function(a,b){return a.year-b.year;});
   }
 

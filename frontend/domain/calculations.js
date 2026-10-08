@@ -98,27 +98,21 @@
         (!baseCode||baseCode===basisSeries);
     });
     const conflicting = new Set(comparableRows.map((x)=>number(x.value))).size > 1;
-    const calculated =
-      base > 0 &&
-      baseYear > 0 &&
-      bastal > 0 &&
-      usedIndex > 0 &&
-      validShare &&
-      !incompatible &&
-      !conflicting;
-    const amount = calculated
-      ? indexedAmount(
-          base,
-          bastal,
-          share,
-          usedIndex,
-          c[prefix + "Floor"] !== false,
-        )
+    // A contractual 0 % index share means the base amount is the annual amount.
+    // Such contracts must not depend on the presence of historical October CPI.
+    const unindexed = base > 0 && validShare && share === 0;
+    const calculated = unindexed || (
+      base > 0 && baseYear > 0 && bastal > 0 && usedIndex > 0 &&
+      validShare && !incompatible && !conflicting
+    );
+    const amount = unindexed ? base : calculated
+      ? indexedAmount(base, bastal, share, usedIndex, c[prefix + "Floor"] !== false)
       : sourceAmount;
-    const preliminary = calculated && !knownIndex;
+    const preliminary = calculated && !unindexed && !knownIndex;
     const missingRentInput = kind !== "addition" && base <= 0 && sourceAmount <= 0;
-    const needsReview =
-      incompatible || conflicting || missingRentInput || (base > 0 && !calculated);
+    const needsReview = missingRentInput ||
+      (share > 0 && (incompatible || conflicting)) ||
+      (base > 0 && !calculated);
     return {
       amount,
       calculated,
@@ -139,31 +133,34 @@
           : calculated
             ? "Beräknad"
             : "Källvärde",
-      reason: incompatible
+      reason: share > 0 && incompatible
         ? "KPI-seriernas bas skiljer sig"
-        : conflicting
+        : share > 0 && conflicting
           ? "Motstridiga oktoberindex"
           : missingRentInput
             ? "Bashyra saknas"
-            : needsReview
-              ? "Bashyra, basår, indexandel eller oktoberindex saknas"
-              : "",
-      source: calculated
-        ? (row?.source || "SCB KPI")
-        : c.provenance?.[kind === "addition" ? "annualAdditions" : "annualRent"]
-            ?.source ||
-          c.enrichmentSource ||
-          c.source ||
-          "Källvärde",
-      basedOn: calculated
-        ? [
-            kind === "addition" ? "Bastillägg" : "Bashyra",
-            "Basår " + baseYear,
-            "KPI oktober " + baseYear + " = " + bastal,
-            "Indexandel " + Math.round(share*10000)/100 + " %",
-            "KPI oktober " + indexYear + " = " + usedIndex,
-          ]
-        : [],
+            : base > 0 && !validShare
+              ? "Indexandel saknas eller är ogiltig"
+              : needsReview
+                ? "Basår, bastal eller oktoberindex saknas"
+                : "",
+      source: unindexed
+        ? "Avtalad bashyra / bastillägg (0 % index)"
+        : calculated
+          ? (preliminary ? "Preliminärt oktoberindex" : row?.source || "SCB KPI")
+          : c.provenance?.[kind === "addition" ? "annualAdditions" : "annualRent"]
+              ?.source || c.enrichmentSource || c.source || "Källvärde",
+      basedOn: unindexed
+        ? [kind === "addition" ? "Bastillägg" : "Bashyra", "Indexandel 0 % – ingen uppräkning"]
+        : calculated
+          ? [
+              kind === "addition" ? "Bastillägg" : "Bashyra",
+              "Basår " + baseYear,
+              "KPI oktober " + baseYear + " = " + bastal,
+              "Indexandel " + Math.round(share*10000)/100 + " %",
+              "KPI oktober " + indexYear + " = " + usedIndex,
+            ]
+          : [],
     };
   }
   function annualValues(c, year, preliminaryIndex, series) {
