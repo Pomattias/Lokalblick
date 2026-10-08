@@ -392,8 +392,10 @@
         designation:designation,address:address,number:number,documentUrl:documentUrl,
         comment:text(cell(row,headers,["Kommentar"])),use:use,department:text(cell(row,headers,["AVDELNING","Avdelning"])),
         category:category,landlord:text(cell(row,headers,["Hyresvärd","Hyresvard"])),
-        start:excelDate(cell(row,headers,["Fr.o.m.","Fr o m","Start"])),
-        end:excelDate(cell(row,headers,["T.o.m.","T o m","Slut"])),
+        start:excelDate(cell(row,headers,["Fr.o.m.","Fr o m","Start","Startdatum","Avtalsstart","Giltigt fr.o.m.","Giltigt from"])),
+        end:excelDate(cell(row,headers,["T.o.m.","T o m","Slut","Slutdatum","Avtalsslut","Giltigt t.o.m.","Giltigt tom","Aktuellt giltigt t.o.m."])),
+        moveInDate:excelDate(cell(row,headers,["Inflyttning","Inflyttningsdatum","Tillträde","Tillträdesdatum"])),
+        moveOutDate:excelDate(cell(row,headers,["Utflyttning","Utflyttningsdatum","Avflyttning","Avflyttningsdatum"])),
         notice:excelDate(cell(row,headers,["Sägs upp senast","Sags upp senast"])),
         noticePeriodMonths:num(cell(row,headers,["Uppsägningstid månader","Uppsagningstid månader","Uppsägningstid"])),
         renewalPeriodMonths:num(cell(row,headers,["Förlängningstid månader","Forlangningstid månader","Förlängningstid"])),
@@ -460,10 +462,13 @@
       }
       if(r.start && c.start && r.start!==c.start) report.discrepancies.push({contractId:c.id,field:"start",primary:c.start,enrichment:r.start,sourceRow:r.sourceRow});
       if(r.end && c.end && r.end!==c.end) report.discrepancies.push({contractId:c.id,field:"end",primary:c.end,enrichment:r.end,sourceRow:r.sourceRow});
+      if(r.moveInDate && c.moveInDate && r.moveInDate!==c.moveInDate) report.discrepancies.push({contractId:c.id,field:"moveInDate",primary:c.moveInDate,enrichment:r.moveInDate,sourceRow:r.sourceRow});
+      if(r.moveOutDate && c.moveOutDate && r.moveOutDate!==c.moveOutDate) report.discrepancies.push({contractId:c.id,field:"moveOutDate",primary:c.moveOutDate,enrichment:r.moveOutDate,sourceRow:r.sourceRow});
 
       // Identity / core terms: INT/EXT remains authoritative. Only fill blanks.
       setIfBlank(c,"number",r.number); setIfBlank(c,"area",r.area); setIfBlank(c,"category",r.category);
-      setIfBlank(c,"use",r.use); setIfBlank(c,"start",r.start); setIfBlank(c,"end",r.end); setIfBlank(c,"notice",r.notice);
+      setIfBlank(c,"use",r.use); setIfBlank(c,"start",r.start); setIfBlank(c,"end",r.end);
+      setIfBlank(c,"moveInDate",r.moveInDate); setIfBlank(c,"moveOutDate",r.moveOutDate); setIfBlank(c,"notice",r.notice);
       setIfBlank(c,"unitId",unitId(r.department));
       if(property){
         setIfBlank(property,"designation",r.designation); setIfBlank(property,"address",r.address);
@@ -507,7 +512,7 @@
 
       c.provenance=c.provenance||{};
       Object.keys(c).filter(function(k){return k!=="provenance" && JSON.stringify(c[k])!==JSON.stringify(before[k]);}).forEach(function(k){c.provenance[k]={source:/^calculated/.test(k)?"calculated":fileName||hit.sheet,sheet:hit.sheet,row:r.sourceRow,value:c[k]};});
-      ["number","area","start","end","use"].forEach(function(k){if(!c.provenance[k])c.provenance[k]={source:c.source||c.sourceSheet||"INT/EXT",sheet:c.sourceSheet||"",row:c.sourceRow||"",value:c[k]};});
+      ["number","area","start","end","moveInDate","moveOutDate","use"].forEach(function(k){if(!c.provenance[k] && c[k])c.provenance[k]={source:c.source||c.sourceSheet||"INT/EXT",sheet:c.sourceSheet||"",row:c.sourceRow||"",value:c[k]};});
       report.matched.push({sourceRow:r.sourceRow,contractId:c.id,number:c.number||"",method:match.method,score:match.score,reasons:match.reasons||[]});
     });
 
