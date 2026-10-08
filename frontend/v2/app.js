@@ -827,7 +827,7 @@ document.addEventListener("change", (event) =>
       await mutation(d => {
         const activity = d.activities.find(a => String(a.id) === String(x.dataset.activityYearAmount));
         if (!activity) throw Error("Aktiviteten saknas");
-        const year = Number(x.dataset.year);
+        const year = Number(x.dataset.allocationYear);
         if (!Number.isInteger(year) || year < 2000 || year > 2200) throw Error("Ogiltigt budgetår");
         if ((d.budgetPlans || []).some(p => Number(p.year) === year && p.status === "Låst"))
           throw Error("Budgetåret är låst. Ändringar ska göras i ny prognos.");
