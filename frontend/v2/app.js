@@ -5,6 +5,7 @@ import {
   scope,
   audit,
   assign,
+  setActivityHome,
   moveWish,
   resolveReview,
 } from "./model.js";
@@ -823,35 +824,7 @@ document.addEventListener("change", (event) =>
       return;
     }
     if (x.dataset.activityHome) {
-      await mutation(d => {
-        const record = d.activities.find(a => String(a.id) === String(x.dataset.activityHome));
-        if (!record) throw Error("Aktiviteten saknas");
-        const before = clone(record);
-        const value = x.value;
-        if (value.startsWith("contract:")) {
-          const id = value.slice("contract:".length);
-          const contract = d.contracts.find(c => String(c.id) === id);
-          if (!contract) throw Error("Avtalet saknas");
-          if (!d.properties.some(p => String(p.id) === String(contract.propertyId)))
-            throw Error("Avtalet saknar giltig fastighetskoppling");
-          // Avtalet är hemvistens källa; fastigheten härleds via avtalet.
-          record.contractId = contract.id;
-          record.propertyId = "";
-          record.unitId = "";
-          record.scopeType = "contract";
-        } else if (value.startsWith("property:")) {
-          const id = value.slice(9);
-          if (!d.properties.some(p => String(p.id) === id)) throw Error("Fastigheten saknas");
-          record.propertyId = id; record.contractId = ""; record.unitId = ""; record.scopeType = "property";
-        } else if (value.startsWith("unit:")) {
-          record.propertyId = ""; record.contractId = ""; record.unitId = value.slice(5); record.scopeType = "unit";
-        } else if (value === "general") {
-          record.propertyId = ""; record.contractId = ""; record.unitId = ""; record.scopeType = "general";
-        } else {
-          record.propertyId = ""; record.contractId = ""; record.unitId = ""; record.scopeType = "";
-        }
-        audit(d, "activities", record.id, before, record, actor());
-      });
+      await mutation(d => setActivityHome(d, x.dataset.activityHome, x.value, actor()));
       return;
     }
     if (x.dataset.assign)
