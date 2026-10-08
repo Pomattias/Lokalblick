@@ -274,6 +274,40 @@
   }
   const budgetIncluded = (x) =>
     x?.budgetIncluded !== false && x?.includeInBudget !== "Nej";
+  function activityPlannedInYear(activity, year) {
+    const targetYear = number(year);
+    const plannedYear = number(activity && activity.planningYear);
+    if (plannedYear) return plannedYear === targetYear;
+
+    const explicitAmount = number(
+      activity && activity["budgetAmount" + targetYear],
+    );
+    if (explicitAmount > 0) return true;
+
+    const startValue = activity && activity.startDate;
+    const endValue = activity && activity.endDate;
+    if (!startValue && !endValue) return false;
+
+    const start = validDate(startValue);
+    const end = validDate(endValue);
+    if ((startValue && !start) || (endValue && !end)) return false;
+
+    const yearStart = new Date(Date.UTC(targetYear, 0, 1));
+    const nextYear = new Date(Date.UTC(targetYear + 1, 0, 1));
+    const effectiveStart = start || new Date(-8640000000000000);
+    const endExclusive = end
+      ? new Date(end.getTime() + 86400000)
+      : new Date(8640000000000000);
+    return effectiveStart < nextYear && endExclusive > yearStart;
+  }
+
+  function activityBudgetAmount(activity, year) {
+    const explicit = number(
+      activity && activity["budgetAmount" + number(year)],
+    );
+    return explicit > 0 ? explicit : number(activity && activity.estimatedCost);
+  }
+
   function budgetIndex(data, year, preliminaryIndex) {
     const indexYear = number(year) - 1;
     const row = october((data && data.indexSeries) || [], indexYear, "1980");
@@ -352,7 +386,7 @@
     (data.activities || [])
       .filter(
         (x) =>
-          number(x.planningYear) === number(year) &&
+          activityPlannedInYear(x, year) &&
           budgetIncluded(x) &&
           x.status !== "Avslaget",
       )
@@ -372,7 +406,7 @@
           add(
             x,
             category,
-            number(x.estimatedCost),
+            activityBudgetAmount(x, year),
             "activity",
             x.title,
           );
@@ -425,14 +459,14 @@
       });
     (data.orders || []).forEach((order) => {
       const activity=(data.activities||[]).find((x)=>x.id===order.activityId);
-      if(!activity || number(activity.planningYear)!==number(year)) return;
+      if(!activity || !activityPlannedInYear(activity, year)) return;
       const propertyId=activity.propertyId || (data.contracts||[]).find((c)=>c.id===activity.contractId)?.propertyId || "";
       if(activity.contractId ? !ids.has(activity.contractId) : !pids.has(propertyId)) return;
       const category=activity.budgetCategory || {Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Utredning:"Utredningar"}[activity.type];
       const amount=number(order.finalCost);
       if(category && category!=="Ej budget" && amount) rows.push({category,amount,sourceId:activity.id,orderId:order.id});
     });
-    (data.activities || []).filter((x)=>!(data.orders||[]).some((o)=>o.activityId===x.id)).filter((x)=>number(x.planningYear)===number(year)&&(x.contractId?ids.has(x.contractId):pids.has(x.propertyId))).forEach((x)=>{const category=x.budgetCategory||{Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Utredning:"Utredningar"}[x.type];const amount=number(x.finalCost);if(category&&category!=="Ej budget"&&amount)rows.push({category,amount,sourceId:x.id});});
+    (data.activities || []).filter((x)=>!(data.orders||[]).some((o)=>o.activityId===x.id)).filter((x)=>activityPlannedInYear(x,year)&&(x.contractId?ids.has(x.contractId):pids.has(x.propertyId))).forEach((x)=>{const category=x.budgetCategory||{Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Utredning:"Utredningar"}[x.type];const amount=number(x.finalCost);if(category&&category!=="Ej budget"&&amount)rows.push({category,amount,sourceId:x.id});});
     return rows;
   }
   root.LokalblickCalculations = {
@@ -446,6 +480,8 @@
     yearFactor,
     budgetPeriod,
     budgetYearFactor,
+    activityPlannedInYear,
+    activityBudgetAmount,
     budgetIndex,
     budgetRows,
     actualRows,
