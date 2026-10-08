@@ -276,36 +276,38 @@
     x?.budgetIncluded !== false && x?.includeInBudget !== "Nej";
   function activityPlannedInYear(activity, year) {
     const targetYear = number(year);
-    const plannedYear = number(activity && activity.planningYear);
-    if (plannedYear) return plannedYear === targetYear;
-
-    const explicitAmount = number(
-      activity && activity["budgetAmount" + targetYear],
-    );
-    if (explicitAmount > 0) return true;
-
-    const startValue = activity && activity.startDate;
-    const endValue = activity && activity.endDate;
-    if (!startValue && !endValue) return false;
-
-    const start = validDate(startValue);
-    const end = validDate(endValue);
+    const allocations = Array.isArray(activity?.yearAllocations) ? activity.yearAllocations : [];
+    if (allocations.some(row => Number(row.year) === targetYear)) return true;
+    const startValue = activity?.startDate, endValue = activity?.endDate;
+    const start = startValue ? validDate(startValue) : null;
+    const end = endValue ? validDate(endValue) : null;
     if ((startValue && !start) || (endValue && !end)) return false;
-
-    const yearStart = new Date(Date.UTC(targetYear, 0, 1));
-    const nextYear = new Date(Date.UTC(targetYear + 1, 0, 1));
-    const effectiveStart = start || new Date(-8640000000000000);
-    const endExclusive = end
-      ? new Date(end.getTime() + 86400000)
-      : new Date(8640000000000000);
-    return effectiveStart < nextYear && endExclusive > yearStart;
+    if (start || end) {
+      const first = start ? start.getUTCFullYear() : end.getUTCFullYear();
+      const last = end ? end.getUTCFullYear() : start.getUTCFullYear();
+      return targetYear >= first && targetYear <= last;
+    }
+    const plannedYear = number(activity?.planningYear);
+    if (plannedYear) return plannedYear === targetYear;
+    return number(activity?.["budgetAmount" + targetYear]) > 0;
   }
 
   function activityBudgetAmount(activity, year) {
-    const explicit = number(
-      activity && activity["budgetAmount" + number(year)],
-    );
-    return explicit > 0 ? explicit : number(activity && activity.estimatedCost);
+    const targetYear = number(year);
+    const allocations = Array.isArray(activity?.yearAllocations) ? activity.yearAllocations : [];
+    // Year allocations are authoritative, including an explicitly budgeted zero.
+    const entry = allocations.find(row => Number(row.year) === targetYear);
+    if (entry) return Math.max(0, number(entry.amount));
+    // Never repeat the same legacy estimate over several years.
+    const start = activity?.startDate ? validDate(activity.startDate) : null;
+    const end = activity?.endDate ? validDate(activity.endDate) : null;
+    const firstYear = start?.getUTCFullYear(), lastYear = end?.getUTCFullYear();
+    const spansYears = Boolean(firstYear && lastYear && firstYear !== lastYear);
+    const explicit = number(activity?.["budgetAmount" + targetYear]);
+    if (explicit > 0) return explicit;
+    if (spansYears) return 0; // Requires explicit per-year allocation.
+    if (number(activity?.planningYear) && number(activity.planningYear) !== targetYear) return 0;
+    return number(activity?.estimatedCost);
   }
 
   function budgetIndex(data, year, preliminaryIndex) {
