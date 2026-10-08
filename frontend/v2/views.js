@@ -79,8 +79,17 @@ export function filters(data, s) {
     "Alla ägare",
   )}</select></label><label class="search">Sök<input data-filter="q" type="search" value="${esc(s.q)}" placeholder="Adress, avtal eller verksamhet"></label></div>`;
 }
-const propertyLabel = (data, id) =>
-  data.properties.find((x) => x.id === id)?.address || id || "Ej kopplad";
+// Treat the cadastral designation and street address as independent values.
+export const propertyDesignation = property => String(property?.designation || "").trim();
+export const propertyAddress = property => String(property?.address || "").trim();
+export const propertyReference = property => property
+  ? [propertyDesignation(property) || "Beteckning saknas", propertyAddress(property)].filter(Boolean).join(" · ")
+  : "Ej kopplad";
+const propertyById = (data, id) => (data.properties || []).find(p => p.id === id);
+const propertyLabel = (data, id) => propertyReference(propertyById(data, id));
+const propertyAddressCell = property => property?.id && propertyAddress(property)
+  ? `<button class="text-button" data-property="${esc(property.id)}">${esc(propertyAddress(property))}</button>`
+  : "–";
 const personLabel = (data, id) =>
   data.people.find((x) => x.id === id)?.name || "Ej fördelat";
 const internalPeople = (data) =>
@@ -246,8 +255,8 @@ function contractRows(data, contracts, year) {
     const total=v.rent.amount+v.addition.amount;
     const complete=v.rent.status!=="Behöver kontroll"&&v.addition.status!=="Behöver kontroll";
     return row([
-      esc(p.designation||"–"),
-      `<button class="text-button" data-property="${esc(p.id||"")}">${esc(p.address||"–")}</button>`,
+      esc(propertyDesignation(p) || "–"),
+      propertyAddressCell(p),
       `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||"Avtalsnummer saknas")}</strong></button>`,
       num(area),
       contractComponentLabel(v.rent),
@@ -260,15 +269,18 @@ function contractRows(data, contracts, year) {
   });
 }
 function activityRows(data, items) {
-  return items.map((x) =>
-    row([
-      `<strong>${esc(x.title)}</strong><small>${esc(propertyLabel(data, x.propertyId))} · ${esc(x.label)}</small>`,
+  return items.map(x => {
+    const property = propertyById(data, x.propertyId);
+    return row([
+      `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>`,
+      esc(propertyDesignation(property) || "–"),
+      propertyAddressCell(property),
       esc(personLabel(data, responsible(data, x.collection, x.record))),
       badge(x.record.status),
       money(x.cost),
       edit(x.collection, x.record.id),
-    ]),
-  );
+    ]);
+  });
 }
 export function overview(data, s, ui) {
   const v = scope(data, s);
@@ -286,11 +298,12 @@ export function overview(data, s, ui) {
   let body = "";
   if (ui.perspective === "Fastigheter") {
     body = table(
-      ["Fastighet", "Ansvarig hos oss", "Avtal", "Area", "Årskostnad", ""],
+      ["Fastighet", "Adress", "Ansvarig hos oss", "Avtal", "Area", "Årskostnad", ""],
       v.properties.map((p) => {
         const cs = v.contracts.filter((c) => c.propertyId === p.id);
         return row([
-          `<button class="text-button" data-property="${esc(p.id)}">${esc(p.address || p.designation || p.id)}</button><small>${esc(propertyOwnerLabel(data, p))}</small>`,
+          esc(propertyDesignation(p) || "–"),
+          `${propertyAddressCell(p)}<small>${esc(propertyOwnerLabel(data, p))}</small>`,
           esc(personLabel(data, p.responsiblePersonId)),
           num(cs.length) + " avtal",
           num(cs.reduce((sum, c) => sum + (Number(c.area) || 0), 0)) + " m²",
@@ -315,7 +328,7 @@ export function overview(data, s, ui) {
     );
   else
     body = table(
-      ["Aktivitet", "Ansvarig", "Status", "Kostnad", ""],
+      ["Aktivitet", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", ""],
       activityRows(
         data,
         v.items.filter((x) => x.label === ui.perspective),
@@ -436,7 +449,7 @@ export function planning(data, s, ui) {
     label: "Fastighet",
     record: p,
     propertyId: p.id,
-    title: p.address || p.designation || p.id,
+    title: "Fastighetsansvar",
     cost: 0,
   }));
   let items = propertyItems.concat(v.items);
@@ -458,10 +471,12 @@ export function planning(data, s, ui) {
   const timelineControls = `<div class="actions"><button type="button" data-planning-mode="list" class="${ui.planningMode==="timeline"?"":"active"}">Lista</button><button type="button" data-planning-mode="timeline" class="${ui.planningMode==="timeline"?"active":""}">Tidslinje</button>${ui.planningMode==="timeline"?`<button type="button" data-timeline-span="1" class="${ui.timelineSpan===3?"":"active"}">1 år</button><button type="button" data-timeline-span="3" class="${ui.timelineSpan===3?"active":""}">3 år</button>`:""}</div>`;
   const timelineBody = ui.planningMode==="timeline" ? timelineView(data,items,ui) : null;
   return `<div class="section-title"><h2>Fördela och planera</h2><div class="actions"><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${timelineControls}${timelineBody||table(
-    ["Uppgift", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
+    ["Uppgift", "Fastighet", "Adress", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
         `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>${x.collection==="activities"&&x.record.actionKind ? `<small>${x.record.actionKind==="value_enhancing"?"Värdehöjande":"Utbyte 1:1"}</small>` : ""}`,
+        esc(propertyDesignation(propertyById(data, x.propertyId)) || "–"),
+        propertyAddressCell(propertyById(data, x.propertyId)),
         x.collection === "activities"
           ? `<select data-activity-home="${esc(x.record.id)}" aria-label="Hemvist för ${esc(x.title)}">${options([
               ...(data.contracts || []).map(c => {
@@ -470,10 +485,10 @@ export function planning(data, s, ui) {
                   id: "contract:" + c.id,
                   label: "Avtal " + (c.number || c.id) + " · " +
                     (c.businessName || c.use || "Verksamhet saknas") + " · " +
-                    (property?.address || property?.designation || "Fastighet saknas")
+                    propertyReference(property)
                 };
               }),
-              ...(data.properties || []).map(p => ({id:"property:"+p.id,label:"Fastighet · "+(p.address||p.id)})),
+              ...(data.properties || []).map(p => ({id:"property:"+p.id,label:"Fastighet · "+propertyReference(p)})),
               ...Object.entries(units).map(([id,label])=>({id:"unit:"+id,label:"Område · "+label})),
               {id:"general",label:"Generell"}
             ],x=>x.id,x=>x.label,x.record.contractId?"contract:"+x.record.contractId:
@@ -689,7 +704,7 @@ function reviewStandardCard(data, x) {
     ? `<label>Fastighet<select data-review-target="${esc(x.id)}">${options(
         data.properties,
         (p) => p.id,
-        (p) => p.address || p.id,
+        (p) => propertyReference(p),
         x.record?.propertyId || "",
         "Välj fastighet",
       )}</select></label>`

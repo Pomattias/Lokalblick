@@ -1,7 +1,7 @@
-import { esc, options, calc, units } from "./views.js";
+import { esc, options, calc, units, propertyReference } from "./views.js";
 import { clone } from "./model.js";
 const relations = {
-  propertyId: ["properties", (x) => x.address || x.id],
+  propertyId: ["properties", propertyReference],
   contractId: ["contracts", (x) => x.number || x.id],
   activityId: ["activities", (x) => x.title || x.id],
   organizationId: ["organizations", (x) => x.name],
