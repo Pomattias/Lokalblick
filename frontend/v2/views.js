@@ -347,13 +347,18 @@ export function planning(data, s, ui) {
     (x) => !responsible(data, x.collection, x.record),
   );
   if (ui.unassigned) items = missing;
+  const withoutHome = items.filter(x => x.collection === "activities" &&
+    !x.record.propertyId && !x.record.contractId &&
+    x.record.scopeType !== "general" &&
+    !(x.record.scopeType === "unit" && x.record.unitId));
+  if (ui.unassignedHome) items = withoutHome;
   const history = (data.auditLog || [])
     .filter((h) =>
       (h.fields || []).some((f) => f.field === "responsiblePersonId"),
     )
     .slice(-30)
     .reverse();
-  return `<div class="section-title"><h2>Fördela och planera</h2><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button></div>${table(
+  return `<div class="section-title"><h2>Fördela och planera</h2><div class="actions"><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${table(
     ["Uppgift", "Hemvist", "Ansvarig hos oss", "År / period", "Kostnad", ""],
     items.map((x) =>
       row([
