@@ -64,6 +64,10 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     ownerResponsiblePersonId: "Ansvarig hos fastighetsägaren",
     businessResponsiblePersonId: "Verksamhetsansvarig",
     orderedByPersonId: "Beställd av",
+    start: "Avtalsstart",
+    end: "Avtalsslut",
+    moveInDate: "Inflyttning",
+    moveOutDate: "Utflyttning",
     targetType: "Posttyp",
     targetId: "Post",
   };
@@ -192,6 +196,8 @@ export function readEditor(form, record) {
     )
       throw Error("Indexandel anges mellan 0 och 1");
   if (out.start && out.end && out.end < out.start)
-    throw Error("Slutdatum är före startdatum");
+    throw Error("Avtalsslut är före avtalsstart");
+  if (out.moveInDate && out.moveOutDate && out.moveOutDate < out.moveInDate)
+    throw Error("Utflyttning är före inflyttning");
   return out;
 }
