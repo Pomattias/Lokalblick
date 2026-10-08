@@ -358,9 +358,16 @@ function timelineView(data, items, ui) {
     } else if(Array.isArray(a.planningMonths)&&a.planningMonths.length && Number(a.planningYear)===first) {
       bar=a.planningMonths.filter(n=>Number(n)>=1&&Number(n)<=12).map(n=>`<span class="timeline-bar planned" style="left:${((Number(n)-1)/(12*span))*100}%;width:${100/(12*span)}%"></span>`).join("");
     }
-    const costs=(a.yearAllocations||[]).filter(t=>Number(t.year)>=first&&Number(t.year)<first+span).reduce((sum,t)=>sum+(Number(t.amount)||0),0);
+    const allocations=(a.yearAllocations||[]);
+    const readOnly = (data.budgetPlans||[]).some(p=>Number(p.year)===year && p.status==="Låst");
+    const unverified=a.project2027BudgetUnit==="unverified";
+    const rentFinanced=a.financingMethod==="rent_supplement"||a.project2027RentSurcharge;
+    const annual=allocations.find(t=>Number(t.year)===year);
     const home=a.contractId?"Avtal":a.propertyId?"Fastighet":a.scopeType==="unit"?"Område":a.scopeType==="general"?"Generell":"Utan hemvist";
-    return `<div class="timeline-row"><div class="timeline-label"><button type="button" class="text-button" data-edit="activities" data-id="${esc(a.id)}">${esc(x.title)}</button><small>${esc(home)} · ${esc(a.status||"Planerad")}</small></div><div class="timeline-track">${months.map(()=>'<span class="timeline-grid-cell"></span>').join("")}${bar||'<span class="timeline-unscheduled">Ej tidsatt</span>'}</div><div class="timeline-cost">${a.project2027BudgetUnit==="unverified"?"Ej verifierad":a.financingMethod==="rent_supplement"||a.project2027RentSurcharge?"Hyrespåslag":costs?money(costs):"–"}</div></div>`;
+    const amount = readOnly || unverified || rentFinanced
+      ? `<span title="${readOnly?"Budgetåret är låst":unverified?"Källbeloppet behöver verifieras":"Finansieras via hyra"}">${unverified?"Ej verifierad":rentFinanced?"Hyrespåslag":annual?money(Number(annual.amount)||0):"–"}</span>`
+      : `<input type="number" min="0" step="1" data-activity-year-amount="${esc(a.id)}" data-allocation-year="${year}" aria-label="Årsbelopp ${year} för ${esc(x.title)}" placeholder="Ej fördelad" value="${esc(annual?.amount ?? "")}">`;
+    return `<div class="timeline-row"><div class="timeline-label"><button type="button" class="text-button" data-edit="activities" data-id="${esc(a.id)}">${esc(x.title)}</button><small>${esc(home)} · ${esc(a.status||"Planerad")}</small></div><div class="timeline-track">${months.map(()=>'<span class="timeline-grid-cell"></span>').join("")}${bar||'<span class="timeline-unscheduled">Ej tidsatt</span>'}</div><div class="timeline-cost">${amount}</div></div>`;
   }).join("");
   return `<div class="timeline-scroll"><div class="timeline-content" style="--timeline-columns:${12*span}"><div class="timeline-row timeline-head"><div class="timeline-label">Aktivitet</div><div class="timeline-track">${header}</div><div class="timeline-cost">Årsbelopp</div></div>${rows||'<p>Inga aktiviteter i urvalet.</p>'}</div></div>`;
 }
@@ -393,7 +400,7 @@ export function planning(data, s, ui) {
   const timelineControls = `<div class="actions"><button type="button" data-planning-mode="list" class="${ui.planningMode==="timeline"?"":"active"}">Lista</button><button type="button" data-planning-mode="timeline" class="${ui.planningMode==="timeline"?"active":""}">Tidslinje</button>${ui.planningMode==="timeline"?`<button type="button" data-timeline-span="1" class="${ui.timelineSpan===3?"":"active"}">1 år</button><button type="button" data-timeline-span="3" class="${ui.timelineSpan===3?"active":""}">3 år</button>`:""}</div>`;
   const timelineBody = ui.planningMode==="timeline" ? timelineView(data,items,ui) : null;
   return `<div class="section-title"><h2>Fördela och planera</h2><div class="actions"><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${timelineControls}${timelineBody||table(
-    ["Uppgift", "Hemvist", "Ansvarig hos oss", "År / period", "Kostnad", ""],
+    ["Uppgift", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
         `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>`,
@@ -424,13 +431,7 @@ export function planning(data, s, ui) {
           "Ej fördelat",
         )}</select>`,
         x.collection === "activities"
-          ? `<small>${esc(x.record.startDate || "Start ej satt")} → ${esc(x.record.endDate || "Slut ej satt")}</small><small>Årsbudget ${ui.year} (kr)</small><input type="number" min="0" step="1" aria-label="Årsbudget ${ui.year} för ${esc(x.title)}" data-activity-year-amount="${esc(x.record.id)}" data-allocation-year="${ui.year}" placeholder="Ej fördelad" value="${esc((x.record.yearAllocations || []).find(a => Number(a.year) === Number(ui.year))?.amount ?? "")}"><select aria-label="Kvartal för ${esc(x.title)}" data-quarter="activities" data-id="${esc(x.record.id)}">${options(
-              [1, 2, 3, 4],
-              (n) => n,
-              (n) => "Kvartal " + n,
-              x.record.planningQuarter,
-              "Ej tidsatt",
-            )}</select>`
+          ? `<span class="plan-date-range">${x.record.startDate || x.record.endDate ? esc(x.record.startDate || "–") + " → " + esc(x.record.endDate || "–") : "Ej tidsatt"}</span>`
           : "<small>Löpande fastighetsansvar</small>",
         x.collection === "activities" && x.record.project2027SourceId
           ? `<span title="Beloppet är inte budgetfört förrän enhet och finansiering har verifierats">${x.record.project2027BudgetRaw == null ? "Budget saknas" : esc(String(x.record.project2027BudgetRaw)) + " · enhet ej verifierad"}${x.record.project2027RentSurcharge ? "<small>Hyresfinansierad · utanför budget</small>" : "<small>Ej budgetförd</small>"}</span>`
