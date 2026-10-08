@@ -77,6 +77,7 @@
     }
 
     const allResults = [];
+    let quotaExceeded = false;
     const existing = properties.filter(function(p) { return validCoordinate(p.latitude) && validCoordinate(p.longitude); });
     const missing = properties.filter(function(p) { return !validCoordinate(p.latitude) || !validCoordinate(p.longitude); });
     if (typeof onProgress === 'function') onProgress({ total: properties.length, pending: missing.length, processed: 0, matched: existing.length, review: 0, notFound: 0 });
@@ -97,10 +98,24 @@
           GEOCODE_TIMEOUT_MS
         );
         const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok && payload.code === "GEOCODING_QUOTA_EXCEEDED") {
+          quotaExceeded = true;
+          const partial = Array.isArray(payload.results) ? payload.results : [];
+          allResults.push(...partial);
+          if (typeof onProgress === "function") onProgress({
+            total: properties.length, pending: missing.length,
+            processed: offset + partial.length,
+            matched: existing.length + allResults.filter(x => x.status === "matched").length,
+            review: allResults.filter(x => x.status === "review").length,
+            notFound: allResults.filter(x => x.status === "not_found").length,
+            results: partial,
+            paused: true
+          });
+          break;
+        }
         if (!response.ok) {
-          const message = payload && payload.error ? payload.error : "Geokodningen misslyckades.";
-          const error = new Error(message);
-          error.code = payload && payload.code ? payload.code : "GEOCODING_ERROR";
+          const error = new Error(payload.error || "Geokodningen misslyckades.");
+          error.code = payload.code || "GEOCODING_ERROR";
           throw error;
         }
         const batchResults = Array.isArray(payload.results) ? payload.results : [];
@@ -147,7 +162,9 @@
     });
 
     window.LokalblickGeocodingStatus = {
-      available: true,
+      available: !quotaExceeded,
+      paused: quotaExceeded,
+      message: quotaExceeded ? "ORS-kvoten är slut. Redan matchade koordinater har behållits; försök igen när kvoten återställts." : "",
       configured: true,
       provider: status.provider || "openrouteservice",
       total: allResults.length,
