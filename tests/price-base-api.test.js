@@ -17,3 +17,8 @@ test("reject multiple measures and invalid figures",()=>{
  },value:[59600,60900]};
  assert.throws(()=>extractPriceBase(dataset,2027),/flera olika mått/);
 });
+
+test("single time dimension is allowed for the official annual figure",()=>{
+ const dataset={id:["Tid"],size:[2],dimension:{Tid:{category:{index:{"2026":0,"2027":1}}}},value:[59200,59600]};
+ assert.equal(extractPriceBase(dataset,2026),59200);
+});

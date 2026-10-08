@@ -37,6 +37,7 @@ const ui = {
   view: "overview",
   perspective: "Fastigheter",
   year: new Date().getFullYear() + 1,
+  settingsYear: new Date().getFullYear(),
   contractId: "",
   unassigned: false,
   unassignedHome: false,
@@ -457,7 +458,7 @@ function render() {
   document.querySelector("#context").innerHTML = selection.propertyId
     ? `<button data-clear-property>Hela urvalet</button><span>${esc(data.properties.find((p) => p.id === selection.propertyId)?.address || selection.propertyId)}</span>`
     : "<span>Portfölj</span>";
-  filterArea.hidden = ["sources", "people"].includes(ui.view);
+  filterArea.hidden = ["sources", "people", "settings"].includes(ui.view);
   if (ui.view === "overview")
     content.innerHTML = overview(data, selection, {
       ...ui,
@@ -512,10 +513,10 @@ function render() {
   document.querySelector("#add").hidden =
     !canEdit() || !["overview", "contracts"].includes(ui.view);
 }
-async function mutation(change) {
+async function mutation(change, { automatic = false } = {}) {
   if (busy) throw Error("En ändring sparas redan");
   if (!canEdit()) throw Error("Denna anslutning är skrivskyddad");
-  requireActorIdentity();
+  if (!automatic) requireActorIdentity();
   const before = clone(data);
   busy = true;
   try {
@@ -544,6 +545,46 @@ async function mutation(change) {
   } finally {
     busy = false;
   }
+}
+async function loadOfficialPriceBase(year, { automatic = false } = {}) {
+  if (!Number.isInteger(year) || year < 1960 || year > 2200) throw Error("Ogiltigt år för prisbasbelopp.");
+  if (automatic && (data.priceBaseAmounts || []).some(p => Number(p.year) === year && Number(p.amount) > 0))
+    return; // Preserve existing manual and previously verified annual values.
+  if (!canEdit()) {
+    if (!automatic) throw Error("Datakällan är skrivskyddad.");
+    return;
+  }
+  if ((data.budgetPlans || []).some(p => Number(p.year) === year && p.status === "Låst")) {
+    if (!automatic) throw Error("Budgetåret är låst. Prisbasbeloppet kan inte skrivas över.");
+    return;
+  }
+  const response = await fetch("/api/price-base?year=" + encodeURIComponent(year), { cache: "no-store" });
+  const responseText = await response.text();
+  let official;
+  try {
+    official = JSON.parse(responseText);
+  } catch {
+    throw Error("SCB-hämtningen misslyckades: Vercel gav inte ett JSON-svar (HTTP " + response.status + ").");
+  }
+  if (!response.ok) throw Error(String(official.error || "SCB-hämtningen misslyckades") +
+    (official.detail ? " · " + official.detail : ""));
+  if (Number(official.year) !== year || !Number.isInteger(Number(official.amount)) ||
+      Number(official.amount) < 1000 || Number(official.amount) > 200000)
+    throw Error("SCB skickade ett ogiltigt prisbasbelopp.");
+  await mutation(d => {
+    if ((d.budgetPlans || []).some(p => Number(p.year) === year && p.status === "Låst"))
+      throw Error("Budgetåret har låsts under hämtningen.");
+    d.priceBaseAmounts = d.priceBaseAmounts || [];
+    const existing = d.priceBaseAmounts.find(p => Number(p.year) === year);
+    if (automatic && existing && Number(existing.amount) > 0) return;
+    const value = {
+      year, amount: Number(official.amount), source: official.source, sourceUrl: official.sourceUrl,
+      retrievedAt: official.retrievedAt, updatedAt: new Date().toISOString(),
+      updatedBy: automatic ? "SCB · automatisk inläsning" : actor()
+    };
+    if (existing) Object.assign(existing, value);
+    else d.priceBaseAmounts.push(value);
+  }, { automatic });
 }
 async function run(fn) {
   try {
@@ -658,7 +699,9 @@ document.addEventListener("click", (event) =>
     if (b.dataset.view) {
       ui.view = b.dataset.view;
       ui.contractId = "";
+      if (ui.view === "settings") ui.settingsYear = new Date().getFullYear();
       render();
+      if (ui.view === "settings") await loadOfficialPriceBase(ui.settingsYear, { automatic: true });
     }
     if (b.dataset.property) {
       selection.propertyId = b.dataset.property;
@@ -708,23 +751,7 @@ document.addEventListener("click", (event) =>
       return;
     }
     if (b.dataset.priceBaseOfficial) {
-      const year=Number(b.dataset.priceBaseOfficial);
-      if ((data.budgetPlans||[]).some(p=>Number(p.year)===year && p.status==="Låst"))
-        throw Error("Budgetåret är låst. Prisbasbeloppet får inte ändras.");
-      const response=await fetch("/api/price-base?year="+encodeURIComponent(year),{cache:"no-store"});
-      const official=await response.json();
-      if (!response.ok) throw Error(official.error+(official.detail?" · "+official.detail:""));
-      if (Number(official.year)!==year || !Number.isFinite(Number(official.amount)) || Number(official.amount)<=0)
-        throw Error("SCB gav ett ogiltigt prisbasbelopp.");
-      await mutation(d=>{
-        if ((d.budgetPlans||[]).some(p=>Number(p.year)===year && p.status==="Låst"))
-          throw Error("Budgetåret är låst.");
-        d.priceBaseAmounts=d.priceBaseAmounts||[];
-        const existing=d.priceBaseAmounts.find(p=>Number(p.year)===year);
-        const value={year,amount:Number(official.amount),source:official.source,sourceUrl:official.sourceUrl,
-          retrievedAt:official.retrievedAt,updatedAt:new Date().toISOString(),updatedBy:actor()};
-        if (existing) Object.assign(existing,value); else d.priceBaseAmounts.push(value);
-      });
+      await loadOfficialPriceBase(Number(b.dataset.priceBaseOfficial));
       return;
     }
     if (b.hasAttribute("data-unassigned")) {
@@ -890,6 +917,13 @@ document.addEventListener("change", (event) =>
     if (x.dataset.filter) {
       selection[x.dataset.filter] = x.value;
       render();
+      return;
+    }
+    if (x.dataset.settingsYear) {
+      ui.settingsYear = Math.max(1960, Math.min(2200, Number(x.value) || new Date().getFullYear()));
+      render();
+      if (ui.settingsYear === new Date().getFullYear())
+        await loadOfficialPriceBase(ui.settingsYear, { automatic: true });
       return;
     }
     if (x.hasAttribute("data-year")) {
@@ -1068,6 +1102,7 @@ async function init() {
       data = await transport.save(data);
     }
     render();
+    if (ui.view === "settings") await run(() => loadOfficialPriceBase(ui.settingsYear, { automatic: true }));
     if (geo && !data.isDemo) {
       notice(geo.available
         ? "Geodata: " + (geo.matched || 0) + " matchade, " + (geo.review || 0) + " behöver granskas, " + (geo.notFound || 0) + " saknar träff." +

@@ -1,7 +1,7 @@
 // Official price base amounts from Statistics Sweden (SCB), PxWeb API v2.
 // Only an exact year/value combination is accepted. No inferred fallback.
 const SCB_URL = "https://statistikdatabasen.scb.se/api/v2/tables/TAB598/data?lang=sv&outputFormat=json-stat2";
-const SOURCE_PAGE = "https://www.statistikdatabasen.scb.se/pxweb/sv/ssd/START__PR__PR0101__PR0101E/Basbeloppet/";
+const SOURCE_PAGE = "https://www.statistikdatabasen.scb.se/pxweb/sv/ssd/START__PR__PR0101E/Basbeloppet/";
 export function extractPriceBase(dataset, year) {
   const dimensions = dataset?.dimension;
   const ids = dataset?.id;
@@ -11,7 +11,7 @@ export function extractPriceBase(dataset, year) {
   const time = dimensions[timeId], index = time?.category?.index;
   const slot = index && (Array.isArray(index) ? index.indexOf(String(year)) : index[String(year)]);
   if (!Number.isInteger(slot) || slot < 0) throw Error("SCB har inget fastställt prisbasbelopp för året");
-  const sizes = ids.map(id => dataset.size[ids.indexOf(id)] ?? dimensions[id]?.category?.label && Object.keys(dimensions[id].category.label).length);
+  const sizes = ids.map((id, i) => Number(dataset.size?.[i] ?? Object.keys(dimensions[id]?.category?.index || {}).length));
   if (sizes.some(n=>!Number.isInteger(n) || n<1)) throw Error("SCB:s dimensioner kunde inte tolkas");
   // The price base table contains one content value. Refuse ambiguous multi-content data.
   if (ids.some((id,i)=>id!==timeId && sizes[i]!==1)) throw Error("SCB returnerade flera olika mått");
@@ -21,6 +21,7 @@ export function extractPriceBase(dataset, year) {
   return Math.round(value);
 }
 export default async function handler(req,res) {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
   if (req.method !== "GET") return res.status(405).json({error:"Endast GET stöds"});
   const year = Number(req.query?.year);
   if (!Number.isInteger(year) || year<1960 || year>2200) return res.status(400).json({error:"Ogiltigt år"});
