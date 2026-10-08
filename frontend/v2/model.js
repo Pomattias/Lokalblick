@@ -424,8 +424,8 @@ function canonicalRelations(out) {
   out.orders=Array.isArray(out.orders)?out.orders:[];
   const isOur=(id)=>{const p=out.people.find((x)=>x.id===id);if(!p)return false;if(!p.organizationId)return true;return out.organizations.find((x)=>x.id===p.organizationId)?.type==="our";};
   const validOwnerManager=(id,p)=>{const person=out.people.find(x=>x.id===id);return Boolean(person&&p.ownerPartyId&&person.organizationId===p.ownerPartyId);};
-  out.properties.forEach(p=>{if(p.ownerResponsiblePersonId&&!validOwnerManager(p.ownerResponsiblePersonId,p))p.ownerResponsiblePersonId="";});
   out.properties.forEach((p)=>{if(!p.ownerPartyId&&p.ownerOrgId)p.ownerPartyId=p.ownerOrgId;delete p.ownerOrgId;});
+  out.properties.forEach(p=>{if(p.ownerResponsiblePersonId&&!validOwnerManager(p.ownerResponsiblePersonId,p))p.ownerResponsiblePersonId="";});
   out.contracts.forEach((c)=>{if(!c.businessPartyId&&c.tenantOrgId)c.businessPartyId=c.tenantOrgId;delete c.tenantOrgId;delete c.ownerOrgId;["notice","annualRent","annualAdditions","rentPerSqm","rentBaseIndex","derivedRentBaseIndex","rentIndexCurrent","rentIndexYear","rentCalculationYear","calculatedAnnualRent","rentCalculationVariance","rentCalculationStatus","additionBaseIndex","derivedAdditionBaseIndex","additionIndexCurrent","additionIndexYear","additionCalculationYear","calculatedAnnualAdditions","additionCalculationVariance","additionCalculationStatus"].forEach((k)=>delete c[k]);});
   (out.contacts||[]).filter((x)=>!x.toDate).forEach((c)=>{if(isOur(c.personId))return;const t=c.targetType==="object"?"contract":c.targetType;if(t==="property"){const p=out.properties.find((x)=>x.id===c.targetId);if(p&&!p.ownerResponsiblePersonId&&validOwnerManager(c.personId,p))p.ownerResponsiblePersonId=c.personId;}else if(t==="contract"){const a=out.contracts.find((x)=>x.id===c.targetId);if(a&&!a.businessResponsiblePersonId)a.businessResponsiblePersonId=c.personId;}});
   const migratedInvestigations=[];
