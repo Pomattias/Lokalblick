@@ -863,6 +863,12 @@ document.addEventListener("input",event=>{
   if(table)refreshSmartTable(table);
 });
 document.addEventListener("click",event=>{
+  const toggle=event.target.closest("[data-toggle-column-filters]");
+  if(toggle){
+    const filterRow=toggle.closest(".compact-data-table")?.querySelector(".column-filters");
+    if(filterRow){filterRow.hidden=!filterRow.hidden;toggle.setAttribute("aria-expanded",String(!filterRow.hidden));}
+    return;
+  }
   const sort=event.target.closest("[data-column-sort]");
   if(!sort)return;
   const table=sort.closest("table[data-smart-table]");
