@@ -371,6 +371,22 @@ function timelineView(data, items, ui) {
   }).join("");
   return `<div class="timeline-scroll"><div class="timeline-content" style="--timeline-columns:${12*span}"><div class="timeline-row timeline-head"><div class="timeline-label">Aktivitet</div><div class="timeline-track">${header}</div><div class="timeline-cost">Årsbelopp</div></div>${rows||'<p>Inga aktiviteter i urvalet.</p>'}</div></div>`;
 }
+export function economicSettings(data, ui) {
+  const year=Number(ui.year);
+  const entry=(data.priceBaseAmounts||[]).find(p=>Number(p.year)===year);
+  const amount=Number(entry?.amount)||0;
+  const normal=amount>0?money(amount/2):"Saknas";
+  const owners=(data.organizations||[]).filter(o=>o.type==="owner");
+  const ownerRows=owners.map(o=>`<tr><td>${esc(o.name)}</td><td>${esc(o.investmentRule==="stadsfastigheter"?"Stadsfastigheter":"Normalregel")}</td><td>${o.investmentRule==="stadsfastigheter" ? money(Number(o.investmentThreshold)||200000) : normal}</td><td>${o.investmentRule==="stadsfastigheter"?esc(String(o.rentSurchargeRate??7.5))+" %":"–"}</td><td><button data-edit="organizations" data-id="${esc(o.id)}">Ändra</button></td></tr>`).join("");
+  return `<div class="section-title"><h2>Ekonomiska regler</h2></div>
+    <p>Gemensamma grundvärden gäller vid beräkning av drift och investering. Regler för en viss fastighetsägare ändras på ägaren.</p>
+    <section class="detail"><h3>Prisbasbelopp</h3><label>År <input type="number" min="2000" max="2200" data-year value="${year}"></label>
+    <label>Fastställt prisbasbelopp (kr) <input type="number" min="1" step="1" data-price-base-year="${year}" value="${entry?.amount??""}" placeholder="Saknas"></label>
+    <p>Normal investeringsgräns: <strong>${normal}</strong> (½ prisbasbelopp).</p>
+    <small>Källa: ${esc(entry?.source||"Ej registrerad")}. Inga obekräftade värden används automatiskt.</small>
+    <p><button type="button" data-price-base-official="${year}">Hämta officiellt belopp för året</button></p></section>
+    <section class="detail"><h3>Fastighetsägarnas regler</h3><table><thead><tr><th>Ägare</th><th>Regel</th><th>Gräns</th><th>Årligt hyrespåslag</th><th></th></tr></thead><tbody>${ownerRows||'<tr><td colspan="5">Inga fastighetsägare registrerade.</td></tr>'}</tbody></table></section>`;
+}
 export function planning(data, s, ui) {
   const v = scope(data, s);
   const propertyItems = v.properties.map((p) => ({
@@ -397,11 +413,9 @@ export function planning(data, s, ui) {
     )
     .slice(-30)
     .reverse();
-  const priceBase = (data.priceBaseAmounts || []).find(p=>Number(p.year)===Number(ui.year));
-  const priceBaseControl = `<div class="plan-price-base"><label>Prisbasbelopp ${ui.year} (kr) <input type="number" min="1" step="1" data-price-base-year="${ui.year}" placeholder="Ange fastställt PBB" value="${priceBase?.amount ?? ""}"></label><small>Normal investeringsgräns: ${priceBase && Number(priceBase.amount)>0 ? money(Number(priceBase.amount)/2) : "Ej fastställd"}</small></div>`;
   const timelineControls = `<div class="actions"><button type="button" data-planning-mode="list" class="${ui.planningMode==="timeline"?"":"active"}">Lista</button><button type="button" data-planning-mode="timeline" class="${ui.planningMode==="timeline"?"active":""}">Tidslinje</button>${ui.planningMode==="timeline"?`<button type="button" data-timeline-span="1" class="${ui.timelineSpan===3?"":"active"}">1 år</button><button type="button" data-timeline-span="3" class="${ui.timelineSpan===3?"active":""}">3 år</button>`:""}</div>`;
   const timelineBody = ui.planningMode==="timeline" ? timelineView(data,items,ui) : null;
-  return `<div class="section-title"><h2>Fördela och planera</h2><div class="actions"><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${timelineControls}${priceBaseControl}${timelineBody||table(
+  return `<div class="section-title"><h2>Fördela och planera</h2><div class="actions"><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${timelineControls}${timelineBody||table(
     ["Uppgift", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
