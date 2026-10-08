@@ -107,6 +107,15 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
         record.type,
         "Välj typ",
       )}</select>`;
+    else if (key === "category" && col === "activities") {
+      const unique = [...new Map((data.activities || [])
+        .map(a => String(a.category || "").trim())
+        .filter(Boolean).concat(record.category ? [String(record.category).trim()] : [])
+        .map(value => [value.toLocaleLowerCase("sv"), value])).values()];
+      control = unique.length
+        ? `<select name="category">${options(unique, x=>x, x=>x, record.category || "", "Välj kategori")}</select>`
+        : `<input name="category" value="${esc(record.category || "")}" placeholder="Ange första kategorin">`;
+    }
     else if (key === "includeInBudget" && col === "activities")
       control = `<select name="includeInBudget">${options(
         ["Ja", "Nej"],
