@@ -1328,6 +1328,11 @@
       data=operational.data;report.stages.push(operational.report);recognized=true;
     }
 
+    if(window.LokalblickProject2027Adapter&&window.LokalblickProject2027Adapter.detect(workbook)){
+      const activities=window.LokalblickProject2027Adapter.enrich(workbook,data,fileName||"Excelimport");
+      data=activities.data;report.stages.push(activities.report);recognized=true;
+    }
+
     if(window.LokalblickContractEnrichmentAdapter&&window.LokalblickContractEnrichmentAdapter.detect(workbook)&&(data.contracts||[]).length){
       const contracts=window.LokalblickContractEnrichmentAdapter.enrich(workbook,data,fileName||"Excelimport",arrayBuffer);
       data=contracts.data;report.stages.push(contracts.report);recognized=true;
@@ -1393,6 +1398,11 @@
         created:(oc.activitiesCreated||0)+(oc.ordersCreated||0)+(oc.peopleCreated||0)
       })});
       await yieldImportUi();
+    }
+
+    if(window.LokalblickProject2027Adapter&&window.LokalblickProject2027Adapter.detect(workbook)){
+      const activities=window.LokalblickProject2027Adapter.enrich(workbook,data,fileName||"Excelimport");
+      data=activities.data;report.stages.push(activities.report);recognized=true;
     }
 
     if(window.LokalblickContractEnrichmentAdapter&&window.LokalblickContractEnrichmentAdapter.detect(workbook)&&(data.contracts||[]).length){
