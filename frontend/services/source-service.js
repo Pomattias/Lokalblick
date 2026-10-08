@@ -11,7 +11,7 @@
     { sheet:"Fastigheter", key:"properties", prefix:"FAST", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["responsiblePersonId","_responsiblePersonId",true],["ownerPartyId","_ownerPartyId",true],["ownerResponsiblePersonId","_ownerResponsiblePersonId",true],
-      ["type","Typ"],["address","Adress"],["city","Ort"],["designation","Fastighetsbeteckning"],["latitude","Latitud"],["longitude","Longitud"]
+      ["type","Typ"],["address","Adress"],["city","Ort"],["designation","Fastighetsbeteckning"],["latitude","Latitud"],["longitude","Longitud"],["geoSource","Geokälla"],["geoConfirmedAt","Geobekräftad"],["geoConfirmedBy","Geobekräftad av"]
     ], display:["Fastighetsägare","Ansvarig hos fastighetsägaren","Ansvarig hos oss"] },
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
