@@ -280,7 +280,7 @@
     const owner=(data.organizations||[]).find(o=>o.id===property?.ownerPartyId);
     const ownerName=String(owner?.name||"").toLocaleLowerCase("sv").trim();
     const special=owner?.investmentRule==="stadsfastigheter" ||
-      (!owner?.investmentRule && ownerName==="stadsfastigheter");
+      (!owner?.investmentRule && /\\bstadsfastigheter\\b/.test(ownerName));
     const ownerLimit=Number(owner?.investmentThreshold);
     const pbb=Number((data.priceBaseAmounts||[]).find(p=>Number(p.year)===Number(year))?.amount);
     const threshold=special
