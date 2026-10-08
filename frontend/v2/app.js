@@ -773,8 +773,19 @@ async function init() {
     }
     await restoreSharedViewState();
     data = await transport.load();
+    // A successful geocode is part of the canonical property model. Stage it in
+    // the connected Excel source; the user confirms the physical file write.
+    const geo = globalThis.LokalblickGeocodingStatus;
+    if (!data.isDemo && geo?.matched > 0) {
+      data = await transport.save(data);
+    }
     render();
-    notice("");
+    if (geo && !data.isDemo) {
+      notice(geo.available
+        ? "Geodata: " + (geo.matched || 0) + " matchade, " + (geo.review || 0) + " behöver granskas, " + (geo.notFound || 0) + " saknar träff." +
+          (transport.status().dirty ? " Välj Spara till Excel för att behålla koordinaterna i Lokalblick-data." : "")
+        : (geo.message || "Geokodningen är inte tillgänglig."), !geo.available);
+    } else notice("");
   } catch (error) {
     notice("Kunde inte läsa data: " + error.message, true);
   }
