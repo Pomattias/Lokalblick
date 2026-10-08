@@ -273,7 +273,8 @@
     return budgetPeriod(c, year).factor;
   }
   const budgetIncluded = (x) =>
-    x?.budgetIncluded !== false && x?.includeInBudget !== "Nej";
+    x?.budgetIncluded !== false && x?.includeInBudget !== "Nej" &&
+    x?.financingMethod !== "rent_supplement" && x?.project2027RentSurcharge !== true;
   function activityPlannedInYear(activity, year) {
     const targetYear = number(year);
     const allocations = Array.isArray(activity?.yearAllocations) ? activity.yearAllocations : [];
