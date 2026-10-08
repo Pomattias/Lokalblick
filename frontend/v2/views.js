@@ -30,7 +30,13 @@ const badge = (x) =>
 export function options(items, value, label, selected = "", empty = "Alla") {
   return (
     `<option value="">${empty}</option>` +
-    items
+    [...items]
+      .sort((a, b) =>
+        new Intl.Collator("sv-SE", { numeric: true, sensitivity: "base" }).compare(
+          String(label(a) ?? ""),
+          String(label(b) ?? ""),
+        ),
+      )
       .map(
         (x) =>
           `<option value="${esc(value(x))}"${String(value(x)) === String(selected) ? " selected" : ""}>${esc(label(x))}</option>`,
