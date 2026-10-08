@@ -354,10 +354,19 @@ export function planning(data, s, ui) {
     .slice(-30)
     .reverse();
   return `<div class="section-title"><h2>Fördela och planera</h2><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button></div>${table(
-    ["Uppgift", "Ansvarig hos oss", "År / period", "Kostnad", ""],
+    ["Uppgift", "Hemvist", "Ansvarig hos oss", "År / period", "Kostnad", ""],
     items.map((x) =>
       row([
-        `<strong>${esc(x.title)}</strong><small>${esc(propertyLabel(data, x.propertyId))} · ${esc(x.label)}</small>`,
+        `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>`,
+        x.collection === "activities"
+          ? `<select data-activity-home="${esc(x.record.id)}" aria-label="Hemvist för ${esc(x.title)}">${options([
+              ...(data.properties || []).map(p => ({id:"property:"+p.id,label:"Fastighet · "+(p.address||p.id)})),
+              ...Object.entries(units).map(([id,label])=>({id:"unit:"+id,label:"Område · "+label})),
+              {id:"general",label:"Generell"}
+            ],x=>x.id,x=>x.label,x.record.propertyId?"property:"+x.record.propertyId:
+            x.record.scopeType==="unit"&&x.record.unitId?"unit:"+x.record.unitId:
+            x.record.scopeType==="general"?"general":"","Ej fördelad")}</select>`
+          : "<small>Fastighet</small>",
         `<select aria-label="Ansvarig för ${esc(x.title)}" data-assign="${x.collection}" data-id="${esc(x.record.id)}">${options(
           internalPeople(data),
           (p) => p.id,
