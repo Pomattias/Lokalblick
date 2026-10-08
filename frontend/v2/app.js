@@ -709,14 +709,21 @@ document.addEventListener("click", (event) =>
     }
     if (b.dataset.priceBaseOfficial) {
       const year=Number(b.dataset.priceBaseOfficial);
-      const known={2026:59200,2027:59600};
-      if (!Object.hasOwn(known,year)) { notice("Inget verifierat officiellt prisbasbelopp är tillgängligt för detta år."); return; }
+      if ((data.budgetPlans||[]).some(p=>Number(p.year)===year && p.status==="Låst"))
+        throw Error("Budgetåret är låst. Prisbasbeloppet får inte ändras.");
+      const response=await fetch("/api/price-base?year="+encodeURIComponent(year),{cache:"no-store"});
+      const official=await response.json();
+      if (!response.ok) throw Error(official.error+(official.detail?" · "+official.detail:""));
+      if (Number(official.year)!==year || !Number.isFinite(Number(official.amount)) || Number(official.amount)<=0)
+        throw Error("SCB gav ett ogiltigt prisbasbelopp.");
       await mutation(d=>{
-        if ((d.budgetPlans||[]).some(p=>Number(p.year)===year&&p.status==="Låst")) throw Error("Budgetåret är låst.");
+        if ((d.budgetPlans||[]).some(p=>Number(p.year)===year && p.status==="Låst"))
+          throw Error("Budgetåret är låst.");
         d.priceBaseAmounts=d.priceBaseAmounts||[];
-        const previous=d.priceBaseAmounts.find(p=>Number(p.year)===year);
-        const value={year,amount:known[year],source:"Regeringen / SCB · fastställt prisbasbelopp",sourceUrl:year===2027?"https://www.regeringen.se/artiklar/2026/09/prisbasbelopp-for-2027-faststallt/":"https://www.regeringen.se/artiklar/2025/09/prisbasbelopp-for-2026-faststallt/",updatedAt:new Date().toISOString(),updatedBy:actor()};
-        if(previous)Object.assign(previous,value);else d.priceBaseAmounts.push(value);
+        const existing=d.priceBaseAmounts.find(p=>Number(p.year)===year);
+        const value={year,amount:Number(official.amount),source:official.source,sourceUrl:official.sourceUrl,
+          retrievedAt:official.retrievedAt,updatedAt:new Date().toISOString(),updatedBy:actor()};
+        if (existing) Object.assign(existing,value); else d.priceBaseAmounts.push(value);
       });
       return;
     }
