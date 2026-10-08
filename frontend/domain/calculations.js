@@ -272,6 +272,33 @@
   function budgetYearFactor(c, year) {
     return budgetPeriod(c, year).factor;
   }
+  // Classification is independent from funding. Existing activities without an
+  // explicit assessment retain their legacy category until assessed.
+  function activityEconomics(data, activity, year) {
+    const contract=(data.contracts||[]).find(c=>c.id===activity.contractId);
+    const property=(data.properties||[]).find(p=>p.id===(activity.propertyId||contract?.propertyId));
+    const owner=(data.organizations||[]).find(o=>o.id===property?.ownerPartyId);
+    const ownerName=String(owner?.name||"").toLocaleLowerCase("sv").trim();
+    const special=owner?.investmentRule==="stadsfastigheter" ||
+      (!owner?.investmentRule && ownerName==="stadsfastigheter");
+    const ownerLimit=Number(owner?.investmentThreshold);
+    const pbb=Number((data.priceBaseAmounts||[]).find(p=>Number(p.year)===Number(year))?.amount);
+    const threshold=special
+      ? (Number.isFinite(ownerLimit)&&ownerLimit>0?ownerLimit:200000)
+      : (Number.isFinite(pbb)&&pbb>0?pbb/2:null);
+    const amount=number(activity.estimatedCost);
+    const enhancing=activity.actionKind==="value_enhancing" || activity.standardEnhancing===true;
+    const assessed=activity.actionKind==="like_for_like" || activity.actionKind==="value_enhancing" ||
+      typeof activity.standardEnhancing==="boolean";
+    const kind=!assessed?"unassessed":threshold==null?"missing_base_amount":
+      special?(amount>threshold?"investment":"operating"):
+      (enhancing&&amount>threshold?"investment":"operating");
+    const rate=Number.isFinite(Number(owner?.rentSurchargeRate)) && owner?.rentSurchargeRate!=="" &&
+      owner?.rentSurchargeRate!=null?Number(owner.rentSurchargeRate):7.5;
+    const rentFinanced=special&&kind==="investment";
+    return {kind,threshold,special,ownerId:owner?.id||"",rate,annualRentAddition:rentFinanced?amount*rate/100:0,
+      rentFinanced,rentStartDate:activity.rentSurchargeStartDate||""};
+  }
   const budgetIncluded = (x) =>
     x?.budgetIncluded !== false && x?.includeInBudget !== "Nej" &&
     x?.financingMethod !== "rent_supplement" && x?.project2027RentSurcharge !== true;
@@ -394,7 +421,10 @@
           x.status !== "Avslaget",
       )
       .forEach((x) => {
-        let category =
+        const economics = activityEconomics(data,x,year);
+        if (economics.rentFinanced) return;
+        let category = economics.kind==="investment" ? "Projekt" :
+          economics.kind==="operating" ? "Driftkostnader" :
           x.budgetCategory ||
           {
             Projekt: "Projekt",
@@ -485,6 +515,7 @@
     budgetYearFactor,
     activityPlannedInYear,
     activityBudgetAmount,
+    activityEconomics,
     budgetIndex,
     budgetRows,
     actualRows,
