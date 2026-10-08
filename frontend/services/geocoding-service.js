@@ -3,7 +3,7 @@
 (function () {
   const HEALTH_TIMEOUT_MS = 1500;
   const GEOCODE_TIMEOUT_MS = 65000;
-  const BATCH_SIZE = 100;
+  const BATCH_SIZE = 5;
 
   function apiBaseUrl() {
     const configured = window.LokalblickRuntime && window.LokalblickRuntime.apiBaseUrl;
