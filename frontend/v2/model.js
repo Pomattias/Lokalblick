@@ -596,7 +596,7 @@ export function scope(data, selection) {
     const p = propertyById.get(c.propertyId) || {};
     return (
       (!selection.propertyId || c.propertyId === selection.propertyId) &&
-      (!selection.unit || c.unitId === selection.unit) &&
+      (!selection.unit || (c.unitId || p.unitId) === selection.unit) &&
       (!selection.owner || p.ownerPartyId === selection.owner) &&
       (!q ||
         [
@@ -661,7 +661,7 @@ export function scope(data, selection) {
     if (selection.owner && property.ownerPartyId !== selection.owner) return false;
     if (selection.unit) {
       const relatedUnit = record.scopeType === "unit" ? record.unitId : contract
-        ? contract.unitId
+        ? (contract.unitId || property.unitId)
         : property.unitId ||
           (contractsByProperty.get(propertyId) || []).find(
             (c) => c.unitId === selection.unit,
@@ -718,6 +718,50 @@ export function audit(data, collection, id, before, after, actor) {
       })),
   });
 }
+export function setActivityHome(data, id, selectedHome, actor) {
+  const record = (data.activities || []).find(a => String(a.id) === String(id));
+  if (!record) throw Error("Aktiviteten saknas");
+  const before = clone(record);
+  const value = String(selectedHome || "");
+  if (value.startsWith("contract:")) {
+    const contractId = value.slice("contract:".length);
+    const contract = (data.contracts || []).find(c => String(c.id) === contractId);
+    if (!contract) throw Error("Avtalet saknas");
+    if (!(data.properties || []).some(p => String(p.id) === String(contract.propertyId)))
+      throw Error("Avtalet saknar giltig fastighetskoppling");
+    // A contract belongs to exactly one property; derive that property on read.
+    record.contractId = contract.id;
+    record.propertyId = "";
+    record.unitId = "";
+    record.scopeType = "contract";
+  } else if (value.startsWith("property:")) {
+    const propertyId = value.slice("property:".length);
+    if (!(data.properties || []).some(p => String(p.id) === propertyId))
+      throw Error("Fastigheten saknas");
+    record.propertyId = propertyId;
+    record.contractId = "";
+    record.unitId = "";
+    record.scopeType = "property";
+  } else if (value.startsWith("unit:")) {
+    const unitId = value.slice("unit:".length);
+    if (!["VARDBO", "ORDBO", "MYND_STAB", "HOF"].includes(unitId))
+      throw Error("Området saknas");
+    record.propertyId = "";
+    record.contractId = "";
+    record.unitId = unitId;
+    record.scopeType = "unit";
+  } else if (value === "general" || value === "") {
+    record.propertyId = "";
+    record.contractId = "";
+    record.unitId = "";
+    record.scopeType = value === "general" ? "general" : "";
+  } else {
+    throw Error("Ogiltigt val av hemvist");
+  }
+  if (JSON.stringify(before) !== JSON.stringify(record))
+    audit(data, "activities", record.id, before, record, actor);
+}
+
 export function assign(data, collection, id, person, actor) {
   let targetCollection = collection;
   if (!["properties", "activities"].includes(targetCollection)) {
