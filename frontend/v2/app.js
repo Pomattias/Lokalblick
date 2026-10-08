@@ -39,6 +39,8 @@ const ui = {
   contractId: "",
   unassigned: false,
   unassignedHome: false,
+  planningMode: "list",
+  timelineSpan: 1,
 };
 const labels = {
   overview: "Översikt",
@@ -691,6 +693,16 @@ document.addEventListener("click", (event) =>
       document
         .querySelectorAll("[data-editor-tab]")
         .forEach((x) => x.classList.toggle("active", x === b));
+    }
+    if (b.dataset.planningMode) {
+      ui.planningMode = b.dataset.planningMode === "timeline" ? "timeline" : "list";
+      render();
+      return;
+    }
+    if (b.dataset.timelineSpan) {
+      ui.timelineSpan = b.dataset.timelineSpan === "3" ? 3 : 1;
+      render();
+      return;
     }
     if (b.hasAttribute("data-unassigned")) {
       ui.unassigned = !ui.unassigned;
