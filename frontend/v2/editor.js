@@ -186,9 +186,19 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
           data.indexSeries,
         )
       : null;
+  const economicYear=Number(record.planningYear) || new Date().getFullYear();
+  const assessment = col==="activities" ? calc().activityEconomics(data,record,economicYear) : null;
+  const economicSummary = !assessment ? "" :
+    `<p class="computed">Ekonomisk klassificering ${economicYear}: <strong>${
+      assessment.kind==="investment"?"Investering":assessment.kind==="operating"?"Drift":
+      assessment.kind==="missing_base_amount"?"Prisbasbelopp saknas":"Åtgärd ej bedömd"
+    }</strong> · Gräns: ${assessment.threshold==null?"saknas":Math.round(assessment.threshold).toLocaleString("sv-SE")+" kr"}${
+      assessment.special?" · Stadsfastigheters regel":""}${
+      assessment.rentFinanced?" · Beräknat hyrespåslag "+Math.round(assessment.annualRentAddition).toLocaleString("sv-SE")+" kr/år"+(assessment.rentStartDate?" från "+assessment.rentStartDate:" · startdatum saknas"):""
+    }. Klassificeringen är beräknad, inte en kopia av importerad drift/investering.</p>`;
   return {
     record,
-    html: `<div class="editor-backdrop"></div><aside class="editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="${col}" data-record-id="${esc(id)}"><div class="section-title"><div><small>${id ? "ÄNDRA" : "NY POST"}</small><h2 id="editor-title">${esc(schema.sheet)}</h2></div><button type="button" data-editor-close>Stäng</button></div><nav class="tabs" aria-label="Redigeringssektioner">${[...groups.keys()].map((g, i) => `<button type="button" data-editor-tab="${g}" class="${i ? "" : "active"}">${g}</button>`).join("")}</nav>${[...groups].map(([g, controls], i) => `<section data-editor-section="${g}" ${i ? "hidden" : ""}><div class="form-grid">${controls.join("")}</div></section>`).join("")}${company ? '<p class="computed">Mastervärden från INT/EXT ändras i underlaget. Kompletteringar sparas i backend.</p>' : ""}${result ? `<p class="computed">Beräknat för ${new Date().getFullYear()}: hyra ${Math.round(result.rent.amount)} kr · ${esc(result.rent.status)}. Tillägg ${Math.round(result.addition.amount)} kr · ${esc(result.addition.status)}.</p>` : ""}<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span><button type="submit" class="primary">Spara ändring</button></div></form></aside>`,
+    html: `<div class="editor-backdrop"></div><aside class="editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="${col}" data-record-id="${esc(id)}"><div class="section-title"><div><small>${id ? "ÄNDRA" : "NY POST"}</small><h2 id="editor-title">${esc(schema.sheet)}</h2></div><button type="button" data-editor-close>Stäng</button></div><nav class="tabs" aria-label="Redigeringssektioner">${[...groups.keys()].map((g, i) => `<button type="button" data-editor-tab="${g}" class="${i ? "" : "active"}">${g}</button>`).join("")}</nav>${[...groups].map(([g, controls], i) => `<section data-editor-section="${g}" ${i ? "hidden" : ""}><div class="form-grid">${controls.join("")}</div></section>`).join("")}${economicSummary}${company ? '<p class="computed">Mastervärden från INT/EXT ändras i underlaget. Kompletteringar sparas i backend.</p>' : ""}${result ? `<p class="computed">Beräknat för ${new Date().getFullYear()}: hyra ${Math.round(result.rent.amount)} kr · ${esc(result.rent.status)}. Tillägg ${Math.round(result.addition.amount)} kr · ${esc(result.addition.status)}.</p>` : ""}<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span><button type="submit" class="primary">Spara ändring</button></div></form></aside>`,
   };
 }
 export function readEditor(form, record) {
