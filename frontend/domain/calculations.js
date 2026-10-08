@@ -206,45 +206,67 @@
   }
   function budgetPeriod(c, year) {
     const budgetYear = Number(year);
-    if (!Number.isFinite(budgetYear)) return { months:0, factor:0, from:"", to:"", label:"0/12" };
+    const dayMs = 86400000;
+    const empty = {
+      days:0,
+      daysInYear:0,
+      factor:0,
+      from:"",
+      to:"",
+      startField:"",
+      endField:"",
+      label:"0 dagar"
+    };
+    if (!Number.isFinite(budgetYear)) return empty;
 
     // Actual occupancy wins over legal contract dates for budget purposes.
     const startValue = c?.moveInDate || c?.start || "";
     const endValue = c?.moveOutDate || c?.end || "";
     const start = validDate(startValue);
     const end = validDate(endValue);
+    const yearStart = new Date(Date.UTC(budgetYear, 0, 1));
+    const nextYear = new Date(Date.UTC(budgetYear + 1, 0, 1));
+    const daysInYear = Math.round((nextYear - yearStart) / dayMs);
 
     if (start && end && end < start)
-      return { months:0, factor:0, from:startValue, to:endValue, label:"0/12", invalid:true };
+      return {
+        ...empty,
+        daysInYear,
+        from:startValue,
+        to:endValue,
+        startField:c?.moveInDate ? "moveInDate" : (c?.start ? "start" : ""),
+        endField:c?.moveOutDate ? "moveOutDate" : (c?.end ? "end" : ""),
+        invalid:true
+      };
 
-    const yearStart = new Date(Date.UTC(budgetYear, 0, 1));
-    const yearEnd = new Date(Date.UTC(budgetYear, 11, 31));
+    const effectiveStart =
+      start && start > yearStart ? start : yearStart;
+    const endExclusive =
+      end ? new Date(end.getTime() + dayMs) : nextYear;
+    const effectiveEnd =
+      endExclusive < nextYear ? endExclusive : nextYear;
 
-    if (end && end < yearStart)
-      return { months:0, factor:0, from:startValue, to:endValue, label:"0/12" };
-    if (start && start > yearEnd)
-      return { months:0, factor:0, from:startValue, to:endValue, label:"0/12" };
+    if (effectiveEnd <= yearStart || effectiveStart >= nextYear || effectiveEnd <= effectiveStart)
+      return {
+        ...empty,
+        daysInYear,
+        from:startValue,
+        to:endValue,
+        startField:c?.moveInDate ? "moveInDate" : (c?.start ? "start" : ""),
+        endField:c?.moveOutDate ? "moveOutDate" : (c?.end ? "end" : ""),
+        label:"0/" + daysInYear
+      };
 
-    let firstMonth = 0;
-    if (start && start.getUTCFullYear() === budgetYear) {
-      // Business rule: the start / move-in month itself is not budgeted.
-      // Example: 2027-09-01 => Oct-Dec => 3/12.
-      firstMonth = start.getUTCMonth() + 1;
-    }
-
-    let lastMonth = 11;
-    if (end && end.getUTCFullYear() === budgetYear)
-      lastMonth = end.getUTCMonth();
-
-    const months = Math.max(0, lastMonth - firstMonth + 1);
+    const days = Math.round((effectiveEnd - effectiveStart) / dayMs);
     return {
-      months,
-      factor: months / 12,
+      days,
+      daysInYear,
+      factor: days / daysInYear,
       from: startValue,
       to: endValue,
       startField: c?.moveInDate ? "moveInDate" : (c?.start ? "start" : ""),
       endField: c?.moveOutDate ? "moveOutDate" : (c?.end ? "end" : ""),
-      label: months + "/12"
+      label: days + "/" + daysInYear
     };
   }
   function budgetYearFactor(c, year) {
@@ -299,7 +321,7 @@
     };
     (data.contracts || []).forEach((c) => {
       const period = budgetPeriod(c, year);
-      if (!period.months) return;
+      if (!period.days) return;
       const v = annualValues(c, year, plan?.preliminaryIndex, data.indexSeries);
       const status = [v.rent, v.addition].some((x) => x.status === "Behöver kontroll")
         ? "Behöver kontroll"
@@ -317,7 +339,8 @@
         status,
         {
           force: status === "Behöver kontroll",
-          budgetMonths: period.months,
+          budgetDays: period.days,
+          budgetDaysInYear: period.daysInYear,
           budgetFactor: period.factor,
           budgetPeriod: period.label,
           budgetFrom: period.from,
