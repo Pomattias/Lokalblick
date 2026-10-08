@@ -89,6 +89,51 @@ function notice(message, error = false) {
   node.textContent = message;
   node.className = error ? "notice error" : "notice";
 }
+let geoRunning = false;
+function geoProgressMessage(p) {
+  return "Geodata: " + p.processed + " av " + p.pending + " adresser behandlade · " +
+    p.matched + " matchade · " + p.review + " granska · " + p.notFound + " utan träff.";
+}
+function startGeoEnrichment() {
+  const service = globalThis.LokalblickGeocodingService;
+  if (geoRunning || !service || !data || data.isDemo) return;
+  const eligible = data.properties.filter(p => p.id && p.address && p.city &&
+    (p.latitude == null || p.latitude === "" || p.longitude == null || p.longitude === ""));
+  if (!eligible.length) return;
+  geoRunning = true;
+  const snapshot = { isDemo: false, properties: eligible.map(p => ({...p})) };
+  notice("Importen är klar. Geokodning pågår – du kan arbeta vidare i Lokalblick medan " +
+    eligible.length + " adresser behandlas. Låt fliken vara öppen.");
+  Promise.resolve().then(async () => {
+    try {
+      await service.enrichData(snapshot, progress => notice(
+        geoProgressMessage(progress) + " Du kan fortsätta arbeta; låt fliken vara öppen."
+      ));
+      const byId = new Map(snapshot.properties.map(p => [String(p.id), p]));
+      for (const current of data.properties) {
+        const result = byId.get(String(current.id));
+        if (!result || current.address !== result.address || current.city !== result.city) continue;
+        if (Number.isFinite(Number(result.latitude)) && result.latitude != null &&
+            Number.isFinite(Number(result.longitude)) && result.longitude != null) {
+          current.latitude = result.latitude;
+          current.longitude = result.longitude;
+        }
+      }
+      data = await transport.save(data);
+      const st = globalThis.LokalblickGeocodingStatus || {};
+      notice(st.available
+        ? "Geokodning klar: " + (st.matched || 0) + " matchade, " + (st.review || 0) +
+          " behöver granskas, " + (st.notFound || 0) + " utan träff." +
+          (transport.status().dirty ? " Välj Spara till Excel för att behålla koordinaterna." : "")
+        : "Geokodningen kunde inte slutföras: " + (st.message || "Okänt fel."));
+      render();
+    } catch (error) {
+      notice("Geokodningen kunde inte slutföras: " + error.message, true);
+    } finally {
+      geoRunning = false;
+    }
+  });
+}
 function importCountLabel(counts = {}) {
   const parts = [];
   if (counts.properties != null) parts.push("Fastigheter " + counts.properties);
@@ -213,7 +258,7 @@ function askMissingCity(importData) {
 function showImportProgress(fileName, selectedSheets) {
   const d = document.createElement("dialog");
   d.className = "followup-dialog import-dialog import-progress-dialog";
-  d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Läser och tolkar data</h2><p><strong>${esc(fileName)}</strong></p></div><span class="import-spinner" aria-hidden="true"></span></div><div class="import-progress-track"><span data-import-progress-bar></span></div><strong data-import-progress-message>Förbereder import…</strong><small data-import-progress-counts></small><div class="import-progress-sheets">${selectedSheets.map((name) => `<span data-import-progress-sheet="${esc(name)}">${esc(name)}</span>`).join("")}</div><p class="import-progress-hint">Du kan fortsätta vänta även om filen är stor. Lokalblick arbetar med de markerade flikarna.</p>`;
+  d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Läser och tolkar data</h2><p><strong>${esc(fileName)}</strong></p></div><span class="import-spinner" aria-hidden="true"></span></div><div class="import-progress-track"><span data-import-progress-bar></span></div><strong data-import-progress-message>Förbereder import…</strong><small data-import-progress-counts></small><div class="import-progress-sheets">${selectedSheets.map((name) => `<span data-import-progress-sheet="${esc(name)}">${esc(name)}</span>`).join("")}</div><p class="import-progress-hint">Importen förbereds. Därefter arbetar geokodningen vidare utan att låsa sidan.</p>`;
   document.body.append(d);
   d.showModal();
   return d;
@@ -442,15 +487,6 @@ async function sourceAction(action) {
         progressDialog = showImportProgress(prepared.fileName, selectedSheets);
       }
 
-      if (globalThis.LokalblickGeocodingService && !result.data.isDemo) {
-        updateImportProgress(progressDialog, {
-          message: "Berikar fastigheter med koordinater…",
-          step: 4,
-          totalSteps: 5,
-          counts: result.report?.counts,
-        });
-        result.data = await globalThis.LokalblickGeocodingService.enrichData(result.data);
-      }
       const cityWarning = cityResult.skipped
         ? " " + cityResult.skipped + " fastigheter saknar fortfarande ort och geokodas inte förrän ort kompletterats."
         : "";
@@ -471,6 +507,7 @@ async function sourceAction(action) {
       progressDialog?.remove();
       busy = false;
     }
+    startGeoEnrichment();
   } else if (["enrich", "operational", "index", "supplement"].includes(action)) {
     result = await transport[action](
       data,
