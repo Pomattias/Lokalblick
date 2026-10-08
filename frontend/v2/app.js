@@ -499,7 +499,7 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-assign],[data-quarter],[data-move],[data-review],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-activity-home],[data-assign],[data-quarter],[data-move],[data-review],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
@@ -814,6 +814,27 @@ document.addEventListener("change", (event) =>
     if (x.hasAttribute("data-year")) {
       ui.year = Math.max(2000, Math.min(2200, Number(x.value) || ui.year));
       render();
+      return;
+    }
+    if (x.dataset.activityHome) {
+      await mutation(d => {
+        const record = d.activities.find(a => String(a.id) === String(x.dataset.activityHome));
+        if (!record) throw Error("Aktiviteten saknas");
+        const before = clone(record);
+        const value = x.value;
+        if (value.startsWith("property:")) {
+          const id = value.slice(9);
+          if (!d.properties.some(p => String(p.id) === id)) throw Error("Fastigheten saknas");
+          record.propertyId = id; record.unitId = ""; record.scopeType = "property";
+        } else if (value.startsWith("unit:")) {
+          record.propertyId = ""; record.contractId = ""; record.unitId = value.slice(5); record.scopeType = "unit";
+        } else if (value === "general") {
+          record.propertyId = ""; record.contractId = ""; record.unitId = ""; record.scopeType = "general";
+        } else {
+          record.propertyId = ""; record.contractId = ""; record.unitId = ""; record.scopeType = "";
+        }
+        audit(d, "activities", record.id, before, record, actor());
+      });
       return;
     }
     if (x.dataset.assign)
