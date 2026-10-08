@@ -43,6 +43,15 @@
       const activityKey="PROJ2027|"+hash([key(business),key(address),key(category),key(title)].join("|"));
       const srcId="PROJECT2027|"+activityKey;
       const existingSource=data.activities.find(a=>a.project2027SourceId===srcId);
+      const sameSourceRow=data.activities.filter(a=>a.sourceSheet===sheetName &&
+        Number(a.sourceRow)===line.row && a.project2027SourceId && a.project2027SourceFile===source);
+      if(!existingSource && sameSourceRow.length) {
+        review("changed-row",line.row,
+          "En tidigare importerad aktivitet finns på samma källrad men identiteten har ändrats. Granska innan en ny aktivitet skapas.",
+          {title,category,address,business,previous:sameSourceRow.map(a=>({id:a.id,title:a.title,category:a.category}))});
+        counts.possibleDuplicates++;
+        continue;
+      }
       const pMatches=matches(address);
       let property=pMatches.length===1?pMatches[0]:null;
       const cMatches=property?data.contracts.filter(c=>c.propertyId===property.id &&
@@ -63,7 +72,7 @@
       let item=existingSource;
       if(!item) {
         item={id:"ACT|"+hash(srcId),title,category,type:"Projekt",status:"Planerad",planningYear:year,
-          project2027SourceId:srcId,sourceId:srcId,sourceSheet:sheetName,sourceRow:line.row,
+          project2027SourceId:srcId,project2027SourceFile:source,sourceId:srcId,sourceSheet:sheetName,sourceRow:line.row,
           propertyId:contract?"":property?.id||"",contractId:contract?.id||"",
           unitId:home.startsWith("unit:")?unit:"",scopeType:home.split(":")[0]||"",
           provenance:{},comments:[]};
