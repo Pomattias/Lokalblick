@@ -830,3 +830,18 @@ details .table-wrap {
 #content table:has([data-activity-home]) .plan-date-range { white-space:nowrap; font-size:12px; font-variant-numeric:tabular-nums; }
 .timeline-cost input[data-activity-year-amount] { width:100%; max-width:112px; min-width:0; padding:6px; border:1px solid var(--line,#dce4de); border-radius:6px; text-align:right; font:inherit; }
 .timeline-cost { min-width:0; }
+
+/* V1-inspired dense tables for V2 Avtal, Projekt, Underhåll, Drift and Önskemål. */
+.compact-data-table { border:1px solid var(--line,#dce4de); border-radius:12px; overflow:auto; margin-top:8px; }
+.compact-data-table table { width:100%; border-collapse:collapse; }
+.compact-data-table th { background:var(--surface,#f5f7f5); font-size:11px; text-transform:uppercase; letter-spacing:.015em; white-space:nowrap; padding:7px 9px; }
+.compact-data-table td { padding:8px 9px; height:38px; vertical-align:middle; border-top:1px solid var(--line,#e0e5e2); font-size:13px; }
+.compact-data-table td small { display:block; margin:0; font-size:11px; }
+.compact-data-table .column-sort { appearance:none; border:0; background:none; font:inherit; letter-spacing:inherit; text-transform:inherit; color:inherit; cursor:pointer; padding:0; text-align:left; white-space:nowrap; }
+.compact-data-table .column-sort:hover { text-decoration:underline; }
+.compact-data-table .column-sort[data-direction="asc"] span::after { content:" ↑"; }
+.compact-data-table .column-sort[data-direction="desc"] span::after { content:" ↓"; }
+.compact-data-table .column-filters th { padding:3px 6px 6px; }
+.compact-data-table .column-filters input { width:100%; min-width:65px; max-width:200px; border:1px solid var(--line,#dae3df); border-radius:5px; padding:4px 6px; background:var(--background,#fff); font-size:11px; text-transform:none; letter-spacing:normal; }
+.compact-data-table tr[hidden] { display:none !important; }
+.compact-data-table td button { padding:4px 8px; }
