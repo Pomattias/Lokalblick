@@ -307,6 +307,8 @@ test("budget rows exclude expired contracts and prorate from exact move-in day",
     moveInDate: "2027-09-01",
     baseRent: 120000,
     rentIndexPercent: 0,
+    baseAdditions: 0,
+    additionIndexPercent: 0,
   };
   const expired = {
     ...contract,
@@ -317,7 +319,13 @@ test("budget rows exclude expired contracts and prorate from exact move-in day",
     rentIndexPercent: 0,
   };
   const rows = C.budgetRows(
-    { contracts: [active, expired], activities: [], operations: [], budgetPlans: [], indexSeries: [] },
+    {
+      contracts: [active, expired],
+      activities: [],
+      operations: [],
+      budgetPlans: [{ year: 2027, preliminaryIndex: 425 }],
+      indexSeries: [],
+    },
     2027,
   );
   assert.equal(rows.length, 1);
