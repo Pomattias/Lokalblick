@@ -21,8 +21,8 @@ export const units = {
 export const calc = () => globalThis.LokalblickCalculations;
 const edit = (col, id, label = "Ändra") =>
   `<button data-edit="${esc(col)}" data-id="${esc(id)}">${label}</button>`;
-const table = (head, rows, interactive = false) =>
-  `<div class="table-wrap${interactive?" compact-data-table":""}"><table${interactive?' data-smart-table="1"':""}><thead><tr>${head.map((x,i) => `<th scope="col">${interactive && x ? `<button type="button" class="column-sort" data-column-sort="${i}" aria-label="Sortera på ${esc(x)}">${esc(x)} <span aria-hidden="true">↕</span></button>` : x}</th>`).join("")}</tr>${interactive?`<tr class="column-filters">${head.map((x,i)=>`<th>${x && i<head.length-1 ? `<input type="search" data-column-filter="${i}" aria-label="Filtrera ${esc(x)}" placeholder="Filtrera…" autocomplete="off">`:""}</th>`).join("")}</tr>`:""}</thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${head.length}" class="empty">Inga poster i aktuellt urval.</td></tr>`}</tbody></table></div>`;
+const table = (head, rows, interactive = false, heading = "") =>
+  `<div class="table-wrap${interactive?" compact-data-table":""}">${interactive?`<div class="compact-table-heading"><strong>${esc(heading)}</strong><span>${rows.length} poster</span><button type="button" data-toggle-column-filters aria-label="Visa kolumnfilter" title="Visa kolumnfilter">⚑</button></div>`:""}<table${interactive?' data-smart-table="1"':""}><thead><tr>${head.map((x,i) => `<th scope="col">${interactive && x ? `<button type="button" class="column-sort" data-column-sort="${i}" aria-label="Sortera på ${esc(x)}">${esc(x)} <span aria-hidden="true">↕</span></button>` : x}</th>`).join("")}</tr>${interactive?`<tr class="column-filters" hidden>${head.map((x,i)=>`<th>${x && i<head.length-1 ? `<input type="search" data-column-filter="${i}" aria-label="Filtrera ${esc(x)}" placeholder="Filtrera" autocomplete="off">`:""}</th>`).join("")}</tr>`:""}</thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${head.length}" class="empty">Inga poster i aktuellt urval.</td></tr>`}</tbody></table></div>`;
 const row = (cells) =>
   `<tr>${cells.map((x, i) => `<td${i === 0 ? ' class="primary-cell"' : ""}>${x}</td>`).join("")}</tr>`;
 const badge = (x) =>
@@ -232,15 +232,23 @@ export function summary(data, s, year, ui = {}) {
   ]);
 }
 function contractRows(data, contracts, year) {
-  return contracts.map((c) => {
-    const v = calc().annualValues(c, year, 0, data.indexSeries);
+  return contracts.map(c=>{
+    const p=(data.properties||[]).find(p=>p.id===c.propertyId)||{};
+    const v=calc().annualValues(c,year,0,data.indexSeries);
+    const area=Number(c.area)||0;
+    const amount=Number(v.rent.amount)||0;
+    const addition=Number(v.addition.amount)||0;
     return row([
-      `<button class="text-button" data-open-contract="${esc(c.id)}">${esc(c.number || "Avtalsnummer saknas")}</button><small>${esc(propertyLabel(data, c.propertyId))}</small>`,
-      num(c.area) + " m²",
-      `${money(v.rent.amount)}<small>${money(v.addition.amount)} tillägg</small>`,
-      badge(v.rent.status),
-      esc(c.end || "Tillsvidare"),
-      edit("contracts", c.id),
+      esc(p.designation||"–"),
+      `<button class="text-button" data-property="${esc(p.id||"")}">${esc(p.address||"–")}</button>`,
+      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||"Avtalsnummer saknas")}</strong></button>`,
+      num(area),
+      v.rent.status==="Beräknad"?money(amount):amount?money(amount):"–",
+      addition?money(addition):"–",
+      area&&amount?money((amount+addition)/area):"–",
+      esc(c.end||"–"),
+      esc(c.noticePeriodMonths==null||c.noticePeriodMonths===""?"–":c.noticePeriodMonths+" mån"),
+      `<button class="table-pencil" data-edit="contracts" data-id="${esc(c.id)}" aria-label="Redigera avtal ${esc(c.number||c.id)}" title="Redigera">✎</button>`
     ]);
   });
 }
@@ -293,9 +301,10 @@ export function overview(data, s, ui) {
     );
   } else if (ui.perspective === "Avtal")
     body = table(
-      ["Avtal", "Area", "Hyra / år", "Värdestatus", "Slutdatum", ""],
+      ["Fastighet", "Adress", "Avtal", "Kvm", "Hyra / år", "Tillägg", "Kr/kvm", "Avtal t.o.m.", "Uppsägning", ""],
       contractRows(data, v.contracts, ui.year),
       true,
+      "Avtal",
     );
   else
     body = table(
@@ -305,6 +314,7 @@ export function overview(data, s, ui) {
         v.items.filter((x) => x.label === ui.perspective),
       ),
       true,
+      ui.perspective,
     );
   return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div><div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
 }
