@@ -347,6 +347,14 @@ async function mutation(change) {
   busy = true;
   try {
     change(data);
+    const previousLocations = new Map((before.properties || []).map(p => [String(p.id), String(p.address || "") + "|" + String(p.city || "")]));
+    const locationChanged = (data.properties || []).some(p => previousLocations.get(String(p.id)) !== (String(p.address || "") + "|" + String(p.city || "")));
+    if (locationChanged && !data.isDemo && globalThis.LokalblickGeocodingService) {
+      const stale = (data.properties || []).filter(p => previousLocations.get(String(p.id)) !== (String(p.address || "") + "|" + String(p.city || "")));
+      // Coordinates from the old address must never appear at a new address.
+      stale.forEach(p => { p.latitude = null; p.longitude = null; });
+      await globalThis.LokalblickGeocodingService.enrichData(data);
+    }
     captureChanges(before);
     data = await transport.save(data);
     notice(
