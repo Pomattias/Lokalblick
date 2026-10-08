@@ -423,7 +423,7 @@ function migrateLegacy(out) {
 function canonicalRelations(out) {
   out.orders=Array.isArray(out.orders)?out.orders:[];
   const isOur=(id)=>{const p=out.people.find((x)=>x.id===id);if(!p)return false;if(!p.organizationId)return true;return out.organizations.find((x)=>x.id===p.organizationId)?.type==="our";};
-  const validOwnerManager=(id,p)=>{const person=out.people.find(x=>x.id===id);return Boolean(person&&p.ownerPartyId&&person.organizationId===p.ownerPartyId);};
+  const validOwnerManager=(id,p)=>{const person=out.people.find(x=>x.id===id);const owner=out.organizations.find(x=>x.id===p.ownerPartyId);if(person&&/\bJULDAM\b/i.test([person.name,person.sourceId,person.id].join(" "))&&!/stadsfastigheter/i.test(owner?.name||""))return false;return Boolean(person&&p.ownerPartyId&&person.organizationId===p.ownerPartyId);};
   out.properties.forEach((p)=>{if(!p.ownerPartyId&&p.ownerOrgId)p.ownerPartyId=p.ownerOrgId;delete p.ownerOrgId;});
   out.properties.forEach(p=>{if(p.ownerResponsiblePersonId&&!validOwnerManager(p.ownerResponsiblePersonId,p))p.ownerResponsiblePersonId="";});
   out.contracts.forEach((c)=>{if(!c.businessPartyId&&c.tenantOrgId)c.businessPartyId=c.tenantOrgId;delete c.tenantOrgId;delete c.ownerOrgId;["notice","annualRent","annualAdditions","rentPerSqm","rentBaseIndex","derivedRentBaseIndex","rentIndexCurrent","rentIndexYear","rentCalculationYear","calculatedAnnualRent","rentCalculationVariance","rentCalculationStatus","additionBaseIndex","derivedAdditionBaseIndex","additionIndexCurrent","additionIndexYear","additionCalculationYear","calculatedAnnualAdditions","additionCalculationVariance","additionCalculationStatus"].forEach((k)=>delete c[k]);});
