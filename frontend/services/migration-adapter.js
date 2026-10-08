@@ -139,7 +139,7 @@
     let c=data.contracts.find(function(x){return x.number===contractNo && contractNo && x.propertyId===(property?property.id:"") && x.sourceSheet===(extra||{}).sourceSheet && x.sourceRow===(extra||{}).sourceRow;});
     if(!c){
       const fallback=[property&&property.id,(extra||{}).sourceSheet,(extra||{}).sourceRow,(extra||{}).use,(extra||{}).area].filter(Boolean).join("|") || "contract";
-      c={id:"AVT|"+(contractNo ? contractNo+(data.contracts.some(function(x){return x.number===contractNo;})?"|"+hash((property&&property.id)+"|"+(extra||{}).sourceSheet+"|"+(extra||{}).sourceRow):"") : hash(fallback)),sourceId:contractNo,propertyId:property?property.id:"",number:contractNo,source:"",area:0,category:"",use:"",start:"",end:"",notice:"",annualRent:0,annualContractDrift:0,unitId:"",tenantOrgId:"",ownerOrgId:"",employees:0,users:0,rooms:0,commonArea:0,apartmentArea:0,sourceSheet:"",sourceRow:""};
+      c={id:"AVT|"+(contractNo ? contractNo+(data.contracts.some(function(x){return x.number===contractNo;})?"|"+hash((property&&property.id)+"|"+(extra||{}).sourceSheet+"|"+(extra||{}).sourceRow):"") : hash(fallback)),sourceId:contractNo,propertyId:property?property.id:"",number:contractNo,source:"",area:0,category:"",use:"",start:"",end:"",moveInDate:"",moveOutDate:"",notice:"",annualRent:0,annualContractDrift:0,unitId:"",tenantOrgId:"",ownerOrgId:"",employees:0,users:0,rooms:0,commonArea:0,apartmentArea:0,sourceSheet:"",sourceRow:""};
       data.contracts.push(c);
     }
     Object.keys(extra||{}).forEach(function(k){ if(extra[k]!=="" && extra[k]!=null) c[k]=extra[k]; });
@@ -273,7 +273,11 @@
       const sourceType=sourceSheet==="EXT" ? "EXT" : (sourceSheet==="INT" || sourceSheet==="SF") ? "INT" : (/^INH/i.test(sourceObject) ? "EXT" : "INT");
       ensureContract(data,number,property,{
         source:sourceType,area:num(cell(r,h,["Area"])),category:text(cell(r,h,["Lokalkategori"])),
-        use:text(cell(r,h,["Användning"])),end:excelDate(cell(r,h,["Aktuellt giltigt t.o.m."])),
+        use:text(cell(r,h,["Användning"])),
+        start:excelDate(cell(r,h,["Aktuellt giltigt fr.o.m.","Giltigt fr.o.m.","Fr.o.m.","Start","Startdatum","Avtalsstart"])),
+        end:excelDate(cell(r,h,["Aktuellt giltigt t.o.m.","Giltigt t.o.m.","T.o.m.","Slut","Slutdatum","Avtalsslut"])),
+        moveInDate:excelDate(cell(r,h,["Inflyttning","Inflyttningsdatum","Tillträde","Tillträdesdatum"])),
+        moveOutDate:excelDate(cell(r,h,["Utflyttning","Utflyttningsdatum","Avflyttning","Avflyttningsdatum"])),
         notice:excelDate(cell(r,h,["Säg upp senast"])),ownerOrgId:ownerOrgId,sourceSheet:sourceSheet,sourceRow:item.sourceRow
       });
       if(managerId && !data.assignments.some(function(a){return a.personId===managerId && a.targetId===property.id;})){
