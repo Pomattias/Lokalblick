@@ -145,6 +145,8 @@ test("contract enrichment maps rent inputs and calculates current indexed rent",
         "Basår",
         "Index %",
         "kvm",
+        "Inflyttningsdatum",
+        "Utflyttningsdatum",
       ],
       [
         "TEST 1",
@@ -156,6 +158,8 @@ test("contract enrichment maps rent inputs and calculates current indexed rent",
         2020,
         80,
         100,
+        "2027-09-01",
+        "2030-06-30",
       ],
     ],
   });
@@ -176,6 +180,8 @@ test("contract enrichment maps rent inputs and calculates current indexed rent",
   assert.equal(c.baseRent, 100000);
   assert.equal(c.rentBaseYear, 2020);
   assert.equal(c.rentIndexPercent, 0.8);
+  assert.equal(c.moveInDate, "2027-09-01");
+  assert.equal(c.moveOutDate, "2030-06-30");
   assert.equal(value.status, "Beräknad");
   assert.equal(Math.round(value.amount), 119558);
 });
@@ -254,6 +260,66 @@ test("day periodization includes leap year and end date", () => {
     1 / 366,
   );
   assert.equal(C.yearFactor({ end: "2023-12-31" }, 2024), 0);
+});
+test("budget period includes only months that affect the budget year", () => {
+  assert.deepEqual(
+    plain(C.budgetPeriod({ moveInDate: "2027-09-01" }, 2027)),
+    {
+      months: 3,
+      factor: 0.25,
+      from: "2027-09-01",
+      to: "",
+      startField: "moveInDate",
+      endField: "",
+      label: "3/12",
+    },
+  );
+  assert.equal(
+    C.budgetPeriod({ end: "2026-11-30" }, 2027).months,
+    0,
+  );
+  assert.equal(
+    C.budgetPeriod({ start: "2020-01-01", end: "2027-11-30" }, 2027).months,
+    11,
+  );
+  assert.equal(
+    C.budgetPeriod(
+      {
+        start: "2020-01-01",
+        end: "2030-12-31",
+        moveInDate: "2027-09-01",
+      },
+      2027,
+    ).months,
+    3,
+  );
+});
+test("budget rows exclude expired contracts and periodize future move-ins", () => {
+  const active = {
+    ...contract,
+    id: "active",
+    number: "ACTIVE",
+    moveInDate: "2027-09-01",
+    baseRent: 120000,
+    rentIndexPercent: 0,
+  };
+  const expired = {
+    ...contract,
+    id: "expired",
+    number: "EXPIRED",
+    end: "2026-11-30",
+    baseRent: 120000,
+    rentIndexPercent: 0,
+  };
+  const rows = C.budgetRows(
+    { contracts: [active, expired], activities: [], operations: [], budgetPlans: [], indexSeries: [] },
+    2027,
+  );
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].sourceId, "active");
+  assert.equal(rows[0].budgetMonths, 3);
+  assert.equal(rows[0].budgetPeriod, "3/12");
+  assert.equal(rows[0].amount, 30000);
 });
 test("real INT/EXT parser keeps several contracts per property and blank numbers", () => {
   const svc = services(),
