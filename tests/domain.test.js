@@ -335,6 +335,76 @@ test("budget rows exclude expired contracts and prorate from exact move-in day",
   assert.equal(rows[0].budgetPeriod, "122/365");
   assert.ok(Math.abs(rows[0].amount - 120000 * 122 / 365) < 0.001);
 });
+test("budget includes activities planned during the budget year", () => {
+  const activities = [
+    {
+      id: "plan-year",
+      type: "Underhåll",
+      propertyId: "p1",
+      planningYear: 2027,
+      estimatedCost: 100,
+      budgetCategory: "Underhåll",
+    },
+    {
+      id: "other-year",
+      type: "Underhåll",
+      propertyId: "p1",
+      planningYear: 2028,
+      startDate: "2027-01-01",
+      endDate: "2027-12-31",
+      estimatedCost: 200,
+      budgetCategory: "Underhåll",
+    },
+    {
+      id: "date-overlap",
+      type: "Projekt",
+      propertyId: "p1",
+      startDate: "2026-12-15",
+      endDate: "2027-02-15",
+      estimatedCost: 300,
+      budgetCategory: "Projekt",
+    },
+    {
+      id: "future-date",
+      type: "Projekt",
+      propertyId: "p1",
+      startDate: "2028-01-01",
+      estimatedCost: 400,
+      budgetCategory: "Projekt",
+    },
+    {
+      id: "year-budget",
+      type: "Projekt",
+      propertyId: "p1",
+      budgetAmount2027: 250,
+      estimatedCost: 1000,
+      budgetCategory: "Projekt",
+    },
+  ];
+  assert.equal(C.activityPlannedInYear(activities[0], 2027), true);
+  assert.equal(C.activityPlannedInYear(activities[1], 2027), false);
+  assert.equal(C.activityPlannedInYear(activities[2], 2027), true);
+  assert.equal(C.activityPlannedInYear(activities[3], 2027), false);
+  assert.equal(C.activityPlannedInYear(activities[4], 2027), true);
+  assert.equal(C.activityBudgetAmount(activities[4], 2027), 250);
+
+  const rows = C.budgetRows(
+    {
+      contracts: [],
+      activities,
+      operations: [],
+      budgetPlans: [],
+      indexSeries: [],
+    },
+    2027,
+  );
+  assert.deepEqual(
+    rows.map((row) => row.sourceId).sort(),
+    ["date-overlap", "plan-year", "year-budget"],
+  );
+  assert.equal(rows.find((row) => row.sourceId === "year-budget").amount, 250);
+});
+
 test("real INT/EXT parser keeps several contracts per property and blank numbers", () => {
   const svc = services(),
     w = workbook({
