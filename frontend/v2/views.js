@@ -390,7 +390,7 @@ export function planning(data, s, ui) {
           "Ej fördelat",
         )}</select>`,
         x.collection === "activities"
-          ? `<small>${esc(x.record.startDate || "Start ej satt")} → ${esc(x.record.endDate || "Slut ej satt")}</small><small>Årsbudget ${ui.year} (kr)</small><input type="number" min="0" step="1" aria-label="Årsbudget ${ui.year} för ${esc(x.title)}" data-activity-year-amount="${esc(x.record.id)}" data-year="${ui.year}" placeholder="Ej fördelad" value="${esc((x.record.yearAllocations || []).find(a => Number(a.year) === Number(ui.year))?.amount ?? "")}"><select aria-label="Kvartal för ${esc(x.title)}" data-quarter="activities" data-id="${esc(x.record.id)}">${options(
+          ? `<small>${esc(x.record.startDate || "Start ej satt")} → ${esc(x.record.endDate || "Slut ej satt")}</small><small>Årsbudget ${ui.year} (kr)</small><input type="number" min="0" step="1" aria-label="Årsbudget ${ui.year} för ${esc(x.title)}" data-activity-year-amount="${esc(x.record.id)}" data-allocation-year="${ui.year}" placeholder="Ej fördelad" value="${esc((x.record.yearAllocations || []).find(a => Number(a.year) === Number(ui.year))?.amount ?? "")}"><select aria-label="Kvartal för ${esc(x.title)}" data-quarter="activities" data-id="${esc(x.record.id)}">${options(
               [1, 2, 3, 4],
               (n) => n,
               (n) => "Kvartal " + n,
