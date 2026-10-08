@@ -845,6 +845,39 @@ document.addEventListener("click", (event) =>
       });
   }),
 );
+// V1-style table interaction acts on existing DOM rows, without changing source data.
+function refreshSmartTable(table) {
+  const inputs=[...table.querySelectorAll("[data-column-filter]")];
+  const tbody=table.tBodies[0];
+  if(!tbody)return;
+  const rows=[...tbody.rows].filter(row=>!row.querySelector(".empty"));
+  const normalize=value=>String(value||"").toLocaleLowerCase("sv").trim();
+  rows.forEach(row=>{
+    row.hidden=!inputs.every(input=>!normalize(input.value) ||
+      normalize(row.cells[Number(input.dataset.columnFilter)]?.textContent).includes(normalize(input.value)));
+  });
+}
+document.addEventListener("input",event=>{
+  if(!event.target.matches("[data-column-filter]"))return;
+  const table=event.target.closest("table[data-smart-table]");
+  if(table)refreshSmartTable(table);
+});
+document.addEventListener("click",event=>{
+  const sort=event.target.closest("[data-column-sort]");
+  if(!sort)return;
+  const table=sort.closest("table[data-smart-table]");
+  if(!table?.tBodies[0])return;
+  const index=Number(sort.dataset.columnSort), dir=sort.dataset.direction==="asc"?"desc":"asc";
+  table.querySelectorAll("[data-column-sort]").forEach(b=>{b.dataset.direction="";b.removeAttribute("aria-sort");});
+  sort.dataset.direction=dir;
+  sort.closest("th")?.setAttribute("aria-sort",dir==="asc"?"ascending":"descending");
+  const collator=new Intl.Collator("sv-SE",{numeric:true,sensitivity:"base"});
+  const tbody=table.tBodies[0];
+  [...tbody.rows].filter(row=>!row.querySelector(".empty")).sort((a,b)=>{
+    const av=a.cells[index]?.textContent?.trim()||"", bv=b.cells[index]?.textContent?.trim()||"";
+    return (dir==="asc"?1:-1)*collator.compare(av,bv);
+  }).forEach(row=>tbody.appendChild(row));
+});
 document.addEventListener("change", (event) =>
   run(async () => {
     const x = event.target;
