@@ -199,6 +199,57 @@
       return 0;
     return Math.max(0, Math.min(end, to) - Math.max(start, from)) / (to - from);
   }
+  function validDate(value) {
+    if (!value) return null;
+    const date = new Date(String(value).slice(0, 10) + "T00:00:00Z");
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+  function budgetPeriod(c, year) {
+    const budgetYear = Number(year);
+    if (!Number.isFinite(budgetYear)) return { months:0, factor:0, from:"", to:"", label:"0/12" };
+
+    // Actual occupancy wins over legal contract dates for budget purposes.
+    const startValue = c?.moveInDate || c?.start || "";
+    const endValue = c?.moveOutDate || c?.end || "";
+    const start = validDate(startValue);
+    const end = validDate(endValue);
+
+    if (start && end && end < start)
+      return { months:0, factor:0, from:startValue, to:endValue, label:"0/12", invalid:true };
+
+    const yearStart = new Date(Date.UTC(budgetYear, 0, 1));
+    const yearEnd = new Date(Date.UTC(budgetYear, 11, 31));
+
+    if (end && end < yearStart)
+      return { months:0, factor:0, from:startValue, to:endValue, label:"0/12" };
+    if (start && start > yearEnd)
+      return { months:0, factor:0, from:startValue, to:endValue, label:"0/12" };
+
+    let firstMonth = 0;
+    if (start && start.getUTCFullYear() === budgetYear) {
+      // Business rule: the start / move-in month itself is not budgeted.
+      // Example: 2027-09-01 => Oct-Dec => 3/12.
+      firstMonth = start.getUTCMonth() + 1;
+    }
+
+    let lastMonth = 11;
+    if (end && end.getUTCFullYear() === budgetYear)
+      lastMonth = end.getUTCMonth();
+
+    const months = Math.max(0, lastMonth - firstMonth + 1);
+    return {
+      months,
+      factor: months / 12,
+      from: startValue,
+      to: endValue,
+      startField: c?.moveInDate ? "moveInDate" : (c?.start ? "start" : ""),
+      endField: c?.moveOutDate ? "moveOutDate" : (c?.end ? "end" : ""),
+      label: months + "/12"
+    };
+  }
+  function budgetYearFactor(c, year) {
+    return budgetPeriod(c, year).factor;
+  }
   const budgetIncluded = (x) =>
     x?.budgetIncluded !== false && x?.includeInBudget !== "Nej";
   function budgetIndex(data, year, preliminaryIndex) {
@@ -229,27 +280,49 @@
       plan = (data.budgetPlans || []).find(
         (p) => Number(p.year) === Number(year),
       );
-    const add = (x, category, amount, type, label, status) => {
-      if (amount > 0) {
+    const add = (x, category, amount, type, label, status, meta) => {
+      const force = Boolean(meta && meta.force);
+      if (amount > 0 || force) {
         const contract=x.contractId?(data.contracts||[]).find((c)=>c.id===x.contractId):null;
-        rows.push({category,source:label||x.title||x.name||x.category||x.id,sub:label||x.title||x.category||"",amount,propertyId:x.propertyId||contract?.propertyId||"",contractId:x.contractId||"",sourceType:type,sourceId:x.id,status:status||"Källvärde"});
+        rows.push(Object.assign({
+          category,
+          source:label||x.title||x.name||x.category||x.id,
+          sub:label||x.title||x.category||"",
+          amount,
+          propertyId:x.propertyId||contract?.propertyId||"",
+          contractId:x.contractId||"",
+          sourceType:type,
+          sourceId:x.id,
+          status:status||"Källvärde"
+        }, meta || {}));
       }
     };
     (data.contracts || []).forEach((c) => {
+      const period = budgetPeriod(c, year);
+      if (!period.months) return;
       const v = annualValues(c, year, plan?.preliminaryIndex, data.indexSeries);
+      const status = [v.rent, v.addition].some((x) => x.status === "Behöver kontroll")
+        ? "Behöver kontroll"
+        : [v.rent, v.addition].some((x) => x.preliminary)
+          ? "Preliminär"
+          : [v.rent, v.addition].some((x) => x.calculated)
+            ? "Beräknad"
+            : "Källvärde";
       add(
         c,
         "Hyra + drift",
-        v.total * yearFactor(c, year),
+        v.total * period.factor,
         "contract",
         c.number || c.id,
-        [v.rent, v.addition].some((x) => x.status === "Behöver kontroll")
-          ? "Behöver kontroll"
-          : [v.rent, v.addition].some((x) => x.preliminary)
-            ? "Preliminär"
-            : [v.rent, v.addition].some((x) => x.calculated)
-              ? "Beräknad"
-              : "Källvärde",
+        status,
+        {
+          force: status === "Behöver kontroll",
+          budgetMonths: period.months,
+          budgetFactor: period.factor,
+          budgetPeriod: period.label,
+          budgetFrom: period.from,
+          budgetTo: period.to
+        },
       );
     });
 
@@ -348,6 +421,8 @@
     annualValues,
     noticeDate,
     yearFactor,
+    budgetPeriod,
+    budgetYearFactor,
     budgetIndex,
     budgetRows,
     actualRows,
