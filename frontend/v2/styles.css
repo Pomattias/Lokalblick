@@ -788,3 +788,15 @@ details .table-wrap {
     height: clamp(180px,calc(100dvh - 440px),560px);
   }
 }
+
+/* Geodata quality and manual placement */
+.geo-quality { margin-bottom: 1rem; }
+.geo-missing-list { max-height: 360px; overflow-y: auto; }
+.geo-missing-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid #dce4de; }
+.geo-missing-row span { display:flex; flex-direction:column; gap:2px; }
+.geo-missing-row small { color:#64756e; }
+.geo-placement-dialog { width:min(850px,96vw); max-width:96vw; padding:18px; }
+.geo-placement-head,.geo-placement-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.geo-placement-head h2 { margin:0 0 8px; }
+.geo-placement-map { width:100%; height:min(58vh,500px); min-height:300px; margin:12px 0; border-radius:8px; overflow:hidden; }
+@media(max-width:650px) { .geo-placement-footer { flex-direction:column; align-items:stretch; } .geo-placement-map {height:55vh;} }
