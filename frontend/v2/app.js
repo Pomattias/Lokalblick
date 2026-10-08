@@ -501,7 +501,7 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-activity-home],[data-assign],[data-quarter],[data-move],[data-review],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
@@ -821,6 +821,26 @@ document.addEventListener("change", (event) =>
     if (x.hasAttribute("data-year")) {
       ui.year = Math.max(2000, Math.min(2200, Number(x.value) || ui.year));
       render();
+      return;
+    }
+    if (x.dataset.activityYearAmount) {
+      await mutation(d => {
+        const activity = d.activities.find(a => String(a.id) === String(x.dataset.activityYearAmount));
+        if (!activity) throw Error("Aktiviteten saknas");
+        const year = Number(x.dataset.year);
+        if (!Number.isInteger(year) || year < 2000 || year > 2200) throw Error("Ogiltigt budgetår");
+        if ((d.budgetPlans || []).some(p => Number(p.year) === year && p.status === "Låst"))
+          throw Error("Budgetåret är låst. Ändringar ska göras i ny prognos.");
+        const raw = String(x.value || "").trim();
+        const amount = raw === "" ? null : Number(raw);
+        if (amount !== null && (!Number.isFinite(amount) || amount < 0)) throw Error("Ange ett giltigt belopp");
+        const before = clone(activity);
+        const entries = Array.isArray(activity.yearAllocations) ? activity.yearAllocations : [];
+        activity.yearAllocations = entries.filter(entry => Number(entry.year) !== year);
+        if (amount !== null) activity.yearAllocations.push({year, amount});
+        activity.yearAllocations.sort((a,b)=>Number(a.year)-Number(b.year));
+        audit(d, "activities", activity.id, before, activity, actor());
+      });
       return;
     }
     if (x.dataset.activityHome) {
