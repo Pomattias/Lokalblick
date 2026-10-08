@@ -10,6 +10,7 @@ import {
   resolveReview,
 } from "./model.js";
 import { createTransport } from "./transport.js";
+import { retainImportedData } from "./import-workspace.js";
 import {
   esc,
   money,
@@ -414,7 +415,7 @@ function updateImportProgress(dialog, progress = {}) {
 function canEdit() {
   const st = transport.status();
   if (st.sourceKind === "migration") return false;
-  if (data.isDemo || (!transport.company() && st.connected)) return true;
+  if (data.isDemo || st.staged || (!transport.company() && st.connected)) return true;
   const user = data.currentUser;
   return (
     transport.company() &&
@@ -452,9 +453,10 @@ function render() {
   document.querySelector("#source-label").textContent = data.isDemo
     ? "Syntetisk demo"
     : st.fileName || data.sourceName || "Ansluten data";
-  document.querySelector("#save").hidden = transport.company() || !st.dirty;
-  document.querySelector("#save").textContent =
-    `Spara till Excel (${st.pendingChanges?.length || 0})`;
+  const needsNewWorkbook = st.staged || (st.sourceKind === "migration" && st.dirty);
+  document.querySelector("#save").hidden = transport.company() || (!st.dirty && !st.staged);
+  document.querySelector("#save").textContent = needsNewWorkbook
+    ? "Spara som Lokalblick-data" : `Spara till Excel (${st.pendingChanges?.length || 0})`;
   document.querySelector("#context").innerHTML = selection.propertyId
     ? `<button data-clear-property>Hela urvalet</button><span>${esc(data.properties.find((p) => p.id === selection.propertyId)?.address || selection.propertyId)}</span>`
     : "<span>Portfölj</span>";
@@ -607,7 +609,8 @@ function openEditor(col, id, defaults = {}) {
   document.querySelector("#editor-root input, #editor-root select")?.focus();
 }
 function hasPending() {
-  return transport.status().dirty;
+  const st=transport.status();
+  return st.dirty || st.staged;
 }
 function approveReplace() {
   return (
@@ -621,16 +624,20 @@ async function sourceAction(action) {
   if (["connect", "refresh", "blank"].includes(action) && !approveReplace())
     return;
   let result;
-  if (action === "connect") data = await transport.connect();
-  if (action === "create" || action === "blank")
+  if (action === "connect") {
+    data = await transport.connect();
+    await globalThis.LokalblickViewBridge?.clear?.();
+  }
+  if (action === "create" || action === "blank") {
     data = await transport.create(data, action === "blank");
+    await globalThis.LokalblickViewBridge?.clear?.();
+  }
   if (action === "refresh") data = await transport.refresh();
   if (action === "import") {
     if (busy) throw Error("En import pågår redan");
     busy = true;
     let progressDialog = null;
     try {
-      const beforeStatus = transport.status();
       const base = data.isDemo ? { isDemo:false, sourceName:"Excelimport" } : data;
       notice("Öppnar Excel och läser fliklistan…");
       const prepared = await transport.prepareImport((progress) => {
@@ -659,18 +666,19 @@ async function sourceAction(action) {
       const cityWarning = cityResult.skipped
         ? " " + cityResult.skipped + " fastigheter saknar fortfarande ort och geokodas inte förrän ort kompletterats."
         : "";
-      if (beforeStatus.connected && beforeStatus.sourceKind !== "migration") {
-        updateImportProgress(progressDialog, { message:"Sparar berikad Lokalblick-data…", step:5, totalSteps:5, counts:result.report?.counts });
-        data = await transport.save(result.data);
-        notice(
-          "Excel inläst. " + selectedSheets.length + " flik(ar) behandlades. Granska eventuella konflikter." + cityWarning,
-        );
-      } else {
-        data = normalize(result.data);
-        notice(
-          "Excel inläst från " + selectedSheets.length + " flik(ar). Skapa Lokalblick-data för att spara strukturen permanent." + cityWarning,
-        );
-      }
+      const retained = await retainImportedData(
+        result.data, transport,
+        globalThis.LokalblickViewBridge,
+        globalThis.LokalblickSourceService,
+      );
+      data = normalize(retained.data);
+      notice(
+        "Excel inläst från " + selectedSheets.length + " flik(ar). " +
+        (retained.mode === "connected"
+          ? "Resultatet har lagts till i arbetsfilens osparade ändringar."
+          : "All tidigare inläst data ligger kvar. Välj Spara som Lokalblick-data när du är klar.") +
+        " Granska eventuella konflikter." + cityWarning,
+      );
     } finally {
       if (progressDialog?.open) progressDialog.close();
       progressDialog?.remove();
@@ -778,7 +786,12 @@ document.addEventListener("click", (event) =>
     if (b.hasAttribute("data-export-reviews")) exportPendingReviews();
     if (b.dataset.source) await sourceAction(b.dataset.source);
     if (b.id === "save") {
-      if (transport.status().mode !== "readwrite")
+      const st=transport.status();
+      if (st.staged || st.sourceKind === "migration") {
+        await sourceAction("create");
+        return;
+      }
+      if (st.mode !== "readwrite")
         await globalThis.LokalblickSourceService.setMode("readwrite");
       await transport.write();
       notice("Sparat till Excel");

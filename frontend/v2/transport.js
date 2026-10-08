@@ -42,7 +42,11 @@ export function createTransport() {
             dirty: false,
             fileName: "Företagets backend",
           }
-        : source().status();
+        : {
+            ...source().status(),
+            staged: window.LokalblickDataService?.mode === "view-bridge" &&
+              !source().status().connected,
+          };
     },
     async write() {
       if (company()) throw Error("Denna anslutning sparas via API");
