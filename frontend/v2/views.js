@@ -398,7 +398,9 @@ export function planning(data, s, ui) {
               "Ej tidsatt",
             )}</select>`
           : "<small>Löpande fastighetsansvar</small>",
-        money(x.cost),
+        x.collection === "activities" && x.record.project2027SourceId
+          ? `<span title="Beloppet är inte budgetfört förrän enhet och finansiering har verifierats">${x.record.project2027BudgetRaw == null ? "Budget saknas" : esc(String(x.record.project2027BudgetRaw)) + " · enhet ej verifierad"}${x.record.project2027RentSurcharge ? "<small>Hyresfinansierad · utanför budget</small>" : "<small>Ej budgetförd</small>"}</span>`
+          : money(x.cost),
         `${edit(x.collection, x.record.id)}${x.collection === "activities" && x.record.type === "Önskemål" ? `<button data-move="Underhåll" data-id="${esc(x.record.id)}">Till UH</button><button data-move="Drift" data-id="${esc(x.record.id)}">Till drift</button>` : ""}`,
       ]),
     ),
