@@ -820,3 +820,13 @@ details .table-wrap {
 .timeline-unscheduled { position:absolute; top:17px; left:9px; font-size:12px; color:var(--muted,#718079); }
 .timeline-cost { padding:8px; display:flex; align-items:center; justify-content:flex-end; text-align:right; font-size:12px; }
 @media(max-width:680px) { .timeline-row { grid-template-columns:175px minmax(420px,1fr) 100px; } .timeline-content { min-width:695px; } }
+
+/* Compact activity list; allocation belongs to the timeline. */
+#content table:has([data-activity-home]) td,
+#content table:has([data-activity-home]) th { padding-top:7px; padding-bottom:7px; vertical-align:middle; }
+#content table:has([data-activity-home]) td small { margin:0; }
+#content table:has([data-activity-home]) td select { max-width:100%; min-width:0; padding-top:5px; padding-bottom:5px; }
+#content table:has([data-activity-home]) td:first-child { min-width:160px; }
+#content table:has([data-activity-home]) .plan-date-range { white-space:nowrap; font-size:12px; font-variant-numeric:tabular-nums; }
+.timeline-cost input[data-activity-year-amount] { width:100%; max-width:112px; min-width:0; padding:6px; border:1px solid var(--line,#dce4de); border-radius:6px; text-align:right; font:inherit; }
+.timeline-cost { min-width:0; }
