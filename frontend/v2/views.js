@@ -594,7 +594,27 @@ export function sources(data, transport) {
   const st = transport.status(),
     company = transport.company();
   const reviews = data.importReview.filter((x) => x.status === "pending");
-  return `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? "" : `<div class="actions"><button data-source="import">Läs in Excel</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom Lokalblick-data</button></div><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
+  const allProperties = data.properties || [];
+  const hasGeo = p => p.latitude != null && p.longitude != null && p.latitude !== "" && p.longitude !== "" &&
+    Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude));
+  const missingGeo = allProperties.filter(p => !hasGeo(p));
+  const manualCount = allProperties.filter(p => hasGeo(p) && p.geoSource === "manual").length;
+  const geoPanel = '<section class="detail geo-quality"><div class="section-title"><h3>Geodata och kartplacering</h3>' +
+    '<button type="button" data-geo-retry>Försök geokoda igen</button></div>' +
+    '<p><strong>' + (allProperties.length - missingGeo.length) + ' av ' + allProperties.length +
+    '</strong> fastigheter har en position · ' + manualCount + ' manuellt placerade · ' +
+    missingGeo.length + ' saknar koordinater.</p>' +
+    (missingGeo.length
+      ? '<p>Placera återstående fastigheter direkt på kartan. Klicka på adressen och välj byggnadens läge.</p>' +
+        '<div class="geo-missing-list">' + missingGeo.slice().sort((a,b) =>
+          new Intl.Collator("sv-SE",{numeric:true,sensitivity:"base"}).compare(a.address || a.designation || "",b.address || b.designation || "")
+        ).map(p => '<div class="geo-missing-row"><span><strong>' +
+          esc(p.address || p.designation || "Fastighet utan adress") + '</strong><small>' +
+          esc(p.city || "Ort saknas") + '</small></span><button type="button" data-geo-place="' +
+          esc(p.id) + '">Placera på karta</button></div>').join("") + '</div>'
+      : '<p>Alla fastigheter har koordinater.</p>') + '</section>';
+
+  return geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? "" : `<div class="actions"><button data-source="import">Läs in Excel</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button><button data-source="blank">Ny tom Lokalblick-data</button></div><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
     ["Källa", "Flik(ar)", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
     data.sourceRegistry.map((x) =>
       row([
