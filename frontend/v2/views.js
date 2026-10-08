@@ -1,4 +1,4 @@
-import { scope, responsible, kinds, bulkEligible, reviewCollection } from "./model.js";
+import { scope, responsible, kinds, bulkEligible } from "./model.js";
 export const esc = (x) =>
   String(x ?? "").replace(
     /[&<>"']/g,
