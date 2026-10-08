@@ -41,7 +41,7 @@
     };
   }
 
-  async function enrichData(data) {
+  async function enrichData(data, onProgress) {
     if (!data || data.isDemo || !Array.isArray(data.properties) || !data.properties.length) return data;
 
     const properties = data.properties.map(function (property) {
@@ -79,6 +79,7 @@
     const allResults = [];
     const existing = properties.filter(function(p) { return validCoordinate(p.latitude) && validCoordinate(p.longitude); });
     const missing = properties.filter(function(p) { return !validCoordinate(p.latitude) || !validCoordinate(p.longitude); });
+    if (typeof onProgress === 'function') onProgress({ total: properties.length, pending: missing.length, processed: 0, matched: existing.length, review: 0, notFound: 0 });
     if (!missing.length) {
       window.LokalblickGeocodingStatus = { available:true, configured:true, total:properties.length, matched:properties.length, review:0, notFound:0 };
       return data;
@@ -103,6 +104,7 @@
           throw error;
         }
         allResults.push.apply(allResults, Array.isArray(payload.results) ? payload.results : []);
+        if (typeof onProgress === 'function') onProgress({ total: properties.length, pending: missing.length, processed: Math.min(offset + batch.length, missing.length), matched: existing.length + allResults.filter(x => x.status === 'matched').length, review: allResults.filter(x => x.status === 'review').length, notFound: allResults.filter(x => x.status === 'not_found').length });
       }
     } catch (error) {
       window.LokalblickGeocodingStatus = {
