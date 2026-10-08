@@ -1,7 +1,6 @@
 // Backend-owned address -> coordinate enrichment.
 // Public/demo data is never sent to the geocoder.
 (function () {
-  const DEFAULT_LOCAL_API = "http://127.0.0.1:8787";
   const HEALTH_TIMEOUT_MS = 1500;
   const GEOCODE_TIMEOUT_MS = 65000;
   const BATCH_SIZE = 100;
@@ -12,7 +11,8 @@
     if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
       return "";
     }
-    return DEFAULT_LOCAL_API;
+    // Hosted app uses its own same-origin API, never a local loopback server.
+    return "";
   }
 
   function validCoordinate(value) {
@@ -28,16 +28,16 @@
 
   async function health() {
     const response = await fetchWithTimeout(
-      apiBaseUrl() + "/api/health",
-      { cache: "no-store" },
+      apiBaseUrl() + "/api/geocode",
+      { method: "GET", cache: "no-store" },
       HEALTH_TIMEOUT_MS
     );
     if (!response.ok) return { ok: false, configured: false };
     const payload = await response.json();
     return {
       ok: Boolean(payload && payload.ok),
-      configured: Boolean(payload && payload.geocoding && payload.geocoding.configured),
-      provider: payload && payload.geocoding ? payload.geocoding.provider : ""
+      configured: Boolean(payload && payload.configured),
+      provider: payload && payload.provider ? payload.provider : ""
     };
   }
 
@@ -77,9 +77,15 @@
     }
 
     const allResults = [];
+    const existing = properties.filter(function(p) { return validCoordinate(p.latitude) && validCoordinate(p.longitude); });
+    const missing = properties.filter(function(p) { return !validCoordinate(p.latitude) || !validCoordinate(p.longitude); });
+    if (!missing.length) {
+      window.LokalblickGeocodingStatus = { available:true, configured:true, total:properties.length, matched:properties.length, review:0, notFound:0 };
+      return data;
+    }
     try {
-      for (let offset = 0; offset < properties.length; offset += BATCH_SIZE) {
-        const batch = properties.slice(offset, offset + BATCH_SIZE);
+      for (let offset = 0; offset < missing.length; offset += BATCH_SIZE) {
+        const batch = missing.slice(offset, offset + BATCH_SIZE);
         const response = await fetchWithTimeout(
           apiBaseUrl() + "/api/geocode",
           {
