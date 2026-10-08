@@ -219,6 +219,42 @@ function startGeoEnrichment() {
     }
   });
 }
+function exportPendingReviews() {
+  const pending = (data.importReview || []).filter(item => item.status === "pending");
+  if (!pending.length) { notice("Det finns inga öppna granskningsfel att exportera."); return; }
+  const report = {
+    format: "lokalblick-review-report",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    note: "Diagnostik av importkonflikter. Innehåller uppgifter ur källfilerna; granska innan delning.",
+    counts: { pending: pending.length, byKind: {} },
+    sources: (data.sourceRegistry || []).map(({name,kind,sheets,rows,matched,created,review,importedAt}) =>
+      ({name,kind,sheets,rows,matched,created,review,importedAt})),
+    reviews: pending.map(item => ({
+      ...item,
+      // Keep enough source context for diagnosing field mapping and matching.
+      registeredRecord: (() => {
+        const collection = item.collection || (item.entity === "Fastighet" ? "properties" : item.entity === "Avtal" ? "contracts" : "");
+        const rows = Array.isArray(data[collection]) ? data[collection] : [];
+        const record = rows.find(x => String(x.id) === String(item.recordId));
+        if (!record) return null;
+        const {id,sourceId,sourceSheet,sourceRow,address,city,designation,number,propertyId,area} = record;
+        return {id,sourceId,sourceSheet,sourceRow,address,city,designation,number,propertyId,area};
+      })()
+    }))
+  };
+  for (const item of pending) report.counts.byKind[item.kind || "unknown"] =
+    (report.counts.byKind[item.kind || "unknown"] || 0) + 1;
+  const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], {type:"application/json;charset=utf-8"}));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "lokalblick-granskningsfel-" + new Date().toISOString().slice(0,10) + ".json";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  notice(pending.length + " granskningsfel exporterade till JSON. Granska filen innan den delas.");
+}
 function importCountLabel(counts = {}) {
   const parts = [];
   if (counts.properties != null) parts.push("Fastigheter " + counts.properties);
@@ -670,6 +706,7 @@ document.addEventListener("click", (event) =>
     }
     if (b.dataset.geoPlace) openGeoPlacement(b.dataset.geoPlace);
     if (b.hasAttribute("data-geo-retry")) startGeoEnrichment();
+    if (b.hasAttribute("data-export-reviews")) exportPendingReviews();
     if (b.dataset.source) await sourceAction(b.dataset.source);
     if (b.id === "save") {
       if (transport.status().mode !== "readwrite")
