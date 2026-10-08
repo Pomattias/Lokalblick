@@ -341,8 +341,8 @@ function timelineView(data, items, ui) {
   const header = months.map((m,i)=>`<div class="timeline-month" title="${m.year}-${String(m.month).padStart(2,"0")}">${span===1?["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"][m.month-1]:(m.month===1?m.year:"")}</div>`).join("");
   const rows = visible.map(x => {
     const a=x.record;
-    const start=typeof a.startDate==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(a.startDate)?new Date(a.startDate+"T00:00:00Z"):null;
-    const end=typeof a.endDate==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(a.endDate)?new Date(a.endDate+"T00:00:00Z"):null;
+    const start=typeof a.startDate==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(a.startDate)?new Date(a.startDate+"T00:00:00Z"):null;
+    const end=typeof a.endDate==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(a.endDate)?new Date(a.endDate+"T00:00:00Z"):null;
     const base=Date.UTC(first,0,1), limit=Date.UTC(first+span,0,1), total=limit-base;
     let bar="";
     if(start||end) {
