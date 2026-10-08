@@ -135,7 +135,9 @@ function activityMetrics(data, items, year) {
   return {
     count: rows.length,
     cost: rows.reduce((sum, item) => sum + (Number(item.cost) || 0), 0),
-    inYear: rows.filter((item) => Number(item.record.planningYear) === Number(year)).length,
+    inYear: rows.filter((item) =>
+      calc().activityPlannedInYear(item.record, year),
+    ).length,
     unassigned: rows.filter(
       (item) => !responsible(data, item.collection, item.record),
     ).length,
