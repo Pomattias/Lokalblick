@@ -89,6 +89,72 @@ function notice(message, error = false) {
   node.textContent = message;
   node.className = error ? "notice error" : "notice";
 }
+let manualGeoDialog = null;
+function validGeoPosition(p) {
+  return p.latitude !== "" && p.longitude !== "" && p.latitude != null && p.longitude != null &&
+    Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude));
+}
+function openGeoPlacement(id) {
+  const property = data.properties.find(p => String(p.id) === String(id));
+  if (!property) return;
+  if (!globalThis.L) throw Error("Kartan kunde inte laddas.");
+  if (manualGeoDialog?.open) manualGeoDialog.close();
+  const dialog = document.createElement("dialog");
+  dialog.className = "followup-dialog geo-placement-dialog";
+  dialog.innerHTML = '<div class="geo-placement-head"><div><h2>Placera fastighet på kartan</h2><p>' +
+    esc([property.address, property.city].filter(Boolean).join(", ") || property.designation || property.id) +
+    '</p></div><button type="button" data-geo-close aria-label="Stäng">Stäng</button></div>' +
+    '<p>Klicka på rätt byggnad eller dra markören. Positionen blir inte sparad förrän du bekräftar.</p>' +
+    '<div class="geo-placement-map" id="geo-placement-map"></div>' +
+    '<div class="geo-placement-footer"><span data-geo-coordinates>Välj en position på kartan</span>' +
+    '<div class="actions"><button type="button" data-geo-close>Avbryt</button><button type="button" data-geo-confirm disabled>Bekräfta position</button></div></div>';
+  document.body.append(dialog);
+  manualGeoDialog = dialog;
+  dialog.showModal();
+  const center = validGeoPosition(property) ? [Number(property.latitude), Number(property.longitude)] :
+    [55.605, 13.0038];
+  const map = L.map(dialog.querySelector("#geo-placement-map")).setView(center, validGeoPosition(property) ? 17 : 10);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    maxZoom: 20, subdomains: "abcd", attribution: "&copy; OpenStreetMap &copy; CARTO"
+  }).addTo(map);
+  let selected = validGeoPosition(property) ? center : null;
+  let marker = selected ? L.marker(selected,{draggable:true}).addTo(map) : null;
+  function setPoint(latlng) {
+    selected = [latlng.lat, latlng.lng];
+    if (!marker) {
+      marker = L.marker(selected,{draggable:true}).addTo(map);
+      marker.on("dragend", () => setPoint(marker.getLatLng()));
+    } else marker.setLatLng(selected);
+    dialog.querySelector("[data-geo-coordinates]").textContent =
+      selected[0].toFixed(6) + ", " + selected[1].toFixed(6);
+    dialog.querySelector("[data-geo-confirm]").disabled = false;
+  }
+  if (marker) marker.on("dragend", () => setPoint(marker.getLatLng()));
+  map.on("click", e => setPoint(e.latlng));
+  const close = () => dialog.close();
+  dialog.querySelectorAll("[data-geo-close]").forEach(b => b.onclick = close);
+  dialog.querySelector("[data-geo-confirm]").onclick = () => run(async () => {
+    if (!selected || geoRunning && !data) return;
+    await mutation(d => {
+      const p = d.properties.find(x => String(x.id) === String(id));
+      if (!p) throw Error("Fastigheten finns inte längre.");
+      p.latitude = selected[0];
+      p.longitude = selected[1];
+      p.geoSource = "manual";
+      p.geoConfirmedAt = new Date().toISOString();
+      p.geoConfirmedBy = actor();
+    });
+    close();
+    notice("Positionen är bekräftad. Välj Spara till Excel för att behålla den i Lokalblick-data.");
+  });
+  dialog.addEventListener("close", () => {
+    map.remove();
+    dialog.remove();
+    if (manualGeoDialog === dialog) manualGeoDialog = null;
+  }, {once:true});
+  setTimeout(() => map.invalidateSize(), 0);
+}
+
 let geoRunning = false;
 function geoProgressMessage(p) {
   return "Geodata: " + p.processed + " av " + p.pending + " adresser behandlade · " +
@@ -97,7 +163,7 @@ function geoProgressMessage(p) {
 function startGeoEnrichment() {
   const service = globalThis.LokalblickGeocodingService;
   if (geoRunning || !service || !data || data.isDemo) return;
-  const eligible = data.properties.filter(p => p.id && p.address && p.city &&
+  const eligible = data.properties.filter(p => p.id && p.address && p.city && p.geoSource !== "manual" &&
     (p.latitude == null || p.latitude === "" || p.longitude == null || p.longitude === ""));
   if (!eligible.length) return;
   geoRunning = true;
@@ -111,9 +177,10 @@ function startGeoEnrichment() {
           if (item.status !== "matched" || item.latitude == null || item.longitude == null) continue;
           const source = snapshot.properties.find(p => String(p.id) === String(item.id));
           const target = data.properties.find(p => String(p.id) === String(item.id));
-          if (!source || !target || target.address !== source.address || target.city !== source.city) continue;
+          if (!source || !target || target.geoSource === "manual" || target.address !== source.address || target.city !== source.city) continue;
           target.latitude = item.latitude;
           target.longitude = item.longitude;
+          target.geoSource = "openrouteservice";
           source.latitude = item.latitude;
           source.longitude = item.longitude;
         }
@@ -129,11 +196,12 @@ function startGeoEnrichment() {
       const byId = new Map(snapshot.properties.map(p => [String(p.id), p]));
       for (const current of data.properties) {
         const result = byId.get(String(current.id));
-        if (!result || current.address !== result.address || current.city !== result.city) continue;
+        if (!result || current.geoSource === "manual" || current.address !== result.address || current.city !== result.city) continue;
         if (Number.isFinite(Number(result.latitude)) && result.latitude != null &&
             Number.isFinite(Number(result.longitude)) && result.longitude != null) {
           current.latitude = result.latitude;
           current.longitude = result.longitude;
+          current.geoSource = "openrouteservice";
         }
       }
       data = await transport.save(data);
@@ -600,6 +668,8 @@ document.addEventListener("click", (event) =>
         resolveReview(d, b.dataset.review, b.dataset.decision, target, actor()),
       );
     }
+    if (b.dataset.geoPlace) openGeoPlacement(b.dataset.geoPlace);
+    if (b.dataset.geoRetry) startGeoEnrichment();
     if (b.dataset.source) await sourceAction(b.dataset.source);
     if (b.id === "save") {
       if (transport.status().mode !== "readwrite")
