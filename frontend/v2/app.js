@@ -669,7 +669,7 @@ document.addEventListener("click", (event) =>
       );
     }
     if (b.dataset.geoPlace) openGeoPlacement(b.dataset.geoPlace);
-    if (b.dataset.geoRetry) startGeoEnrichment();
+    if (b.hasAttribute("data-geo-retry")) startGeoEnrichment();
     if (b.dataset.source) await sourceAction(b.dataset.source);
     if (b.id === "save") {
       if (transport.status().mode !== "readwrite")
