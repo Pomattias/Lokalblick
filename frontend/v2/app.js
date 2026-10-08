@@ -860,7 +860,7 @@ document.addEventListener("change", (event) =>
           throw Error("Året är låst. Prisbasbeloppet får inte ändras här.");
         d.priceBaseAmounts = d.priceBaseAmounts || [];
         const record = d.priceBaseAmounts.find(p=>Number(p.year)===year);
-        if (record) record.amount=amount;
+        if (record) Object.assign(record,{amount,source:"Manuellt justerat",sourceUrl:"",updatedBy:actor(),updatedAt:new Date().toISOString()});
         else d.priceBaseAmounts.push({year,amount,source:"Manuellt angivet",updatedBy:actor(),updatedAt:new Date().toISOString()});
       });
       return;
