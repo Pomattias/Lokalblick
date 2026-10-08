@@ -91,7 +91,10 @@
       const priority=num(get("Prio"));
       if([1,2,3].includes(priority) && !item.priority) item.priority=priority;
       item.cluster=item.cluster||clean(get("Kluster"));
-      item.standardEnhancing=item.standardEnhancing??Boolean(clean(get("Standardhöjande")));
+      // An empty source cell means "not assessed", never automatic 1:1.
+      const sourceEnhancement=clean(get("Standardhöjande")).toLocaleLowerCase("sv");
+      if(item.actionKind==null && item.standardEnhancing==null && sourceEnhancement)
+        item.standardEnhancing=!["nej","0","false","n"].includes(sourceEnhancement);
       item.financingMethod=item.financingMethod||(clean(get("Betalas som hyrespåslag"))?"rent_supplement":"unverified");
       // The workbook does not declare whether monetary cells are SEK or thousands.
       // Never push unverified source amounts into estimatedCost or budgetRows.
