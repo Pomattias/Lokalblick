@@ -13,6 +13,7 @@ import {
 } from "./model.js";
 import { createTransport } from "./transport.js";
 import { retainImportedData } from "./import-workspace.js";
+import { shouldRestoreViewSnapshot } from "./restore-policy.js";
 import {
   esc,
   money,
@@ -427,8 +428,40 @@ function canEdit() {
       /admin|edit/i.test(user.role || ""))
   );
 }
+async function switchToDemo() {
+  if (transport.company()) throw Error("Demoläge är inte tillgängligt i företagets API-läge.");
+  const status=transport.status(),isDemo=Boolean(data?.isDemo);
+  const promptText=isDemo
+    ? "Återställ den syntetiska demodatan till ursprungsläget?"
+    : status.dirty || status.staged
+      ? "Du har osparad data i arbetsytan. Vill du lämna den och visa demot? Spara först för att inte förlora ändringarna."
+      : status.connected
+        ? "Koppla bort den anslutna Excel-filen och visa syntetisk demodata? Excel-filen på disken påverkas inte."
+        : "Visa syntetisk demodata i stället för den nuvarande arbetsytan?";
+  if (!window.confirm(promptText)) return;
+  if(status.connected)await globalThis.LokalblickSourceService.disconnect();
+  await globalThis.LokalblickViewBridge?.clear?.();
+  const demo=globalThis.LokalblickDemoDataService;
+  if(!demo?.reset)throw Error("Den syntetiska demotjänsten kunde inte hittas.");
+  globalThis.LokalblickDataService=demo;
+  data=normalize(await demo.reset());
+  if(!data.properties.length || !data.contracts.length)
+    throw Error("Demodata kunde inte laddas. Kontrollera att demo-data.js finns.");
+  Object.assign(selection,{unit:"",owner:"",person:"",q:"",propertyId:""});
+  ui.view="overview";
+  ui.perspective="Fastigheter";
+  ui.contractId="";
+  render();
+  notice("Syntetisk demodata återställd. Inga Excel-filer har ändrats.");
+}
 function render() {
   document.querySelector("#history").onclick=()=>showHistory();
+  const demoButton=document.querySelector("#demo");
+  if (demoButton) {
+    demoButton.hidden=transport.company();
+    demoButton.textContent=data.isDemo?"Återställ demo":"Visa demo";
+    demoButton.onclick=()=>run(switchToDemo);
+  }
   globalThis.LokalblickMapService?.destroy();
   document.querySelector("#title").textContent = labels[ui.view];
   document.querySelectorAll("[data-view]").forEach((x) => {
@@ -1091,21 +1124,19 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeEditor();
 });
 async function restoreSharedViewState() {
-  const bridge = globalThis.LokalblickViewBridge;
-  if (!bridge) return false;
-  const saved = await bridge.load();
-  if (!saved?.data) return false;
-  const source = globalThis.LokalblickSourceService;
-  if (!transport.company() && source?.status().connected && source.adoptViewState) {
-    source.adoptViewState(saved.data);
-    return true;
-  }
-  const mode = globalThis.LokalblickDataService?.mode || "";
-  if (!["company-api", "m365-api", "local-excel"].includes(mode)) {
-    bridge.activate();
-    return true;
-  }
-  return false;
+  const bridge=globalThis.LokalblickViewBridge;
+  if(!bridge)return false;
+  const saved=await bridge.load();
+  const source=globalThis.LokalblickSourceService;
+  const st=source?.status?.()||{};
+  const mode=globalThis.LokalblickDataService?.mode||"demo";
+  if(!shouldRestoreViewSnapshot(saved,{
+    mode,connected:st.connected,fileName:st.fileName
+  }))return false;
+  if(st.connected && source?.adoptViewState)
+    return Boolean(source.adoptViewState(saved.data));
+  bridge.activate();
+  return true;
 }
 document.addEventListener("click", (event) => {
   const link = event.target.closest("a[data-ui-version]");
@@ -1116,6 +1147,7 @@ document.addEventListener("click", (event) => {
     await globalThis.LokalblickViewBridge?.save(data, {
       from: "v2",
       sourceMode: globalThis.LokalblickDataService?.mode || "",
+      fileName: globalThis.LokalblickSourceService?.status?.().fileName || "",
     });
     location.href = link.href;
   });
@@ -1130,6 +1162,12 @@ async function init() {
     }
     await restoreSharedViewState();
     data = await transport.load();
+    if (data.isDemo && (!data.properties.length || !data.contracts.length)) {
+      // Repair a corrupt/empty demo cache without touching imported workspaces.
+      const demo=globalThis.LokalblickDemoDataService;
+      if (!demo?.reset) throw Error("Demodata saknas.");
+      data=normalize(await demo.reset());
+    }
     // A successful geocode is part of the canonical property model. Stage it in
     // the connected Excel source; the user confirms the physical file write.
     const geo = globalThis.LokalblickGeocodingStatus;

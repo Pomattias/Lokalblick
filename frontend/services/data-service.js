@@ -83,6 +83,13 @@
       const db = await openViewDb();
       const tx = db.transaction(VIEW_STORE, "readwrite");
       tx.objectStore(VIEW_STORE).delete(viewSessionId());
+      // Wait until the transaction commits so a later reload cannot resurrect
+      // the old workspace immediately after an explicit demo reset.
+      await new Promise(function(resolve,reject){
+        tx.oncomplete=resolve;
+        tx.onerror=function(){reject(tx.error);};
+        tx.onabort=function(){reject(tx.error);};
+      });
     } catch (_) {}
   }
 
