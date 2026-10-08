@@ -17,7 +17,7 @@
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["propertyId","_propertyId",true],["businessPartyId","_businessPartyId",true],["businessResponsiblePersonId","_businessResponsiblePersonId",true],
       ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
-      ["start","Start"],["end","Slut"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
+      ["start","Start"],["end","Slut"],["moveInDate","Inflyttning"],["moveOutDate","Utflyttning"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
       ["baseRent","Bashyra"],["baseAdditions","Bastillägg"],["rentBaseYear","Hyra basår"],["rentIndexPercent","Hyra uppräkning %"],["additionBaseYear","Tillägg basår"],["additionIndexPercent","Tillägg uppräkning %"],
       ["annualContractDrift","Media per år"],["annualPropertyTax","F-skatt per år"],
       ["costCenterOperations","Kstl drift"],["costCenterPremises","Kstl lokaler"],["ekotObject","Objekt i Ekot"],["contractDocumentUrl","Avtals-PDF"],["contractDocumentName","Avtalsdokument"],["contractDocumentKind","Dokumenttyp"],
@@ -627,7 +627,7 @@
     const budgetSheet = workbook.Sheets["Budget"] ? "Budget" : "Budgetplaner";
     const plans = budgetRows(budgetSheet,[["year","År"],["status","Status"],["createdAt","Skapad"],["lockedAt","Låst"],["lockedBy","Låst av"],["preliminaryIndex","Preliminärt oktoberindex"],["lockedIndexYear","Låst indexår"],["lockedIndexValue","Låst oktoberindex"],["lockedIndexSource","Indexkälla"],["targetRent","Hyra + drift"],["targetMaintenance","Underhåll"],["targetProject","Projekt"],["targetOperations","Driftkostnader"],["targetInvestigations","Utredningar"]]);
     const targets = workbook.Sheets["Budgetmål"] ? budgetRows("Budgetmål",[["year","År"],["category","Kategori"],["amount","Belopp"],["note","Kommentar"]]) : [];
-    const lines = budgetRows("Budgetrader",[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["contractId","_contractId"],["propertyId","_propertyId"],["amount","Belopp"],["sourceType","Typ"],["sourceId","_sourceId"],["status","Värdestatus"]]);
+    const lines = budgetRows("Budgetrader",[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["contractId","_contractId"],["propertyId","_propertyId"],["amount","Belopp"],["sourceType","Typ"],["sourceId","_sourceId"],["status","Värdestatus"],["budgetMonths","Budgetmånader"],["budgetFactor","Andel år"],["budgetPeriod","Budgetperiod"],["budgetFrom","Budget från"],["budgetTo","Budget till"]]);
     const indexSheet = workbook.Sheets["Index"] ? "Index" : (workbook.Sheets["KPI"] ? "KPI" : "");
     data.indexSeries = indexSheet
       ? budgetRows(indexSheet,[["year","År"],["month","Månad"],["value",indexSheet==="Index"?"Indextal":"Värde"],["seriesBase","Serie basår"],["source","Källa"]])
@@ -650,7 +650,7 @@
         lines: lines.filter(function(x){ return String(x.year) === String(year); }).map(function(x) {
           return {
             category:x.category || "", sub:x.sub || "", source:x.source || "",
-            contractId:x.contractId || "", propertyId:x.propertyId || "", amount:Number(x.amount) || 0, sourceType:x.sourceType||"", sourceId:x.sourceId||"", status:x.status||""
+            contractId:x.contractId || "", propertyId:x.propertyId || "", amount:Number(x.amount) || 0, sourceType:x.sourceType||"", sourceId:x.sourceId||"", status:x.status||"", budgetMonths:Number(x.budgetMonths)||0, budgetFactor:Number(x.budgetFactor)||0, budgetPeriod:x.budgetPeriod||"", budgetFrom:x.budgetFrom||"", budgetTo:x.budgetTo||""
           };
         })
       };
@@ -763,11 +763,12 @@
       (plan.lines||[]).forEach(function(line) {
         lineRows.push({
           year:plan.year,category:line.category||"",sub:line.sub||"",source:line.source||"",
-          contractId:line.contractId||"",propertyId:line.propertyId||"",amount:Number(line.amount)||0,sourceType:line.sourceType||"",sourceId:line.sourceId||"",status:line.status||""
+          contractId:line.contractId||"",propertyId:line.propertyId||"",amount:Number(line.amount)||0,sourceType:line.sourceType||"",sourceId:line.sourceId||"",status:line.status||"",
+          budgetMonths:Number(line.budgetMonths)||0,budgetFactor:Number(line.budgetFactor)||0,budgetPeriod:line.budgetPeriod||"",budgetFrom:line.budgetFrom||"",budgetTo:line.budgetTo||""
         });
       });
     });
-    XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["contractId","_contractId",true],["propertyId","_propertyId",true],["sourceType","Typ"],["sourceId","_sourceId",true],["status","Värdestatus"]]),"Budgetrader");
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(lineRows,[["year","År"],["category","Kategori"],["sub","Underkategori"],["source","Källa"],["amount","Belopp"],["budgetMonths","Budgetmånader"],["budgetFactor","Andel år"],["budgetPeriod","Budgetperiod"],["budgetFrom","Budget från"],["budgetTo","Budget till"],["contractId","_contractId",true],["propertyId","_propertyId",true],["sourceType","Typ"],["sourceId","_sourceId",true],["status","Värdestatus"]]),"Budgetrader");
     const registry=(canonical&&canonical.sourceRegistry)||[];
     XLSX.utils.book_append_sheet(workbook,simpleSheet(registry.map(function(x){return {
       name:x.name||"",kind:x.kind||"",rows:Number(x.rows)||0,matched:Number(x.matched)||0,created:Number(x.created)||0,
