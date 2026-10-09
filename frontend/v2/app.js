@@ -30,6 +30,7 @@ import {
   reviewCandidateChoices,
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
+import { issueHomeOptionsHtml } from "./issue-editor.js";
 import { attachPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
 import { contextPersonSelect, newPersonDefaults, personFormHtml,
   updatedPersonRecord, refreshPropertyPersonSelectors } from "./property-person-dialog.js";
@@ -646,25 +647,38 @@ async function run(fn) {
   }
 }
 function closeEditor() {
-  if (propertyMapCleanup) {
-    propertyMapCleanup();
+  // Always release the modal lock even if a map provider fails during cleanup.
+  try {
+    if (propertyMapCleanup) propertyMapCleanup();
+  } catch (error) {
+    console.warn("Lokalblick: kunde inte stänga redigeringskartan",error);
+  } finally {
     propertyMapCleanup = null;
+    const root=document.querySelector("#editor-root");
+    if (root) root.replaceChildren();
+    editor = null;
+    document.body.classList.remove("editing");
   }
-  document.querySelector("#editor-root").innerHTML = "";
-  editor = null;
-  document.body.classList.remove("editing");
 }
 function openEditor(col, id, defaults = {}) {
   if (!canEdit()) return;
-  const result = editorHtml(data, col, id, transport.company(), defaults);
-  editor = { col, id, record: result.record };
   const root = document.querySelector("#editor-root");
-  root.innerHTML = result.html;
-  document.body.classList.add("editing");
-  if (col === "properties") {
-    propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
+  if (!root) throw Error("Redigeringsfönstrets plats saknas.");
+  if (editor) closeEditor();
+  // Never leave the whole application blocked if rendering or mounting an
+  // editor fails. Preparing HTML precedes setting the editing lock.
+  try {
+    const result = editorHtml(data, col, id, transport.company(), defaults);
+    root.innerHTML = result.html;
+    editor = { col, id, record: result.record };
+    if (col === "properties")
+      propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
+    document.body.classList.add("editing");
+    root.querySelector("input[name='title'], input:not([type='hidden']), select")?.focus({preventScroll:true});
+  } catch (error) {
+    closeEditor();
+    throw Error("Kunde inte öppna formuläret: "+(error?.message||"okänt fel"));
   }
-  document.querySelector("#editor-root input, #editor-root select")?.focus();
 }
 function openPropertyPersonDialog(button) {
   if (!editor || editor.col !== "properties") return;
@@ -804,6 +818,10 @@ async function sourceAction(action) {
 }
 document.addEventListener("click", (event) =>
   run(async () => {
+    if (event.target.closest("#editor-root .editor-backdrop")) {
+      closeEditor();
+      return;
+    }
     const b = event.target.closest("button");
     if (!b || b.disabled) return;
     if (b.dataset.view) {
@@ -896,8 +914,14 @@ document.addEventListener("click", (event) =>
       openPropertyPersonDialog(b);
       return;
     }
-    if (b.hasAttribute("data-edit")) openEditor(b.dataset.edit, b.dataset.id);
-    if (b.hasAttribute("data-editor-close")) closeEditor();
+    if (b.hasAttribute("data-edit")) {
+      openEditor(b.dataset.edit, b.dataset.id);
+      return;
+    }
+    if (b.hasAttribute("data-editor-close")) {
+      closeEditor();
+      return;
+    }
     if (b.dataset.editorTab) {
       document
         .querySelectorAll("[data-editor-section]")
@@ -1075,6 +1099,16 @@ function refreshSmartTable(table) {
   });
 }
 document.addEventListener("input",event=>{
+  if(event.target.matches("[data-issue-home-search]")) {
+    const search=event.target;
+    const select=search.closest(".issue-home-picker")?.querySelector("[data-issue-home-select]");
+    if (select) {
+      const selected=select.value;
+      select.innerHTML=issueHomeOptionsHtml(data,search.value,selected);
+      select.value=selected;
+    }
+    return;
+  }
   if(event.target.matches("[data-review-search]")) {
     const input=event.target;
     const item=(data?.importReview||[]).find(x=>x.id===input.dataset.reviewSearch);

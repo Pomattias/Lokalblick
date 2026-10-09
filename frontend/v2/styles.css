@@ -586,10 +586,8 @@ details .table-wrap {
 [hidden] {
   display: none;
 }
-.editing main,
-.editing .sidebar {
-  pointer-events: none;
-}
+/* The backdrop, not a global pointer-events lock, isolates the editor.
+   This avoids a permanently unresponsive app if the editor is interrupted. */
 @media (min-width: 1500px) {
   main {
     padding: 36px 52px;
