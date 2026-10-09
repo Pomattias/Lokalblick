@@ -33,6 +33,14 @@ export function renderContractEditor(data, c, id, company=false) {
     options(choices, x=>x, x=>x===category&&!CATEGORIES.includes(x)?x+' (tidigare kategori)':x,category,'Välj kategori')+'</select>';
   const people=(data.people||[]).filter(p=>!c.businessPartyId||p.organizationId===c.businessPartyId);
   const totals=calc().annualValues(c,new Date().getFullYear(),0,data.indexSeries);
+  // Media was the legacy name for Tillägg, not an additional cost. Existing
+  // source values can be edited as Tillägg without showing a second field.
+  const legacyAddition=Number(c.annualContractDrift)||0;
+  const needsLegacyAddition=!(Number(c.baseAdditions)>0)&&legacyAddition>0;
+  const additionForm=needsLegacyAddition
+    ? {...c,baseAdditions:legacyAddition,additionIndexPercent:c.additionIndexPercent==null || c.additionIndexPercent==="" ? 0 : c.additionIndexPercent}
+    : c;
+  const annualTotal=totals.total;
   const term=calc().projectedContractTerm(c);
   const missing=[totals.rent,totals.addition].filter(x=>x.status==="Behöver kontroll").map(x=>x.reason||"Indexunderlag saknas");
   const doc=String(c.contractDocumentUrl||"").trim();
@@ -70,15 +78,19 @@ export function renderContractEditor(data, c, id, company=false) {
         field("Indexuppräkning, %",percent(c,"rentIndexPercent"))+
         field("Bastal KPI",display(totals.rent.bastal||"Saknas"),"Från KPI eller avtalat bastal")+
       '</div>'+
-      '<details class="contract-additions"'+(Number(c.baseAdditions)>0?' open':'')+'>'+
-        '<summary>Hyrestillägg <span>'+money(totals.addition.amount)+'/år</span></summary><div class="contract-grid">'+
-          field("Bastillägg, kr/år",input(c,"baseAdditions","number",false,'min="0" step="any"'))+
+      '<details class="contract-additions"'+((Number(c.baseAdditions)>0||needsLegacyAddition)?' open':'')+'>'+
+        '<summary>Tillägg <span>'+money(totals.addition.amount)+'/år</span></summary><div class="contract-grid">'+
+          field("Tillägg, kr/år",input(additionForm,"baseAdditions","number",false,'min="0" step="any"'))+
           field("Tillägg basår",input(c,"additionBaseYear","number",false,'min="1900" step="1"'))+
-          field("Indexuppräkning tillägg, %",percent(c,"additionIndexPercent"))+
+          field("Indexuppräkning tillägg, %",percent(additionForm,"additionIndexPercent"))+
           field("Bastal KPI tillägg",display(totals.addition.bastal||"Saknas"),"Från KPI eller avtalat bastal")+
         '</div></details>'+
-      '<div class="contract-rent-total"><span>Beräknad årshyra '+new Date().getFullYear()+' inklusive tillägg</span>'+
-        '<strong>'+money(totals.rent.amount+totals.addition.amount)+'</strong>'+
+      '<div class="contract-grid contract-tax-field">'+
+        field("Fastighetsskatt, kr/år",input(c,"annualPropertyTax","number",false,'min="0" step="any"'))+
+      '</div>'+
+      '<div class="contract-rent-total"><span>Beräknad årskostnad '+new Date().getFullYear()+'</span>'+
+        '<strong>'+money(annualTotal)+'</strong>'+
+        '<small>Hyra '+money(totals.rent.amount)+' · Tillägg '+money(totals.addition.amount)+' · Fastighetsskatt '+money(totals.tax)+'</small>'+
         '<small>'+(missing.length?'Behöver kontroll: '+esc(missing.join(' · ')):'Utifrån senast sparade värden')+'</small></div>'+
         documentLink+
       '</section>'+

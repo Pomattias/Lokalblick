@@ -32,10 +32,12 @@ test("compact contract form distinguishes owner from tenant and retains indexed 
   assert.match(html,/Kontaktperson A/);
   assert.match(html,/value="Äldreboende" selected/);
   assert.match(html,/name="category"/);
-  assert.doesNotMatch(html,/name="(?:source|use|annualContractDrift|annualPropertyTax|moveInDate|moveOutDate|ekotObject|costCenterOperations|costCenterPremises|originalTerm)"/);
+  assert.doesNotMatch(html,/name="(?:source|use|annualContractDrift|moveInDate|moveOutDate|ekotObject|costCenterOperations|costCenterPremises|originalTerm)"/);
   assert.match(html,/name="baseAdditions"/);
   assert.match(html,/name="additionIndexPercent"/);
-  assert.match(html,/Hyrestillägg/);
+  assert.match(html,/Tillägg/);
+  assert.match(html,/Fastighetsskatt/);
+  assert.match(html,/name="annualPropertyTax"/);
   assert.match(html,/2028-03-31/);
   assert.match(html,/2031-12-31/);
 });
@@ -73,4 +75,29 @@ test("contractual extension rolls at notice deadline and does not rewrite signed
   assert.equal(contract.end,"2028-12-31");
   const unknown=calc.projectedContractTerm({end:"2028-12-31",renewalPeriodMonths:36},"2029-01-01");
   assert.equal(unknown.nextEnd,"");
+});
+
+test("legacy media becomes editable tillägg and tax remains a separate annual amount",()=>{
+ const legacy={...contract,baseAdditions:0,additionIndexPercent:"",annualContractDrift:460000,annualPropertyTax:15000};
+ const html=renderContractEditor(data,legacy,"c1");
+ assert.match(html,/name="baseAdditions"[^>]*value="460000"/);
+ assert.match(html,/name="additionIndexPercent"[^>]*value="0"/);
+ assert.match(html,/name="annualPropertyTax"[^>]*value="15000"/);
+ assert.doesNotMatch(html,/name="annualContractDrift"/);
+});
+
+test("editing an old Media field migrates it to one non-indexed addition without double count",()=>{
+ const legacy={...contract,baseAdditions:0,additionIndexPercent:"",annualContractDrift:460000,annualPropertyTax:15000};
+ const old=globalThis.FormData;
+ globalThis.FormData=class {forEach(cb){cb("460000","baseAdditions");cb("0","additionIndexPercent");cb("15000","annualPropertyTax");}};
+ try {
+   const updated=readEditor({dataset:{collection:"contracts"}},legacy);
+   assert.equal(updated.baseAdditions,460000);
+   assert.equal(updated.additionIndexPercent,0);
+   assert.equal(updated.annualContractDrift,0);
+   assert.equal(updated.annualPropertyTax,15000);
+   const v=globalThis.LokalblickCalculations.annualValues(updated,2026,0,data.indexSeries);
+   assert.equal(v.addition.amount,460000);
+   assert.equal(v.tax,15000);
+ }finally{globalThis.FormData=old;}
 });

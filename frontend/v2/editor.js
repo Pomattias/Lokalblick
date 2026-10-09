@@ -212,13 +212,27 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
 }
 export function readEditor(form, record) {
   const out = clone(record);
+  const submitted = new Set();
   new FormData(form).forEach((value, key) => {
+    submitted.add(key);
     out[key] = numeric.test(key) && value !== "" ? Number(value) : value;
     // Editor explicitly shows percentage points (80 means 80 %);
     // canonical model stores the share as 0.80.
     if ((key === "rentIndexPercent" || key === "additionIndexPercent") && value !== "")
       out[key] = Number(value) / 100;
   });
+  // On the first edit of an old contract, migrate its legacy Media amount
+  // into the visible Tillägg field and explicitly zero the duplicate alias.
+  // Do not alter imported contracts that the user has not edited.
+  if (form.dataset?.collection === "contracts" && submitted.has("baseAdditions") &&
+      Number(record.annualContractDrift) > 0 && !(Number(record.baseAdditions) > 0)) {
+    if (out.additionIndexPercent === "" || out.additionIndexPercent == null)
+      out.additionIndexPercent = 0;
+    // A 0% non-indexed annual addition is safe to migrate immediately.
+    // Keep the old source as fallback if a new indexed base needs verification.
+    if (Number(out.additionIndexPercent) === 0)
+      out.annualContractDrift = 0;
+  }
   if (Number(out.planningMonth)) {
     if (out.planningMonth < 1 || out.planningMonth > 12)
       throw Error("Månad måste vara 1–12");

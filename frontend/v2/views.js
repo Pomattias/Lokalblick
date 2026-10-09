@@ -252,7 +252,7 @@ function contractRows(data, contracts, year) {
     const p=(data.properties||[]).find(p=>p.id===c.propertyId)||{};
     const v=calc().annualValues(c,year,0,data.indexSeries);
     const area=Number(c.area)||0;
-    const total=v.rent.amount+v.addition.amount;
+    const total=v.total;
     const complete=v.rent.status!=="Behöver kontroll"&&v.addition.status!=="Behöver kontroll";
     return row([
       esc(propertyDesignation(p) || "–"),
@@ -364,6 +364,7 @@ export function contractDetail(data, id, year) {
     ${contractIndexBreakdown(c,"Hyra",v.rent,c.rentIndexPercent)}
     ${contractIndexBreakdown(c,"Tillägg",v.addition,c.additionIndexPercent)}
     </tbody></table></div>
+    <p><strong>Fastighetsskatt:</strong> ${money(v.tax)} · <strong>Total årskostnad:</strong> ${money(v.total)}</p>
     <p><small>Indexkälla hyra: ${esc(v.rent.source)}${v.rent.reason ? " · "+esc(v.rent.reason) : ""}. Tillägg: ${esc(v.addition.source)}${v.addition.reason ? " · "+esc(v.addition.reason) : ""}.</small></p>
   </section>
   <div class="detail-grid">
@@ -373,6 +374,8 @@ export function contractDetail(data, id, year) {
     <div><small>Fastighetsägarens ansvarige</small><strong>${esc(personLabel(data,p.ownerResponsiblePersonId))}</strong></div>
     <div><small>Hyra ${year} · ${esc(v.rent.status)}</small><strong>${v.rent.status==="Behöver kontroll"&&v.rent.amount<=0?"Kontrollera":money(v.rent.amount)}</strong></div>
     <div><small>Tillägg · ${esc(v.addition.status)}</small><strong>${v.addition.status==="Behöver kontroll"&&v.addition.amount<=0?"Kontrollera":money(v.addition.amount)}</strong></div>
+    <div><small>Fastighetsskatt</small><strong>${money(v.tax)}</strong></div>
+    <div><small>Total årskostnad</small><strong>${money(v.total)}</strong></div>
     <div><small>Hyra kr/kvm · beräknat</small><strong>${c.area>0?num(v.rent.amount/c.area):"–"}</strong></div>
     <div><small>Säg upp senast · beräknat</small><strong>${esc(notice||"–")}</strong></div>
   </div>

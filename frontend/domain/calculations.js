@@ -64,9 +64,12 @@
   function component(c, kind, year, preliminaryIndex, series) {
     const prefix = kind === "addition" ? "addition" : "rent";
     const base = number(kind === "addition" ? c.baseAdditions : c.baseRent);
-    const sourceAmount = number(
-      kind === "addition" ? c.annualAdditions : c.annualRent,
-    );
+    // Older imports called the same contract addition "Media". Never add
+    // that legacy source amount on top of the canonical indexed addition.
+    const legacyAddition = number(c.annualContractDrift);
+    const sourceAmount = number(kind === "addition"
+      ? (number(c.annualAdditions) || legacyAddition)
+      : c.annualRent);
     const baseYear=number(c[prefix+"BaseYear"]);
     const explicitBaseIndex=number(c[prefix+"BaseIndex"]);
     const requestedSeriesBase=seriesBase(c[prefix+"SeriesBase"]) || "1980";
@@ -166,33 +169,30 @@
   function annualValues(c, year, preliminaryIndex, series) {
     const rent = component(c, "rent", year, preliminaryIndex, series),
       addition = component(c, "addition", year, preliminaryIndex, series);
-    const media = number(c.annualContractDrift),
-      tax = number(c.annualPropertyTax);
+    const tax = number(c.annualPropertyTax);
     return {
       rent,
       addition,
-      media,
       tax,
-      total: rent.amount + addition.amount + media + tax,
+      total: rent.amount + addition.amount + tax,
     };
   }
   // Derived display value, not a property field.
   function propertyAnnualCost(data, propertyId, year) {
     const plan=(data.budgetPlans||[]).find(p=>Number(p.year)===Number(year));
-    const result={rent:0,addition:0,media:0,tax:0,annualCost:0,activeContracts:0,needsReview:0,preliminary:0};
+    const result={rent:0,addition:0,tax:0,annualCost:0,activeContracts:0,needsReview:0,preliminary:0};
     (data.contracts||[]).filter(c=>c.propertyId===propertyId).forEach(c=>{
       const period=budgetPeriod(c,year);
       if (!period.days) return;
       const v=annualValues(c,year,plan?.preliminaryIndex,data.indexSeries);
       result.rent+=v.rent.amount*period.factor;
       result.addition+=v.addition.amount*period.factor;
-      result.media+=v.media*period.factor;
-      result.tax+=v.tax*period.factor;
+       result.tax+=v.tax*period.factor;
       result.activeContracts++;
       if ([v.rent,v.addition].some(x=>x.status==="Behöver kontroll")) result.needsReview++;
       if ([v.rent,v.addition].some(x=>x.preliminary)) result.preliminary++;
     });
-    result.annualCost=result.rent+result.addition+result.media+result.tax;
+    result.annualCost=result.rent+result.addition+result.tax;
     return result;
   }
   function noticeDate(c) {
