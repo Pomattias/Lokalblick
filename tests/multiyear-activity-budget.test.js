@@ -14,8 +14,8 @@ test("multiyear activity appears in both years without repeating total cost",()=
   assert.equal(calc.activityPlannedInYear(a,2029),false);
   assert.equal(calc.activityBudgetAmount(a,2027),40000);
   assert.equal(calc.activityBudgetAmount(a,2028),60000);
-  assert.equal(calc.activityBudgetAmount({...a,yearAllocations:[]},2027),0);
-  assert.equal(calc.activityBudgetAmount({...a,yearAllocations:[]},2028),0);
+  assert.equal(calc.activityBudgetAmount({...a,yearAllocations:[]},2027),100000*3/9);
+  assert.equal(calc.activityBudgetAmount({...a,yearAllocations:[]},2028),100000*6/9);
 });
 test("explicit allocation of zero remains zero",()=>{
  const a={startDate:"2027-01-01",endDate:"2027-12-31",estimatedCost:1000,yearAllocations:[{year:2027,amount:0}]};

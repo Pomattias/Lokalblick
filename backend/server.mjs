@@ -1,3 +1,4 @@
+import { fetchBudgetIndex } from "../api/budget-index.js";
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -134,6 +135,10 @@ async function handle(req, res) {
     }
   }
 
+  if(url.pathname==='/api/budget-index' && req.method==='GET') {
+    try {return sendJson(res,200,{rows:await fetchBudgetIndex(Number(url.searchParams.get('year')))});}
+    catch(error){return sendJson(res,503,{error:error.message});}
+  }
   if (["/api/runtime-config","/runtime-config.js","/frontend/runtime-config.js"].includes(url.pathname) && req.method === "GET") {
     const cartoKey = process.env.VITE_CARTO_API_KEY || process.env.CARTO_API_KEY || "";
     res.writeHead(200, {

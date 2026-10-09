@@ -1,3 +1,4 @@
+import { fetchBudgetIndex } from "../../api/budget-index.js";
 import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
@@ -185,6 +186,10 @@ export function createLokalblickServer(repository, { host = DEFAULT_HOST, port =
             code: error.code || "GEOCODING_ERROR"
           });
         }
+      }
+      if(pathname==='/api/budget-index' && request.method==='GET') {
+        try { return sendJson(response,200,{rows:await fetchBudgetIndex(Number(new URL(request.url,'http://localhost').searchParams.get('year')))}); }
+        catch(error){return sendJson(response,503,{error:error.message});}
       }
       if (["/api/runtime-config","/runtime-config.js","/frontend/runtime-config.js"].includes(pathname) && request.method === "GET") {
         const cartoKey = process.env.VITE_CARTO_API_KEY || process.env.CARTO_API_KEY || "";

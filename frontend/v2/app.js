@@ -606,6 +606,25 @@ async function mutation(change, { automatic = false, manualPositionIds = [] } = 
     busy = false;
   }
 }
+const loadedBudgetIndexYears=new Set();
+async function loadBudgetIndex(year,force=false) {
+  const indexYear=Number(year)-1;
+  if(indexYear<2025||(!force&&loadedBudgetIndexYears.has(indexYear)))return;
+  loadedBudgetIndexYears.add(indexYear);
+  try {
+    const response=await fetch('/api/budget-index?year='+indexYear);
+    if(!response.ok)throw Error('KPI kunde inte hämtas');
+    const payload=await response.json();
+    if(!Array.isArray(payload.rows)||!payload.rows.length)throw Error('KPI saknas');
+    await mutation(d=>{
+      d.indexSeries ||= [];
+      for(const row of payload.rows) {
+        const i=d.indexSeries.findIndex(x=>Number(x.year)===row.year&&Number(x.month)===row.month&&String(x.seriesBase||'1980')==='1980');
+        if(i<0)d.indexSeries.push(row);else if(!d.indexSeries[i].source||/SCB/.test(d.indexSeries[i].source))d.indexSeries[i]=row;
+      }
+    },{automatic:true});
+  } catch(error){notice('Automatisk KPI-hämtning misslyckades. Befintlig indexserie används; saknat index markeras.');}
+}
 async function loadOfficialPriceBase(year, { automatic = false } = {}) {
   if (!Number.isInteger(year) || year < 1960 || year > 2200) throw Error("Ogiltigt år för prisbasbelopp.");
   if (automatic && (data.priceBaseAmounts || []).some(p => Number(p.year) === year && Number(p.amount) > 0))
@@ -915,6 +934,7 @@ document.addEventListener("click", (event) =>
       ui.contractId = "";
       if (ui.view === "settings") ui.settingsYear = new Date().getFullYear();
       render();
+      if (ui.view === "budget") await loadBudgetIndex(ui.year);
       if (ui.view === "settings") await loadOfficialPriceBase(ui.settingsYear, { automatic: true });
     }
     if (b.dataset.property) {
@@ -1077,6 +1097,7 @@ document.addEventListener("click", (event) =>
           : {},
       );
     }
+    if (b.hasAttribute("data-budget-index")) await loadBudgetIndex(ui.year,true);
     if (b.hasAttribute("data-budget-create"))
       await mutation((d) => {
         const live = calc().budgetRows(d, ui.year);
@@ -1085,6 +1106,7 @@ document.addEventListener("click", (event) =>
           status: "Arbetsbudget",
           createdAt: new Date().toISOString(),
           preliminaryIndex: 0,
+          adjustments: {},
           lines: [],
           targets: calc().summarize(live),
           notes: {},
@@ -1094,32 +1116,16 @@ document.addEventListener("click", (event) =>
       await mutation((d) => {
         const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
         if (!plan || plan.status === "Låst") return;
-        const live = calc().budgetRows(d, ui.year);
-        const liveTotals = calc().summarize(live);
-        const adjustments = categories
-          .map((category) => ({
-            category,
-            amount: Number(plan.targets?.[category] ?? liveTotals[category] ?? 0) - Number(liveTotals[category] || 0),
-          }))
-          .filter((line) => line.amount !== 0)
-          .map((line, index) => ({
-            category: line.category,
-            sub: "Budgetjustering",
-            source: "Budgetjustering",
-            amount: line.amount,
-            propertyId: "",
-            contractId: "",
-            sourceType: "manual",
-            sourceId: "BUDGET-ADJ|" + ui.year + "|" + index,
-            status: "Låst",
-            included: true,
-          }));
+        const live = calc().budgetProposal(d, ui.year,{strict:true});
         const lockedIndex = calc().budgetIndex(
           d,
           ui.year,
           plan.preliminaryIndex,
         );
-        plan.lines = live.concat(adjustments);
+        plan.lines = live.map(line=>({...line,lockedAt:new Date().toISOString(),lockedBy:actor(),indexSnapshot:clone(lockedIndex),sourceSnapshot:clone((d[line.sourceType==='contract'?'contracts':'activities']||[]).find(x=>x.id===line.sourceId)||{})}));
+        plan.targets=calc().summarize(plan.lines);
+        plan.lockedIndexMonth=lockedIndex.month;
+        plan.lockedIndexStatus=lockedIndex.status;
         plan.lockedIndexYear = lockedIndex.year;
         plan.lockedIndexValue = lockedIndex.value;
         plan.lockedIndexSource = lockedIndex.source;
@@ -1211,6 +1217,7 @@ document.addEventListener("change", (event) =>
     if (x.hasAttribute("data-year")) {
       ui.year = Math.max(2000, Math.min(2200, Number(x.value) || ui.year));
       render();
+      await loadBudgetIndex(ui.year);
       return;
     }
     if (x.dataset.priceBaseYear) {
@@ -1233,8 +1240,7 @@ document.addEventListener("change", (event) =>
         if (!activity) throw Error("Aktiviteten saknas");
         const year = Number(x.dataset.allocationYear);
         if (!Number.isInteger(year) || year < 2000 || year > 2200) throw Error("Ogiltigt budgetår");
-        if ((d.budgetPlans || []).some(p => Number(p.year) === year && p.status === "Låst"))
-          throw Error("Budgetåret är låst. Ändringar ska göras i ny prognos.");
+
         const raw = String(x.value || "").trim();
         const amount = raw === "" ? null : Number(raw);
         if (amount !== null && (!Number.isFinite(amount) || amount < 0)) throw Error("Ange ett giltigt belopp");
@@ -1284,9 +1290,9 @@ document.addEventListener("change", (event) =>
       await mutation((d) => {
         const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
         if (!plan || plan.status === "Låst") throw Error("Budgeten är låst");
-        plan.targets[x.dataset.adjust] =
-          (calc().summarize(calc().budgetRows(d, ui.year))[x.dataset.adjust] || 0) +
-          Number(x.value);
+        plan.adjustments ||= {};
+        plan.adjustments[x.dataset.adjust]=Number(x.value)||0;
+        plan.targets=calc().summarize(calc().budgetProposal(d,ui.year,{strict:true}));
       });
   }),
 );

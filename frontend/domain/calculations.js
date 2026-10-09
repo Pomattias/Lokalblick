@@ -82,7 +82,7 @@
         ? number(row.value)
         : 0;
     const usedIndex =
-      knownIndex || number(preliminaryIndex) || number(row?.value);
+      knownIndex || number(preliminaryIndex) || number(row?.value) || budgetIndex({indexSeries:series},year,0,basisSeries).value;
     const bastal = explicitBaseIndex || number(basisRow?.value);
     const rawShare = c[prefix + "IndexPercent"];
     const share = normalizedShare(rawShare);
@@ -384,34 +384,53 @@
     const spansYears = Boolean(firstYear && lastYear && firstYear !== lastYear);
     const explicit = number(activity?.["budgetAmount" + targetYear]);
     if (explicit > 0) return explicit;
-    if (spansYears) return 0; // Requires explicit per-year allocation.
+    if (start && end && end >= start) {
+      const first=start.getUTCFullYear()*12+start.getUTCMonth(),last=end.getUTCFullYear()*12+end.getUTCMonth();
+      const months=Math.max(0,Math.min(last,targetYear*12+11)-Math.max(first,targetYear*12)+1);
+      return number(activity?.estimatedCost)*months/(last-first+1);
+    }
+    if (spansYears) return 0;
     if (number(activity?.planningYear) && number(activity.planningYear) !== targetYear) return 0;
     return number(activity?.estimatedCost);
   }
 
-  function budgetIndex(data, year, preliminaryIndex) {
+  function budgetIndex(data, year, preliminaryIndex, preferredBase="1980") {
     const indexYear = number(year) - 1;
-    const row = october((data && data.indexSeries) || [], indexYear, "1980");
+    const row = october((data && data.indexSeries) || [], indexYear, preferredBase);
     const known =
       row && !row.preliminary && !/prelim|prognos/i.test(row.source || "")
         ? number(row.value)
         : 0;
     if (known)
       return {
-        year:indexYear,
+        year:indexYear,month:10,
         value:known,
         source:row.source || "SCB KPI",
         status:"Fastställd"
       };
-    const preliminary = number(preliminaryIndex);
+    const latest=((data&&data.indexSeries)||[]).filter(x=>Number(x.year)===indexYear&&Number(x.month)>0&&Number(x.month)<10&&number(x.value)>0&&(!x.seriesBase||seriesBase(x.seriesBase)===preferredBase)&&!x.preliminary).sort((a,b)=>Number(b.month)-Number(a.month))[0];
+    const preliminary = number(preliminaryIndex)||number(row?.value)||number(latest?.value);
     return {
-      year:indexYear,
+      year:indexYear,month:number(preliminaryIndex)||row?.value?10:number(latest?.month),
       value:preliminary,
-      source:preliminary ? "Preliminärt budgetindex" : "",
+      source:preliminary ? (number(preliminaryIndex)?"Manuellt preliminärt index":latest?.source||"Preliminärt oktoberindex") : "",
       status:preliminary ? "Preliminär" : "Saknas"
     };
   }
 
+  function budgetGroup(row) { return row.category==='Hyra + drift'?'Hyra':row.category==='Projekt'?'Investering':'Drift'; }
+  function budgetProposal(data,year,{strict=false}={}) {
+    const rows=budgetRows(data,year).map(row=>({...row,baseAmount:row.amount,adjustmentAmount:0,budgetGroup:budgetGroup(row)}));
+    const plan=(data.budgetPlans||[]).find(p=>Number(p.year)===Number(year));
+    for(const group of ['Hyra','Investering','Drift']) {
+      const members=rows.filter(r=>r.budgetGroup===group&&r.included!==false),total=members.reduce((n,r)=>n+r.baseAmount,0);
+      const adjustment=number(plan?.adjustments?.[group]);
+      if(adjustment&&!total){if(strict)throw Error('Justering för '+group+' saknar objekt att fördelas på');continue;}
+      let remaining=adjustment;
+      members.forEach((r,i)=>{r.adjustmentAmount=i===members.length-1?remaining:Math.round(adjustment*r.baseAmount/total*100)/100;remaining-=r.adjustmentAmount;r.amount=r.baseAmount+r.adjustmentAmount;});
+    }
+    return rows;
+  }
   function budgetRows(data, year, contracts, properties) {
     const rows = [],
       plan = (data.budgetPlans || []).find(
@@ -569,6 +588,8 @@
     activityPlannedInYear,
     activityBudgetAmount,
     activityEconomics,
+    budgetGroup,
+    budgetProposal,
     budgetIndex,
     budgetRows,
     actualRows,

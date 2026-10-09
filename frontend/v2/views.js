@@ -435,7 +435,7 @@ function timelineView(data, items, ui) {
   const header=planningMonthHeader(year,span);
   const rows=visible.map(x=>{
     const a=x.record,allocations=a.yearAllocations||[];
-    const readOnly=(data.budgetPlans||[]).some(p=>Number(p.year)===year && p.status==="Låst");
+    const readOnly=false; // Live allocations remain editable; locked budget lines are snapshots.
     const unverified=a.project2027BudgetUnit==="unverified";
     const rentFinanced=a.financingMethod==="rent_supplement"||a.project2027RentSurcharge;
     const annual=allocations.find(t=>Number(t.year)===year);
@@ -565,18 +565,22 @@ export function budget(data,s,ui) {
   const scoped=Boolean(s.propertyId||s.unit||s.owner||s.person||s.q),view=scope(data,s);
   const plan=data.budgetPlans.find(p=>Number(p.year)===ui.year),locked=plan?.status==='Låst';
   const rows=scopedBudgetRows(data,s,ui.year,view);
-  const baselineRows=locked?(plan?.lines||[]):rows;
+  const baselineRows=locked?(plan?.lines||[]):calc().budgetProposal(data,ui.year);
   const included=baselineRows.filter(r=>r.included!==false&&(!scoped||budgetRowInScope(r,view)));
   const comparison=globalThis.LokalblickBudgetFollowup.compare(data,included,rows,ui.year);
-  const baseline=calc().summarize(included),forecast=calc().summarize(comparison.map(r=>({...r,amount:r.forecast}))),actual=calc().summarize(comparison.map(r=>({...r,amount:r.finalCost??0})));
-  const total=categories.reduce((sum,k)=>sum+(scoped?baseline[k]||0:Number(plan?.targets?.[k]??baseline[k]??0)),0);
-  const indexControl = locked
-    ? `<span><strong>Låst oktoberindex ${Number(plan?.lockedIndexYear)||ui.year-1}: ${Number(plan?.lockedIndexValue)||0}</strong>${plan?.lockedIndexSource?` · ${esc(plan.lockedIndexSource)}`:""}</span>`
-    : `<label>Preliminärt oktoberindex ${ui.year-1}<input type="number" min="0" step="0.01" data-preliminary value="${Number(plan?.preliminaryIndex)||0}" ${!plan?'disabled':''}></label><span>Känt oktoberindex används först.</span>`;
-  return `<div class="section-title"><h2>Budget ${ui.year} ${badge(locked?'Låst baslinje':plan?'Arbetsbudget':'Ej skapad')}</h2><label>År<input data-year type="number" min="2000" max="2200" value="${ui.year}"></label></div><div class="budget-controls">${indexControl}${!plan?'<button data-budget-create>Skapa budget</button>':!locked&&!scoped?'<button data-budget-lock>Lås budget</button>':''}</div><p>Årsbudget <strong>${money(total)}</strong> · prognos <strong>${money(comparison.reduce((sum,r)=>sum+r.forecast,0))}</strong></p>${table(['Kategori','Underlag','Justering','Årsbudget','Prognos','Slutkostnad'],categories.map(k=>{
-    const base=baseline[k]||0,target=scoped?base:Number(plan?.targets?.[k]??base);
-    return row([esc(k),money(base),plan&&!locked&&!scoped?`<input aria-label="Justering ${k}" data-adjust="${k}" type="number" value="${target-base}">`:money(target-base),money(target),money(forecast[k]),money(actual[k])]);
-  }))}${plan?globalThis.LokalblickBudgetUI.html(plan,comparison,scoped,{state:data,esc,money}):''}`;
+
+  const total=included.reduce((sum,r)=>sum+r.amount,0);
+
+  const idx=calc().budgetIndex(data,ui.year,plan?.preliminaryIndex);
+  const monthNames=['','januari','februari','mars','april','maj','juni','juli','augusti','september','oktober'];
+  const value=locked?plan.lockedIndexValue:idx.value,month=locked?plan.lockedIndexMonth||10:idx.month;
+  const indexControl=`<span><strong>Oktoberindex ${ui.year-1}: ${value?indexFormat(value):'saknas'}</strong><small>${esc(locked?plan.lockedIndexStatus||'Sparat index':idx.status)} · ${esc(monthNames[month]||'ingen publicerad månad')}${locked?' · låst '+esc(new Date(plan.lockedAt).toLocaleString('sv-SE'))+' · '+esc(plan.lockedBy):''}</small><small>${esc(locked?plan.lockedIndexSource:idx.source)}</small></span>${!locked?'<button data-budget-index>Hämta index</button>':''}`;
+
+  return `<div class="section-title"><h2>Budget ${ui.year} ${badge(locked?'Låst baslinje':plan?'Arbetsbudget':'Ej skapad')}</h2><label>År<input data-year type="number" min="2000" max="2200" value="${ui.year}"></label></div><div class="budget-controls">${indexControl}${!plan?'<button data-budget-create>Skapa budget</button>':!locked&&!scoped?'<button data-budget-lock>Lås budget</button>':''}</div><p>Årsbudget <strong>${money(total)}</strong> · prognos <strong>${money(comparison.reduce((sum,r)=>sum+r.forecast,0))}</strong></p>${table(['Kategori','Underlag','Justering','Årsbudget','Prognos','Slutkostnad'],['Hyra','Investering','Drift'].map(k=>{
+    const groupRows=included.filter(r=>(r.budgetGroup||calc().budgetGroup(r))===k),base=groupRows.reduce((n,r)=>n+Number(r.baseAmount??r.amount),0),target=groupRows.reduce((n,r)=>n+r.amount,0);
+    const groupForecast=comparison.filter(r=>calc().budgetGroup(r)===k).reduce((n,r)=>n+r.forecast,0),groupActual=comparison.filter(r=>calc().budgetGroup(r)===k).reduce((n,r)=>n+(r.finalCost||0),0);
+    return row([esc(k),money(base),plan&&!locked&&!scoped?`<input aria-label="Justering ${k}" data-adjust="${k}" type="number" step="0.01" value="${Number(plan.adjustments?.[k]??target-base)}">`:money(target-base),money(target),money(groupForecast),money(groupActual)]);
+  }))}<p><small>Justering i kr fördelas efter objektens årsbelopp. Budgeten låses per objekt; senare ändringar visas i prognosen.</small></p>${plan?globalThis.LokalblickBudgetUI.html(plan,comparison,scoped,{state:data,esc,money}):''}`;
 }
 const importFieldLabels = {
   sourceId: "Objekts-ID",
