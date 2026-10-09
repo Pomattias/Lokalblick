@@ -988,3 +988,43 @@ details .table-wrap {
 }
 .issue-editor .issue-title-field { grid-column: 1 / -1; }
 .issue-editor .issue-title-field input { font-size: 16px; font-weight: 600; }
+
+/* One interactive month rail in Planera and in Ärende, driven by startDate/endDate. */
+.timeline-track > .timeline-month-button {
+  position:relative;
+  display:block;
+  align-self:stretch;
+  min-width:0;
+  width:100%;
+  min-height:39px;
+  padding:0;
+  border:0;
+  border-left:1px solid var(--line,#dce4de);
+  border-radius:0;
+  background:transparent;
+  cursor:pointer;
+}
+.timeline-track > .timeline-month-button:hover { background:#d9e9e5; }
+.timeline-track > .timeline-month-button.is-planned { background:#aebfcb; }
+.timeline-track > .timeline-month-button.is-planned.active { background:#527fb6; }
+.timeline-track > .timeline-month-button.is-planned.ordered { background:#8777ad; }
+.timeline-track > .timeline-month-button.is-planned.done { background:#518f76; }
+.timeline-track > .timeline-month-button.period-start { border-top-left-radius:7px; border-bottom-left-radius:7px; }
+.timeline-track > .timeline-month-button.period-end { border-top-right-radius:7px; border-bottom-right-radius:7px; }
+.timeline-track > .timeline-month-button.is-pending { outline:3px solid #e7a43c; outline-offset:-3px; background:#fff3cf; }
+.timeline-track > .timeline-month-button:focus-visible { outline:2px solid var(--accent,#23745d); outline-offset:-2px; z-index:2; }
+.timeline-track > .timeline-unscheduled { pointer-events:none; z-index:1; }
+.planning-timeline-help { margin:6px 0 8px; font-size:12px; color:var(--muted); }
+.issue-visual-planner { margin-top:12px; padding:10px; border:1px solid var(--line); border-radius:10px; }
+.issue-visual-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.issue-visual-heading strong { font-size:13px; }
+.issue-visual-heading .actions { margin:0; }
+.issue-visual-heading button { font-size:11px; padding:5px 9px; }
+.issue-planner-scroll { width:100%; overflow-x:auto; border:1px solid var(--line); border-radius:8px; margin-top:9px; }
+.issue-plan-content { min-width:520px; }
+.issue-plan-content .timeline-plan-months { min-height:39px; }
+.issue-plan-content .timeline-plan-header { background:var(--soft); }
+@media (max-width:650px) {
+  .issue-visual-heading { align-items:flex-start; }
+  .issue-visual-planner { padding:8px; }
+}

@@ -1,4 +1,5 @@
 import { scope, responsible, kinds, bulkEligible } from "./model.js";
+import { planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
 export const esc = (x) =>
   String(x ?? "").replace(
     /[&<>"']/g,
@@ -390,43 +391,23 @@ export function contractDetail(data, id, year) {
   ${edit("contracts",c.id,"Ändra avtal")}</section>`;
 }
 function timelineView(data, items, ui) {
-  const year = Number(ui.year);
-  const span = ui.timelineSpan === 3 ? 3 : 1;
-  const first = year;
-  const months = Array.from({length:12*span}, (_,i)=>({year:first+Math.floor(i/12),month:i%12+1}));
-  const visible = items.filter(x => x.collection === "activities");
-  const header = months.map((m,i)=>`<div class="timeline-month" title="${m.year}-${String(m.month).padStart(2,"0")}">${span===1?["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"][m.month-1]:(m.month===1?m.year:"")}</div>`).join("");
-  const rows = visible.map(x => {
-    const a=x.record;
-    const start=typeof a.startDate==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(a.startDate)?new Date(a.startDate+"T00:00:00Z"):null;
-    const end=typeof a.endDate==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(a.endDate)?new Date(a.endDate+"T00:00:00Z"):null;
-    const base=Date.UTC(first,0,1), limit=Date.UTC(first+span,0,1), total=limit-base;
-    let bar="";
-    if(start||end) {
-      const from=start?start.getTime():end.getTime();
-      const to=end?end.getTime():from;
-      if(from<limit&&to>=base&&from<=to){
-        const left=Math.max(0,(from-base)/total*100);
-        const right=Math.min(100,(to+86400000-base)/total*100);
-        const status=String(a.status||"Planerad").toLocaleLowerCase("sv");
-        const kind=/klar|slutförd|avslutad/.test(status)?"done":/pågår|pagar/.test(status)?"active":/beställ/.test(status)?"ordered":"planned";
-        bar=`<span class="timeline-bar ${kind}" style="left:${left}%;width:${Math.max(0.8,right-left)}%" title="${esc(a.startDate||"")} – ${esc(a.endDate||"")} · ${esc(a.status||"Planerad")}"></span>`;
-      }
-    } else if(Array.isArray(a.planningMonths)&&a.planningMonths.length && Number(a.planningYear)===first) {
-      bar=a.planningMonths.filter(n=>Number(n)>=1&&Number(n)<=12).map(n=>`<span class="timeline-bar planned" style="left:${((Number(n)-1)/(12*span))*100}%;width:${100/(12*span)}%"></span>`).join("");
-    }
-    const allocations=(a.yearAllocations||[]);
-    const readOnly = (data.budgetPlans||[]).some(p=>Number(p.year)===year && p.status==="Låst");
+  const year=Number(ui.year)||new Date().getFullYear();
+  const span=ui.timelineSpan===3?3:1;
+  const visible=items.filter(x=>x.collection==="activities");
+  const header=planningMonthHeader(year,span);
+  const rows=visible.map(x=>{
+    const a=x.record,allocations=a.yearAllocations||[];
+    const readOnly=(data.budgetPlans||[]).some(p=>Number(p.year)===year && p.status==="Låst");
     const unverified=a.project2027BudgetUnit==="unverified";
     const rentFinanced=a.financingMethod==="rent_supplement"||a.project2027RentSurcharge;
     const annual=allocations.find(t=>Number(t.year)===year);
     const home=a.contractId?"Avtal":a.propertyId?"Fastighet":a.scopeType==="unit"?"Område":a.scopeType==="general"?"Generell":"Utan hemvist";
-    const amount = readOnly || unverified || rentFinanced
+    const amount=readOnly || unverified || rentFinanced
       ? `<span title="${readOnly?"Budgetåret är låst":unverified?"Källbeloppet behöver verifieras":"Finansieras via hyra"}">${unverified?"Ej verifierad":rentFinanced?"Hyrespåslag":annual?money(Number(annual.amount)||0):"–"}</span>`
       : `<input type="number" min="0" step="1" data-activity-year-amount="${esc(a.id)}" data-allocation-year="${year}" aria-label="Årsbelopp ${year} för ${esc(x.title)}" placeholder="Ej fördelad" value="${esc(annual?.amount ?? "")}">`;
-    return `<div class="timeline-row"><div class="timeline-label"><button type="button" class="text-button" data-edit="activities" data-id="${esc(a.id)}">${esc(x.title)}</button><small>${esc(home)} · ${esc(a.status||"Planerad")}</small></div><div class="timeline-track">${months.map(()=>'<span class="timeline-grid-cell"></span>').join("")}${bar||'<span class="timeline-unscheduled">Ej tidsatt</span>'}</div><div class="timeline-cost">${amount}</div></div>`;
+    return `<div class="timeline-row"><div class="timeline-label"><button type="button" class="text-button" data-edit="activities" data-id="${esc(a.id)}">${esc(x.title)}</button><small>${esc(home)} · ${esc(a.status||"Planerad")}</small></div><div class="timeline-track" style="--timeline-columns:${12*span}">${planningMonthButtons(a,year,span,"plan")}</div><div class="timeline-cost">${amount}</div></div>`;
   }).join("");
-  return `<div class="timeline-scroll"><div class="timeline-content" style="--timeline-columns:${12*span}"><div class="timeline-row timeline-head"><div class="timeline-label">Ärende</div><div class="timeline-track">${header}</div><div class="timeline-cost">Årsbelopp</div></div>${rows||'<p>Inga aktiviteter i urvalet.</p>'}</div></div>`;
+  return `<p class="planning-timeline-help">Välj en startmånad och därefter en slutmånad i raden. Klicka på en månad igen för att påbörja en ny period. Samma tider visas i ärendeformuläret.</p><div class="timeline-scroll"><div class="timeline-content" style="--timeline-columns:${12*span}"><div class="timeline-row timeline-head"><div class="timeline-label">Ärende</div><div class="timeline-track">${header}</div><div class="timeline-cost">Årsbelopp</div></div>${rows||"<p>Inga ärenden i urvalet.</p>"}</div></div>`;
 }
 export function economicSettings(data, ui) {
   const year=Number(ui.settingsYear || new Date().getFullYear());

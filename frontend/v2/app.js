@@ -30,6 +30,7 @@ import {
   reviewCandidateChoices,
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
+import { planActivityPeriod, planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
 import { attachPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
 import { contextPersonSelect, newPersonDefaults, personFormHtml,
   updatedPersonRecord, refreshPropertyPersonSelectors } from "./property-person-dialog.js";
@@ -39,6 +40,7 @@ const transport = createTransport(),
 let data,
   editor = null,
   propertyMapCleanup = null,
+  pendingPlanSelection = null,
   busy = false,
   switchingView = false;
 const selection = { unit: "", owner: "", person: "", q: "", propertyId: "" };
@@ -551,7 +553,7 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-new-issue],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-new-issue],[data-plan-month],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
@@ -649,8 +651,37 @@ function closeEditor() {
   editor = null;
   document.body.classList.remove("editing");
 }
+
+function currentFormPlanning(form) {
+  const base=editor?.col==="activities"?editor.record:{};
+  return {...base,
+    startDate:form.querySelector('[name="startDate"]')?.value||"",
+    endDate:form.querySelector('[name="endDate"]')?.value||"",
+    planningYear:Number(form.querySelector('[name="planningYear"]')?.value)||Number(base.planningYear)||new Date().getFullYear()
+  };
+}
+function redrawFormPlanning(form) {
+  const planner=form?.querySelector("[data-issue-planner]");
+  if(!planner)return;
+  const draft=currentFormPlanning(form);
+  const year=draft.planningYear,span=Number(planner.dataset.planSpan)===3?3:1;
+  const columns=12*span;
+  planner.querySelectorAll(".timeline-track").forEach(el=>el.style.setProperty("--timeline-columns",String(columns)));
+  const content=planner.querySelector(".issue-plan-content");
+  if(content)content.style.minWidth=span===3?"1080px":"520px";
+  planner.querySelector(".timeline-plan-header").innerHTML=planningMonthHeader(year,span);
+  planner.querySelector(".timeline-plan-months").innerHTML=planningMonthButtons(draft,year,span,"form");
+  planner.querySelectorAll("[data-issue-plan-span]").forEach(el=>{
+    const active=Number(el.dataset.issuePlanSpan)===span;
+    el.classList.toggle("active",active);
+    el.setAttribute("aria-pressed",String(active));
+  });
+  const text=planner.querySelector("[data-plan-hint]");
+  if(text)text.textContent="Välj startmånad och därefter slutmånad. Perioden sparas med ärendet.";
+}
 function openEditor(col, id, defaults = {}) {
   if (!canEdit()) return;
+  pendingPlanSelection=null;
   const result = editorHtml(data, col, id, transport.company(), defaults);
   editor = { col, id, record: result.record };
   const root = document.querySelector("#editor-root");
@@ -801,7 +832,62 @@ document.addEventListener("click", (event) =>
   run(async () => {
     const b = event.target.closest("button");
     if (!b || b.disabled) return;
+    if (b.hasAttribute("data-plan-month")) {
+      if(!canEdit())throw Error("Datakällan är skrivskyddad.");
+      const id=b.dataset.planIssue,key=b.dataset.planMonth;
+      if(!pendingPlanSelection || pendingPlanSelection.id!==id){
+        pendingPlanSelection={id,start:key};
+        content.querySelectorAll("[data-plan-month].is-pending").forEach(button=>button.classList.remove("is-pending"));
+        b.classList.add("is-pending");
+        const hint=content.querySelector(".planning-timeline-help");
+        if(hint)hint.textContent="Startmånad "+key+" vald. Klicka på slutmånaden i samma ärenderad för att spara perioden.";
+        return;
+      }
+      const first=pendingPlanSelection.start;
+      pendingPlanSelection=null;
+      await mutation(d=>{
+        const item=(d.activities||[]).find(a=>String(a.id)===String(id));
+        if(!item)throw Error("Ärendet finns inte längre.");
+        const before=clone(item),next=planActivityPeriod(item,first,key);
+        Object.assign(item,{startDate:next.startDate,endDate:next.endDate,planningYear:next.planningYear,
+          planningMonths:next.planningMonths,planningMonth:next.planningMonth,planningQuarter:next.planningQuarter});
+        audit(d,"activities",item.id,before,item,actor());
+      });
+      return;
+    }
+    if (b.hasAttribute("data-issue-plan-span")) {
+      const planner=b.closest("[data-issue-planner]");
+      if(planner){
+        planner.dataset.planSpan=b.dataset.issuePlanSpan==="3"?"3":"1";
+        const form=planner.closest("form");
+        delete form.dataset.pendingPlanMonth;
+        redrawFormPlanning(form);
+      }
+      return;
+    }
+    if (b.hasAttribute("data-form-plan-month")) {
+      const form=b.closest('form[data-collection="activities"]');
+      if(!form)return;
+      const key=b.dataset.formPlanMonth;
+      if(!form.dataset.pendingPlanMonth){
+        form.dataset.pendingPlanMonth=key;
+        b.classList.add("is-pending");
+        const hint=form.querySelector("[data-plan-hint]");
+        if(hint)hint.textContent="Startmånad "+key+" vald. Välj slutmånad för att uppdatera datumen.";
+        return;
+      }
+      const first=form.dataset.pendingPlanMonth;
+      delete form.dataset.pendingPlanMonth;
+      const draft=planActivityPeriod(currentFormPlanning(form),first,key);
+      form.querySelector('[name="startDate"]').value=draft.startDate;
+      form.querySelector('[name="endDate"]').value=draft.endDate;
+      form.querySelector('[name="planningYear"]').value=String(draft.planningYear);
+      form.dataset.planChanged="true";
+      redrawFormPlanning(form);
+      return;
+    }
     if (b.dataset.view) {
+      pendingPlanSelection=null;
       ui.view = b.dataset.view;
       ui.contractId = "";
       if (ui.view === "settings") ui.settingsYear = new Date().getFullYear();
@@ -820,6 +906,7 @@ document.addEventListener("click", (event) =>
       render();
     }
     if (b.dataset.perspective) {
+      pendingPlanSelection=null;
       ui.perspective = b.dataset.perspective;
       ui.contractId = "";
       render();
@@ -868,11 +955,13 @@ document.addEventListener("click", (event) =>
         .forEach((x) => x.classList.toggle("active", x === b));
     }
     if (b.dataset.planningMode) {
+      pendingPlanSelection=null;
       ui.planningMode = b.dataset.planningMode === "timeline" ? "timeline" : "list";
       render();
       return;
     }
     if (b.dataset.timelineSpan) {
+      pendingPlanSelection=null;
       ui.timelineSpan = b.dataset.timelineSpan === "3" ? 3 : 1;
       render();
       return;
@@ -1073,6 +1162,11 @@ document.addEventListener("click",event=>{
 document.addEventListener("change", (event) =>
   run(async () => {
     const x = event.target;
+    if (x.closest('form[data-collection="activities"]') && ["startDate","endDate","planningYear"].includes(x.name)) {
+      delete x.closest("form").dataset.pendingPlanMonth;
+      redrawFormPlanning(x.closest("form"));
+      return;
+    }
     if (x.hasAttribute("data-owner-select")) {
       updatePropertyOwnerContacts(document.querySelector("#editor-root"), data);
       refreshPropertyPersonSelectors(document.querySelector("#editor-root"), data);
@@ -1189,6 +1283,13 @@ document.addEventListener("submit", (event) => {
           contractId:select.dataset.propertyContractContact,personId:select.value
         })) : [],
       manualPositionSelected = col === "properties" && event.target.dataset.manualGeoSelected === "1";
+    if (col==="activities" && (event.target.dataset.planChanged==="true" ||
+        String(next.startDate||"")!==String(editor.record.startDate||"") ||
+        String(next.endDate||"")!==String(editor.record.endDate||""))) {
+      next.planningMonths=[];
+      next.planningMonth=null;
+      next.planningQuarter=null;
+    }
     if (manualPositionSelected) {
       next.geoSource="manual";
       next.geoConfirmedAt=new Date().toISOString();
