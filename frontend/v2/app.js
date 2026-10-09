@@ -30,11 +30,13 @@ import {
   reviewCandidateChoices,
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
+import { attachPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
 const transport = createTransport(),
   content = document.querySelector("#content"),
   filterArea = document.querySelector("#filters");
 let data,
   editor = null,
+  propertyMapCleanup = null,
   busy = false,
   switchingView = false;
 const selection = { unit: "", owner: "", person: "", q: "", propertyId: "" };
@@ -551,7 +553,7 @@ function render() {
   document.querySelector("#add").hidden =
     !canEdit() || !["overview", "contracts"].includes(ui.view);
 }
-async function mutation(change, { automatic = false } = {}) {
+async function mutation(change, { automatic = false, manualPositionIds = [] } = {}) {
   if (busy) throw Error("En ändring sparas redan");
   if (!canEdit()) throw Error("Denna anslutning är skrivskyddad");
   if (!automatic) requireActorIdentity();
@@ -564,8 +566,9 @@ async function mutation(change, { automatic = false } = {}) {
     if (locationChanged && !data.isDemo && globalThis.LokalblickGeocodingService) {
       const stale = (data.properties || []).filter(p => previousLocations.get(String(p.id)) !== (String(p.address || "") + "|" + String(p.city || "")));
       // Coordinates from the old address must never appear at a new address.
-      stale.forEach(p => { p.latitude = null; p.longitude = null; });
-      await globalThis.LokalblickGeocodingService.enrichData(data);
+      const needsGeocoding=stale.filter(p=>!manualPositionIds.includes(String(p.id)));
+      needsGeocoding.forEach(p => { p.latitude = null; p.longitude = null; });
+      if (needsGeocoding.length) await globalThis.LokalblickGeocodingService.enrichData(data);
     }
     captureChanges(before);
     data = await transport.save(data);
@@ -632,6 +635,10 @@ async function run(fn) {
   }
 }
 function closeEditor() {
+  if (propertyMapCleanup) {
+    propertyMapCleanup();
+    propertyMapCleanup = null;
+  }
   document.querySelector("#editor-root").innerHTML = "";
   editor = null;
   document.body.classList.remove("editing");
@@ -640,8 +647,12 @@ function openEditor(col, id, defaults = {}) {
   if (!canEdit()) return;
   const result = editorHtml(data, col, id, transport.company(), defaults);
   editor = { col, id, record: result.record };
-  document.querySelector("#editor-root").innerHTML = result.html;
+  const root = document.querySelector("#editor-root");
+  root.innerHTML = result.html;
   document.body.classList.add("editing");
+  if (col === "properties") {
+    propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
+  }
   document.querySelector("#editor-root input, #editor-root select")?.focus();
 }
 function hasPending() {
@@ -995,6 +1006,10 @@ document.addEventListener("click",event=>{
 document.addEventListener("change", (event) =>
   run(async () => {
     const x = event.target;
+    if (x.hasAttribute("data-owner-select")) {
+      updatePropertyOwnerContacts(document.querySelector("#editor-root"), data);
+      return;
+    }
     if (x.dataset.filter) {
       selection[x.dataset.filter] = x.value;
       render();
@@ -1095,7 +1110,13 @@ document.addEventListener("submit", (event) => {
   run(async () => {
     const next = readEditor(event.target, editor.record),
       col = editor.col,
-      id = editor.id;
+      id = editor.id,
+      manualPositionSelected = col === "properties" && event.target.dataset.manualGeoSelected === "1";
+    if (manualPositionSelected) {
+      next.geoSource="manual";
+      next.geoConfirmedAt=new Date().toISOString();
+      next.geoConfirmedBy=actor();
+    }
     await mutation((d) => {
       if (!id) {
         next.id = crypto.randomUUID();
@@ -1123,7 +1144,7 @@ document.addEventListener("submit", (event) => {
         d[col][index] = next;
         audit(d, col, id, before, next, actor());
       }
-    });
+    }, { manualPositionIds:manualPositionSelected && id ? [String(id)] : [] });
     closeEditor();
   });
 });

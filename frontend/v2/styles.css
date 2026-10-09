@@ -907,3 +907,30 @@ details .table-wrap {
   .contract-editor { width: 100%; }
   .contract-editor .contract-grid { grid-template-columns: 1fr; gap: 9px; }
 }
+
+
+/* Fastighet: one compact editor (no Relationer/Tidplan tabs). */
+.property-editor { width: min(790px, 94vw); }
+.property-editor .section-title { margin: 0 0 12px; }
+.property-editor .section-title h2 { margin: 3px 0; }
+.property-editor .property-section { border-top: 1px solid var(--line); padding: 11px 0 9px; }
+.property-editor .property-section h3 { font-size: 14px; margin: 0 0 9px; color: var(--ink); }
+.property-editor .property-section h4 { font-size: 12px; margin: 12px 0 6px; color: var(--ink); }
+.property-editor .property-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 14px; }
+.property-editor .property-field { min-width: 0; display: grid; gap: 4px; font-size: 12px; }
+.property-editor .property-field input, .property-editor .property-field select { width: 100%; min-width: 0; }
+.property-editor .property-help { font-size: 11px; }
+.property-editor .property-contact-list { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.property-editor .property-contact-list > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; font-size: 12px; }
+.property-editor .property-contact-list > div + div { border-top: 1px solid var(--line); }
+.property-editor .property-contact-list span { color: var(--muted); }
+.property-editor .property-contact-list strong { text-align: right; }
+.property-editor .property-empty, .property-editor .property-map-hint { margin: 0 0 7px; font-size: 12px; }
+.property-editor .property-map { height: 260px; min-height: 220px; border: 1px solid var(--line); border-radius: 9px; background: var(--soft); z-index: 0; }
+.property-editor .property-map-footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 7px 0 0; font-size: 11px; color: var(--muted); }
+.property-editor [data-property-coordinate-status] { font-weight: 600; color: var(--accent); }
+@media (max-width: 700px) {
+  .property-editor { width: 100%; }
+  .property-editor .property-grid { grid-template-columns: 1fr; gap: 8px; }
+  .property-editor .property-map { height: 230px; }
+}

@@ -1,6 +1,7 @@
 import { esc, options, calc, units, propertyReference } from "./views.js";
 import { clone } from "./model.js";
 import { renderContractEditor } from "./contract-editor.js";
+import { renderPropertyEditor } from "./property-editor.js";
 const relations = {
   propertyId: ["properties", propertyReference],
   contractId: ["contracts", (x) => x.number || x.id],
@@ -54,6 +55,8 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
   const record = Object.assign(clone(data[col].find((x) => x.id === id) || {}), defaults || {});
   if (col === "contracts")
     return { record, html: renderContractEditor(data, record, id, company) };
+  if (col === "properties")
+    return { record, html: renderPropertyEditor(data, record, id, company) };
   const fieldLabels = {
     propertyId: "Fastighet",
     contractId: "Avtal",

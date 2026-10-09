@@ -125,6 +125,30 @@
       };
 
       addPoints(handle, options.points || []);
+
+      // An editor can position one selected building without editing the full
+      // property-map layer. Click or drag only changes pending form values.
+      if (typeof options.onSelectPosition === "function") {
+        let selectedMarker=null;
+        const selected=options.selectedPosition;
+        function setPoint(pos, notify) {
+          if (!pos || !Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lng)) ||
+              Math.abs(Number(pos.lat))>90 || Math.abs(Number(pos.lng))>180) return;
+          if (!selectedMarker) {
+            selectedMarker=L.marker([Number(pos.lat),Number(pos.lng)],{draggable:true}).addTo(map);
+            selectedMarker.on("dragend",function(){ setPoint(selectedMarker.getLatLng(),true); });
+          } else {
+            selectedMarker.setLatLng([Number(pos.lat),Number(pos.lng)]);
+          }
+          if (notify) options.onSelectPosition({latitude:Number(pos.lat),longitude:Number(pos.lng)});
+        }
+        if (selected && Number.isFinite(Number(selected.latitude)) &&
+            Number.isFinite(Number(selected.longitude))) {
+          setPoint({lat:selected.latitude,lng:selected.longitude},false);
+          map.setView([Number(selected.latitude),Number(selected.longitude)],17);
+        }
+        map.on("click",function(event){ setPoint(event.latlng,true); });
+      }
       handle.resizeTimer = setTimeout(function() { map.invalidateSize(); }, 0);
       return handle;
     },

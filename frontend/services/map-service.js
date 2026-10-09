@@ -3,6 +3,7 @@
 (function () {
   let adapter = null;
   let handle = null;
+  const auxiliary = new Set();
 
   function requireAdapter() {
     if (!adapter) throw new Error("No Lokalblick map adapter configured");
@@ -15,6 +16,8 @@
         throw new Error("Invalid Lokalblick map adapter");
       }
       this.destroy();
+      auxiliary.forEach(item => { try { item.destroy(); } catch (_) {} });
+      auxiliary.clear();
       adapter = nextAdapter;
     },
 
@@ -27,6 +30,22 @@
       this.destroy();
       handle = provider.create(options || {});
       return handle;
+    },
+
+    // Independent embedded maps leave the active portfolio map untouched.
+    createAuxiliary(options) {
+      const provider=requireAdapter();
+      const mapHandle=provider.create(options || {});
+      const controller={
+        invalidateSize: () => provider.invalidateSize?.(mapHandle),
+        destroy: () => {
+          if (!auxiliary.has(controller)) return;
+          auxiliary.delete(controller);
+          provider.destroy(mapHandle);
+        }
+      };
+      auxiliary.add(controller);
+      return controller;
     },
 
     update(points) {
