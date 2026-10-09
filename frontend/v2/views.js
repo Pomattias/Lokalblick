@@ -60,25 +60,12 @@ export function filters(data, s) {
     if (p.ownerPartyId)
       owners.set(p.ownerPartyId, organizationLabel(data, p.ownerPartyId));
   });
-  return `<div class="filters"><label>Ansvarig hos oss<select data-filter="person">${options(
-    internalPeople(data),
-    (x) => x.id,
-    (x) => x.name,
-    s.person,
-    "Alla ansvariga hos oss",
-  )}</select></label><label>Område<select data-filter="unit">${options(
-    Object.entries(units),
-    (x) => x[0],
-    (x) => x[1],
-    s.unit,
-    "Alla områden",
-  )}</select></label><label>Fastighetsägare<select data-filter="owner">${options(
-    [...owners],
-    (x) => x[0],
-    (x) => x[1],
-    s.owner,
-    "Alla ägare",
-  )}</select></label><label class="search">Sök<input data-filter="q" type="search" value="${esc(s.q)}" placeholder="Adress, avtal eller verksamhet"></label></div>`;
+  const chip=(key,caption,items,value,label,selected)=>{
+    const name=items.find(item=>String(value(item))===String(selected));
+    const selectedName=name?label(name):selected;
+    return `<label class="filter-chip${selected?' is-selected':''}"><span class="filter-caption">${esc(caption)}</span><span class="filter-value" aria-hidden="true">${esc(selected?selectedName:caption)}</span><select aria-label="${esc(caption)}" data-filter="${key}">${options(items,value,label,selected,caption)}</select></label>`;
+  };
+  return `<div class="filters">${chip('person','Ansvarig',internalPeople(data),x=>x.id,x=>x.name,s.person)}${chip('unit','Verksamhet',Object.entries(units),x=>x[0],x=>x[1],s.unit)}${chip('owner','Fastighetsägare',[...owners],x=>x[0],x=>x[1],s.owner)}<label class="search">Sök<input data-filter="q" type="search" value="${esc(s.q)}" placeholder="Adress, avtal eller verksamhet"></label></div>`;
 }
 // Treat the cadastral designation and street address as independent values.
 export const propertyDesignation = property => String(property?.designation || "").trim();
