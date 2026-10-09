@@ -56,6 +56,8 @@ const ui = {
 };
 const labels = {
   overview: "Översikt",
+  properties: "Fastigheter",
+  issues: "Ärenden",
   contracts: "Avtal",
   plan: "Planera",
   budget: "Budget",
@@ -503,15 +505,18 @@ function render() {
     ? `<button data-clear-property>Hela urvalet</button><span>${esc(data.properties.find((p) => p.id === selection.propertyId)?.address || selection.propertyId)}</span>`
     : "<span>Portfölj</span>";
   filterArea.hidden = ["sources", "people", "settings"].includes(ui.view);
-  if (ui.view === "overview")
+  if (["overview","properties","issues"].includes(ui.view))
     content.innerHTML = overview(data, selection, {
       ...ui,
+      perspective: ui.view==="properties"?"Fastigheter":ui.view==="issues"?"Ärenden":ui.perspective,
+      hidePerspectiveTabs:ui.view!=="overview",
       year: new Date().getFullYear(),
     });
   if (ui.view === "contracts")
     content.innerHTML = overview(data, selection, {
       ...ui,
       perspective: "Avtal",
+      hidePerspectiveTabs:true,
       year: new Date().getFullYear(),
     });
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
@@ -551,13 +556,13 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-new-issue],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-new-issue],[data-new-issue-property],[data-new-issue-contract],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
-    !canEdit() || !["overview", "contracts"].includes(ui.view);
+    !canEdit() || !["overview", "contracts", "properties", "issues"].includes(ui.view);
   document.querySelector("#add").textContent =
-    ui.view==="overview" && ui.perspective==="Ärenden" ? "Nytt ärende" : "Lägg till";
+    (ui.view==="issues" || ui.view==="overview"&&ui.perspective==="Ärenden") ? "Nytt ärende" : "Lägg till";
 }
 async function mutation(change, { automatic = false, manualPositionIds = [] } = {}) {
   if (busy) throw Error("En ändring sparas redan");
@@ -803,6 +808,8 @@ document.addEventListener("click", (event) =>
     if (!b || b.disabled) return;
     if (b.dataset.view) {
       ui.view = b.dataset.view;
+      if (ui.view==="properties") ui.perspective="Fastigheter";
+      if (ui.view==="issues") ui.perspective="Ärenden";
       ui.contractId = "";
       if (ui.view === "settings") ui.settingsYear = new Date().getFullYear();
       render();
@@ -821,12 +828,46 @@ document.addEventListener("click", (event) =>
     }
     if (b.dataset.perspective) {
       ui.perspective = b.dataset.perspective;
+      if (ui.view!=="overview") ui.view="overview";
       ui.contractId = "";
       render();
     }
     if (b.dataset.issueType) {
       ui.issueType = b.dataset.issueType;
       render();
+      return;
+    }
+    if (b.hasAttribute("data-issue-month")) {
+      const form=b.closest("#edit-form");
+      const hidden=form?.querySelector('[name="planningMonthsInput"]');
+      const month=Number(b.dataset.issueMonth);
+      if (!hidden || month<1 || month>12) return;
+      const months=new Set(String(hidden.value||"").split(",").filter(Boolean).map(Number));
+      if(months.has(month))months.delete(month);else months.add(month);
+      hidden.value=[...months].sort((x,y)=>x-y).join(",");
+      form.querySelectorAll("[data-issue-month]").forEach(button=>{
+        const on=months.has(Number(button.dataset.issueMonth));
+        button.classList.toggle("active",on);
+        button.setAttribute("aria-pressed",String(on));
+      });
+      return;
+    }
+    if (b.hasAttribute("data-new-issue-property") || b.hasAttribute("data-new-issue-contract")) {
+      const propertyId=b.dataset.newIssueProperty||"";
+      const contractId=b.dataset.newIssueContract||"";
+      if (contractId && !(data.contracts||[]).some(c=>c.id===contractId))
+        throw Error("Avtalet finns inte.");
+      if (propertyId && !(data.properties||[]).some(p=>p.id===propertyId))
+        throw Error("Fastigheten finns inte.");
+      if (editor) {
+        if (!confirm("Du lämnar nu formuläret. Osparade ändringar här sparas inte. Vill du fortsätta?")) return;
+        closeEditor();
+      }
+      openEditor("activities","",{
+        type:"",title:"",status:"Nytt",planningYear:ui.year,
+        budgetCategory:"Ej budget",includeInBudget:"Ja",
+        ...(contractId?{contractId,scopeType:"contract"}:{propertyId,scopeType:"property"}),
+      });
       return;
     }
     if (b.hasAttribute("data-new-issue")) {
@@ -940,9 +981,9 @@ document.addEventListener("click", (event) =>
     }
     if (b.id === "add") {
       const col =
-        ui.view === "contracts" || ui.perspective === "Avtal"
+        ui.view === "contracts" || (ui.view === "overview" && ui.perspective === "Avtal")
           ? "contracts"
-          : ui.perspective === "Fastigheter"
+          : ui.view === "properties" || (ui.view === "overview" && ui.perspective === "Fastigheter")
             ? "properties"
             : "activities";
       if (
@@ -1197,7 +1238,9 @@ document.addEventListener("submit", (event) => {
     await mutation((d) => {
       if (!id) {
         next.id = crypto.randomUUID();
-        next.propertyId = next.propertyId || selection.propertyId;
+        // A contract-linked issue derives its property; do not persist two homes.
+        if (!(col==="activities" && next.contractId))
+          next.propertyId = next.propertyId || selection.propertyId;
         d[col].push(next);
         audit(d, col, next.id, {}, next, actor());
       } else {

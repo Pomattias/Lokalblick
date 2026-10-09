@@ -310,7 +310,8 @@ export function overview(data, s, ui) {
             const calculated=calc().propertyAnnualCost(data,p.id,ui.year);
             return `<span title="Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder">${money(calculated.annualCost)}</span>${calculated.needsReview ? `<small class="rent-needs-review">${calculated.needsReview} avtal behöver kontroll</small>` : ""}${calculated.preliminary ? `<small>${calculated.preliminary} preliminära index</small>` : ""}`;
           })(),
-          edit("properties", p.id),
+          '<span class="inline-record-actions">'+edit("properties",p.id)+
+            '<button type="button" data-new-issue-property="'+esc(p.id)+'" aria-label="Nytt ärende för '+esc(propertyReference(p))+'">+ Ärende</button></span>',
         ]);
       }),
     );
@@ -323,7 +324,7 @@ export function overview(data, s, ui) {
     );
   else
     body = table(
-      ["Aktivitet", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", ""],
+      ["Ärende", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", ""],
       activityRows(
         data,
         v.items.filter((x) => ui.perspective === "Ärenden" &&
@@ -334,7 +335,7 @@ export function overview(data, s, ui) {
     );
   const typeButtons = ui.perspective === "Ärenden" ?
     `<div class="issue-type-filters" aria-label="Filtrera ärenden">${typeChoices.map(type=>`<button type="button" data-issue-type="${esc(type)}" class="${selectedType===type?"active":""}" aria-pressed="${selectedType===type}">${esc(type)}</button>`).join("")}</div>`:"";
-  return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div><div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>${typeButtons}${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
+  return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div>${ui.hidePerspectiveTabs?"":`<div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>`}${typeButtons}${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
 }
 function contractIndexBreakdown(c, name, v, rawShare) {
   const amount = v.status === "Behöver kontroll" && v.amount <= 0
@@ -358,7 +359,7 @@ export function contractDetail(data, id, year) {
   const doc=globalThis.LokalblickDocuments.resolve(globalThis.LokalblickDocuments.fromContract(c),globalThis.LokalblickContractDocumentCache);
   const acts=(data.activities||[]).filter((a)=>a.contractId===c.id);
   const orders=(data.orders||[]).filter((o)=>acts.some((a)=>a.id===o.activityId));
-  return `<section class="detail"><div class="section-title"><h2>Avtal ${esc(c.number||c.id)}</h2><button data-close-contract>Stäng detalj</button></div>
+  return `<section class="detail"><div class="section-title"><h2>Avtal ${esc(c.number||c.id)}</h2><div class="actions"><button type="button" data-new-issue-contract="${esc(c.id)}">+ Nytt ärende</button><button data-close-contract>Stäng detalj</button></div></div>
   <section class="rent-calculation">
     <h3>Årsberäkning ${year}</h3>
     <p><small>Hyra och tillägg räknas separat: basbelopp × (1 + indexandel × (KPI oktober ${year-1} / bastal − 1)). Indexandelen 0 % innebär oförändrat basbelopp. Avtalets golvregel kan hindra sänkning. Preliminära eller ofullständiga underlag markeras.</small></p>
@@ -477,14 +478,14 @@ export function planning(data, s, ui) {
   const timelineControls = `<div class="actions"><button type="button" data-planning-mode="list" class="${ui.planningMode==="timeline"?"":"active"}">Lista</button><button type="button" data-planning-mode="timeline" class="${ui.planningMode==="timeline"?"active":""}">Tidslinje</button>${ui.planningMode==="timeline"?`<button type="button" data-timeline-span="1" class="${ui.timelineSpan===3?"":"active"}">1 år</button><button type="button" data-timeline-span="3" class="${ui.timelineSpan===3?"active":""}">3 år</button>`:""}</div>`;
   const timelineBody = ui.planningMode==="timeline" ? timelineView(data,items,ui) : null;
   return `<div class="section-title"><h2>Ärenden och ansvar</h2><div class="actions"><button type="button" data-new-issue class="primary">+ Nytt ärende</button><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${types}${timelineControls}${timelineBody||table(
-    ["Ärende / ansvar", "Fastighet", "Adress", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
+    ["Ärende / ansvar", "Fastighet", "Adress", "Kopplat till", "Ansvarig hos oss", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
         `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>${x.collection==="activities"&&x.record.actionKind ? `<small>${x.record.actionKind==="value_enhancing"?"Värdehöjande":"Utbyte 1:1"}</small>` : ""}`,
         esc(propertyDesignation(propertyById(data, x.propertyId)) || "–"),
         propertyAddressCell(propertyById(data, x.propertyId)),
         x.collection === "activities"
-          ? `<select data-activity-home="${esc(x.record.id)}" aria-label="Hemvist för ${esc(x.title)}">${options([
+          ? `<select data-activity-home="${esc(x.record.id)}" aria-label="Kopplat till ${esc(x.title)}">${options([
               ...(data.contracts || []).map(c => {
                 const property = (data.properties || []).find(p => p.id === c.propertyId);
                 return {
@@ -500,7 +501,7 @@ export function planning(data, s, ui) {
             ],x=>x.id,x=>x.label,x.record.contractId?"contract:"+x.record.contractId:
             x.record.propertyId?"property:"+x.record.propertyId:
             x.record.scopeType==="unit"&&x.record.unitId?"unit:"+x.record.unitId:
-            x.record.scopeType==="general"?"general":"","Ej fördelad")}</select>`
+            x.record.scopeType==="general"?"general":"","Ej kopplat")}</select>`
           : "<small>Fastighet</small>",
         `<select aria-label="Ansvarig för ${esc(x.title)}" data-assign="${x.collection}" data-id="${esc(x.record.id)}">${options(
           internalPeople(data),

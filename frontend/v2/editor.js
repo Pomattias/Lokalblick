@@ -221,7 +221,7 @@ export function readEditor(form, record) {
   const submitted = new Set();
   new FormData(form).forEach((value, key) => {
     submitted.add(key);
-    out[key] = numeric.test(key) && value !== "" ? Number(value) : value;
+    out[key] = key !== "planningMonthsInput" && numeric.test(key) && value !== "" ? Number(value) : value;
     // Editor explicitly shows percentage points (80 means 80 %);
     // canonical model stores the share as 0.80.
     if ((key === "rentIndexPercent" || key === "additionIndexPercent") && value !== "")
@@ -235,6 +235,18 @@ export function readEditor(form, record) {
     if (submitted.has("issueHome")) {
       applyIssueHome(out, out.issueHome);
       delete out.issueHome;
+    }
+    if (submitted.has("planningMonthsInput")) {
+      const source=String(out.planningMonthsInput||"").trim();
+      const months=source ? source.split(",").map(Number) : [];
+      if(months.some(n=>!Number.isInteger(n)||n<1||n>12))
+        throw Error("Välj giltiga planeringsmånader.");
+      out.planningMonths=[...new Set(months)].sort((x,y)=>x-y);
+      // Keep the old single-month field as a synchronized compatibility value.
+      // Multiple selected months are represented by planningMonths only.
+      out.planningMonth=out.planningMonths.length===1?out.planningMonths[0]:null;
+      out.planningQuarter=out.planningMonth?Math.ceil(out.planningMonth/3):null;
+      delete out.planningMonthsInput;
     }
     if (out.startDate && out.endDate && out.endDate < out.startDate)
       throw Error("Slutdatum kan inte vara före startdatum.");

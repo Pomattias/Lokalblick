@@ -9,6 +9,23 @@ const activityKindOptions = [
   {value:"like_for_like",label:"Utbyte 1:1"},
 ];
 const budgetTypes=["Ja","Nej"];
+export const ISSUE_CATEGORIES=["Ytskikt","Inredning","Installationer","Ventilation","Ombyggnad","Nya lokaler","Tillgänglighet","Brand och säkerhet","Utemiljö","Energi","Övrigt"];
+const MONTHS=["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+function categoryOptions(data, selected) {
+  // Standard list, with unknown historic values explicitly available for
+  // reclassification; no silent rewriting of imported descriptions.
+  const canonical = value => /^ytskick$/i.test(value) ? "Ytskikt" : value;
+  const oldValues=[...(data.activities||[]).map(x=>x.category),selected].filter(Boolean)
+    .map(value=>String(value).trim()).filter(Boolean);
+  const result=ISSUE_CATEGORIES.map(value=>({value,label:value}));
+  oldValues.forEach(value=>{
+    if(!result.some(x=>x.value===value)&&value!==canonical(value))
+      result.push({value,label:value+" (tidigare – välj ny kategori)"});
+    else if(!result.some(x=>x.value===value))
+      result.push({value,label:value+" (tidigare kategori)"});
+  });
+  return result;
+}
 const field=(label,html,help="")=>'<label class="issue-field">'+esc(label)+html+(help?'<small>'+esc(help)+'</small>':"")+'</label>';
 const input=(item,key,type="text",attrs="")=>'<input name="'+key+'" type="'+type+'" value="'+esc(item[key]??"")+'" '+attrs+'>';
 const choice=(name,list,selected,placeholder="Välj")=>'<select name="'+name+'">'+options(list,x=>x.value,x=>x.label,selected,placeholder)+'</select>';
@@ -73,6 +90,11 @@ export function renderIssueEditor(data,issue,id,company=false) {
   const year=Number(issue.planningYear)||new Date().getFullYear();
   const assessment=calc().activityEconomics(data,issue,year);
   const typeSelect=choice("type",kinds.map(value=>({value,label:value})),issue.type,"Välj ärendetyp");
+  const plannedMonths=Array.isArray(issue.planningMonths)&&issue.planningMonths.length
+    ? issue.planningMonths : (Number(issue.planningMonth)>0?[Number(issue.planningMonth)]:[]);
+  const validMonths=[...new Set(plannedMonths.map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=12))].sort((a,b)=>a-b);
+  const monthButtons=MONTHS.map((name,i)=>'<button type="button" data-issue-month="'+(i+1)+'" aria-pressed="'+validMonths.includes(i+1)+'"'+
+    (validMonths.includes(i+1)?' class="active"':'')+'>'+name+'</button>').join("");
   const statuses=[...new Set(["Nytt","Utreds","Planerad","Pågår","Beställd","Utförd","Klar","Avslutad","Avslaget",...
     (data.activities||[]).map(a=>a.status).filter(Boolean),issue.status].filter(Boolean))];
   const priorities=[...new Set(["Låg","Normal","Hög","Akut",...
@@ -94,18 +116,19 @@ export function renderIssueEditor(data,issue,id,company=false) {
   return '<div class="editor-backdrop"></div>'+
     '<aside class="editor issue-editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="activities" data-record-id="'+esc(id||"")+'">'+
     '<div class="section-title"><div><small>'+(id?"ÄNDRA ÄRENDE":"NYTT ÄRENDE")+'</small>'+
-    '<h2 id="editor-title">Ärende</h2><small>'+esc(issue.title||"Projekt · Underhåll · Drift · Önskemål")+'</small>'+
+    '<h2 id="editor-title" class="issue-name">'+esc(issue.title||"Nytt ärende")+'</h2><small>'+esc(issue.type||"Välj ärendetyp")+'</small>'+
     '</div><button type="button" data-editor-close>Stäng</button></div>'+
-    '<section class="issue-section"><h3>Ärende</h3><div class="issue-grid">'+
+    '<section class="issue-section"><h3>Ärende</h3>'+
+    '<div class="issue-grid">'+
+      '<div class="issue-title-field">'+field("Ärendenamn",input(issue,"title","text",'required maxlength="250" placeholder="Vad behöver göras?"'))+'</div>'+
       field("Typ",typeSelect)+
       field("Status",choice("status",statuses.map(value=>({value,label:value})),issue.status,"Välj status"))+
-      field("Rubrik",input(issue,"title","text",'required maxlength="250"'))+
+      field("Kategori",choice("category",categoryOptions(data,issue.category),issue.category,"Välj kategori"))+
       field("Prioritet",choice("priority",priorities.map(value=>({value,label:value})),issue.priority,"Ej prioriterad"))+
-      field("Kategori",input(issue,"category","text",'placeholder="Valfri"'))+
     '</div>'+
     '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="3">'+esc(issue.description||"")+'</textarea></label>'+
     '<div class="issue-grid">'+
-      field("Hemvist",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej fördelad"))+
+      field("Kopplat till",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+
       field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"))+
     '</div></section>'+
     '<section class="issue-section"><h3>Tid och planering</h3><div class="issue-grid">'+
@@ -113,7 +136,12 @@ export function renderIssueEditor(data,issue,id,company=false) {
       field("T.o.m.",input(issue,"endDate","date"))+
       field("Planeringsår",input(issue,"planningYear","number",'min="2000" max="2200" step="1"'))+
       field("Fas",input(issue,"phase","text"))+
-    '</div>'+allocations+'</section>'+
+    '</div>'+
+    '<div class="issue-months" aria-label="Preliminära planeringsmånader"><span>Preliminär planering · välj månader</span>'+
+    '<div class="issue-month-choices">'+monthButtons+'</div>'+
+    '<input type="hidden" name="planningMonthsInput" value="'+esc(validMonths.join(","))+'">'+
+    '<small>Som i Planera: månaderna syns i tidslinjen när exakta datum saknas. Ändringar sparas med ärendet.</small></div>'+
+    allocations+'</section>'+
     '<section class="issue-section"><h3>Kostnad och budget</h3><div class="issue-grid">'+
       field("Bedömd kostnad, kr",input(issue,"estimatedCost","number",'min="0" step="any"'))+
       field("Åtgärdens karaktär",choice("actionKind",activityKindOptions,issue.actionKind||

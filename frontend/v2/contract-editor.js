@@ -110,5 +110,6 @@ export function renderContractEditor(data, c, id, company=false) {
       '</section>'+
       (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+
       '<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span>'+
-      '<button type="submit" class="primary">Spara ändring</button></div></form></aside>';
+      '<div class="actions"><button type="button" data-new-issue-contract="'+esc(c.id||"")+'"'+(!id?' disabled title="Spara avtalet först"':'')+'>+ Nytt ärende</button>'+
+      '<button type="submit" class="primary">Spara ändring</button></div></div></form></aside>';
 }
