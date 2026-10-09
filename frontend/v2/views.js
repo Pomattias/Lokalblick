@@ -879,7 +879,7 @@ export function sources(data, transport) {
 }
 export function organization(data) {
   return `<div class="section-title"><h2>Personer och parter</h2><div>${edit("people","","Lägg till person")}${edit("organizations","","Lägg till part")}</div></div>
-  ${table(["Person","Befattning","Part",""],data.people.map((x)=>row([esc(x.name),esc(x.role),esc(data.organizations.find((o)=>o.id===x.organizationId)?.name||""),edit("people",x.id)])))}
+  ${table(["Person","Befattning","Telefonnummer","Part",""],data.people.map((x)=>row([esc(x.name),esc(x.role),esc(x.phone||"–"),esc(data.organizations.find((o)=>o.id===x.organizationId)?.name||""),edit("people",x.id)])))}
   <h3>Parter</h3>
   ${table(["Part","Typ",""],data.organizations.map((x)=>row([esc(x.name),esc(x.type),edit("organizations",x.id)])))}`;
 }

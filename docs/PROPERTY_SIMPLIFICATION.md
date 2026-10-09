@@ -51,3 +51,7 @@ Riktade kontroller av fält, kontaktkopplingar, manuellt val av kartposition, sa
 **Begränsning:** Formuläret sparar ett nytt personkort direkt även om man senare stänger fastigheten utan att koppla in den. Personen finns då i det gemensamma registret, eftersom den faktiskt har skapats med separat `Spara person`; använd befintliga personkort i första hand och undvik dubbletter.
 
 **Verifiering:** riktade logik- och syntaxkontroller har utförts för personformulär, ägar-/verksamhetsanknytning, existerande val och för att bevara fastighetens redigeringsfönster. Full testsamling och interaktiv verifiering i den publicerade appen återstår.
+
+## Telefon på person (2026-10-09)
+
+Personer har nu `phone` som **sträng** (telefonnummer med landskod, mellanslag och ledande nollor bevaras). Fältet kan anges i det gemensamma personformuläret som öppnas från fastighet; uppdateringar via `Spara person` sparar telefonnummer för både nya och befintliga personer. `Personer`-registret visar telefonnummer och den gemensamma Excelmappningen har kolumn `Telefonnummer` samt läs-aliasen `Telefon`, `Mobil`, `Mobilnummer`. Befintliga poster utan telefon berörs inte förrän de redigeras. Nummer krävs inte; högst 50 tecken. Fullständig mobil/verklig testning av deployment återstår.

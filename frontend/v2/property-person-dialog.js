@@ -76,6 +76,7 @@ export function personFormHtml(person, isNew) {
       :"Ändringar av en person gäller på alla fastigheter och avtal där personen används.")+'</p>'+
     '<label>Namn <input name="name" required maxlength="160" value="'+esc(person.name||"")+'"></label>'+
     '<label>Befattning <input name="role" maxlength="160" value="'+esc(person.role||"")+'"></label>'+
+    '<label>Telefonnummer <input name="phone" type="tel" autocomplete="tel" maxlength="50" value="'+esc(person.phone||"")+'"></label>'+
     '<label>E-post <input name="email" type="email" maxlength="254" value="'+esc(person.email||"")+'"></label>'+
     '<div class="actions"><button type="button" data-person-dialog-close>Avbryt</button>'+
     '<button type="submit" class="primary">Spara person</button></div></form>';
@@ -84,11 +85,12 @@ export function personFormHtml(person, isNew) {
 export function updatedPersonRecord(person, formData) {
   const name = String(formData.get("name") || "").trim();
   const role = String(formData.get("role") || "").trim();
+  const phone = String(formData.get("phone") || "").trim();
   const email = String(formData.get("email") || "").trim();
   if (!name) throw Error("Ange personens namn.");
-  if (name.length > 160 || role.length > 160 || email.length > 254)
+  if (name.length > 160 || role.length > 160 || phone.length > 50 || email.length > 254)
     throw Error("Personens uppgifter är för långa.");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     throw Error("Ange en giltig e-postadress.");
-  return {...person, name, role, email};
+  return {...person, name, role, phone, email};
 }

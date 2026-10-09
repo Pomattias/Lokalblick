@@ -690,7 +690,7 @@ function openPropertyPersonDialog(button) {
         else {
           const i=d.people.findIndex(p=>p.id===next.id);
           if (i<0) throw Error("Personen finns inte längre.");
-          d.people[i]={...d.people[i],name:next.name,role:next.role,email:next.email};
+          d.people[i]={...d.people[i],name:next.name,role:next.role,phone:next.phone,email:next.email};
         }
       });
       refreshPropertyPersonSelectors(root,data,{kind,contractId,id:next.id});

@@ -49,12 +49,13 @@ test("new person defaults match correct responsibility level",()=>{
 test("editing person keeps identity, scopes and prevents invalid details",()=>{
   const changed=updatedPersonRecord(data.people[3],new Map([
     ["name","   Eva Svensson "],["role","Verksamhetschef"],
-    ["email","eva@example.se"]
+    ["phone"," +46 70 123 45 67 "],["email","eva@example.se"]
   ]));
   assert.equal(changed.id,"businessPerson");
   assert.equal(changed.unitId,"VARDBO");
   assert.equal(changed.name,"Eva Svensson");
   assert.equal(changed.email,"eva@example.se");
+  assert.equal(changed.phone,"+46 70 123 45 67");
   assert.throws(()=>updatedPersonRecord({},new Map([["name",""]])),/Ange personens namn/);
   assert.throws(()=>updatedPersonRecord({},new Map([["name","Test"],["email","fel"]])),/giltig e-post/);
 });
@@ -64,6 +65,8 @@ test("person form escapes source text and explains global edit effects",()=>{
   assert.match(html,/&lt;b&gt;&quot;hej&quot;&lt;\/b&gt;/);
   assert.match(html,/gäller på alla fastigheter och avtal/);
   assert.match(html,/type="email"/);
+  assert.match(html,/name="phone" type="tel"/);
+  assert.match(html,/Telefonnummer/);
 });
 
 test("context selection resolves business person without mutating the contract",()=>{
@@ -96,4 +99,12 @@ test("refreshing a role select updates linked person names and enables editing",
   assert.doesNotMatch(selector.innerHTML,/Alternativ ägarkontakt/);
   assert.equal(selector.value,"ownerPerson");
   assert.equal(edit.disabled,false);
+});
+
+test("phone is optional text, never a number, and length is checked",()=>{
+ const person=updatedPersonRecord({id:"p1",phone:"old"},new Map([["name","Eva"],["phone","+46 (0)40 123 456"]]));
+ assert.equal(person.phone,"+46 (0)40 123 456");
+ const none=updatedPersonRecord({id:"p1",phone:"old"},new Map([["name","Eva"]]));
+ assert.equal(none.phone,"");
+ assert.throws(()=>updatedPersonRecord({id:"p1"},new Map([["name","Eva"],["phone","x".repeat(51)]])),/för långa/);
 });

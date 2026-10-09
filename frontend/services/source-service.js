@@ -29,7 +29,7 @@
       ["id","_id",true],["name","Part"],["type","Typ"],["ownerClass","Ägarklass"],["investmentRule","Investeringsregel"],["investmentThreshold","Investeringsgräns kr"],["rentSurchargeRate","Hyrespåslag %"]
     ]},
     { sheet:"Personer", key:"people", prefix:"P", columns:[
-      ["id","_id",true],["name","Namn"],["organizationId","_organizationId",true],["unitId","_unitId",true],["role","Befattning"],["email","E-post"]
+      ["id","_id",true],["name","Namn"],["organizationId","_organizationId",true],["unitId","_unitId",true],["role","Befattning"],["phone","Telefonnummer"],["email","E-post"]
     ], display:["Part","Område"] },
     { sheet:"Beställningar", key:"orders", prefix:"ORD", columns:[
       ["id","_id",true],["activityId","_activityId",true],["orderedByPersonId","_orderedByPersonId",true],
@@ -314,7 +314,7 @@
 
   const READ_LABEL_ALIASES = {
     organizations:{name:["Företag","Organisation"]},
-    people:{role:["Roll"]},
+    people:{role:["Roll"],phone:["Telefon","Mobil","Mobilnummer"]},
     properties:{ownerPartyId:["_ownerOrgId"]},
     contracts:{businessPartyId:["_tenantOrgId"]}
   };
@@ -1226,7 +1226,7 @@
         if(base.people.some(function(x){return x.id===found.id;}))found.id=nextStableId("P",base.people);
         base.people.push(found);report.counts.peopleCreated++;
       } else {
-        ["name","role","email","sourceId","unitId"].forEach(function(field){if(!hasImportValue(found[field])&&hasImportValue(person[field]))found[field]=person[field];});
+        ["name","role","phone","email","sourceId","unitId"].forEach(function(field){if(!hasImportValue(found[field])&&hasImportValue(person[field]))found[field]=person[field];});
         if(!found.organizationId&&mappedOrg)found.organizationId=mappedOrg;
       }
       personMap.set(person.id,found.id);
