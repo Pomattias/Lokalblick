@@ -10,6 +10,7 @@
       .replace(/\s+/g," ").trim();
   }
   function compact(v){ return norm(v).replace(/\s+/g,""); }
+  function normalizeContractNo(v){ return compact(v); }
   function clone(v){ return JSON.parse(JSON.stringify(v)); }
   function num(v){
     if(typeof v==="number") return Number.isFinite(v)?v:0;
@@ -458,6 +459,9 @@
       };
       Object.keys(values).forEach(function(key){
         if(values[key]==="" || values[key]==null || values[key]===0)return;
+        if(c.provenance?.[key]?.source==="manual" && c[key]!==values[key]){
+          report.discrepancies.push({contractId:c.id,field:key,primary:c[key],enrichment:values[key],sourceRow:r.sourceRow});return;
+        }
         if(!/^enrichment/.test(key) && c[key]!=="" && c[key]!=null && c[key]!==0 && c[key]!==values[key]) {
           const rule=(data.importFieldPreferences||{})[["contracts",key,fileName||hit.sheet].map(x=>String(x||"").trim().toLocaleLowerCase("sv")).join("|")];
           if(rule==="reject")return;

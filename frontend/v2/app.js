@@ -31,6 +31,8 @@ import {
   reviewCandidateChoices,
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
+import { mapImport, previewImport } from "./import-mapping.js";
+import { fieldHistory } from "./field-history.js";
 import { planActivityPeriod, planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
 import { attachPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
 import { contextPersonSelect, newPersonDefaults, personFormHtml,
@@ -690,6 +692,7 @@ function openEditor(col, id, defaults = {}) {
   editor = { col, id, record: result.record };
   const root = document.querySelector("#editor-root");
   root.innerHTML = result.html;
+  root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,globalThis.LokalblickSourceService.schemas));
   document.body.classList.add("editing");
   if (col === "properties") {
     propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
@@ -776,11 +779,17 @@ async function sourceAction(action) {
         if (progress.message) notice(progress.message);
       });
       const selectedSheets = await chooseImportSheets(prepared);
+      const mappingPrepared = await globalThis.LokalblickSourceService.prepareMapping(base, selectedSheets);
+      const mapping = await mapImport(mappingPrepared, globalThis.LokalblickSourceService.schemas);
       progressDialog = showImportProgress(prepared.fileName, selectedSheets);
-      result = await transport.importPrepared(base, selectedSheets, (progress) => {
+      if(mapping.existing) result = await transport.importPrepared(base, selectedSheets, (progress) => {
         updateImportProgress(progressDialog, progress);
         if (progress.message) notice(progress.message + (progress.counts ? " " + importCountLabel(progress.counts) : ""));
       });
+      if(progressDialog?.open)progressDialog.close();
+      progressDialog?.remove();progressDialog=null;
+      result = await previewImport(mappingPrepared, mapping, base,
+        globalThis.LokalblickSourceService.schemas, actor(), result);
 
       const missingCity =
         globalThis.LokalblickSourceService?.cityImportStatus?.(result.data)
@@ -813,6 +822,7 @@ async function sourceAction(action) {
       );
     } finally {
       if (progressDialog?.open) progressDialog.close();
+      globalThis.LokalblickSourceService?.discardPreparedImport?.();
       progressDialog?.remove();
       busy = false;
     }
@@ -1014,7 +1024,7 @@ document.addEventListener("click", (event) =>
         ||card?.querySelector('select[data-review-target]')?.value||"";
       const item=(data.importReview||[]).find(x=>x.id===b.dataset.review);
       if(b.dataset.decision==="accept"&&
-        ["match","property-match","activity-property","record"].includes(item?.kind)&&!target)
+        ["match","property-match","activity-property","record","mapped-identity"].includes(item?.kind)&&!target)
         throw Error("Välj först en relevant post. Du kan också söka på adress eller avtalsnummer.");
       await mutation(d=>resolveReview(d,b.dataset.review,b.dataset.decision,target,actor()));
     }

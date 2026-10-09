@@ -7,6 +7,8 @@ const metadataKeys = [
   "sourceRegistry",
   "importReview",
   "documents",
+  "importMappings",
+  "importFieldPreferences",
 ];
 export function createTransport() {
   const source = () => window.LokalblickSourceService;

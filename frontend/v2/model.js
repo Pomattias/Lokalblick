@@ -697,10 +697,19 @@ export function scope(data, selection) {
 
 export function audit(data, collection, id, before, after, actor) {
   const at = new Date().toISOString();
+  if(JSON.stringify(before)===JSON.stringify(after))return;
+  if(Object.keys(after).length&&['properties','contracts','people','organizations','activities','orders'].includes(collection)){
+    const originBefore=before.provenance||{};
+    after.provenance ||= {};
+    for(const field of Object.keys(after).filter(k=>!['provenance','updatedAt','updatedBy','versions','supplemental'].includes(k)&&JSON.stringify(before[k])!==JSON.stringify(after[k]))){
+      if(JSON.stringify(after.provenance[field])===JSON.stringify(originBefore[field]))after.provenance[field]={source:'manual',value:after[field],at,confirmedBy:actor,actorVerified:false};
+    }
+  }
   data.auditLog.push({
     id: crypto.randomUUID(),
     at,
     by: actor,
+    actorVerified: false,
     collection,
     recordId: id,
     action: !Object.keys(before).length
@@ -867,6 +876,24 @@ export function resolveReview(data, id, decision, targetId, actor) {
   if (!item || item.status !== "pending")
     throw Error("Förslaget är redan hanterat");
 
+  if(item.kind==='mapped-identity'){
+    if(decision==='accept'){
+      const record=(data[item.collection]||[]).find(x=>x.id===targetId);
+      if(!record)throw Error('Välj rätt befintlig post');
+      const before=clone(record);record.provenance ||= {};
+      for(const [field,value] of Object.entries(item.values||{})){
+        if(record[field]!==''&&record[field]!=null&&JSON.stringify(record[field])!==JSON.stringify(value)){
+          const conflictId=item.id+'|'+field;
+          if(!data.importReview.some(x=>x.id===conflictId))data.importReview.push({id:conflictId,kind:'operational-conflict',status:'pending',collection:item.collection,recordId:record.id,source:item.source,field,current:record[field],proposed:value,provenance:item.origins?.[field]});
+        }else if(record[field]===''||record[field]==null){record[field]=value;record.provenance[field]={...item.origins?.[field],value,confirmedBy:actor,actorVerified:false};}
+      }
+      record.supplemental ||= [];
+      for(const extra of item.extras||[])if(!record.supplemental.some(x=>JSON.stringify(x)===JSON.stringify(extra)))record.supplemental.push(extra);
+      audit(data,item.collection,record.id,before,record,actor);
+    }
+    item.status=decision==='accept'?'accepted':'rejected';item.resolvedBy=actor;item.resolvedAt=new Date().toISOString();return;
+  }
+
   if (item.kind === "person") {
     const person = data.people.find((x) => x.id === item.personId);
     if (decision === "accept" && person) {
@@ -980,6 +1007,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
       record[item.field] = item.proposed;
       record.provenance = record.provenance || {};
       record.provenance[item.field] = {
+        ...item.provenance,
         source: item.source,
         sheet: item.sheet,
         row: item.row,

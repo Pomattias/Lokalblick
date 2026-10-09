@@ -1061,3 +1061,8 @@ details .table-wrap {
   .mobile-nav { justify-content:flex-start; gap:5px; padding:6px 8px calc(6px + env(safe-area-inset-bottom)); overflow-x:auto; scrollbar-width:thin; }
   .mobile-nav button { flex:0 0 auto; white-space:nowrap; border:1px solid var(--line); border-radius:18px; padding:6px 9px; font-size:10px; }
 }
+.mapping-table { overflow:auto; max-height:50vh; margin:12px 0; }
+.mapping-table table { width:100%; border-collapse:collapse; }
+.mapping-table td,.mapping-table th { text-align:left; padding:8px; border-bottom:1px solid #ddd; vertical-align:top; }
+.mapping-table small { display:block; max-width:240px; }
+.mapping-table select { width:100%; min-width:160px; }

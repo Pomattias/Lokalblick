@@ -574,8 +574,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences"];
-  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences"];
+  const EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog"];
+  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
@@ -1242,7 +1242,7 @@
           const key=[collection,field,fileName].map(x=>String(x||"").trim().toLocaleLowerCase("sv")).join("|");
           const rule=(base.importFieldPreferences||{})[key];
           if(rule==="reject"&&!["id","sourceId","propertyId","contractId"].includes(field))return;
-          if(rule==="accept"&&!["id","sourceId","propertyId","contractId"].includes(field)){
+          if(rule==="accept"&&target.provenance?.[field]?.source!=="manual"&&!["id","sourceId","propertyId","contractId"].includes(field)){
             target[field]=proposed;target.provenance||={};
             target.provenance[field]={source:fileName,sheet:row.sourceSheet||"",row:row.sourceRow||"",value:proposed,confirmedBy:"Källprioritet"};
             changed=true;return;
@@ -1617,6 +1617,15 @@
     cityImportStatus:cityImportStatus,
     applyCityToProperties:applyCityToProperties,
     prepareImportWorkbook:prepareImportWorkbook,
+    discardPreparedImport(){source.pendingImport=null;},
+    async prepareMapping(data, selectedSheets) {
+      if(!source.pendingImport)throw Error("Välj Excel-filen på nytt.");
+      const engine=await import('./import-engine.js');
+      const workbook=selectedImportWorkbook(source.pendingImport.buffer,selectedSheets);
+      return {workbook,profiles:engine.profileWorkbook(workbook,this.schemas,XLSX,data.importMappings||[]),
+        fingerprint:await engine.fingerprint(source.pendingImport.buffer),fileName:source.pendingImport.fileName,
+        known:Boolean(window.LokalblickMigrationAdapter?.detect(workbook)||window.LokalblickOperationalEnrichmentAdapter?.detect(workbook)||window.LokalblickProject2027Adapter?.detect(workbook)||window.LokalblickContractEnrichmentAdapter?.detect(workbook))};
+    },
     importPreparedWorkbook:importPreparedWorkbook,
     importWorkbook:importWorkbook,
     analyzeImportWorkbook:analyzeImportWorkbook,

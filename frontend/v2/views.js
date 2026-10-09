@@ -774,6 +774,7 @@ export function reviewCandidateChoices(data,item,searchValue="") {
   }).join("")}</div>`;
 }
 function reviewStandardCard(data,x) {
+  if(x.kind==='mapped-identity')return `<article class="review review-card"><h3>Identifiera importerad post</h3><p>${esc(x.source)} · ${esc(x.sheet)} rad ${esc(x.row)} · ${esc(x.reason)}</p>${importRecordPreview(x.values)}<label>Koppla till befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(data[x.collection]||[]).map(r=>`<option value="${esc(r.id)}">${esc([r.address,r.designation,r.city,r.number,r.tenantName,r.name,r.title,r.area?num(r.area)+' m²':''].filter(Boolean).join(' · '))}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Koppla och berika</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;
   const titles={match:"Matcha importerat avtal",record:"Koppla importerad post",
     "activity-property":"Koppla aktivitet till fastighet","property-match":"Matcha fastighet via adress",person:"Komplettera person"};
   const isMatch=["record","activity-property","property-match","match"].includes(x.kind);
