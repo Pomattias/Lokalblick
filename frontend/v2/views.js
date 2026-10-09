@@ -170,7 +170,11 @@ function summaryCards(cards) {
 export function summary(data, s, year, ui = {}) {
   const view = scope(data, s);
   const perspective =
-    ui.view === "contracts" ? "Avtal" : ui.perspective || "Fastigheter";
+    ui.view === "contracts" ? "Avtal"
+    : ui.view === "overview" ? "Fastigheter"
+    : ui.view === "properties" ? "Fastigheter"
+    : ui.view === "activities" ? "Ärenden"
+    : ui.perspective || "Fastigheter";
   const rent = rentMetrics(data, view.contracts, year);
 
   if (ui.view === "map") {
@@ -273,6 +277,49 @@ function contractRows(data, contracts, year) {
     ]);
   });
 }
+export function dashboard(data, selection, year) {
+  const v=scope(data, selection);
+  const types=["Projekt","Underhåll","Drift","Önskemål"];
+  const counts=types.map(type=>({
+    type,
+    count:v.items.filter(item=>item.record.type===type).length,
+  }));
+  const remaining=v.items.length-counts.reduce((sum,item)=>sum+item.count,0);
+  if(remaining)counts.push({type:"Övriga",count:remaining});
+  const maximum=Math.max(1,...counts.map(x=>x.count));
+  const rent=rentMetrics(data,v.contracts,year);
+  const links=[
+    {view:"properties",title:"Fastighet",detail:num(v.properties.length)+" fastigheter",icon:"⌂"},
+    {view:"contracts",title:"Avtal",detail:num(v.contracts.length)+" avtal",icon:"▤"},
+    {view:"activities",title:"Aktiviteter",detail:num(v.items.length)+" ärenden",icon:"▥"},
+    {view:"plan",title:"Planera",detail:"Tidsplan och ansvar",icon:"▦"},
+  ];
+  const shortcuts=links.map(item=>
+    '<button type="button" class="dashboard-link" data-view="'+item.view+'">'+
+    '<span class="dashboard-link-icon" aria-hidden="true">'+item.icon+'</span>'+
+    '<span><strong>'+esc(item.title)+'</strong><small>'+esc(item.detail)+'</small></span>'+
+    '<span aria-hidden="true">›</span></button>'
+  ).join("");
+  const bars=counts.map(item=>{
+    const width=Math.max(item.count?3:0,Math.round(item.count/maximum*100));
+    return '<div class="dashboard-bar-row"><span>'+esc(item.type)+'</span>'+
+      '<div class="dashboard-bar-track"><span style="width:'+width+'%"></span></div>'+
+      '<strong>'+num(item.count)+'</strong></div>';
+  }).join("");
+  const unassigned=v.items.filter(item=>!responsible(data,item.collection,item.record)).length;
+  return '<div class="dashboard-intro"><div><h2>Portföljöversikt</h2>'+
+    '<p>En samlad bild av fastigheter, avtal och aktiviteter i aktuellt urval. Välj ett område för att gå till detaljerna.</p></div>'+
+    '<span class="dashboard-year">År '+esc(year)+'</span></div>'+
+    '<div class="dashboard-quicklinks">'+shortcuts+'</div>'+
+    '<div class="dashboard-panels"><section class="dashboard-panel"><h3>Aktiviteter per typ</h3>'+
+      (v.items.length?bars:'<p>Inga ärenden i aktuellt urval.</p>')+
+      '<button type="button" data-view="activities" class="dashboard-text-link">Visa alla aktiviteter ›</button></section>'+
+    '<section class="dashboard-panel"><h3>Att bevaka</h3>'+
+      '<div class="dashboard-fact"><span>Ärenden utan ansvarig</span><strong>'+num(unassigned)+'</strong></div>'+
+      '<div class="dashboard-fact"><span>Årlig beräknad hyra</span><strong>'+money(rent.rent)+'</strong></div>'+
+      '<div class="dashboard-fact"><span>Avtal att kontrollera</span><strong>'+num(rent.needsReview)+'</strong></div>'+
+      '<button type="button" data-view="plan" class="dashboard-text-link">Öppna Planera ›</button></section></div>';
+}
 function activityRows(data, items) {
   return items.map(x => {
     const property = propertyById(data, x.propertyId);
@@ -335,7 +382,11 @@ export function overview(data, s, ui) {
     );
   const typeButtons = ui.perspective === "Ärenden" ?
     `<div class="issue-type-filters" aria-label="Filtrera ärenden">${typeChoices.map(type=>`<button type="button" data-issue-type="${esc(type)}" class="${selectedType===type?"active":""}" aria-pressed="${selectedType===type}">${esc(type)}</button>`).join("")}</div>`:"";
-  return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div><div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>${typeButtons}${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
+  const header=ui.hidePerspectiveTabs && !s.propertyId ?
+    ({Fastigheter:"Fastigheter",Avtal:"Avtal","Ärenden":"Aktiviteter"}[ui.perspective]||title) : title;
+  const perspectiveTabs=ui.hidePerspectiveTabs ? "" :
+    `<div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>`;
+  return `<div class="section-title"><h2>${esc(header)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div>${perspectiveTabs}${typeButtons}${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
 }
 function contractIndexBreakdown(c, name, v, rawShare) {
   const amount = v.status === "Behöver kontroll" && v.amount <= 0

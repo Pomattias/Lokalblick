@@ -20,6 +20,7 @@ import {
   filters,
   summary,
   overview,
+  dashboard,
   planning,
   budget,
   sources,
@@ -58,7 +59,9 @@ const ui = {
 };
 const labels = {
   overview: "Översikt",
+  properties: "Fastighet",
   contracts: "Avtal",
+  activities: "Aktiviteter",
   plan: "Planera",
   budget: "Budget",
   map: "Karta",
@@ -506,16 +509,16 @@ function render() {
     : "<span>Portfölj</span>";
   filterArea.hidden = ["sources", "people", "settings"].includes(ui.view);
   if (ui.view === "overview")
+    content.innerHTML = dashboard(data, selection, new Date().getFullYear());
+  if (["properties","contracts","activities"].includes(ui.view)) {
+    const perspective={properties:"Fastigheter",contracts:"Avtal",activities:"Ärenden"}[ui.view];
     content.innerHTML = overview(data, selection, {
       ...ui,
-      year: new Date().getFullYear(),
+      perspective,
+      hidePerspectiveTabs:true,
+      year:new Date().getFullYear(),
     });
-  if (ui.view === "contracts")
-    content.innerHTML = overview(data, selection, {
-      ...ui,
-      perspective: "Avtal",
-      year: new Date().getFullYear(),
-    });
+  }
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
   if (ui.view === "budget") content.innerHTML = budget(data, selection, ui);
   if (ui.view === "budget") bindBudget();
@@ -542,7 +545,8 @@ function render() {
         points,
         onPointClick: (p) => {
           selection.propertyId = p.id;
-          ui.view = "overview";
+          ui.view = "properties";
+          ui.perspective = "Fastigheter";
           render();
         },
       });
@@ -557,9 +561,9 @@ function render() {
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
-    !canEdit() || !["overview", "contracts"].includes(ui.view);
+    !canEdit() || !["properties","contracts","activities"].includes(ui.view);
   document.querySelector("#add").textContent =
-    ui.view==="overview" && ui.perspective==="Ärenden" ? "Nytt ärende" : "Lägg till";
+    ui.view==="activities" ? "Nytt ärende" : "Lägg till";
 }
 async function mutation(change, { automatic = false, manualPositionIds = [] } = {}) {
   if (busy) throw Error("En ändring sparas redan");
@@ -889,6 +893,9 @@ document.addEventListener("click", (event) =>
     if (b.dataset.view) {
       pendingPlanSelection=null;
       ui.view = b.dataset.view;
+      if (ui.view==="properties")ui.perspective="Fastigheter";
+      if (ui.view==="contracts")ui.perspective="Avtal";
+      if (ui.view==="activities")ui.perspective="Ärenden";
       ui.contractId = "";
       if (ui.view === "settings") ui.settingsYear = new Date().getFullYear();
       render();
@@ -897,7 +904,7 @@ document.addEventListener("click", (event) =>
     if (b.dataset.property) {
       selection.propertyId = b.dataset.property;
       ui.perspective = "Avtal";
-      ui.view = "overview";
+      ui.view = "contracts";
       render();
     }
     if (b.hasAttribute("data-clear-property")) {
@@ -1028,12 +1035,8 @@ document.addEventListener("click", (event) =>
       render();
     }
     if (b.id === "add") {
-      const col =
-        ui.view === "contracts" || ui.perspective === "Avtal"
-          ? "contracts"
-          : ui.perspective === "Fastigheter"
-            ? "properties"
-            : "activities";
+      const col = ui.view === "contracts" ? "contracts" :
+        ui.view === "properties" ? "properties" : "activities";
       if (
         (col === "contracts" && !data.isDemo) ||
         (transport.company() && col === "properties")
