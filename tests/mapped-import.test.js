@@ -6,6 +6,8 @@ import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
 import {profileWorkbook,prepareMappedImport} from '../frontend/services/import-engine.js';
 import {audit,resolveReview} from '../frontend/v2/model.js';
+import {fieldCaption} from '../frontend/v2/field-labels.js';
+import {fieldCatalog} from '../frontend/services/import-engine.js';
 const context=vm.createContext({window:{},XLSX,crypto:webcrypto});
 vm.runInContext(fs.readFileSync('frontend/services/source-service.js','utf8'),context);
 const schemas=context.window.LokalblickSourceService.schemas;
@@ -112,4 +114,23 @@ test('short date headers follow contract or activity context but remain ambiguou
 test('Swedish month durations become numeric contract terms',()=>{
  const r=run(fixture([['Fast.bet','Ort','Avtalsnummer','Förlängningstid','Uppsägningstid'],['Ek 1','Malmö','A-1','12 mån','9 månader']]));
  assert.equal(r.data.contracts[0].renewalPeriodMonths,12);assert.equal(r.data.contracts[0].noticePeriodMonths,9);
+});
+test('contract captions, workbook headers and import targets share the same names',()=>{
+ const service=context.window.LokalblickSourceService;
+ const old=globalThis.window;globalThis.window={LokalblickSourceService:service};
+ try{
+  for(const [field,label] of [['start','Giltigt fr.o.m.'],['end','Giltigt t.o.m.'],['renewalPeriodMonths','Förlängningstid, månader']]){
+   assert.equal(fieldCaption('contracts',`<input name="${field}">`,'gammalt namn'),label);
+   assert.equal(fieldCatalog(schemas).find(f=>f.target==='contracts.'+field).label,'Avtal → '+label);
+  }
+  assert.equal(fieldCaption('contracts','<select name="businessResponsiblePersonId">','Verksamhetsansvarig'),'Verksamhetsansvarig');
+ }finally{globalThis.window=old;}
+ const w=service.dataToWorkbook({properties:[{id:'p',designation:'Ek 1'}],contracts:[{id:'c',propertyId:'p',number:'A-1',start:'2026-01-01',end:'2027-12-31'}]});
+ const headers=XLSX.utils.sheet_to_json(w.Sheets.Avtal,{header:1})[0];
+ assert.ok(headers.includes('Giltigt t.o.m.'));assert.ok(!headers.includes('Slut'));
+});
+test('previous canonical Excel date headers still read without losing values',()=>{
+ const w=fixture([['_id','_propertyId','Avtalsnummer','Start','Slut','Uppsägningstid månader'],['c','p','A-1','2026-01-01','2027-12-31',9]],'Avtal');
+ const restored=context.window.LokalblickSourceService.workbookToData(w);
+ assert.equal(restored.contracts[0].start,'2026-01-01');assert.equal(restored.contracts[0].end,'2027-12-31');assert.equal(restored.contracts[0].noticePeriodMonths,9);
 });

@@ -42,7 +42,7 @@
       if(location){score+=Math.round(location.score/2);reasons.push(location.reason);}
       if(query.area&&c.area&&Math.abs(Number(query.area)-Number(c.area))<=1){score+=20;reasons.push("Area");}
       if(query.start&&c.start&&query.start===c.start){score+=25;reasons.push("Startdatum");}
-      if(query.end&&c.end&&query.end===c.end){score+=10;reasons.push("Slutdatum");}
+      if(query.end&&c.end&&query.end===c.end){score+=10;reasons.push("Giltigt t.o.m.");}
       if(query.use&&c.use&&norm(query.use)===norm(c.use)){score+=8;reasons.push("Verksamhet");}
       return {id:c.id,contract:c,property,score,reason:reasons.join(" · ")};
     }).sort((a,b)=>b.score-a.score||String(a.id).localeCompare(String(b.id),"sv")).slice(0,limit);

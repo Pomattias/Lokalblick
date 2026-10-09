@@ -16,7 +16,7 @@ const aliases = {
 export function fieldCatalog(schemas) {
   const labels={sourceId:'Källans identifierare',propertyId:'Fastighet',contractId:'Avtal',activityId:'Aktivitet',organizationId:'Organisation',ownerPartyId:'Fastighetsägare',responsiblePersonId:'Ansvarig hos oss'};
   return schemas.flatMap(s => s.columns.filter(([k,,hidden]) => (!hidden || ['sourceId','propertyId','contractId','activityId','organizationId','ownerPartyId','responsiblePersonId'].includes(k)) && !/^(geo|enrichment)/.test(k))
-    .map(([field,label]) => ({target:s.key+'.'+field,collection:s.key,field,label:s.sheet+' → '+(labels[field]||label)})));
+    .map(([field,label]) => ({target:s.key+'.'+field,collection:s.key,field,aliases:s.labelAliases?.[field]||[],label:s.sheet+' → '+(label.startsWith('_')?labels[field]||label:label)})));
 }
 export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
   const fields = fieldCatalog(schemas);
@@ -40,8 +40,9 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
     const columns = headers.map((header,index) => {
       if(!present(header)) return null;
       const values=matrix.slice(headerIndex+1).map(r=>r[index]).filter(present);
-      const choices=fields.filter(f=>norm(f.label.split(' → ')[1])===norm(header));
-      const candidate=choices.find(f=>f.collection===inferred) || (choices.length===1?choices[0]:null);
+      const choices=fields.filter(f=>norm(f.label.split(' → ')[1])===norm(header)||f.aliases.some(a=>norm(a)===norm(header)));
+      let candidate=choices.find(f=>f.collection===inferred) || (choices.length===1?choices[0]:null);
+      if(/^(tom|from)$/.test(norm(header))&&!['contracts','activities'].includes(inferred))candidate=null;
       const rule=previous?.columns?.find(c=>norm(c.header)===norm(header));
       const h=norm(header);
       let contextualTarget='';

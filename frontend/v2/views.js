@@ -607,8 +607,8 @@ const importFieldLabels = {
   responsiblePersonId: "Ansvarig hos oss",
   ownerResponsiblePersonId: "Ansvarig hos fastighetsägaren",
   businessResponsiblePersonId: "Verksamhetsansvarig",
-  start: "Avtalsstart",
-  end: "Avtalsslut",
+  start: "Giltigt fr.o.m.",
+  end: "Giltigt t.o.m.",
   noticePeriodMonths: "Uppsägningstid",
   renewalPeriodMonths: "Förlängningstid",
   originalTerm: "Ursprunglig avtalstid",
@@ -627,7 +627,7 @@ const importFieldLabels = {
   commonArea: "Allmän yta",
   apartmentArea: "Lägenhetsyta",
 };
-const importFieldLabel = (field) => importFieldLabels[field] || field || "Uppgift";
+const importFieldLabel = (field,collection) => globalThis.LokalblickSourceService?.fieldLabel?.(collection,field,importFieldLabels[field]) || importFieldLabels[field] || field || "Uppgift";
 const sourceKindLabel = (kind) =>
   ({
     "core-import": "Grunddata",
@@ -724,7 +724,7 @@ function reviewSuggestion(data,x) {
 function reviewConflictCard(data,x) {
   const label=reviewRecordLabel(data,x),hint=reviewSuggestion(data,x);
   const notice=hint?`<p class="review-recommendation"><strong>${esc(hint.title)}</strong> · ${esc(hint.detail)}</p>`:"";
-  return `<section class="review review-conflict"><div class="review-main"><div class="review-heading"><div><strong>${esc(x.entity||(x.contractId?"Avtal":"Datakonflikt"))} · ${esc(importFieldLabel(x.field))}</strong>${label?`<small class="review-context">${esc(label)}</small>`:""}</div></div>${notice}
+  return `<section class="review review-conflict"><div class="review-main"><div class="review-heading"><div><strong>${esc(x.entity||(x.contractId?"Avtal":"Datakonflikt"))} · ${esc(importFieldLabel(x.field,reviewCollection(x)))}</strong>${label?`<small class="review-context">${esc(label)}</small>`:""}</div></div>${notice}
   <div class="review-compare">
     <div class="review-value current"><span>1 · Registrerat tidigare</span><strong>${esc(reviewValue(data,x,x.current))}</strong><small>${esc(reviewCurrentSource(data,x))}</small><button type="button" data-review="${esc(x.id)}" data-decision="reject" class="${hint?.side==="current"?"primary-action":""}">Välj detta värde</button></div>
     <div class="review-value proposed"><span>2 · Från nya importfilen</span><strong>${esc(reviewValue(data,x,x.proposed))}</strong><small>${esc(reviewIncomingSource(x))}</small><button type="button" data-review="${esc(x.id)}" data-decision="accept">Välj detta värde</button></div>
@@ -735,7 +735,7 @@ function importRecordPreview(record) {
   const fields=[["Adress",record.address],["Fastighetsbeteckning",record.designation],
     ["Ort",record.city],["Objekt",record.objectNo],
     ["Avtalsnummer",record.number],["Verksamhet",record.use||record.business],
-    ["Area",record.area?num(record.area)+" m²":""],["Start",record.start],["Slut",record.end],
+    ["Area",record.area?num(record.area)+" m²":""],["Giltigt fr.o.m.",record.start],["Giltigt t.o.m.",record.end],
     ["Bashyra",record.baseRent?money(record.baseRent):""],
     ["Bastillägg",record.baseAdditions?money(record.baseAdditions):""],
     ["Ägare",record.ownerName],["Benämning",record.name||record.title]]
@@ -810,7 +810,7 @@ function priorityPanel(data,reviews){
     const key=encodeURIComponent(JSON.stringify([row.collection,row.field,row.source]));
     const prev=[...row.previous].join(" / ");
     return `<div class="source-priority-row">
-      <div><strong>${esc(importFieldLabel(row.field))}</strong><small>${row.count} konflikter · ${esc(row.collection==="properties"?"Fastighet":row.collection==="contracts"?"Avtal":"Aktivitet")}</small></div>
+      <div><strong>${esc(importFieldLabel(row.field,row.collection))}</strong><small>${row.count} konflikter · ${esc(row.collection==="properties"?"Fastighet":row.collection==="contracts"?"Avtal":"Aktivitet")}</small></div>
       <label>Prioriterad källa
         <select data-priority-choice="${esc(key)}"><option value="">Välj källa</option>
           <option value="reject">Behåll tidigare (${esc(prev.length>80?"Registrerat i Lokalblick":prev)})</option>

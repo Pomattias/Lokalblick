@@ -1,11 +1,12 @@
 import { esc, options, propertyReference, units } from "./views.js";
+import { fieldCaption } from "./field-labels.js";
 
 // Explicit property fields: the Excel/backend schema is not a form specification.
 const own = (data, person) => !person.organizationId ||
   (data.organizations || []).some(org => org.id === person.organizationId && org.type === "our");
 
 function control(label, html, description="") {
-  return '<label class="property-field">'+esc(label)+html+
+  return '<label class="property-field">'+esc(fieldCaption('properties',html,label))+html+
     (description ? '<small>'+esc(description)+'</small>' : '')+'</label>';
 }
 function textInput(p, key, locked=false) {

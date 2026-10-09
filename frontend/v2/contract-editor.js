@@ -1,8 +1,9 @@
 import { esc, options, calc, propertyReference, units } from "./views.js";
+import { fieldCaption } from "./field-labels.js";
 
 const CATEGORIES = ["Kontor", "Förråd", "Äldreboende", "LSS-boende", "Bostad", "Daglig verksamhet", "Verksamhetslokal", "Övrigt"];
 const money = n => new Intl.NumberFormat("sv-SE", {maximumFractionDigits:0}).format(Number(n)||0) + " kr";
-const field = (caption, control, note="") => '<label class="contract-field">' + esc(caption) + control + (note ? '<small>'+esc(note)+'</small>' : '') + '</label>';
+const field = (caption, control, note="") => '<label class="contract-field">' + esc(fieldCaption('contracts',control,caption)) + control + (note ? '<small>'+esc(note)+'</small>' : '') + '</label>';
 const display = value => '<span class="contract-readonly">' + esc(value || "–") + '</span>';
 const input = (c, key, type="text", disabled=false, attrs="") =>
   '<input name="'+key+'" type="'+type+'" value="'+esc(c[key]??"")+'" '+attrs+(disabled?" disabled":"")+'>';
@@ -80,10 +81,10 @@ export function renderContractEditor(data, c, id, company=false) {
         field("Area, m²",input(c,"area","number",masterLocked,'min="0" step="any"'))+
       '</div></section>'+
       '<section class="contract-section"><h3>Avtalstid</h3><div class="contract-grid">'+
-        field("Fr.o.m.",input(c,"start","date"))+
-        field("T.o.m.",input(c,"end","date"))+
+        field("Giltigt fr.o.m.",input(c,"start","date"))+
+        field("Giltigt t.o.m.",input(c,"end","date"))+
         field("Uppsägningstid, månader",input(c,"noticePeriodMonths","number",false,'min="0" step="1"'))+
-        field("Automatisk förlängning, månader",input(c,"renewalPeriodMonths","number",false,'min="0" step="1"'))+
+        field("Förlängningstid, månader",input(c,"renewalPeriodMonths","number",false,'min="0" step="1"'))+
       '</div><p class="contract-note">'+lastNotice+'</p>'+
       '<small class="contract-help">Beräknat från senast sparade villkor. Faktisk uppsägning behöver registreras innan förlängning påverkar budget.</small></section>'+
       '<section class="contract-section"><h3>Hyra och index</h3><div class="contract-grid">'+

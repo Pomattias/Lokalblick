@@ -52,3 +52,9 @@ Det övergripande beställningsunderlaget är större än denna ändring. Följa
 - Årskostnaders fullständiga beräkningsproveniens och hela representativa testmatrisen i beställningen är inte färdiga.
 
 Ingen verklig verksamhetsfil har använts eller ändrats. Ingen Vercelversion har verifierats för denna ändring.
+
+## Gemensamma fältnamn
+
+Frontendens användarnamn samlas i `FRONTEND_LABELS` i den befintliga schemadefinitionen. Formulär använder `fieldCaption`, medan Excel och importförslag använder samma schema. Avtalets period benämns Giltigt fr.o.m. och Giltigt t.o.m.; den senare innebär inte uppsägning. Inflyttningsdatum och Utflyttningsdatum är separata fält. Enheter anges i rubriken för bland annat area, hyra och tidsvillkor.
+
+Äldre Excelrubriker lagras som läsalias när rubriken byts. Därmed läses tidigare arbetsfiler utan att datum eller villkor tappas, medan nästa export får de gemensamma namnen. Interna affärsnycklar och beräkningar ändras inte. Verkliga arbetsfiler ändras först när användaren själv sparar från appen.

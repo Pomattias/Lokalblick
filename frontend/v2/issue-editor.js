@@ -1,5 +1,6 @@
 import { esc, options, propertyReference, units, calc, money } from "./views.js";
 import { planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
+import { fieldCaption } from "./field-labels.js";
 
 // Exactly one editor for every activity type. Source columns and data semantics
 // remain in the canonical activities model; they do not dictate UI fields.
@@ -22,7 +23,7 @@ export function issueCategoryChoices(current) {
     categories.push({value:legacy,label:legacy+" (tidigare kategori – välj om vid behov)"});
   return categories;
 }
-const field=(label,html,help="")=>'<label class="issue-field">'+esc(label)+html+(help?'<small>'+esc(help)+'</small>':"")+'</label>';
+const field=(label,html,help="")=>'<label class="issue-field">'+esc(fieldCaption('activities',html,label))+html+(help?'<small>'+esc(help)+'</small>':"")+'</label>';
 const input=(item,key,type="text",attrs="")=>'<input name="'+key+'" type="'+type+'" value="'+esc(item[key]??"")+'" '+attrs+'>';
 const choice=(name,list,selected,placeholder="Välj")=>'<select name="'+name+'">'+options(list,x=>x.value,x=>x.label,selected,placeholder)+'</select>';
 const currency=n=>money(Number(n)||0);

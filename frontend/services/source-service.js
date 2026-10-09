@@ -65,6 +65,22 @@
   };
   ACTIVITY_SCHEMA.fields = ACTIVITY_SCHEMA.columns.map(function(column){ return column[0]; });
 
+  // One set of user-facing names, shared by forms, workbook headers and mapping.
+  const FRONTEND_LABELS = {
+    contracts:{start:"Giltigt fr.o.m.",end:"Giltigt t.o.m.",moveInDate:"Inflyttningsdatum",moveOutDate:"Utflyttningsdatum",area:"Area, m²",noticePeriodMonths:"Uppsägningstid, månader",renewalPeriodMonths:"Förlängningstid, månader",baseRent:"Bashyra, kr/år",baseAdditions:"Tillägg, kr/år",rentBaseYear:"Basår",rentIndexPercent:"Indexuppräkning, %",additionBaseYear:"Tillägg basår",additionIndexPercent:"Indexuppräkning tillägg, %",annualPropertyTax:"Fastighetsskatt, kr/år"},
+    activities:{title:"Ärendenamn",responsiblePersonId:"Ansvarig",startDate:"Fr.o.m.",endDate:"T.o.m.",planningYear:"Planeringsår",estimatedCost:"Bedömd kostnad, kr"}
+  };
+  SCHEMAS.concat([ACTIVITY_SCHEMA]).forEach(function(schema){
+    schema.labelAliases={};
+    schema.columns.forEach(function(column){
+      const label=FRONTEND_LABELS[schema.key]?.[column[0]];
+      if(label&&label!==column[1]){schema.labelAliases[column[0]]=[column[1]];column[1]=label;}
+    });
+  });
+  function fieldLabel(collection,field,fallback){
+    return FRONTEND_LABELS[collection]?.[field] || SCHEMAS.concat([ACTIVITY_SCHEMA]).find(s=>s.key===collection)?.columns.find(c=>c[0]===field&&!c[2])?.[1] || fallback || field;
+  }
+
     // Old sheets are accepted only for migration. They are never written to a new model-v5 workbook.
   const LEGACY_SCHEMAS = [
     { sheet:"Organisationer", key:"legacyOrganizations", prefix:"ORG", columns:[
@@ -324,7 +340,7 @@
       const out = {};
       schema.columns.forEach(function(column) {
         const field = column[0], label = column[1];
-        const aliases=((READ_LABEL_ALIASES[schema.key]||{})[field]||[]);
+        const aliases=[...((READ_LABEL_ALIASES[schema.key]||{})[field]||[]),...(schema.labelAliases?.[field]||[])];
         if (Object.prototype.hasOwnProperty.call(row, label)) out[field] = row[label];
         else {
           const oldLabel=aliases.find(function(alias){return Object.prototype.hasOwnProperty.call(row,alias);});
@@ -1605,6 +1621,7 @@
   }
 
   window.LokalblickSourceService = {
+    fieldLabel:fieldLabel,
     schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS),
     workbookToData:workbookToData,
     dataToWorkbook:dataToWorkbook,

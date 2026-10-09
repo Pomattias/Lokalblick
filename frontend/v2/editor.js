@@ -73,8 +73,8 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     ownerResponsiblePersonId: "Fastighetsägarens kontaktperson",
     businessResponsiblePersonId: "Verksamhetsansvarig",
     orderedByPersonId: "Beställd av",
-    start: "Avtalsstart",
-    end: "Avtalsslut",
+    start: "Giltigt fr.o.m.",
+    end: "Giltigt t.o.m.",
     moveInDate: "Inflyttning",
     moveOutDate: "Utflyttning",
     targetType: "Posttyp",
@@ -278,7 +278,7 @@ export function readEditor(form, record) {
     )
       throw Error("Indexandel anges mellan 0 och 1");
   if (out.start && out.end && out.end < out.start)
-    throw Error("Avtalsslut är före avtalsstart");
+    throw Error("Giltigt t.o.m. kan inte vara före giltigt fr.o.m.");
   if (out.moveInDate && out.moveOutDate && out.moveOutDate < out.moveInDate)
     throw Error("Utflyttning är före inflyttning");
   return out;
