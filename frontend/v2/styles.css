@@ -1124,8 +1124,7 @@ details .table-wrap {
 }
 
 /* Ett helt filterkort öppnar det inbyggda valet, även med tangentbord. */
-.filters .filter-chip { position:relative; display:flex; justify-content:center; gap:1px; min-height:54px; padding:8px 22px 8px 9px; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); cursor:pointer; min-width:0; }
-.filters .filter-chip::after { content:"⌄"; position:absolute; right:7px; top:50%; transform:translateY(-50%); font-size:14px; color:var(--muted); }
+.filters .filter-chip { position:relative; display:flex; justify-content:center; gap:1px; min-height:54px; padding:8px 9px; text-align:center; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); cursor:pointer; min-width:0; }
 .filters .filter-chip .filter-caption { display:none; font-size:10px; color:var(--muted); font-weight:500; }
 .filters .filter-chip.is-selected .filter-caption { display:block; }
 .filters .filter-chip .filter-value { font-size:13px; font-weight:600; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -1133,7 +1132,6 @@ details .table-wrap {
 .filters .filter-chip:focus-within { outline:3px solid #d9a44c; outline-offset:2px; }
 .filters .filter-chip.is-selected { background:var(--soft); border-color:var(--accent); }
 @media (max-width:700px) {
-  .filters .filter-chip { min-height:56px; padding-left:7px; padding-right:17px; }
+  .filters .filter-chip { min-height:56px; padding-left:7px; padding-right:7px; }
   .filters .filter-chip .filter-value { font-size:12px; }
-  .filters .filter-chip::after { right:4px; }
 }
