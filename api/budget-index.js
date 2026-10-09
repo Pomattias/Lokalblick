@@ -26,6 +26,6 @@ export async function fetchBudgetIndex(year) {
 }
 export default async function handler(req,res) {
   if(req.method!=='GET')return res.status(405).json({error:'Endast GET'});
-  try {const rows=await fetchBudgetIndex(Number(req.query?.year));res.setHeader('Cache-Control','s-maxage=21600');return res.status(200).json({rows});}
+  try {const rows=await fetchBudgetIndex(Number(req.query?.year));res.setHeader('Cache-Control','s-maxage=3600');return res.status(200).json({rows});}
   catch(error){return res.status(503).json({error:error.message});}
 }

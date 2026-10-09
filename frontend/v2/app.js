@@ -633,7 +633,7 @@ async function loadBudgetIndex(year,force=false) {
   if(indexYear<2025||(!force&&loadedBudgetIndexYears.has(indexYear)))return;
   loadedBudgetIndexYears.add(indexYear);
   try {
-    const response=await fetch('/api/budget-index?year='+indexYear);
+    const response=await fetch('/api/budget-index?year='+indexYear,{cache:'no-store'});
     if(!response.ok)throw Error('KPI kunde inte hämtas');
     const payload=await response.json();
     if(!Array.isArray(payload.rows)||!payload.rows.length)throw Error('KPI saknas');
@@ -1299,21 +1299,15 @@ document.addEventListener("change", (event) =>
         audit(d, x.dataset.quarter, record.id, before, record, actor());
       });
     if (x.hasAttribute("data-preliminary"))
-      await mutation((d) => {
-        const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
-        if (!plan || plan.status === "Låst") throw Error("Budgeten är låst");
-        const previous = calc().summarize(calc().budgetRows(d, ui.year)),
-          adjust = Object.fromEntries(
-            categories.map((k) => [
-              k,
-              (Number(plan.targets[k]) || 0) - (previous[k] || 0),
-            ]),
-          );
-        plan.preliminaryIndex = Math.max(0, Number(x.value) || 0);
-        const amounts = calc().summarize(calc().budgetRows(d, ui.year));
-        categories.forEach(
-          (k) => (plan.targets[k] = (amounts[k] || 0) + adjust[k]),
-        );
+      await mutation(d=>{
+        let plan=d.budgetPlans.find(p=>Number(p.year)===ui.year);
+        if(plan?.status==='Låst')throw Error('Skapa en ny budgetversion först');
+        const raw=x.value.trim(),value=raw===''?0:Number(raw);
+        if(!Number.isFinite(value)||value<0||(raw!==''&&value===0))throw Error('Ange ett positivt index eller lämna tomt');
+        if(!plan){plan={year:ui.year,status:'Arbetsbudget',createdAt:new Date().toISOString(),adjustments:{},lines:[],notes:{}};d.budgetPlans.push(plan);}
+        plan.preliminaryIndex=value;
+        plan.preliminaryIndexUpdatedAt=new Date().toISOString();plan.preliminaryIndexUpdatedBy=actor();
+        plan.targets=calc().summarize(calc().budgetProposal(d,ui.year));
       });
     if (x.dataset.adjust)
       await mutation((d) => {

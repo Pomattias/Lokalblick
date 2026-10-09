@@ -1152,3 +1152,8 @@ details .table-wrap {
   .budget-controls .primary-action { width:100%; }
   body[data-view="budget"] #summary { display:none; }
 }
+
+.budget-index-panel { display:grid; gap:6px; width:100%; }
+.budget-index-panel p { margin:3px 0; }
+.budget-index-panel label { max-width:320px; }
+.budget-index-panel [data-budget-index] { justify-self:start; min-height:42px; }
