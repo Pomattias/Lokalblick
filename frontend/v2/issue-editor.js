@@ -9,6 +9,18 @@ const activityKindOptions = [
   {value:"like_for_like",label:"Utbyte 1:1"},
 ];
 const budgetTypes=["Ja","Nej"];
+// Begränsad kodlista: påverkar enbart formulärets alternativ, inte lagrad data.
+export const ISSUE_CATEGORIES=[
+  "Ytskikt","Inredning","Installationer","Ventilation","Ombyggnad",
+  "Nya lokaler","Tillgänglighet","Brand och säkerhet","Utemiljö","Energi","Övrigt"
+];
+export function issueCategoryChoices(current) {
+  const categories=ISSUE_CATEGORIES.map(value=>({value,label:value}));
+  const legacy=String(current||"").trim();
+  if(legacy && !categories.some(item=>item.value===legacy))
+    categories.push({value:legacy,label:legacy+" (tidigare kategori – välj om vid behov)"});
+  return categories;
+}
 const field=(label,html,help="")=>'<label class="issue-field">'+esc(label)+html+(help?'<small>'+esc(help)+'</small>':"")+'</label>';
 const input=(item,key,type="text",attrs="")=>'<input name="'+key+'" type="'+type+'" value="'+esc(item[key]??"")+'" '+attrs+'>';
 const choice=(name,list,selected,placeholder="Välj")=>'<select name="'+name+'">'+options(list,x=>x.value,x=>x.label,selected,placeholder)+'</select>';
@@ -101,7 +113,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
       field("Status",choice("status",statuses.map(value=>({value,label:value})),issue.status,"Välj status"))+
       field("Rubrik",input(issue,"title","text",'required maxlength="250"'))+
       field("Prioritet",choice("priority",priorities.map(value=>({value,label:value})),issue.priority,"Ej prioriterad"))+
-      field("Kategori",input(issue,"category","text",'placeholder="Valfri"'))+
+      field("Kategori",choice("category",issueCategoryChoices(issue.category),issue.category,"Välj kategori"))+
     '</div>'+
     '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="3">'+esc(issue.description||"")+'</textarea></label>'+
     '<div class="issue-grid">'+
