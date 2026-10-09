@@ -11,11 +11,15 @@ function control(label, html, description="") {
 function textInput(p, key, locked=false) {
   return '<input type="text" name="'+key+'" value="'+esc(p[key] ?? "")+'"'+(locked?' disabled':'')+'>';
 }
-function personSelect(data, key, value, people, description) {
-  return control(description,
-    '<select name="'+key+'"'+(key==="ownerResponsiblePersonId"?' data-owner-contact':'')+'>'+
-    options(people, p=>p.id, p=>p.name, value, "Ej kopplad")+
-    '</select>');
+function personSelect(data, key, value, people, description, kind) {
+  return '<div class="property-person-field"><label>'+esc(description)+
+    '<select name="'+key+'" data-property-person-select="'+kind+'"'+
+    (kind==="owner"?' data-owner-contact':'')+'>'+
+    options(people,p=>p.id,p=>p.name,value,"Ej kopplad")+'</select></label>'+
+    '<div class="property-person-actions">'+
+      '<button type="button" data-person-new="'+kind+'">+ Ny</button>'+
+      '<button type="button" data-person-edit="'+kind+'"'+(!value?' disabled':'')+'>Ändra</button>'+
+    '</div></div>';
 }
 function hasGeo(p) {
   return p.latitude != null && p.latitude !== "" && p.longitude != null &&
@@ -38,13 +42,19 @@ export function renderPropertyEditor(data, p, id, company=false) {
     return {
       number:c.number||"Avtal",
       unit:units[c.unitId]||c.unitId||"Ej fördelad verksamhet",
-      person:person?.name||"Ej kopplad",
+      personId:person?.id||"",
       id:c.id,
     };
   });
   const contactRows=contacts.length
     ? '<div class="property-contact-list">'+contacts.map(c=>
-      '<div><span>'+esc(c.unit)+' · '+esc(c.number)+'</span><strong>'+esc(c.person)+'</strong></div>'
+      '<div class="property-contact-row"><span>'+esc(c.unit)+' · '+esc(c.number)+'</span>'+
+      '<div class="property-person-inline"><select data-property-contract-contact="'+esc(c.id)+'"'+
+        ' data-property-person-select="contract" aria-label="Verksamhetsansvarig för '+esc(c.number)+'">'+
+         options(allPeople,x=>x.id,x=>x.name,c.personId,"Ej kopplad")+'</select>'+
+        '<button type="button" data-person-new="contract" data-contract-id="'+esc(c.id)+'">+ Ny</button>'+
+        '<button type="button" data-person-edit="contract" data-contract-id="'+esc(c.id)+'"'+(!c.personId?' disabled':'')+'>Ändra</button>'+
+      '</div></div>'
     ).join("")+'</div>'
     : '<p class="property-empty">Inga avtalsobjekt med kontaktperson finns ännu.</p>';
   const locked=Boolean(id && !data.isDemo && company);
@@ -61,10 +71,10 @@ export function renderPropertyEditor(data, p, id, company=false) {
         control("Ort",textInput(p,"city"))+
       '</div></section>'+
       '<section class="property-section"><h3>Kontaktpersoner</h3><div class="property-grid">'+
-        personSelect(data,"ownerResponsiblePersonId",p.ownerResponsiblePersonId,ownerPeople,"Fastighetsägarens kontaktperson")+
-        personSelect(data,"responsiblePersonId",p.responsiblePersonId,ourPeople,"Vår kontaktperson")+
+        personSelect(data,"ownerResponsiblePersonId",p.ownerResponsiblePersonId,ownerPeople,"Fastighetsägarens kontaktperson","owner")+
+        personSelect(data,"responsiblePersonId",p.responsiblePersonId,ourPeople,"Vår kontaktperson","our")+
       '</div><h4>Verksamhetens kontaktpersoner</h4>'+
-      contactRows+'<small class="property-help">Verksamhetsansvariga väljs på respektive avtalsobjekt.</small></section>'+
+      contactRows+'<small class="property-help">Kontakterna kopplas till respektive avtalsobjekt även om du ändrar dem här. Välj Ej kopplad för att koppla bort en person utan att radera personen.</small></section>'+
       '<section class="property-section"><h3>Placering på kartan</h3>'+
       '<p class="property-map-hint">'+(geo
         ? 'Fastighetens position visas på kartan. Klicka eller dra nålen för att rätta placeringen.'

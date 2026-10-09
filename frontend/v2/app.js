@@ -31,6 +31,8 @@ import {
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
 import { attachPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
+import { contextPersonSelect, newPersonDefaults, personFormHtml,
+  updatedPersonRecord, refreshPropertyPersonSelectors } from "./property-person-dialog.js";
 const transport = createTransport(),
   content = document.querySelector("#content"),
   filterArea = document.querySelector("#filters");
@@ -655,6 +657,50 @@ function openEditor(col, id, defaults = {}) {
   }
   document.querySelector("#editor-root input, #editor-root select")?.focus();
 }
+function openPropertyPersonDialog(button) {
+  if (!editor || editor.col !== "properties") return;
+  const kind=button.dataset.personNew || button.dataset.personEdit;
+  if (!["owner","our","contract"].includes(kind)) return;
+  const contractId=button.dataset.contractId || "";
+  const root=document.querySelector("#editor-root");
+  const select=contextPersonSelect(root,kind,contractId);
+  if (!select) return;
+  const creating=Boolean(button.dataset.personNew);
+  const existing=creating ? null : data.people.find(person=>person.id===select.value);
+  if (!creating && !existing) throw Error("Välj först en person att redigera.");
+  const original=existing || newPersonDefaults(root,data,kind,contractId);
+  const dialog=document.createElement("dialog");
+  dialog.className="property-person-dialog";
+  dialog.innerHTML=personFormHtml(original,creating);
+  document.body.append(dialog);
+  dialog.addEventListener("close",()=>dialog.remove(),{once:true});
+  dialog.querySelectorAll("[data-person-dialog-close]").forEach(b=>b.onclick=()=>dialog.close());
+  const form=dialog.querySelector("#property-person-form");
+  form.addEventListener("submit",event=>{
+    event.preventDefault();
+    run(async()=>{
+      const next=updatedPersonRecord(original,new FormData(form));
+      const email=String(next.email||"").trim().toLocaleLowerCase("sv");
+      if (email && data.people.some(p=>p.id!==next.id &&
+          String(p.email||"").trim().toLocaleLowerCase("sv")===email))
+        throw Error("Det finns redan en person med den e-postadressen. Välj den befintliga personen i stället.");
+      if (creating) next.id=crypto.randomUUID();
+      await mutation(d=>{
+        if (creating) d.people.push(next);
+        else {
+          const i=d.people.findIndex(p=>p.id===next.id);
+          if (i<0) throw Error("Personen finns inte längre.");
+          d.people[i]={...d.people[i],name:next.name,role:next.role,email:next.email};
+        }
+      });
+      refreshPropertyPersonSelectors(root,data,{kind,contractId,id:next.id});
+      dialog.close();
+      notice("Person sparad i personregistret. Kontaktkopplingen sparas när du sparar Fastighet.");
+    });
+  });
+  dialog.showModal();
+}
+
 function hasPending() {
   const st=transport.status();
   return st.dirty || st.staged;
@@ -782,6 +828,10 @@ document.addEventListener("click", (event) =>
     if (b.hasAttribute("data-close-contract")) {
       ui.contractId = "";
       render();
+    }
+    if (b.hasAttribute("data-person-new") || b.hasAttribute("data-person-edit")) {
+      openPropertyPersonDialog(b);
+      return;
     }
     if (b.hasAttribute("data-edit")) openEditor(b.dataset.edit, b.dataset.id);
     if (b.hasAttribute("data-editor-close")) closeEditor();
@@ -1008,6 +1058,12 @@ document.addEventListener("change", (event) =>
     const x = event.target;
     if (x.hasAttribute("data-owner-select")) {
       updatePropertyOwnerContacts(document.querySelector("#editor-root"), data);
+      refreshPropertyPersonSelectors(document.querySelector("#editor-root"), data);
+      return;
+    }
+    if (x.hasAttribute("data-property-person-select")) {
+      const edit=x.closest('.property-person-field,.property-person-inline')?.querySelector("[data-person-edit]");
+      if (edit) edit.disabled=!x.value;
       return;
     }
     if (x.dataset.filter) {
@@ -1111,6 +1167,10 @@ document.addEventListener("submit", (event) => {
     const next = readEditor(event.target, editor.record),
       col = editor.col,
       id = editor.id,
+      contractContactChanges = col === "properties"
+        ? [...event.target.querySelectorAll("[data-property-contract-contact]")].map(select=>({
+          contractId:select.dataset.propertyContractContact,personId:select.value
+        })) : [],
       manualPositionSelected = col === "properties" && event.target.dataset.manualGeoSelected === "1";
     if (manualPositionSelected) {
       next.geoSource="manual";
@@ -1144,6 +1204,14 @@ document.addEventListener("submit", (event) => {
         d[col][index] = next;
         audit(d, col, id, before, next, actor());
       }
+      if (col === "properties" && id) {
+        contractContactChanges.forEach(({contractId,personId})=>{
+          const contract=d.contracts.find(x=>x.id===contractId && x.propertyId===id);
+          if (!contract) throw Error("Ett avtalsobjekt saknas. Läs om fastigheten och försök igen.");
+          if (personId && !d.people.some(p=>p.id===personId)) throw Error("Vald person saknas i personregistret.");
+          contract.businessResponsiblePersonId=personId || "";
+        });
+      }
     }, { manualPositionIds:manualPositionSelected && id ? [String(id)] : [] });
     closeEditor();
   });
@@ -1155,7 +1223,7 @@ window.addEventListener("beforeunload", (event) => {
   }
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeEditor();
+  if (event.key === "Escape" && !document.querySelector(".property-person-dialog[open]")) closeEditor();
 });
 async function restoreSharedViewState() {
   const bridge=globalThis.LokalblickViewBridge;

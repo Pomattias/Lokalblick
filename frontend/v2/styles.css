@@ -934,3 +934,23 @@ details .table-wrap {
   .property-editor .property-grid { grid-template-columns: 1fr; gap: 8px; }
   .property-editor .property-map { height: 230px; }
 }
+
+
+/* Contextual person editing: keep the person register centralized. */
+.property-editor .property-person-field { min-width:0; display:grid; gap:5px; }
+.property-editor .property-person-actions,
+.property-editor .property-person-inline { display:flex; gap:5px; align-items:center; min-width:0; }
+.property-editor .property-person-actions button,
+.property-editor .property-person-inline button { font-size:11px; padding:6px 8px; white-space:nowrap; flex:none; }
+.property-editor .property-person-inline select { min-width:0; flex:1; max-width:none; }
+.property-editor .property-contact-list .property-contact-row { display:grid; grid-template-columns:minmax(150px,1fr) minmax(230px,1.35fr); gap:8px; align-items:center; }
+.property-person-dialog { border:1px solid var(--line); border-radius:12px; padding:20px; width:min(430px,calc(100vw - 30px)); max-height:90vh; box-shadow:0 22px 60px #18392f40; }
+.property-person-dialog::backdrop { background:#19372f66; }
+.property-person-dialog .property-person-form { display:grid; gap:13px; }
+.property-person-dialog .property-person-form p { font-size:12px; margin:0; }
+.property-person-dialog .property-person-form .actions { justify-content:flex-end; margin-top:5px; }
+@media(max-width:560px) {
+  .property-editor .property-contact-list .property-contact-row { grid-template-columns:1fr; }
+  .property-editor .property-person-inline { flex-wrap:wrap; }
+  .property-editor .property-person-inline select { flex-basis:100%; }
+}
