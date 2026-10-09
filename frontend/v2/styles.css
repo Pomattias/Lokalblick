@@ -978,3 +978,13 @@ details .table-wrap {
   .issue-editor { width:100%; }
   .issue-editor .issue-grid { grid-template-columns:1fr; gap:9px; }
 }
+
+/* Ärende – tydligare namn och fältordning, isolerat till ärendeformuläret. */
+.issue-editor .issue-title-heading {
+  font-size: clamp(21px, 2vw, 27px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.issue-editor .issue-title-field { grid-column: 1 / -1; }
+.issue-editor .issue-title-field input { font-size: 16px; font-weight: 600; }

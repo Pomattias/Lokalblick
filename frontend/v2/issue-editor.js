@@ -106,18 +106,18 @@ export function renderIssueEditor(data,issue,id,company=false) {
   return '<div class="editor-backdrop"></div>'+
     '<aside class="editor issue-editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="activities" data-record-id="'+esc(id||"")+'">'+
     '<div class="section-title"><div><small>'+(id?"ÄNDRA ÄRENDE":"NYTT ÄRENDE")+'</small>'+
-    '<h2 id="editor-title">Ärende</h2><small>'+esc(issue.title||"Projekt · Underhåll · Drift · Önskemål")+'</small>'+
+    '<h2 id="editor-title" class="issue-title-heading">'+esc(issue.title||"Nytt ärende")+'</h2><small>'+esc(issue.type||"Projekt · Underhåll · Drift · Önskemål")+'</small>'+
     '</div><button type="button" data-editor-close>Stäng</button></div>'+
     '<section class="issue-section"><h3>Ärende</h3><div class="issue-grid">'+
+      '<div class="issue-title-field">'+field("Ärendenamn",input(issue,"title","text",'required maxlength="250"'))+'</div>'+
       field("Typ",typeSelect)+
       field("Status",choice("status",statuses.map(value=>({value,label:value})),issue.status,"Välj status"))+
-      field("Rubrik",input(issue,"title","text",'required maxlength="250"'))+
-      field("Prioritet",choice("priority",priorities.map(value=>({value,label:value})),issue.priority,"Ej prioriterad"))+
       field("Kategori",choice("category",issueCategoryChoices(issue.category),issue.category,"Välj kategori"))+
+      field("Prioritet",choice("priority",priorities.map(value=>({value,label:value})),issue.priority,"Ej prioriterad"))+
     '</div>'+
     '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="3">'+esc(issue.description||"")+'</textarea></label>'+
     '<div class="issue-grid">'+
-      field("Hemvist",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej fördelad"))+
+      field("Kopplat till",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+
       field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"))+
     '</div></section>'+
     '<section class="issue-section"><h3>Tid och planering</h3><div class="issue-grid">'+
