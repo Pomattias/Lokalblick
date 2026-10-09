@@ -32,19 +32,33 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
       if(score>best){best=score;headerIndex=i;}
     });
     const headers = matrix[headerIndex] || [];
+    const headerKeys=headers.filter(present).map(norm);
+    const contractSignals=headerKeys.filter(h=>/avtals|hyra|hyres|uppsagning|forlangning/.test(h));
     const signature = JSON.stringify(headers.filter(present).map(norm).sort());
     const previous = saved.find(s => s.sheet===name && s.signature===signature);
-    const inferred = /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
+    const inferred = /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
     const columns = headers.map((header,index) => {
       if(!present(header)) return null;
       const values=matrix.slice(headerIndex+1).map(r=>r[index]).filter(present);
       const choices=fields.filter(f=>norm(f.label.split(' → ')[1])===norm(header));
       const candidate=choices.find(f=>f.collection===inferred) || (choices.length===1?choices[0]:null);
       const rule=previous?.columns?.find(c=>norm(c.header)===norm(header));
-      const target=rule?.target || aliases[norm(header)] || candidate?.target || '@extra';
+      const h=norm(header);
+      let contextualTarget='';
+      if(['contracts','activities'].includes(inferred)){
+        const dateField=/^(?:tom|tillochmed)$/.test(h)||/(?:giltigt|giltig|avtal|hyresperiod).*tom$/.test(h)?'end':/^(?:from|franochmed)$/.test(h)||/(?:giltigt|giltig|avtal|hyresperiod).*from$/.test(h)?'start':'';
+        if(dateField)contextualTarget=inferred+'.'+(inferred==='activities'?dateField+'Date':dateField);
+      }
+      if(inferred==='contracts'&&/^(?:forlangningstid|forlangningsperiod)(?:manader|man)?$/.test(h))contextualTarget='contracts.renewalPeriodMonths';
+      if(inferred==='contracts'&&/^(?:uppsagningstid)(?:manader|man)?$/.test(h))contextualTarget='contracts.noticePeriodMonths';
+      const target=rule?.target || contextualTarget || aliases[h] || candidate?.target || '@extra';
+      const examples=values.slice(0,3).map(value=>{
+        if(/\.(?:start|end|startDate|endDate)$/.test(target)&&typeof value==='number'&&value>0&&value<100000){const d=XLSX.SSF.parse_date_code(value);if(d)return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;}
+        return value;
+      });
       return {header:String(header),index,target,collection:rule?.collection || (target.startsWith('@')?inferred:target.split('.')[0]),
         transform:rule?.transform || (norm(header)==='manadshyra'?'monthly':'auto'),
-        examples:values.slice(0,3),filled:values.length,missing:matrix.slice(headerIndex+1).length-values.length,
+        examples,reason:contextualTarget&&!rule?'Avtalssammanhang och kolumnens betydelse används för förslaget.':'',filled:values.length,missing:matrix.slice(headerIndex+1).length-values.length,
         approved:Boolean(rule),identity:rule?.identity || /^(avtalsnummer|avtalsnr|fastighetsbeteckning|fastbet|epost|email)$/.test(norm(header))};
     }).filter(Boolean);
     return {name,signature,headerIndex,headerRow:start+headerIndex+1,startColumn:sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0,columns,rowCount:matrix.slice(headerIndex+1).filter(r=>r.some(present)).length,inferred};
@@ -56,7 +70,7 @@ function convert(cell, column, XLSX) {
   if(/DocumentUrl$/.test(field)) value=cell?.l?.Target || value;
   if(column.transform==='text')return String(value);
   if(/^(area|baseRent|baseAdditions|annual|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|estimatedCost|orderedCost|finalCost|planningYear|noticePeriod|renewalPeriod|rentBase|additionBase|rentIndexPercent|additionIndexPercent)/.test(field)){
-    const numeric=String(value).replace(/[\s\u00a0]/g,'').replace(/(?:kr|sek|%)$/i,'');
+    const numeric=String(value).replace(/[\s\u00a0]/g,'').replace(/(?:kr|sek|%)$/i,'').replace(/(?:mån|månader|man|manader)$/i,/Months$/.test(field)?'':'$&');
     const n=typeof value==='number'?value:Number(numeric.includes(',')?numeric.replace(/\./g,'').replace(',','.'):numeric);
     if(!Number.isFinite(n))throw Error('Ogiltigt tal');
     if(/Percent$/.test(field)&&typeof value==='number'&&cell.z?.includes('%'))return n*100;

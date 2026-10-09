@@ -1066,3 +1066,13 @@ details .table-wrap {
 .mapping-table td,.mapping-table th { text-align:left; padding:8px; border-bottom:1px solid #ddd; vertical-align:top; }
 .mapping-table small { display:block; max-width:240px; }
 .mapping-table select { width:100%; min-width:160px; }
+.followup-dialog.import-dialog.import-mapping-dialog {
+  width:min(1180px,calc(100vw - 32px));
+  max-width:min(1180px,calc(100vw - 32px));
+  max-height:90vh;
+  box-sizing:border-box;
+}
+.import-mapping-dialog .mapping-table { max-height:none; }
+.import-mapping-dialog .mapping-table th:first-child { width:34%; }
+.import-mapping-dialog .mapping-table th:nth-child(2) { width:42%; }
+.import-mapping-dialog .mapping-table small { max-width:none; }

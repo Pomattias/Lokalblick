@@ -96,3 +96,20 @@ test('Excel roundtrip preserves full registry, mappings and provenance history',
  assert.deepEqual(JSON.parse(JSON.stringify(restored.importMappings)),result.data.importMappings);
  assert.equal(restored.sourceRegistry[0].fingerprint,'test-hash');assert.equal(restored.auditLog[0].fields[0].provenance.cell,'A2');
 });
+test('lease columns determine context even on a sheet named Lokallista',()=>{
+ const w=fixture([['Avtalsnummer','Ursprungligt giltigt fr.o.m.','Aktuellt giltigt t.o.m.','Förlängningstid','Uppsägningstid'],['A-1',43739,46752,'12 mån','9 mån']],'Lokallista');
+ const p=profileWorkbook(w,schemas,XLSX)[0];
+ assert.equal(p.inferred,'contracts');
+ assert.deepEqual(p.columns.map(c=>c.target),['contracts.number','contracts.start','contracts.end','contracts.renewalPeriodMonths','contracts.noticePeriodMonths']);
+ assert.match(p.columns[2].examples[0],/^\d{4}-\d{2}-\d{2}$/);
+});
+test('short date headers follow contract or activity context but remain ambiguous without context',()=>{
+ for(const [name,headers,expected] of [['Lokallista',['Avtalsnummer','t.o.m.'],'contracts.end'],['Projekt',['Aktivitet','t.o.m.'],'activities.endDate'],['Personer',['Namn','t.o.m.'],'@extra']]){
+  const p=profileWorkbook(fixture([headers,['1',46752]],name),schemas,XLSX)[0];
+  assert.equal(p.columns[1].target,expected);
+ }
+});
+test('Swedish month durations become numeric contract terms',()=>{
+ const r=run(fixture([['Fast.bet','Ort','Avtalsnummer','Förlängningstid','Uppsägningstid'],['Ek 1','Malmö','A-1','12 mån','9 månader']]));
+ assert.equal(r.data.contracts[0].renewalPeriodMonths,12);assert.equal(r.data.contracts[0].noticePeriodMonths,9);
+});

@@ -4,7 +4,7 @@ const label=x=>[x.address,x.designation,x.city,x.number,x.tenantName,x.name,x.ti
 const countLabels={matched:'Säkert matchade poster',created:'Nya poster',fields:'Ändrade fält',conflicts:'Fältkonflikter',preserved:'Bevarade kompletterande uppgifter',unresolved:'Poster som kräver granskning',propertiesBefore:'Fastigheter före',propertiesAfter:'Fastigheter efter',contractsBefore:'Avtal före',contractsAfter:'Avtal efter',activitiesAfter:'Aktiviteter efter',review:'Granskningsärenden'};
 const countsHtml=counts=>Object.entries(counts||{}).map(([key,value])=>`<p><strong>${esc(countLabels[key]||key)}:</strong> ${esc(value)}</p>`).join('');
 function dialog(html) {
-  const d=document.createElement('dialog');d.className='followup-dialog import-dialog';d.innerHTML=html;document.body.append(d);d.showModal();return d;
+  const d=document.createElement('dialog');d.className='followup-dialog import-dialog import-mapping-dialog';d.innerHTML=html;document.body.append(d);d.showModal();return d;
 }
 function waitForDialog(d, setup) {
   return new Promise((resolve,reject)=>{
