@@ -954,3 +954,27 @@ details .table-wrap {
   .property-editor .property-person-inline { flex-wrap:wrap; }
   .property-editor .property-person-inline select { flex-basis:100%; }
 }
+
+/* Ärenden: one form for Projekt, Underhåll, Drift and Önskemål. */
+.issue-editor { width:min(790px,94vw); }
+.issue-editor .section-title { margin-bottom:12px; }
+.issue-editor .issue-section { border-top:1px solid var(--line); padding:12px 0; }
+.issue-editor .issue-section h3 { font-size:14px; margin:0 0 10px; }
+.issue-editor .issue-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px 14px; }
+.issue-editor .issue-field { display:grid; gap:4px; min-width:0; font-size:12px; }
+.issue-editor .issue-field input, .issue-editor .issue-field select, .issue-editor .issue-field textarea { width:100%; min-width:0; max-width:none; }
+.issue-editor .issue-description { margin:11px 0; }
+.issue-editor .issue-field small, .issue-editor .issue-note { font-size:11px; color:var(--muted); }
+.issue-editor .issue-note { margin:10px 0 0; }
+.issue-editor .issue-assessment { border:1px solid var(--line); border-radius:8px; background:var(--soft); padding:11px 12px; margin-top:12px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 10px; font-size:12px; }
+.issue-editor .issue-assessment strong { font-size:15px; }
+.issue-editor .issue-assessment small { flex-basis:100%; }
+.issue-editor .issue-order-rows { border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+.issue-editor .issue-order-rows>div { display:flex; justify-content:space-between; gap:10px; padding:8px 11px; font-size:12px; }
+.issue-editor .issue-order-rows>div+div { border-top:1px solid var(--line); }
+.issue-type-filters { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:9px 0 12px; }
+.issue-type-filters button { border-radius:50px; padding:6px 12px; font-size:12px; }
+@media (max-width:600px) {
+  .issue-editor { width:100%; }
+  .issue-editor .issue-grid { grid-template-columns:1fr; gap:9px; }
+}

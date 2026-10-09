@@ -45,6 +45,7 @@ const selection = { unit: "", owner: "", person: "", q: "", propertyId: "" };
 const ui = {
   view: "overview",
   perspective: "Fastigheter",
+  issueType: "Alla",
   year: new Date().getFullYear() + 1,
   settingsYear: new Date().getFullYear(),
   contractId: "",
@@ -275,7 +276,7 @@ function importCountLabel(counts = {}) {
   const parts = [];
   if (counts.properties != null) parts.push("Fastigheter " + counts.properties);
   if (counts.contracts != null) parts.push("Avtal " + counts.contracts);
-  if (counts.activities != null) parts.push("Aktiviteter " + counts.activities);
+  if (counts.activities != null) parts.push("Ärenden " + counts.activities);
   if (counts.matched != null) parts.push("Träffar " + counts.matched);
   if (counts.created != null) parts.push("Skapat " + counts.created);
   if (counts.review != null) parts.push("Granska " + counts.review);
@@ -455,6 +456,7 @@ async function switchToDemo() {
   Object.assign(selection,{unit:"",owner:"",person:"",q:"",propertyId:""});
   ui.view="overview";
   ui.perspective="Fastigheter";
+  ui.issueType="Alla";
   ui.contractId="";
   render();
   notice("Syntetisk demodata återställd. Inga Excel-filer har ändrats.");
@@ -549,11 +551,13 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-new-issue],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
     !canEdit() || !["overview", "contracts"].includes(ui.view);
+  document.querySelector("#add").textContent =
+    ui.view==="overview" && ui.perspective==="Ärenden" ? "Nytt ärende" : "Lägg till";
 }
 async function mutation(change, { automatic = false, manualPositionIds = [] } = {}) {
   if (busy) throw Error("En ändring sparas redan");
@@ -820,6 +824,24 @@ document.addEventListener("click", (event) =>
       ui.contractId = "";
       render();
     }
+    if (b.dataset.issueType) {
+      ui.issueType = b.dataset.issueType;
+      render();
+      return;
+    }
+    if (b.hasAttribute("data-new-issue")) {
+      const type = ["Projekt","Underhåll","Drift","Önskemål"].includes(ui.issueType) ? ui.issueType : "";
+      openEditor("activities","",{
+        type,
+        title:"",
+        status:"Nytt",
+        planningYear:ui.year,
+        budgetCategory:{Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Önskemål:"Ej budget"}[type]||"Ej budget",
+        includeInBudget:type==="Önskemål"?"Nej":"Ja",
+        propertyId:selection.propertyId||"",
+      });
+      return;
+    }
     if (b.dataset.openContract) {
       ui.contractId =
         ui.contractId === b.dataset.openContract ? "" : b.dataset.openContract;
@@ -937,16 +959,11 @@ document.addEventListener("click", (event) =>
         "",
         col === "activities"
           ? {
-              type: ui.perspective,
-              budgetCategory:
-                ui.perspective === "Projekt"
-                  ? "Projekt"
-                  : ui.perspective === "Underhåll"
-                    ? "Underhåll"
-                    : ui.perspective === "Drift"
-                      ? "Driftkostnader"
-                      : "Ej budget",
-              status: ui.perspective === "Önskemål" ? "Nytt" : "Planerad",
+              type: ["Projekt","Underhåll","Drift","Önskemål"].includes(ui.issueType) ? ui.issueType : "",
+              budgetCategory: {Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Önskemål:"Ej budget"}[ui.issueType]||"Ej budget",
+              includeInBudget:ui.issueType==="Önskemål"?"Nej":"Ja",
+              status: "Nytt",
+              planningYear: ui.year,
               propertyId: selection.propertyId || "",
             }
           : {},

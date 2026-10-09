@@ -204,9 +204,11 @@ export function summary(data, s, year, ui = {}) {
   }
 
   if (ui.view === "plan") {
-    const metrics = activityMetrics(data, view.items, year);
+    const selected=ui.issueType && ui.issueType!=="Alla" ?
+      view.items.filter(x=>x.record.type===ui.issueType):view.items;
+    const metrics = activityMetrics(data, selected, year);
     return summaryCards([
-      ["Aktiviteter", num(metrics.count)],
+      ["Ärenden", num(metrics.count)],
       ["Utan ansvarig", num(metrics.unassigned)],
       ["Planerade " + year, num(metrics.inYear)],
       ["Bedömd kostnad", money(metrics.cost)],
@@ -231,7 +233,9 @@ export function summary(data, s, year, ui = {}) {
     ]);
   }
 
-  const matchingItems = view.items.filter((item) => item.label === perspective);
+  const matchingItems = perspective === "Ärenden" ?
+    view.items.filter(x=>!ui.issueType||ui.issueType==="Alla"||x.record.type===ui.issueType) :
+    view.items.filter((item) => item.label === perspective);
   const metrics = activityMetrics(data, matchingItems, year);
   return summaryCards([
     [perspective, num(metrics.count) + " st"],
@@ -287,14 +291,9 @@ export function overview(data, s, ui) {
   const title = s.propertyId
     ? propertyLabel(data, s.propertyId)
     : "Aktuellt urval";
-  const tabs = [
-    "Fastigheter",
-    "Avtal",
-    "Projekt",
-    "Underhåll",
-    "Drift",
-    "Önskemål",
-  ];
+  const tabs = ["Fastigheter", "Avtal", "Ärenden"];
+  const typeChoices = ["Alla","Projekt","Underhåll","Drift","Önskemål"];
+  const selectedType = typeChoices.includes(ui.issueType) ? ui.issueType : "Alla";
   let body = "";
   if (ui.perspective === "Fastigheter") {
     body = table(
@@ -309,7 +308,7 @@ export function overview(data, s, ui) {
           num(cs.reduce((sum, c) => sum + (Number(c.area) || 0), 0)) + " m²",
           (() => {
             const calculated=calc().propertyAnnualCost(data,p.id,ui.year);
-            return `<span title="Beräknat från avtalets hyra, tillägg, drift, skatt och aktuella avtalsperioder">${money(calculated.annualCost)}</span>${calculated.needsReview ? `<small class="rent-needs-review">${calculated.needsReview} avtal behöver kontroll</small>` : ""}${calculated.preliminary ? `<small>${calculated.preliminary} preliminära index</small>` : ""}`;
+            return `<span title="Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder">${money(calculated.annualCost)}</span>${calculated.needsReview ? `<small class="rent-needs-review">${calculated.needsReview} avtal behöver kontroll</small>` : ""}${calculated.preliminary ? `<small>${calculated.preliminary} preliminära index</small>` : ""}`;
           })(),
           edit("properties", p.id),
         ]);
@@ -327,12 +326,15 @@ export function overview(data, s, ui) {
       ["Aktivitet", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", ""],
       activityRows(
         data,
-        v.items.filter((x) => x.label === ui.perspective),
+        v.items.filter((x) => ui.perspective === "Ärenden" &&
+          (selectedType === "Alla" || x.record.type === selectedType)),
       ),
       true,
-      ui.perspective,
+      "Ärenden",
     );
-  return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div><div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
+  const typeButtons = ui.perspective === "Ärenden" ?
+    `<div class="issue-type-filters" aria-label="Filtrera ärenden">${typeChoices.map(type=>`<button type="button" data-issue-type="${esc(type)}" class="${selectedType===type?"active":""}" aria-pressed="${selectedType===type}">${esc(type)}</button>`).join("")}</div>`:"";
+  return `<div class="section-title"><h2>${esc(title)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div><div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>${typeButtons}${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
 }
 function contractIndexBreakdown(c, name, v, rawShare) {
   const amount = v.status === "Behöver kontroll" && v.amount <= 0
@@ -424,7 +426,7 @@ function timelineView(data, items, ui) {
       : `<input type="number" min="0" step="1" data-activity-year-amount="${esc(a.id)}" data-allocation-year="${year}" aria-label="Årsbelopp ${year} för ${esc(x.title)}" placeholder="Ej fördelad" value="${esc(annual?.amount ?? "")}">`;
     return `<div class="timeline-row"><div class="timeline-label"><button type="button" class="text-button" data-edit="activities" data-id="${esc(a.id)}">${esc(x.title)}</button><small>${esc(home)} · ${esc(a.status||"Planerad")}</small></div><div class="timeline-track">${months.map(()=>'<span class="timeline-grid-cell"></span>').join("")}${bar||'<span class="timeline-unscheduled">Ej tidsatt</span>'}</div><div class="timeline-cost">${amount}</div></div>`;
   }).join("");
-  return `<div class="timeline-scroll"><div class="timeline-content" style="--timeline-columns:${12*span}"><div class="timeline-row timeline-head"><div class="timeline-label">Aktivitet</div><div class="timeline-track">${header}</div><div class="timeline-cost">Årsbelopp</div></div>${rows||'<p>Inga aktiviteter i urvalet.</p>'}</div></div>`;
+  return `<div class="timeline-scroll"><div class="timeline-content" style="--timeline-columns:${12*span}"><div class="timeline-row timeline-head"><div class="timeline-label">Ärende</div><div class="timeline-track">${header}</div><div class="timeline-cost">Årsbelopp</div></div>${rows||'<p>Inga aktiviteter i urvalet.</p>'}</div></div>`;
 }
 export function economicSettings(data, ui) {
   const year=Number(ui.settingsYear || new Date().getFullYear());
@@ -452,7 +454,10 @@ export function planning(data, s, ui) {
     title: "Fastighetsansvar",
     cost: 0,
   }));
-  let items = propertyItems.concat(v.items);
+  const typeChoices = ["Alla","Projekt","Underhåll","Drift","Önskemål"];
+  const issueType=typeChoices.includes(ui.issueType)?ui.issueType:"Alla";
+  const visibleIssues = issueType === "Alla" ? v.items : v.items.filter(x=>x.record.type===issueType);
+  let items = issueType === "Alla" ? propertyItems.concat(visibleIssues) : visibleIssues;
   const missing = items.filter(
     (x) => !responsible(data, x.collection, x.record),
   );
@@ -468,10 +473,11 @@ export function planning(data, s, ui) {
     )
     .slice(-30)
     .reverse();
+  const types = `<div class="issue-type-filters" aria-label="Filtrera ärenden">${typeChoices.map(type=>`<button type="button" data-issue-type="${esc(type)}" class="${issueType===type?"active":""}" aria-pressed="${issueType===type}">${esc(type)}</button>`).join("")}</div>`;
   const timelineControls = `<div class="actions"><button type="button" data-planning-mode="list" class="${ui.planningMode==="timeline"?"":"active"}">Lista</button><button type="button" data-planning-mode="timeline" class="${ui.planningMode==="timeline"?"active":""}">Tidslinje</button>${ui.planningMode==="timeline"?`<button type="button" data-timeline-span="1" class="${ui.timelineSpan===3?"":"active"}">1 år</button><button type="button" data-timeline-span="3" class="${ui.timelineSpan===3?"active":""}">3 år</button>`:""}</div>`;
   const timelineBody = ui.planningMode==="timeline" ? timelineView(data,items,ui) : null;
-  return `<div class="section-title"><h2>Fördela och planera</h2><div class="actions"><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${timelineControls}${timelineBody||table(
-    ["Uppgift", "Fastighet", "Adress", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
+  return `<div class="section-title"><h2>Ärenden och ansvar</h2><div class="actions"><button type="button" data-new-issue class="primary">+ Nytt ärende</button><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${types}${timelineControls}${timelineBody||table(
+    ["Ärende / ansvar", "Fastighet", "Adress", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
         `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>${x.collection==="activities"&&x.record.actionKind ? `<small>${x.record.actionKind==="value_enhancing"?"Värdehöjande":"Utbyte 1:1"}</small>` : ""}`,
@@ -509,7 +515,7 @@ export function planning(data, s, ui) {
         x.collection === "activities" && x.record.project2027SourceId
           ? `<span title="Beloppet är inte budgetfört förrän enhet och finansiering har verifierats">${x.record.project2027BudgetRaw == null ? "Budget saknas" : esc(String(x.record.project2027BudgetRaw)) + " · enhet ej verifierad"}${x.record.project2027RentSurcharge ? "<small>Hyresfinansierad · utanför budget</small>" : "<small>Ej budgetförd</small>"}</span>`
           : money(x.cost),
-        `${edit(x.collection, x.record.id)}${x.collection === "activities" && x.record.type === "Önskemål" ? `<button data-move="Underhåll" data-id="${esc(x.record.id)}">Till UH</button><button data-move="Drift" data-id="${esc(x.record.id)}">Till drift</button>` : ""}`,
+        `${edit(x.collection, x.record.id)}`,
       ]),
     ),
   )}<details><summary>Ansvarsändringar (${history.length})</summary>${table(

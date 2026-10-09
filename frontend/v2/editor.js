@@ -2,6 +2,7 @@ import { esc, options, calc, units, propertyReference } from "./views.js";
 import { clone } from "./model.js";
 import { renderContractEditor } from "./contract-editor.js";
 import { renderPropertyEditor } from "./property-editor.js";
+import { applyIssueHome, renderIssueEditor } from "./issue-editor.js";
 const relations = {
   propertyId: ["properties", propertyReference],
   contractId: ["contracts", (x) => x.number || x.id],
@@ -57,6 +58,8 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     return { record, html: renderContractEditor(data, record, id, company) };
   if (col === "properties")
     return { record, html: renderPropertyEditor(data, record, id, company) };
+  if (col === "activities")
+    return { record, html: renderIssueEditor(data, record, id, company) };
   const fieldLabels = {
     propertyId: "Fastighet",
     contractId: "Avtal",
@@ -224,6 +227,24 @@ export function readEditor(form, record) {
     if ((key === "rentIndexPercent" || key === "additionIndexPercent") && value !== "")
       out[key] = Number(value) / 100;
   });
+  if (form.dataset?.collection === "activities") {
+    if (!String(out.title || "").trim())
+      throw Error("Ärendet behöver en rubrik.");
+    if (!String(out.type || "").trim())
+      throw Error("Välj ärendetyp.");
+    if (submitted.has("issueHome")) {
+      applyIssueHome(out, out.issueHome);
+      delete out.issueHome;
+    }
+    if (out.startDate && out.endDate && out.endDate < out.startDate)
+      throw Error("Slutdatum kan inte vara före startdatum.");
+    if (submitted.has("type") && out.type !== record.type) {
+      const defaults = {Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Önskemål:"Ej budget",Utredning:"Utredningar"};
+      const previous = defaults[record.type] || "Ej budget";
+      if (!record.budgetCategory || record.budgetCategory === previous)
+        out.budgetCategory = defaults[out.type] || record.budgetCategory || "Ej budget";
+    }
+  }
   // On the first edit of an old contract, migrate its legacy Media amount
   // into the visible Tillägg field and explicitly zero the duplicate alias.
   // Do not alter imported contracts that the user has not edited.

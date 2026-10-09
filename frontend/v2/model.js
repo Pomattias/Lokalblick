@@ -15,7 +15,7 @@ export const collections = [
   "documents",
 ];
 export const kinds = {
-  activities: "Aktivitet",
+  activities: "Ärende",
   operations: "Kostnad",
   maintenanceStatus: "Status",
 };
@@ -560,7 +560,7 @@ export function normalize(data) {
 export function activities(data) {
   return (data.activities || []).map((record) => ({
     collection: "activities",
-    label: record.type || "Aktivitet",
+    label: record.type || "Ärende",
     record,
     propertyId:
       record.propertyId ||
@@ -671,6 +671,9 @@ export function scope(data, selection) {
     }
     if (q) {
       const haystack = [
+        record.title,
+        record.description,
+        record.type,
         property.address,
         property.designation,
         contract?.number,
