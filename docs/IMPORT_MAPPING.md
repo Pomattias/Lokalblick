@@ -58,3 +58,9 @@ Ingen verklig verksamhetsfil har använts eller ändrats. Ingen Vercelversion ha
 Frontendens användarnamn samlas i `FRONTEND_LABELS` i den befintliga schemadefinitionen. Formulär använder `fieldCaption`, medan Excel och importförslag använder samma schema. Avtalets period benämns Giltigt fr.o.m. och Giltigt t.o.m.; den senare innebär inte uppsägning. Inflyttningsdatum och Utflyttningsdatum är separata fält. Enheter anges i rubriken för bland annat area, hyra och tidsvillkor.
 
 Äldre Excelrubriker lagras som läsalias när rubriken byts. Därmed läses tidigare arbetsfiler utan att datum eller villkor tappas, medan nästa export får de gemensamma namnen. Interna affärsnycklar och beräkningar ändras inte. Verkliga arbetsfiler ändras först när användaren själv sparar från appen.
+
+## Förhandsgranskning per kolumn
+
+Steg 3 visar en rad per Excelkolumn med exempel, ändringsbart målfält, antal fältändringar och avvikelser. Användaren väljer källprioritet en gång för hela kolumnen. Regeländringen räknar om förhandsgranskningen på en kopia av arbetsdatan. Manuella värden skyddas fortfarande. Reglerna blir beständiga först när importen genomförs.
+
+Osäkra identiteter sammanfattas per flik, objekttyp och orsak i en hopfällbar del. Antalet osäkra rader räknas utan att samma källrad räknas flera gånger för olika objekttyper. Förhandsgranskningen visar inte längre hundratals individuella val eller listor med enskilda fältändringar. Granskningsunderlaget bevaras för verkliga undantag efter importen.

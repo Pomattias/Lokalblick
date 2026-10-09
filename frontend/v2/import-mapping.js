@@ -1,6 +1,5 @@
 import {fieldCatalog,prepareMappedImport} from '../services/import-engine.js';
 import {esc} from './views.js';
-const label=x=>[x.address,x.designation,x.city,x.number,x.tenantName,x.name,x.title,x.area?x.area+' m²':''].filter(Boolean).join(' · ');
 const countLabels={matched:'Säkert matchade poster',created:'Nya poster',fields:'Ändrade fält',conflicts:'Fältkonflikter',preserved:'Bevarade kompletterande uppgifter',unresolved:'Poster som kräver granskning',propertiesBefore:'Fastigheter före',propertiesAfter:'Fastigheter efter',contractsBefore:'Avtal före',contractsAfter:'Avtal efter',activitiesAfter:'Aktiviteter efter',review:'Granskningsärenden'};
 const countsHtml=counts=>Object.entries(counts||{}).map(([key,value])=>`<p><strong>${esc(countLabels[key]||key)}:</strong> ${esc(value)}</p>`).join('');
 function dialog(html) {
@@ -38,37 +37,68 @@ export async function mapImport(prepared,schemas) {
   d.querySelector('[data-field-search]').oninput=e=>{const q=e.target.value.toLocaleLowerCase('sv');d.querySelectorAll('[data-map] option').forEach(o=>{o.hidden=!o.value.startsWith('@')&&o.value!==o.parentElement.value&&!o.textContent.toLocaleLowerCase('sv').includes(q);});};
   return waitForDialog(d,finish=>{d.querySelector('[data-next]').onclick=()=>finish({profiles,existing:Boolean(d.querySelector('[data-existing]')?.checked)});});
 }
+export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}) {
+  const fields=fieldCatalog(schemas), names=Object.fromEntries(fields.map(f=>[f.target,f.label]));
+  const reviews=(result.data.importReview||[]).filter(r=>r.status==='pending'&&r.source===prepared.fileName);
+  const problems=new Map();
+  const uncertainRows=new Set();
+  for(const row of result.report.decisions||[]){
+    if(!['B','D'].includes(row.classification))continue;
+    uncertainRows.add(JSON.stringify([row.sheet,row.row]));
+    const key=JSON.stringify([row.sheet,row.collection,row.reason]);
+    if(!problems.has(key))problems.set(key,{sheet:row.sheet,collection:row.collection,reason:row.reason,count:0});
+    problems.get(key).count++;
+  }
+  const options=fields.map(f=>`<option value="${esc(f.target)}">${esc(f.label)}</option>`).join('');
+  return `<h2>3. Kontrollera kolumnkopplingar</h2><p>${esc(prepared.fileName)}. Välj hur varje kolumn ska användas. Regeln gäller alla matchade poster i kolumnen. Manuellt verifierade värden skyddas.</p>
+    <details><summary>Visa sammanställning av importen</summary>${countsHtml(result.report.counts)}</details>
+    ${mapping.profiles.map((profile,pi)=>`<details open><summary>${esc(profile.name)} · ${profile.rowCount} rader</summary><div class="mapping-table"><table><thead><tr><th>Excelkolumn / exempel</th><th>Koppling i Lokalblick</th><th>Berikningsregel och resultat</th></tr></thead><tbody>${profile.columns.map((col,ci)=>{
+      const [collection,field]=col.target.split('.');
+      const changes=(result.report.changes||[]).filter(c=>c.collection===collection&&c.field===field&&(c.provenance?.sheet===profile.name||!c.provenance?.sheet));
+      const conflicts=reviews.filter(r=>r.collection===collection&&r.field===field&&(!r.sheet||r.sheet===profile.name));
+      const key=[collection,field,prepared.fileName].map(x=>String(x||'').trim().toLocaleLowerCase('sv')).join('|');
+      const canPrioritize=!col.target.startsWith('@')&&!['id','sourceId','propertyId','contractId','activityId'].includes(field);
+      return `<tr><td><strong>${esc(col.header)}</strong><small>${col.examples.map(esc).join(' · ')}<br>${col.filled} ifyllda</small></td><td><select aria-label="Koppling för ${esc(col.header)}" data-preview-map="${pi}:${ci}"><option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>${options}</select><small>${esc(names[col.target]|| (col.target==='@extra'?'Bevaras som kompletterande information':'Importeras inte'))}${col.identity?' · Identitetsnyckel':''}</small></td><td>${canPrioritize?`<select aria-label="Berikningsregel för ${esc(col.header)}" data-column-rule="${pi}:${ci}"><option value="">Komplettera tomma fält, granska konflikter</option><option value="accept">Använd denna källa vid avvikelse</option><option value="reject">Behåll befintliga värden vid avvikelse</option></select>`:''}<small>${col.target.startsWith('@')?'':changes.length+' fältändringar · '+conflicts.length+' avvikelser'}${preferences[key]?' · Sparad kolumnregel':''}</small></td></tr>`;
+    }).join('')}</tbody></table></div></details>`).join('')}
+    ${problems.size?`<details><summary>Rader som behöver bättre identitet eller koppling (${uncertainRows.size})</summary><p>Ändra kolumnkopplingarna ovan. Poster som fortfarande saknar säker identitet sparas i granskningsunderlaget och läggs inte automatiskt in som nya objekt.</p><table><thead><tr><th>Flik / objekttyp</th><th>Orsak</th><th>Antal</th></tr></thead><tbody>${[...problems.values()].map(p=>`<tr><td>${esc(p.sheet)} · ${esc(schemas.find(s=>s.key===p.collection)?.sheet||p.collection)}</td><td>${esc(p.reason)}</td><td>${p.count}</td></tr>`).join('')}</tbody></table></details>`:''}
+    <div class="actions"><button data-cancel>Avbryt</button><button data-apply class="primary-action">4. Genomför import</button></div>`;
+}
 export async function previewImport(prepared,mapping,base,schemas,actor,legacyResult) {
   const context={fingerprint:prepared.fingerprint,fileName:prepared.fileName,schemas,actor,decisions:{}};
-  const evaluate=()=>prepareMappedImport(prepared.workbook,mapping.profiles,base,context,window.XLSX);
-  let result=legacyResult || evaluate();
-  if(legacyResult){
+  const draft=structuredClone(base);draft.importFieldPreferences ||= {};
+  const evaluate=()=>prepareMappedImport(prepared.workbook,mapping.profiles,draft,context,window.XLSX);
+  let result=legacyResult||evaluate(), usingLegacy=Boolean(legacyResult);
+  const recordLegacyChanges=()=>{
+    if(!usingLegacy)return;
     result.report.changes=schemas.flatMap(s=>(result.data[s.key]||[]).flatMap(record=>{
-      const previous=(base[s.key]||[]).find(x=>x.id===record.id)||{};
-      return s.columns.filter(([field])=>field!=='id'&&JSON.stringify(previous[field])!==JSON.stringify(record[field])&&record[field]!=null).map(([field])=>({collection:s.key,recordId:record.id,field,from:previous[field]??'',to:record[field],provenance:record.provenance?.[field]||{sheet:record.sourceSheet||'',cell:record.sourceRow||''}}));
+      const before=(draft[s.key]||[]).find(r=>r.id===record.id)||{};
+      return s.columns.filter(([field])=>field!=='id'&&record[field]!=null&&JSON.stringify(before[field])!==JSON.stringify(record[field])).map(([field])=>({collection:s.key,field,provenance:record.provenance?.[field]||{sheet:record.sourceSheet||''}}));
     }));
-  }
-  const render=()=>{
-    const changes=result.report.changes||[];
-    const decisions=result.report.decisions||[];
-    return `<h2>3. Förhandsgranska berikningen</h2><p>${esc(prepared.fileName)}. Arbetsdatan ändras först när du genomför importen.</p>
-    <div data-import-counts>${countsHtml(result.report.counts)}</div>
-    ${decisions.filter(x=>['B','D'].includes(x.classification)).map(x=>{const key=x.sheet+'|'+x.row+'|'+x.collection;const candidates=x.candidates?.length?x.candidates:(base[x.collection]||[]);return `<details><summary>${esc(x.sheet)} rad ${x.row} · ${esc(x.reason)}</summary><p>${esc(Object.entries(x.values).map(([k,v])=>k+': '+v).join(' · '))}</p><select data-match="${esc(key)}"><option value="">Behåll i granskningsunderlaget</option><option value="ignore">Ignorera</option>${candidates.map(c=>`<option value="${esc(c.id)}">${esc(label(c))}</option>`).join('')}</select>${['contracts','orders'].includes(x.collection)?`<label>Hemvist för ny post<select data-parent="${esc(key)}"><option value="">Välj hemvist</option>${(base[x.collection==='contracts'?'properties':'activities']||[]).map(c=>`<option value="${esc(c.id)}">${esc(label(c))}</option>`).join('')}</select></label>`:''}</details>`;}).join('')}
-    <div class="mapping-table"><table><thead><tr><th>Post / fält</th><th>Nuvarande</th><th>Föreslaget</th><th>Källa</th></tr></thead><tbody>${changes.slice(0,200).map(c=>`<tr><td>${esc(label(result.data[c.collection]?.find(x=>x.id===c.recordId)||{}))}<br>${esc(c.field)}</td><td>${esc(c.from)}</td><td>${esc(c.to)}</td><td>${esc(c.provenance.sheet)}!${esc(c.provenance.cell)}</td></tr>`).join('')}</tbody></table></div>
-    ${changes.length>200?'<p>De första 200 fältändringarna visas.</p>':''}<div class="actions"><button data-cancel>Avbryt</button><button data-apply class="primary-action">4. Genomför import</button></div>`;
   };
-  const d=dialog(render());
+  recordLegacyChanges();
+  const d=dialog(columnPreviewHtml(prepared,mapping,result,schemas,draft.importFieldPreferences));
   return waitForDialog(d,(finish,abort)=>{
-    const bind=()=>{d.querySelector('[data-cancel]').onclick=abort;d.querySelector('[data-apply]').onclick=()=>finish(result);};
+    const bind=()=>{
+      d.querySelector('[data-cancel]').onclick=abort;
+      d.querySelector('[data-apply]').onclick=()=>finish(result);
+      d.querySelectorAll('[data-preview-map]').forEach(node=>{const [pi,ci]=node.dataset.previewMap.split(':').map(Number);node.value=mapping.profiles[pi].columns[ci].target;});
+      d.querySelectorAll('[data-column-rule]').forEach(node=>{
+        const [pi,ci]=node.dataset.columnRule.split(':').map(Number), col=mapping.profiles[pi].columns[ci];
+        const key=[...col.target.split('.'),prepared.fileName].map(x=>String(x).trim().toLocaleLowerCase('sv')).join('|');node.value=draft.importFieldPreferences[key]||'';
+      });
+    };
     d.addEventListener('change',e=>{
-      if(e.target.dataset.match){const key=e.target.dataset.match;context.decisions[key]=e.target.value==='ignore'?'ignore':e.target.value?{recordId:e.target.value}:undefined;}
-      if(e.target.dataset.parent){context.decisions[e.target.dataset.parent]=e.target.value?{parentId:e.target.value}:undefined;}
-      if(!legacyResult){
-        result=evaluate();d.innerHTML=render();
-        for(const node of d.querySelectorAll('[data-match]')){const choice=context.decisions[node.dataset.match];node.value=choice==='ignore'?'ignore':choice?.recordId||'';}
-        for(const node of d.querySelectorAll('[data-parent]'))node.value=context.decisions[node.dataset.parent]?.parentId||'';
-        bind();
-      }
+      if(e.target.dataset.previewMap){
+        const [pi,ci]=e.target.dataset.previewMap.split(':').map(Number);
+        mapping.profiles[pi].columns[ci].target=e.target.value;usingLegacy=false;
+      }else if(e.target.dataset.columnRule){
+        const [pi,ci]=e.target.dataset.columnRule.split(':').map(Number), col=mapping.profiles[pi].columns[ci];
+        const key=[...col.target.split('.'),prepared.fileName].map(x=>String(x).trim().toLocaleLowerCase('sv')).join('|');
+        if(e.target.value)draft.importFieldPreferences[key]=e.target.value;else delete draft.importFieldPreferences[key];
+      }else return;
+      result=usingLegacy?window.LokalblickSourceService.analyzeImportWorkbook(prepared.workbook,draft,prepared.fileName):evaluate();
+      recordLegacyChanges();
+      d.innerHTML=columnPreviewHtml(prepared,mapping,result,schemas,draft.importFieldPreferences);bind();
     });
     bind();
   });
