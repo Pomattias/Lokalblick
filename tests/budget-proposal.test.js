@@ -32,3 +32,14 @@ test('latest monthly index enters rent calculation and is marked preliminary',()
  const data={indexSeries:[{year:2026,month:9,value:420,seriesBase:'1980'}],budgetPlans:[],activities:[],contracts:[{id:'c',number:'A',start:'2027-01-01',end:'2027-12-31',baseRent:100000,rentBaseIndex:400,rentBaseYear:2025,rentIndexPercent:100}]};
  const rows=calc.budgetRows(data,2027);assert.equal(rows[0].amount,105000);assert.equal(rows[0].status,'Preliminär');
 });
+test('new budget version preserves prior locked snapshot and metadata',()=>{
+ vm.runInNewContext(fs.readFileSync('frontend/domain/budget-followup.js','utf8'),ctx);
+ const plan={year:2027,status:'Låst',lockedAt:'2026-10-01',lockedBy:'Mattias',lockedIndexValue:420,lines:[{sourceId:'a',amount:2500000}],adjustments:{Investering:1000}};
+ ctx.LokalblickBudgetFollowup.beginVersion(plan,'Ny justering','Mattias','2026-10-09');
+ plan.adjustments.Investering=2000;plan.lines[0].amount=3000000;
+ assert.equal(plan.status,'Arbetsbudget');assert.equal(plan.versions.length,1);
+ assert.equal(plan.versions[0].snapshot.lines[0].amount,2500000);
+ assert.equal(plan.versions[0].snapshot.adjustments.Investering,1000);
+ assert.equal(plan.versions[0].snapshot.lockedAt,'2026-10-01');
+ assert.throws(()=>ctx.LokalblickBudgetFollowup.beginVersion(plan,'igen','Mattias'),/arbetsbudget/);
+});

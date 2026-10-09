@@ -49,5 +49,13 @@
     plan.versions.push({at,by:actor,reason:reason.trim(),snapshot});
     plan.revisionReason=reason.trim();plan.revisedBy=actor;plan.revisedAt=at;
   }
-  root.LokalblickBudgetFollowup={key,record,finalCost,compare,revise};
+  function beginVersion(plan,reason,actor,at=new Date().toISOString()) {
+    if(plan.status!=='Låst')throw Error('Budgeten är redan en arbetsbudget');
+    revise(plan,'danger',reason,actor,at);
+    plan.status='Arbetsbudget';
+    plan.adjustments ||= {};
+    plan.versionStartedAt=at;
+    plan.versionStartedBy=actor;
+  }
+  root.LokalblickBudgetFollowup={key,record,finalCost,compare,revise,beginVersion};
 })(typeof window==='undefined'?globalThis:window);

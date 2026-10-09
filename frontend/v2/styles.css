@@ -1135,3 +1135,20 @@ details .table-wrap {
   .filters .filter-chip { min-height:56px; padding-left:7px; padding-right:7px; }
   .filters .filter-chip .filter-value { font-size:12px; }
 }
+
+.budget-category-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:12px 0; }
+.budget-category-card { padding:14px; border:1px solid var(--line); border-radius:9px; background:var(--paper); }
+.budget-category-card h3 { margin:0; font-size:17px; }
+.budget-category-card dl { display:grid; gap:8px; margin:12px 0 0; }
+.budget-category-card dl > div { display:flex; justify-content:space-between; gap:10px; }
+.budget-category-card dt { color:var(--muted); }
+.budget-category-card dd { margin:0; text-align:right; font-weight:600; }
+.budget-card-total { border-top:1px solid var(--line); padding-top:8px; font-size:16px; }
+.budget-controls .primary-action { background:var(--accent); color:white; min-height:44px; padding:10px 16px; }
+@media(max-width:700px) {
+  .budget-category-cards { grid-template-columns:1fr; gap:8px; }
+  .budget-category-card { padding:12px; }
+  .budget-category-card [data-budget-adjust] { min-height:42px; padding:8px 14px; background:var(--soft); border-color:var(--accent); }
+  .budget-controls .primary-action { width:100%; }
+  body[data-view="budget"] #summary { display:none; }
+}

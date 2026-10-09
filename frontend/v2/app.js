@@ -564,7 +564,7 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-new-issue],[data-plan-month],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-new-issue],[data-plan-month],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-adjust],[data-budget-reopen],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
@@ -605,6 +605,27 @@ async function mutation(change, { automatic = false, manualPositionIds = [] } = 
   } finally {
     busy = false;
   }
+}
+function showBudgetAdjustment(group) {
+  const year=ui.year,plan=data.budgetPlans.find(p=>Number(p.year)===year);
+  const dialog=document.createElement('dialog');dialog.className='followup-dialog';
+  dialog.innerHTML=`<form><h2>Justera ${esc(group.toLowerCase())} ${year}</h2><p>Justeringen fördelas på objekten efter deras årsbelopp.</p>${plan?.status==='Låst'?'<p>Du skapar en ny arbetsbudget. Den tidigare låsta versionen sparas i budgethistoriken.</p>':''}<label>Justering i kr (+/−)<input name="amount" type="number" step="0.01" required value="${Number(plan?.adjustments?.[group])||0}"></label><p role="alert" data-error></p><div class="actions"><button type="button" data-cancel>Avbryt</button><button class="primary-action" type="submit">Spara justering</button></div></form>`;
+  dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();
+  dialog.querySelector('form').onsubmit=async event=>{
+    event.preventDefault();const button=dialog.querySelector('[type=submit]');button.disabled=true;
+    try {
+      const amount=Number(dialog.querySelector('[name=amount]').value);
+      if(!Number.isFinite(amount))throw Error('Ange ett belopp i kronor');
+      await mutation(d=>{
+        let p=d.budgetPlans.find(x=>Number(x.year)===year);
+        if(!p){p={year,status:'Arbetsbudget',createdAt:new Date().toISOString(),preliminaryIndex:0,adjustments:{},lines:[],notes:{}};d.budgetPlans.push(p);}
+        if(p.status==='Låst')globalThis.LokalblickBudgetFollowup.beginVersion(p,'Ny budgetversion · justering '+group,actor());
+        p.adjustments ||= {};p.adjustments[group]=amount;
+        p.targets=calc().summarize(calc().budgetProposal(d,year,{strict:true}));
+      });dialog.close();
+    }catch(error){dialog.querySelector('[data-error]').textContent=error.message;button.disabled=false;}
+  };
+  document.body.append(dialog);dialog.showModal();dialog.querySelector('input').focus();
 }
 const loadedBudgetIndexYears=new Set();
 async function loadBudgetIndex(year,force=false) {
@@ -1096,6 +1117,14 @@ document.addEventListener("click", (event) =>
             }
           : {},
       );
+    }
+    if (b.dataset.budgetAdjust) showBudgetAdjustment(b.dataset.budgetAdjust);
+    if (b.hasAttribute("data-budget-reopen") && confirm('Skapa ny budgetversion '+ui.year+'? Den låsta versionen sparas i historiken.')) {
+      await mutation(d=>{
+        const plan=d.budgetPlans.find(p=>Number(p.year)===ui.year);
+        globalThis.LokalblickBudgetFollowup.beginVersion(plan,'Ny arbetsbudget från låst version',actor());
+      });
+      await loadBudgetIndex(ui.year);
     }
     if (b.hasAttribute("data-budget-index")) await loadBudgetIndex(ui.year,true);
     if (b.hasAttribute("data-budget-create"))
