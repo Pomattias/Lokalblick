@@ -1076,3 +1076,8 @@ details .table-wrap {
 .import-mapping-dialog .mapping-table th:first-child { width:34%; }
 .import-mapping-dialog .mapping-table th:nth-child(2) { width:42%; }
 .import-mapping-dialog .mapping-table small { max-width:none; }
+
+.import-mapping-dialog .sheet-preview table { width:max-content; min-width:100%; }
+.import-mapping-dialog .sheet-preview th, .import-mapping-dialog .sheet-preview td { width:260px; min-width:260px; max-width:320px; overflow-wrap:anywhere; }
+.import-mapping-dialog .sheet-preview th:first-child { width:150px; min-width:150px; position:sticky; left:0; background:var(--surface, #fff); z-index:1; }
+.import-mapping-dialog .sheet-preview .column-targets { background:#f3f6fa; }

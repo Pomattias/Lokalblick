@@ -14,13 +14,21 @@ function waitForDialog(d, setup) {
     setup(finish,abort);
   });
 }
+function sheetTable(profile, controls) {
+  const cells=render=>profile.columns.map((col,ci)=>`<td>${render(col,ci)}</td>`).join('');
+  const sampleCount=Math.min(3,Math.max(0,...profile.columns.map(c=>(c.samples||c.examples||[]).length)));
+  return `<div class="mapping-table sheet-preview"><table><thead><tr><th scope="col">Importerad flik</th>${profile.columns.map(c=>`<th scope="col">${esc(c.header)}</th>`).join('')}</tr></thead><tbody>
+    ${Array.from({length:sampleCount},(_,ri)=>`<tr data-sample-row><th scope="row">Rad ${(profile.headerRow||1)+ri+1}</th>${cells(c=>esc((c.samples||c.examples||[])[ri]??''))}</tr>`).join('')}
+    <tr class="column-targets"><th scope="row">Lokalblick-data<br><small>Gäller hela kolumnen</small></th>${cells(controls)}</tr>
+    </tbody></table></div>`;
+}
 export async function mapImport(prepared,schemas) {
   const profiles=structuredClone(prepared.profiles), fields=fieldCatalog(schemas);
   const optionHtml=fields.map(f=>`<option value="${esc(f.target)}">${esc(f.label)}</option>`).join('');
-  const d=dialog(`<h2>2. Koppla kolumner</h2><p>${esc(prepared.fileName)}. Kontrollera förslagen. Kolumner utan standardfält bevaras som kompletterande uppgifter.</p>
+  const d=dialog(`<h2>2. Koppla kolumner</h2><p>${esc(prepared.fileName)}. Välj måltabell och fält för varje kolumn. Samma flik kan berika flera tabeller. Kontrollera förslagen. Kolumner utan standardfält bevaras som kompletterande uppgifter.</p>
     ${prepared.known?'<label><input type="checkbox" data-existing checked> Använd befintlig specialadapter för denna kända struktur (bevarar index- och tilläggsregler)</label>':''}
     <label>Sök målfält<input data-field-search type="search" placeholder="Area, hyra, adress…"></label>
-    ${profiles.map((p,pi)=>`<details open><summary>${esc(p.name)} · rubrikrad ${p.headerRow} · ${p.rowCount} rader</summary><div class="mapping-table"><table><thead><tr><th>Excelkolumn och exempel</th><th>Lokalblick</th><th>Tolkning</th></tr></thead><tbody>${p.columns.map((c,ci)=>`<tr><td><strong>${esc(c.header)}</strong><small>${c.examples.map(esc).join(' · ')}<br>${c.filled} ifyllda · ${c.missing} saknade<br>${c.approved?'Tidigare godkänd regel':'Automatiskt förslag'}</small></td><td><select data-map="${pi}:${ci}"><option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>${optionHtml}</select><select data-extra="${pi}:${ci}">${schemas.map(s=>`<option value="${esc(s.key)}">${esc(s.sheet)}</option>`).join('')}</select></td><td><select data-transform="${pi}:${ci}"><option value="auto">Automatisk datatyp</option><option value="text">Text</option><option value="monthly">Månadshyra × 12</option></select><label><input data-identity="${pi}:${ci}" type="checkbox" ${c.identity?'checked':''}> Identitetsnyckel</label></td></tr>`).join('')}</tbody></table></div></details>`).join('')}
+    ${profiles.map((p,pi)=>`<details open><summary>${esc(p.name)} · rubrikrad ${p.headerRow} · ${p.rowCount} rader</summary>${sheetTable(p,(c,ci)=>`<select aria-label="Koppling för ${esc(c.header)}" data-map="${pi}:${ci}"><option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>${optionHtml}</select><select data-extra="${pi}:${ci}">${schemas.map(s=>`<option value="${esc(s.key)}">${esc(s.sheet)}</option>`).join('')}</select><small>${c.filled} ifyllda · ${c.approved?'Tidigare godkänd regel':'Automatiskt förslag'}</small><select aria-label="Tolkning för ${esc(c.header)}" data-transform="${pi}:${ci}"><option value="auto">Automatisk datatyp</option><option value="text">Text</option><option value="monthly">Månadshyra × 12</option></select><label><input data-identity="${pi}:${ci}" type="checkbox" ${c.identity?'checked':''}> Identitetsnyckel</label>`)}</details>`).join('')}
     <p data-mapping-status></p><div class="actions"><button data-cancel>Avbryt</button><button data-next class="primary-action">Förhandsgranska</button></div>`);
   const locate=node=>{const [pi,ci]=Object.values(node.dataset)[0].split(':').map(Number);return profiles[pi].columns[ci];};
   d.querySelectorAll('[data-map]').forEach(n=>{n.value=locate(n).target;});
@@ -50,16 +58,16 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
     problems.get(key).count++;
   }
   const options=fields.map(f=>`<option value="${esc(f.target)}">${esc(f.label)}</option>`).join('');
-  return `<h2>3. Kontrollera kolumnkopplingar</h2><p>${esc(prepared.fileName)}. Välj hur varje kolumn ska användas. Regeln gäller alla matchade poster i kolumnen. Manuellt verifierade värden skyddas.</p>
+  return `<h2>3. Kontrollera kolumnkopplingar</h2><p>${esc(prepared.fileName)}. Samma flik kan berika flera tabeller. Välj måltabell och fält för varje kolumn. Regeln gäller alla matchade poster i kolumnen. Manuellt verifierade värden skyddas.</p>
     <details><summary>Visa sammanställning av importen</summary>${countsHtml(result.report.counts)}</details>
-    ${mapping.profiles.map((profile,pi)=>`<details open><summary>${esc(profile.name)} · ${profile.rowCount} rader</summary><div class="mapping-table"><table><thead><tr><th>Excelkolumn / exempel</th><th>Koppling i Lokalblick</th><th>Berikningsregel och resultat</th></tr></thead><tbody>${profile.columns.map((col,ci)=>{
+    ${mapping.profiles.map((profile,pi)=>`<details open><summary>${esc(profile.name)} · ${profile.rowCount} rader</summary>${sheetTable(profile,(col,ci)=>{
       const [collection,field]=col.target.split('.');
       const changes=(result.report.changes||[]).filter(c=>c.collection===collection&&c.field===field&&(c.provenance?.sheet===profile.name||!c.provenance?.sheet));
       const conflicts=reviews.filter(r=>r.collection===collection&&r.field===field&&(!r.sheet||r.sheet===profile.name));
       const key=[collection,field,prepared.fileName].map(x=>String(x||'').trim().toLocaleLowerCase('sv')).join('|');
       const canPrioritize=!col.target.startsWith('@')&&!['id','sourceId','propertyId','contractId','activityId'].includes(field);
-      return `<tr><td><strong>${esc(col.header)}</strong><small>${col.examples.map(esc).join(' · ')}<br>${col.filled} ifyllda</small></td><td><select aria-label="Koppling för ${esc(col.header)}" data-preview-map="${pi}:${ci}"><option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>${options}</select><small>${esc(names[col.target]|| (col.target==='@extra'?'Bevaras som kompletterande information':'Importeras inte'))}${col.identity?' · Identitetsnyckel':''}</small></td><td>${canPrioritize?`<select aria-label="Berikningsregel för ${esc(col.header)}" data-column-rule="${pi}:${ci}"><option value="">Komplettera tomma fält, granska konflikter</option><option value="accept">Använd denna källa vid avvikelse</option><option value="reject">Behåll befintliga värden vid avvikelse</option></select>`:''}<small>${col.target.startsWith('@')?'':changes.length+' fältändringar · '+conflicts.length+' avvikelser'}${preferences[key]?' · Sparad kolumnregel':''}</small></td></tr>`;
-    }).join('')}</tbody></table></div></details>`).join('')}
+      return `<select aria-label="Koppling för ${esc(col.header)}" data-preview-map="${pi}:${ci}"><option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>${options}</select><small>${esc(names[col.target]|| (col.target==='@extra'?'Bevaras som kompletterande information':'Importeras inte'))}${col.identity?' · Identitetsnyckel':''}</small>${canPrioritize?`<select aria-label="Berikningsregel för ${esc(col.header)}" data-column-rule="${pi}:${ci}"><option value="">Komplettera tomma fält, granska konflikter</option><option value="accept">Använd denna källa vid avvikelse</option><option value="reject">Behåll befintliga värden vid avvikelse</option></select>`:''}<small>${col.target.startsWith('@')?'':changes.length+' fältändringar · '+conflicts.length+' avvikelser'}${preferences[key]?' · Sparad kolumnregel':''}</small>`;
+    })}</details>`).join('')}
     ${problems.size?`<details><summary>Rader som behöver bättre identitet eller koppling (${uncertainRows.size})</summary><p>Ändra kolumnkopplingarna ovan. Poster som fortfarande saknar säker identitet sparas i granskningsunderlaget och läggs inte automatiskt in som nya objekt.</p><table><thead><tr><th>Flik / objekttyp</th><th>Orsak</th><th>Antal</th></tr></thead><tbody>${[...problems.values()].map(p=>`<tr><td>${esc(p.sheet)} · ${esc(schemas.find(s=>s.key===p.collection)?.sheet||p.collection)}</td><td>${esc(p.reason)}</td><td>${p.count}</td></tr>`).join('')}</tbody></table></details>`:''}
     <div class="actions"><button data-cancel>Avbryt</button><button data-apply class="primary-action">4. Genomför import</button></div>`;
 }
@@ -98,7 +106,9 @@ export async function previewImport(prepared,mapping,base,schemas,actor,legacyRe
       }else return;
       result=usingLegacy?window.LokalblickSourceService.analyzeImportWorkbook(prepared.workbook,draft,prepared.fileName):evaluate();
       recordLegacyChanges();
+      const scrolls=[...d.querySelectorAll('.sheet-preview')].map(n=>n.scrollLeft);
       d.innerHTML=columnPreviewHtml(prepared,mapping,result,schemas,draft.importFieldPreferences);bind();
+      d.querySelectorAll('.sheet-preview').forEach((n,i)=>{n.scrollLeft=scrolls[i]||0;});
     });
     bind();
   });

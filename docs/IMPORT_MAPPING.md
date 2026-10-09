@@ -64,3 +64,5 @@ Frontendens användarnamn samlas i `FRONTEND_LABELS` i den befintliga schemadefi
 Steg 3 visar en rad per Excelkolumn med exempel, ändringsbart målfält, antal fältändringar och avvikelser. Användaren väljer källprioritet en gång för hela kolumnen. Regeländringen räknar om förhandsgranskningen på en kopia av arbetsdatan. Manuella värden skyddas fortfarande. Reglerna blir beständiga först när importen genomförs.
 
 Osäkra identiteter sammanfattas per flik, objekttyp och orsak i en hopfällbar del. Antalet osäkra rader räknas utan att samma källrad räknas flera gånger för olika objekttyper. Förhandsgranskningen visar inte längre hundratals individuella val eller listor med enskilda fältändringar. Granskningsunderlaget bevaras för verkliga undantag efter importen.
+
+Kolumnkoppling och berikningsförhandsgranskning visar nu varje importerad flik som en horisontell tabell: originalrubriker, tre sammanhängande exempelrader (med tomma celler bevarade) och målfältsval under respektive kolumn. Valet gäller hela kolumnen. Breda flikar kan scrollas horisontellt.

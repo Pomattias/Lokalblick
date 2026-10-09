@@ -134,3 +134,21 @@ test('previous canonical Excel date headers still read without losing values',()
  const restored=context.window.LokalblickSourceService.workbookToData(w);
  assert.equal(restored.contracts[0].start,'2026-01-01');assert.equal(restored.contracts[0].end,'2027-12-31');assert.equal(restored.contracts[0].noticePeriodMonths,9);
 });
+
+test('sheet samples preserve row alignment including empty cells',()=>{
+ const profiles=profileWorkbook(fixture([['Avtalsnummer','t.o.m.'],['A-1','2027-12-31'],['A-2',null],['A-3','2029-12-31'],['A-4','2030-12-31']],'Avtal'),schemas,XLSX);
+ assert.deepEqual(profiles[0].columns[0].samples,['A-1','A-2','A-3']);
+ assert.deepEqual(profiles[0].columns[1].samples,['2027-12-31','','2029-12-31']);
+});
+
+test('one sheet enriches property and contract tables independently by column',()=>{
+ const base={properties:[{id:'p1',designation:'Ek 1',city:'Malmö'}],contracts:[{id:'c1',number:'A-1',propertyId:'p1'}]};
+ const w=fixture([['Fast.bet','Ort','Adress','Avtalsnummer','t.o.m.'],['Ek 1','Malmö','Gatan 1','A-1','2028-12-31']],'Lokallista');
+ const result=run(w,base);
+ assert.equal(result.data.properties.length,1);assert.equal(result.data.contracts.length,1);
+ assert.equal(result.data.properties[0].address,'Gatan 1');
+ assert.equal(result.data.contracts[0].end,'2028-12-31');
+ assert.equal(result.data.contracts[0].propertyId,'p1');
+ assert.equal(result.data.properties[0].provenance.address.cell,'C2');
+ assert.equal(result.data.contracts[0].provenance.end.cell,'E2');
+});

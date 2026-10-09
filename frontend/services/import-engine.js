@@ -53,13 +53,15 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
       if(inferred==='contracts'&&/^(?:forlangningstid|forlangningsperiod)(?:manader|man)?$/.test(h))contextualTarget='contracts.renewalPeriodMonths';
       if(inferred==='contracts'&&/^(?:uppsagningstid)(?:manader|man)?$/.test(h))contextualTarget='contracts.noticePeriodMonths';
       const target=rule?.target || contextualTarget || aliases[h] || candidate?.target || '@extra';
-      const examples=values.slice(0,3).map(value=>{
+      const formatSample=value=>{
         if(/\.(?:start|end|startDate|endDate)$/.test(target)&&typeof value==='number'&&value>0&&value<100000){const d=XLSX.SSF.parse_date_code(value);if(d)return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;}
         return value;
-      });
+      };
+      const examples=values.slice(0,3).map(formatSample);
+      const samples=matrix.slice(headerIndex+1,headerIndex+4).map(r=>formatSample(r[index]??''));
       return {header:String(header),index,target,collection:rule?.collection || (target.startsWith('@')?inferred:target.split('.')[0]),
         transform:rule?.transform || (norm(header)==='manadshyra'?'monthly':'auto'),
-        examples,reason:contextualTarget&&!rule?'Avtalssammanhang och kolumnens betydelse används för förslaget.':'',filled:values.length,missing:matrix.slice(headerIndex+1).length-values.length,
+        examples,samples,reason:contextualTarget&&!rule?'Avtalssammanhang och kolumnens betydelse används för förslaget.':'',filled:values.length,missing:matrix.slice(headerIndex+1).length-values.length,
         approved:Boolean(rule),identity:rule?.identity || /^(avtalsnummer|avtalsnr|fastighetsbeteckning|fastbet|epost|email)$/.test(norm(header))};
     }).filter(Boolean);
     return {name,signature,headerIndex,headerRow:start+headerIndex+1,startColumn:sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0,columns,rowCount:matrix.slice(headerIndex+1).filter(r=>r.some(present)).length,inferred};

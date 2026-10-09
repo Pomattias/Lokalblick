@@ -23,3 +23,15 @@ test('column examples and file names are safely escaped',()=>{
  const html=columnPreviewHtml(prepared,unsafe,{data:{},report:{}},schemas);
  assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;script&gt;'));
 });
+
+test('sheet preview places headers above three aligned rows and column-wide choices',()=>{
+ const aligned=structuredClone(mapping);aligned.profiles[0].headerRow=4;
+ aligned.profiles[0].columns[0].samples=['A-1','A-2','A-3'];
+ aligned.profiles[0].columns[1].samples=['2027-12-31','','2029-12-31'];
+ const html=columnPreviewHtml(prepared,aligned,{data:{},report:{}},schemas);
+ assert.equal((html.match(/data-sample-row/g)||[]).length,3);
+ assert.ok(html.includes('Rad 5'));assert.ok(html.includes('Rad 7'));
+ assert.ok(html.includes('<td>A-2</td><td></td>'));
+ assert.ok(html.includes('Gäller hela kolumnen'));
+ assert.ok(html.indexOf('Avtalsnr')<html.indexOf('Rad 5'));
+});
