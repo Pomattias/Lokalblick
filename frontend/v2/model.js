@@ -601,6 +601,7 @@ export function scope(data, selection) {
       (!q ||
         [
           c.number,
+          c.tenantName,
           c.use,
           c.businessName,
           p.address,

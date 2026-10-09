@@ -352,7 +352,7 @@
       return {
         sourceRow:hit.row+2+offset,
         designation:designation,address:address,number:number,documentUrl:documentUrl,
-        comment:text(cell(row,headers,["Kommentar"])),use:use,department:text(cell(row,headers,["AVDELNING","Avdelning"])),
+        comment:text(cell(row,headers,["Kommentar"])),use:use,tenantName:text(cell(row,headers,["Hyresgäst","Hyresgästen","Hyresgästens namn"])),department:text(cell(row,headers,["AVDELNING","Avdelning"])),
         category:category,landlord:text(cell(row,headers,["Hyresvärd","Hyresvard"])),
         start:excelDate(cell(row,headers,["Fr.o.m.","Fr o m","Start","Startdatum","Avtalsstart","Giltigt fr.o.m.","Giltigt from"])),
         end:excelDate(cell(row,headers,["T.o.m.","T o m","Slut","Slutdatum","Avtalsslut","Giltigt t.o.m.","Giltigt tom","Aktuellt giltigt t.o.m."])),
@@ -429,7 +429,7 @@
 
       // Identity / core terms: INT/EXT remains authoritative. Only fill blanks.
       setIfBlank(c,"number",r.number); setIfBlank(c,"area",r.area); setIfBlank(c,"category",r.category);
-      setIfBlank(c,"use",r.use); setIfBlank(c,"start",r.start); setIfBlank(c,"end",r.end);
+      setIfBlank(c,"use",r.use); setIfBlank(c,"tenantName",r.tenantName); setIfBlank(c,"start",r.start); setIfBlank(c,"end",r.end);
       setIfBlank(c,"moveInDate",r.moveInDate); setIfBlank(c,"moveOutDate",r.moveOutDate); setIfBlank(c,"notice",r.notice);
       setIfBlank(c,"unitId",unitId(r.department));
       if(property){

@@ -16,7 +16,7 @@
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["propertyId","_propertyId",true],["businessPartyId","_businessPartyId",true],["businessResponsiblePersonId","_businessResponsiblePersonId",true],
-      ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
+      ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["tenantName","Hyresgäst"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
       ["start","Start"],["end","Slut"],["moveInDate","Inflyttning"],["moveOutDate","Utflyttning"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
       ["baseRent","Bashyra"],["baseAdditions","Bastillägg"],["rentBaseYear","Hyra basår"],["rentBaseIndex","Hyra bastal (KPI)"],["rentIndexPercent","Hyra uppräkning %"],["additionBaseYear","Tillägg basår"],["additionBaseIndex","Tillägg bastal (KPI)"],["additionIndexPercent","Tillägg uppräkning %"],
       ["annualContractDrift","Media per år"],["annualPropertyTax","F-skatt per år"],
@@ -24,7 +24,7 @@
       ["mediaWaste","Sopor"],["mediaElectricity","El"],["mediaWater","VA"],["mediaHeating","Värme"],["mediaHotWater","VV"],["mediaVentilation","Vent"],["mediaOutdoor","Utem."],["mediaPropertyTax","F-skatt ingår"],
       ["unitId","_unitId",true],["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"],
       ["enrichmentSource","_enrichmentSource",true],["enrichmentSourceRow","_enrichmentSourceRow",true],["enrichmentTargetYear","_enrichmentTargetYear",true]
-    ], display:["Fastighet","Adress","Verksamhetspart","Verksamhetsansvarig","Område"] },
+    ], display:["Fastighet","Adress","Verksamhet","Verksamhetsansvarig"] },
     { sheet:"Parter", key:"organizations", prefix:"PART", columns:[
       ["id","_id",true],["name","Part"],["type","Typ"],["ownerClass","Ägarklass"],["investmentRule","Investeringsregel"],["investmentThreshold","Investeringsgräns kr"],["rentSurchargeRate","Hyrespåslag %"]
     ]},
@@ -418,7 +418,7 @@
       if (!row.propertyId) { const m=resolveDisplayedProperty(properties,row.__display_Fastighet,row.__display_Adress); if(m) row.propertyId=m.id; }
       if (!row.businessPartyId && row.__display_Verksamhetspart) { const m=byDisplay(organizations,row.__display_Verksamhetspart,orgDisplay); if(m) row.businessPartyId=m.id; }
       if (!row.businessResponsiblePersonId && row.__display_Verksamhetsansvarig) { const m=byDisplay(people,row.__display_Verksamhetsansvarig,personDisplay); if(m) row.businessResponsiblePersonId=m.id; }
-      if (!row.unitId && row.__display_Område) row.unitId=unitIdFromDisplay(row.__display_Område);
+      if (!row.unitId && (row.__display_Verksamhet || row.__display_Område)) row.unitId=unitIdFromDisplay(row.__display_Verksamhet || row.__display_Område);
     });
     (data.people||[]).forEach(function(row) {
       const display=row.__display_Part || row.__display_Organisation;
@@ -703,7 +703,7 @@
     if(label==="Fastighetsägare")return orgDisplay(organizations.find(function(x){return x.id===row.ownerPartyId;}));
     if(label==="Verksamhetspart")return orgDisplay(organizations.find(function(x){return x.id===row.businessPartyId;}));
     if(label==="Part"||label==="Organisation")return orgDisplay(organizations.find(function(x){return x.id===row.organizationId;}));
-    if(label==="Område")return unitDisplay(row.unitId);
+    if(label==="Område"||label==="Verksamhet")return unitDisplay(row.unitId);
     if(label==="Ansvarig"||label==="Ansvarig hos oss")return personDisplay(people.find(function(x){return x.id===row.responsiblePersonId;}));
     if(label==="Ansvarig hos fastighetsägaren")return personDisplay(people.find(function(x){return x.id===row.ownerResponsiblePersonId;}));
     if(label==="Verksamhetsansvarig")return personDisplay(people.find(function(x){return x.id===row.businessResponsiblePersonId;}));
@@ -1307,7 +1307,7 @@
         if(base.contracts.some(function(x){return x.id===mapped.id;}))mapped.id=nextStableId("AVT",base.contracts);
         base.contracts.push(mapped);found=mapped;report.counts.contractsCreated++;
       } else if(mergeFields(found,mapped,[
-        "sourceId","propertyId","number","area","category","use","businessPartyId","businessName","businessResponsiblePersonId",
+        "sourceId","propertyId","number","area","category","tenantName","use","businessPartyId","businessName","businessResponsiblePersonId",
         "start","end","noticePeriodMonths","renewalPeriodMonths","originalTerm","baseRent","baseAdditions","rentBaseYear","rentIndexPercent",
         "additionBaseYear","additionIndexPercent","annualContractDrift","annualPropertyTax","costCenterOperations","costCenterPremises","ekotObject",
         "contractDocumentUrl","contractDocumentName","contractDocumentKind","unitId","employees","users","rooms","commonArea","apartmentArea"

@@ -9,7 +9,7 @@ import XLSX from "xlsx";
 const C=globalThis.LokalblickCalculations;
 const near=(value,wanted)=>assert.ok(Math.abs(value-wanted)<0.000001,`${value} vs ${wanted}`);
 test("2026 annual rent and addition use separate baselines and index shares",()=>{
- const contract={id:"c1",propertyId:"p1",number:"A-1",area:100,
+ const contract={id:"c1",propertyId:"p1",number:"A-1",area:100,tenantName:"Syntetisk hyresgäst",unitId:"VARDBO",
    baseRent:100000,rentBaseYear:2020,rentBaseIndex:300,rentIndexPercent:.8,
    baseAdditions:20000,additionBaseYear:2021,additionBaseIndex:320,additionIndexPercent:.5};
  const indexSeries=[{year:2025,month:10,value:400,seriesBase:"1980",source:"Test-KPI"}];
@@ -30,6 +30,8 @@ test("2026 annual rent and addition use separate baselines and index shares",()=
  const saved=svc.workbookToData(svc.dataToWorkbook(normalized));
  assert.equal(saved.contracts[0].rentBaseIndex,300);
  assert.equal(saved.contracts[0].additionBaseIndex,320);
+ assert.equal(saved.contracts[0].tenantName,"Syntetisk hyresgäst");
+ assert.equal(saved.contracts[0].unitId,"VARDBO");
 });
 test("0% share is fixed even without October index or base year",()=>{
  const x=C.annualValues({baseRent:100000,rentIndexPercent:0,baseAdditions:20000,additionIndexPercent:0},2026,0,[]);

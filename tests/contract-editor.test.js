@@ -5,7 +5,7 @@ import { renderContractEditor } from "../frontend/v2/contract-editor.js";
 import { readEditor } from "../frontend/v2/editor.js";
 
 const contract = {
-  id:"c1", number:"L-100", propertyId:"p1", businessPartyId:"tenant",
+  id:"c1", number:"L-100", propertyId:"p1", businessPartyId:"tenant", tenantName:"Hyresgäst AB", unitId:"VARDBO",
   businessResponsiblePersonId:"person1", category:"ÄBO Äldreboende",
   area:100, source:"SF", use:"VÅRDBO", annualContractDrift:12000,
   start:"2024-01-01", end:"2028-12-31",
@@ -15,9 +15,9 @@ const contract = {
 };
 const data = {
   isDemo:true,
-  properties:[{id:"p1",address:"Testgatan 1",ownerPartyId:"owner"}],
+  properties:[{id:"p1",address:"Testgatan 1",ownerPartyId:"owner",ownerResponsiblePersonId:"ownerP",responsiblePersonId:"ourP"}],
   organizations:[{id:"owner",name:"Ägaren",type:"owner"},{id:"tenant",name:"Hyresgästen",type:"tenant"}],
-  people:[{id:"person1",name:"Kontaktperson A",organizationId:"tenant"}],
+  people:[{id:"person1",name:"Kontaktperson A",organizationId:"tenant",unitId:"VARDBO"}, {id:"ownerP",name:"Ägarkontakt",organizationId:"owner"}, {id:"ourP",name:"Vår kontakt",unitId:"VARDBO"}],
   contracts:[contract],
   indexSeries:[{year:2025,month:10,value:400,seriesBase:"1980",source:"Test-KPI"}]
 };
@@ -28,7 +28,17 @@ test("compact contract form distinguishes owner from tenant and retains indexed 
   assert.match(html,/Fastighetsägare/);
   assert.match(html,/Ägaren/);
   assert.match(html,/Hyresgäst/);
-  assert.match(html,/Kontaktperson/);
+  assert.match(html,/Verksamhetsansvarig/);
+  assert.match(html,/Fastighetsägarens kontaktperson/);
+  assert.match(html,/Ägarkontakt/);
+  assert.match(html,/Vår kontaktperson/);
+  assert.match(html,/Vår kontakt/);
+  assert.match(html,/name="tenantName"/);
+  assert.match(html,/value="Hyresgäst AB"/);
+  assert.match(html,/name="unitId"/);
+  assert.match(html,/value="VARDBO" selected/);
+  assert.doesNotMatch(html,/name="businessPartyId"/);
+  assert.doesNotMatch(html,/name="ownerResponsiblePersonId"|name="responsiblePersonId"/);
   assert.match(html,/Kontaktperson A/);
   assert.match(html,/value="Äldreboende" selected/);
   assert.match(html,/name="category"/);
@@ -50,6 +60,8 @@ test("the edit merge preserves currently imported values until safe backend migr
       callback("80","rentIndexPercent");
       callback("50","additionIndexPercent");
       callback("Äldreboende","category");
+      callback("Fastighetsförvaltning AB","tenantName");
+      callback("ORDBO","unitId");
     }
   };
   try {
@@ -58,6 +70,9 @@ test("the edit merge preserves currently imported values until safe backend migr
     assert.equal(updated.rentIndexPercent,.8);
     assert.equal(updated.additionIndexPercent,.5);
     assert.equal(updated.category,"Äldreboende");
+    assert.equal(updated.tenantName,"Fastighetsförvaltning AB");
+    assert.equal(updated.unitId,"ORDBO");
+    assert.equal(updated.businessPartyId,"tenant");
     assert.equal(updated.annualContractDrift,12000);
     assert.equal(updated.source,"SF");
   } finally { globalThis.FormData=original; }
@@ -100,4 +115,16 @@ test("editing an old Media field migrates it to one non-indexed addition without
    assert.equal(v.addition.amount,460000);
    assert.equal(v.tax,15000);
  }finally{globalThis.FormData=old;}
+});
+
+test("new contract can pick property only when not already bound", () => {
+  const existing=renderContractEditor(data,contract,"c1");
+  assert.doesNotMatch(existing,/name="propertyId"/);
+  const next=renderContractEditor(data,{tenantName:"",unitId:""},"");
+  assert.match(next,/name="propertyId"/);
+});
+test("unrecognized imported verksamhet survives until explicit reclassification",()=>{
+  const html=renderContractEditor(data,{...contract,unitId:"OLD_UNIT"},"c1");
+  assert.match(html,/value="OLD_UNIT" selected/);
+  assert.match(html,/tidigare värde/);
 });

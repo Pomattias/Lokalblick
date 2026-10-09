@@ -9,21 +9,21 @@ window.LokalblickDemoData = {
   ],
   contracts: [
     {
-      id: "SF|DEMO-101-1", propertyId: "DEMO-101", number: "SF-DEMO-101-1", source: "SF",
+      id: "SF|DEMO-101-1", propertyId: "DEMO-101", number: "SF-DEMO-101-1", source: "SF", tenantName: "Kommunen (demo)",
       area: 1348, category: "ÄBO Äldreboende", use: "VÅRDBO", start: "2024-01-01", end: "2028-12-31", notice: "2027-12-31",
       annualRent: 2450000, annualContractDrift: 460000, unitId: "VARDBO",
       tenantOrgId: "ORG-TENANT-HVO", ownerOrgId: "ORG-OWNER-SF",
       employees: 46, users: 54, rooms: 58, commonArea: 510, apartmentArea: 620
     },
     {
-      id: "EXT|DEMO-201-1", propertyId: "DEMO-201", number: "5307-10030", source: "EXT",
+      id: "EXT|DEMO-201-1", propertyId: "DEMO-201", number: "5307-10030", source: "EXT", tenantName: "Kommunen (demo)",
       area: 8224, category: "KP Kontor", use: "ORDBO", start: "2026-01-01", end: "2030-11-30", notice: "2029-11-30",
       annualRent: 11800000, annualContractDrift: 1950000, unitId: "ORDBO",
       tenantOrgId: "ORG-TENANT-HVO", ownerOrgId: "ORG-OWNER-EXT1",
       employees: 410, users: 0, rooms: 0, commonArea: 1700, apartmentArea: 0
     },
     {
-      id: "SF|DEMO-301-1", propertyId: "DEMO-301", number: "SF-DEMO-301-1", source: "SF",
+      id: "SF|DEMO-301-1", propertyId: "DEMO-301", number: "SF-DEMO-301-1", source: "SF", tenantName: "Kommunen (demo)",
       area: 1714, category: "DV Daglig verksamhet", use: "Hälsa & Förebyggande", start: "2026-01-01", end: "2028-12-31", notice: "2027-12-31",
       annualRent: 2650000, annualContractDrift: 390000, unitId: "HOF",
       tenantOrgId: "ORG-TENANT-HVO", ownerOrgId: "ORG-OWNER-SF",

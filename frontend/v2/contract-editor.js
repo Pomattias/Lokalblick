@@ -1,4 +1,4 @@
-import { esc, options, calc, propertyReference } from "./views.js";
+import { esc, options, calc, propertyReference, units } from "./views.js";
 
 const CATEGORIES = ["Kontor", "Förråd", "Äldreboende", "LSS-boende", "Bostad", "Daglig verksamhet", "Verksamhetslokal", "Övrigt"];
 const money = n => new Intl.NumberFormat("sv-SE", {maximumFractionDigits:0}).format(Number(n)||0) + " kr";
@@ -31,7 +31,16 @@ export function renderContractEditor(data, c, id, company=false) {
   const choices=CATEGORIES.includes(category)||!category?CATEGORIES:[...CATEGORIES,category];
   const categorySelect='<select name="category"'+(masterLocked?' disabled':'')+'>'+
     options(choices, x=>x, x=>x===category&&!CATEGORIES.includes(x)?x+' (tidigare kategori)':x,category,'Välj kategori')+'</select>';
-  const people=(data.people||[]).filter(p=>!c.businessPartyId||p.organizationId===c.businessPartyId);
+  const people=data.people||[];
+  const ownerContact=people.find(p=>p.id===property.ownerResponsiblePersonId)?.name||"Ej angiven";
+  const ourContact=people.find(p=>p.id===property.responsiblePersonId)?.name||"Ej angiven";
+  // The responsible person belongs to this contract/object, not to the tenant
+  // organization. Preserve existing selections when organization changes.
+  // All people remain selectable even if the contract's verksamhet changes.
+  const activityPersonOptions=people;
+  const verksamhetChoices=Object.entries(units);
+  if (c.unitId && !Object.hasOwn(units,c.unitId))
+    verksamhetChoices.push([c.unitId,c.unitId+" (tidigare värde – kontrollera)"]);
   const totals=calc().annualValues(c,new Date().getFullYear(),0,data.indexSeries);
   // Media was the legacy name for Tillägg, not an additional cost. Existing
   // source values can be edited as Tillägg without showing a second field.
@@ -57,10 +66,15 @@ export function renderContractEditor(data, c, id, company=false) {
         '<h2 id="editor-title">'+esc(propertyReference(property)||"Avtal")+'</h2>'+
         '<small>'+esc(c.number||"Nytt avtal")+'</small></div><button type="button" data-editor-close>Stäng</button></div>'+
       '<section class="contract-section"><h3>Avtalsuppgifter</h3><div class="contract-grid">'+
-        field("Fastighet", select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet",masterLocked))+
+        field("Fastighet",(!id&&!c.propertyId)
+          ? select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")
+          : display(propertyReference(property)||"Ej kopplad"))+
         field("Fastighetsägare",display(ownerName))+
-        field("Hyresgäst",select("businessPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
-        field("Kontaktperson",select("businessResponsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"))+
+        field("Hyresgäst",input(c,"tenantName","text",false,'placeholder="Ange hyresgäst"'))+
+        field("Verksamhet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj verksamhet"))+
+        field("Fastighetsägarens kontaktperson",display(ownerContact))+
+        field("Verksamhetsansvarig",select("businessResponsiblePersonId",activityPersonOptions,c,x=>x.id,x=>x.name+(x.unitId&&units[x.unitId]?" · "+units[x.unitId]:""),"Ej kopplad"))+
+        field("Vår kontaktperson",display(ourContact))+
         field("Avtalsnummer",input(c,"number","text",masterLocked))+
         field("Lokalkategori",categorySelect)+
         field("Area, m²",input(c,"area","number",masterLocked,'min="0" step="any"'))+

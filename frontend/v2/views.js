@@ -368,10 +368,11 @@ export function contractDetail(data, id, year) {
     <p><small>Indexkälla hyra: ${esc(v.rent.source)}${v.rent.reason ? " · "+esc(v.rent.reason) : ""}. Tillägg: ${esc(v.addition.source)}${v.addition.reason ? " · "+esc(v.addition.reason) : ""}.</small></p>
   </section>
   <div class="detail-grid">
-    <div><small>Verksamhet</small><strong>${esc(c.businessName||c.use||"–")}</strong><small>${esc(organizationLabel(data,c.businessPartyId))}</small></div>
-    <div><small>Verksamhetsansvarig</small><strong>${esc(personLabel(data,c.businessResponsiblePersonId))}</strong></div>
-    <div><small>Ansvarig hos oss · fastighet</small><strong>${esc(personLabel(data,p.responsiblePersonId))}</strong></div>
-    <div><small>Fastighetsägarens ansvarige</small><strong>${esc(personLabel(data,p.ownerResponsiblePersonId))}</strong></div>
+    <div><small>Verksamhet</small><strong>${esc(units[c.unitId]||c.use||"–")}</strong></div>
+    <div><small>Hyresgäst</small><strong>${esc(c.tenantName||"–")}</strong></div>
+    <div><small>Verksamhetsansvarig · avtal</small><strong>${esc(personLabel(data,c.businessResponsiblePersonId))}</strong></div>
+    <div><small>Vår kontaktperson · fastighet</small><strong>${esc(personLabel(data,p.responsiblePersonId))}</strong></div>
+    <div><small>Fastighetsägarens kontaktperson · fastighet</small><strong>${esc(personLabel(data,p.ownerResponsiblePersonId))}</strong></div>
     <div><small>Hyra ${year} · ${esc(v.rent.status)}</small><strong>${v.rent.status==="Behöver kontroll"&&v.rent.amount<=0?"Kontrollera":money(v.rent.amount)}</strong></div>
     <div><small>Tillägg · ${esc(v.addition.status)}</small><strong>${v.addition.status==="Behöver kontroll"&&v.addition.amount<=0?"Kontrollera":money(v.addition.amount)}</strong></div>
     <div><small>Fastighetsskatt</small><strong>${money(v.tax)}</strong></div>
@@ -563,7 +564,8 @@ const importFieldLabels = {
   use: "Verksamhet / användning",
   businessName: "Namn på verksamheten",
   ownerPartyId: "Fastighetsägare",
-  businessPartyId: "Verksamhet",
+  businessPartyId: "Äldre partskoppling",
+  tenantName: "Hyresgäst",
   responsiblePersonId: "Ansvarig hos oss",
   ownerResponsiblePersonId: "Ansvarig hos fastighetsägaren",
   businessResponsiblePersonId: "Verksamhetsansvarig",
@@ -580,7 +582,7 @@ const importFieldLabels = {
   additionIndexPercent: "Indexandel tillägg",
   annualContractDrift: "Avtalsdrift",
   annualPropertyTax: "Fastighetsskatt",
-  unitId: "Område",
+  unitId: "Verksamhet / område",
   employees: "Antal anställda",
   users: "Antal brukare",
   rooms: "Antal rum",

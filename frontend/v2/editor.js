@@ -64,7 +64,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     organizationId: "Part",
     personId: "Person",
     responsiblePersonId: "Ansvarig hos oss",
-    ownerResponsiblePersonId: "Ansvarig hos fastighetsägaren",
+    ownerResponsiblePersonId: "Fastighetsägarens kontaktperson",
     businessResponsiblePersonId: "Verksamhetsansvarig",
     orderedByPersonId: "Beställd av",
     start: "Avtalsstart",
@@ -89,7 +89,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
         fields.set(k, k === "responsiblePersonId" ? "Ansvarig" : k);
     });
   if (["properties", "activities"].includes(col))
-    fields.set("responsiblePersonId", "Ansvarig hos oss");
+    fields.set("responsiblePersonId", col === "properties" ? "Vår kontaktperson" : "Ansvarig hos oss");
   const groups = new Map();
   fields.forEach((label, key) => {
     const g = group(key);
