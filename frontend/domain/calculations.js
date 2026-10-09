@@ -206,6 +206,41 @@
     end.setUTCDate(Math.min(day,maxDay));
     return end.toISOString().slice(0,10);
   }
+  // Show rolling contractual deadlines without mutating the imported dates.
+  // Do not assume renewal if either notice or renewal terms are unavailable.
+  function projectedContractTerm(contract, asOf = new Date()) {
+    const initial=validDate(contract?.end);
+    if (!initial) return {end:"",noticeBy:"",nextEnd:"",renewals:0};
+    const notice=contract?.noticePeriodMonths == null || contract.noticePeriodMonths===""
+      ? NaN : Number(contract.noticePeriodMonths);
+    const renewal=contract?.renewalPeriodMonths == null || contract.renewalPeriodMonths===""
+      ? NaN : Number(contract.renewalPeriodMonths);
+    const today=asOf instanceof Date ? asOf : validDate(asOf);
+    const reference=today&&Number.isFinite(today.getTime()) ? today : new Date();
+    const iso=value=>value.toISOString().slice(0,10);
+    const shift=(value,months)=>{
+      const lastOfMonth=new Date(Date.UTC(value.getUTCFullYear(),value.getUTCMonth()+1,0)).getUTCDate();
+      const target=new Date(Date.UTC(value.getUTCFullYear(),value.getUTCMonth()+months,1));
+      const lastTarget=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth()+1,0)).getUTCDate();
+      target.setUTCDate(value.getUTCDate()===lastOfMonth?lastTarget:Math.min(value.getUTCDate(),lastTarget));
+      return target;
+    };
+    if (!Number.isInteger(notice)||notice<0)
+      return {end:iso(initial),noticeBy:"",nextEnd:"",renewals:0};
+    let end=initial,renewals=0;
+    if(Number.isInteger(renewal)&&renewal>0){
+      while(reference>shift(end,-notice)&&renewals<240){
+        end=shift(end,renewal);
+        renewals++;
+      }
+    }
+    return {
+      end:iso(end),
+      noticeBy:iso(shift(end,-notice)),
+      nextEnd:Number.isInteger(renewal)&&renewal>0?iso(shift(end,renewal)):"",
+      renewals,
+    };
+  }
   function yearFactor(c, year) {
     const from = Date.UTC(Number(year), 0, 1),
       to = Date.UTC(Number(year) + 1, 0, 1);
@@ -527,6 +562,7 @@
     annualValues,
     propertyAnnualCost,
     noticeDate,
+    projectedContractTerm,
     yearFactor,
     budgetPeriod,
     budgetYearFactor,
