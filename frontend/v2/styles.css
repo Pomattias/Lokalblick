@@ -1081,3 +1081,44 @@ details .table-wrap {
 .import-mapping-dialog .sheet-preview th, .import-mapping-dialog .sheet-preview td { width:260px; min-width:260px; max-width:320px; overflow-wrap:anywhere; }
 .import-mapping-dialog .sheet-preview th:first-child { width:150px; min-width:150px; position:sticky; left:0; background:var(--surface, #fff); z-index:1; }
 .import-mapping-dialog .sheet-preview .column-targets { background:#f3f6fa; }
+
+/* Gemensam kompakt mobilram. Verktyg nås via Mer. */
+.more-menu { display:grid; gap:10px; max-width:520px; }
+.more-menu button, .more-menu a { text-align:left; padding:12px; }
+@media (max-width:700px) {
+  .sidebar { display:none; }
+  main { padding:8px 10px calc(64px + env(safe-area-inset-bottom)); }
+  main > header { gap:8px; margin-bottom:8px; min-height:0; }
+  main > header h1 { font-size:18px; margin:0; letter-spacing:0; }
+  main > header .eyebrow, main > header #history, main > header #demo,
+  main > header [data-ui-version], main > header #source-label { display:none; }
+  main > header .actions { max-width:none; gap:4px; }
+  main > header .actions button { padding:5px 8px; font-size:11px; }
+  #context:not(.has-selection) { display:none; }
+  #context.has-selection { margin:4px 0 8px; gap:8px; }
+  .filters { grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+  .filters label { font-size:10px; gap:2px; }
+  .filters select { padding:7px 4px; font-size:12px; }
+  .filters .search { grid-column:1/-1; }
+  .filters .search input { padding:7px 9px; font-size:16px; }
+  .filters .search { font-size:0; gap:0; }
+  .summary { grid-template-columns:repeat(4,minmax(0,1fr)); margin:10px 0 12px; }
+  .summary > div { padding:7px 6px; border-bottom:0; }
+  .summary > div:nth-child(even) { border-right:1px solid var(--line); }
+  .summary > div:last-child { border-right:0; }
+  .summary span { font-size:10px; }
+  .summary strong { font-size:15px; overflow-wrap:anywhere; }
+  .mobile-nav { height:calc(56px + env(safe-area-inset-bottom)); display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:3px; overflow:visible; padding:6px 6px calc(6px + env(safe-area-inset-bottom)); }
+  .mobile-nav button { min-width:0; padding:7px 2px; font-size:11px; border:0; border-radius:6px; }
+  body[data-view="map"] main { height:calc(100dvh - 56px - env(safe-area-inset-bottom)); display:flex; flex-direction:column; padding:8px 8px 0; max-width:none; }
+  body[data-view="map"] main > header:has(#save[hidden]) { display:none; }
+  body[data-view="map"] main > header h1,
+  body[data-view="map"] #summary,
+  body[data-view="map"] .map-heading,
+  body[data-view="map"] .map-help { display:none; }
+  body[data-view="map"] #filters { flex:0 0 auto; margin-bottom:6px; }
+  body[data-view="map"] #content { flex:1; min-height:0; display:flex; flex-direction:column; }
+  body[data-view="map"] #property-map { height:auto; min-height:0; flex:1; border-radius:8px 8px 0 0; }
+  body[data-view="map"] .notice { margin:3px 0; }
+  body[data-view="map"] .notice:empty { display:none; }
+}
