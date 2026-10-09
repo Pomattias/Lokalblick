@@ -9,23 +9,6 @@ const activityKindOptions = [
   {value:"like_for_like",label:"Utbyte 1:1"},
 ];
 const budgetTypes=["Ja","Nej"];
-export const ISSUE_CATEGORIES=["Ytskikt","Inredning","Installationer","Ventilation","Ombyggnad","Nya lokaler","Tillgänglighet","Brand och säkerhet","Utemiljö","Energi","Övrigt"];
-const MONTHS=["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
-function categoryOptions(data, selected) {
-  // Standard list, with unknown historic values explicitly available for
-  // reclassification; no silent rewriting of imported descriptions.
-  const canonical = value => /^ytskick$/i.test(value) ? "Ytskikt" : value;
-  const oldValues=[...(data.activities||[]).map(x=>x.category),selected].filter(Boolean)
-    .map(value=>String(value).trim()).filter(Boolean);
-  const result=ISSUE_CATEGORIES.map(value=>({value,label:value}));
-  oldValues.forEach(value=>{
-    if(!result.some(x=>x.value===value)&&value!==canonical(value))
-      result.push({value,label:value+" (tidigare – välj ny kategori)"});
-    else if(!result.some(x=>x.value===value))
-      result.push({value,label:value+" (tidigare kategori)"});
-  });
-  return result;
-}
 const field=(label,html,help="")=>'<label class="issue-field">'+esc(label)+html+(help?'<small>'+esc(help)+'</small>':"")+'</label>';
 const input=(item,key,type="text",attrs="")=>'<input name="'+key+'" type="'+type+'" value="'+esc(item[key]??"")+'" '+attrs+'>';
 const choice=(name,list,selected,placeholder="Välj")=>'<select name="'+name+'">'+options(list,x=>x.value,x=>x.label,selected,placeholder)+'</select>';
@@ -37,63 +20,20 @@ function issueHome(activity) {
   if(activity.scopeType==="general")return "general";
   return "";
 }
-// The portfolio can contain thousands of imported properties and contracts.
-// Only the linked property and a few nearby choices are rendered initially.
-// Other choices are searched on demand, not mounted as a huge native <select>.
-export function homeChoices(data,current,search="") {
-  const properties=data.properties||[];
-  const contracts=data.contracts||[];
-  const byProperty=new Map(properties.map(p=>[String(p.id),p]));
-  const term=String(search||"").trim().toLocaleLowerCase("sv-SE");
-  const currentContract=current.startsWith("contract:")?contracts.find(c=>String(c.id)===current.slice(9)):null;
-  const currentPropertyId=current.startsWith("property:")?current.slice(9):currentContract?.propertyId;
-  const result=[];
-  const used=new Set();
-  const add=(value,label)=>{
-    if(!used.has(value)){used.add(value);result.push({value,label});}
-  };
-  if(term.length>=2){
-    // Search is bounded, including for enormous external workbooks.
-    let count=0;
-    for(const p of properties){
-      if(count>=35)break;
-      if([p.designation,p.address,p.city,p.id].some(x=>String(x||"").toLocaleLowerCase("sv-SE").includes(term))){
-        add("property:"+p.id,"Fastighet · "+propertyReference(p));count++;
-      }
-    }
-    for(const c of contracts){
-      if(count>=45)break;
-      const p=byProperty.get(String(c.propertyId));
-      if([c.number,c.id,p?.designation,p?.address].some(x=>String(x||"").toLocaleLowerCase("sv-SE").includes(term))){
-        add("contract:"+c.id,"Avtal · "+(c.number||c.id)+" · "+propertyReference(p));count++;
-      }
-    }
-  } else {
-    for(const p of properties){
-      if(String(p.id)===String(currentPropertyId))
-        add("property:"+p.id,"Fastighet · "+propertyReference(p));
-    }
-    let count=0;
-    for(const c of contracts){
-      if(String(c.propertyId)===String(currentPropertyId)&&count++<15){
-        const p=byProperty.get(String(c.propertyId));
-        add("contract:"+c.id,"Avtal · "+(c.number||c.id)+" · "+propertyReference(p));
-      }
-    }
-  }
-  for(const [id,label] of Object.entries(units))add("unit:"+id,"Verksamhet · "+label);
-  add("general","Generellt ärende");
-  // Always preserve the exact current relation, even when it was imported.
-  if(current&&!used.has(current)){
-    const c=current.startsWith("contract:")?contracts.find(c=>String(c.id)===current.slice(9)):null;
-    const p=current.startsWith("property:")?byProperty.get(current.slice(9)):
-      c?byProperty.get(String(c.propertyId)):null;
-    add(current,c?"Avtal · "+(c.number||c.id)+" · "+propertyReference(p):
-      p?"Fastighet · "+propertyReference(p):"Tidigare koppling – kontrollera");
-  }
-  return result;
+function homeChoices(data,current) {
+  const list=[
+    ...(data.properties||[]).map(p=>({value:"property:"+p.id,label:"Fastighet · "+propertyReference(p)})),
+    ...(data.contracts||[]).map(c=>{
+      const p=(data.properties||[]).find(p=>p.id===c.propertyId);
+      return {value:"contract:"+c.id,label:"Avtal · "+(c.number||c.id)+" · "+propertyReference(p)};
+    }),
+    ...Object.entries(units).map(([id,label])=>({value:"unit:"+id,label:"Verksamhet · "+label})),
+    {value:"general",label:"Generellt ärende"}
+  ];
+  if(current&&!list.some(x=>x.value===current))
+    list.push({value:current,label:"Tidigare hemvist · kontrollera koppling"});
+  return list;
 }
-export const issueHomeOptionsHtml=(data,query,current)=>options(homeChoices(data,current,query),x=>x.value,x=>x.label,current,"Ej kopplat");
 function humanAssessment(economics) {
   if(economics.kind==="investment")return "Investering";
   if(economics.kind==="operating")return "Drift";
@@ -133,11 +73,6 @@ export function renderIssueEditor(data,issue,id,company=false) {
   const year=Number(issue.planningYear)||new Date().getFullYear();
   const assessment=calc().activityEconomics(data,issue,year);
   const typeSelect=choice("type",kinds.map(value=>({value,label:value})),issue.type,"Välj ärendetyp");
-  const plannedMonths=Array.isArray(issue.planningMonths)&&issue.planningMonths.length
-    ? issue.planningMonths : (Number(issue.planningMonth)>0?[Number(issue.planningMonth)]:[]);
-  const validMonths=[...new Set(plannedMonths.map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=12))].sort((a,b)=>a-b);
-  const monthButtons=MONTHS.map((name,i)=>'<button type="button" data-issue-month="'+(i+1)+'" aria-pressed="'+validMonths.includes(i+1)+'"'+
-    (validMonths.includes(i+1)?' class="active"':'')+'>'+name+'</button>').join("");
   const statuses=[...new Set(["Nytt","Utreds","Planerad","Pågår","Beställd","Utförd","Klar","Avslutad","Avslaget",...
     (data.activities||[]).map(a=>a.status).filter(Boolean),issue.status].filter(Boolean))];
   const priorities=[...new Set(["Låg","Normal","Hög","Akut",...
@@ -159,22 +94,18 @@ export function renderIssueEditor(data,issue,id,company=false) {
   return '<div class="editor-backdrop"></div>'+
     '<aside class="editor issue-editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="activities" data-record-id="'+esc(id||"")+'">'+
     '<div class="section-title"><div><small>'+(id?"ÄNDRA ÄRENDE":"NYTT ÄRENDE")+'</small>'+
-    '<h2 id="editor-title" class="issue-name">'+esc(issue.title||"Nytt ärende")+'</h2><small>'+esc(issue.type||"Välj ärendetyp")+'</small>'+
+    '<h2 id="editor-title">Ärende</h2><small>'+esc(issue.title||"Projekt · Underhåll · Drift · Önskemål")+'</small>'+
     '</div><button type="button" data-editor-close>Stäng</button></div>'+
-    '<section class="issue-section"><h3>Ärende</h3>'+
-    '<div class="issue-grid">'+
-      '<div class="issue-title-field">'+field("Ärendenamn",input(issue,"title","text",'required maxlength="250" placeholder="Vad behöver göras?"'))+'</div>'+
+    '<section class="issue-section"><h3>Ärende</h3><div class="issue-grid">'+
       field("Typ",typeSelect)+
       field("Status",choice("status",statuses.map(value=>({value,label:value})),issue.status,"Välj status"))+
-      field("Kategori",choice("category",categoryOptions(data,issue.category),issue.category,"Välj kategori"))+
+      field("Rubrik",input(issue,"title","text",'required maxlength="250"'))+
       field("Prioritet",choice("priority",priorities.map(value=>({value,label:value})),issue.priority,"Ej prioriterad"))+
+      field("Kategori",input(issue,"category","text",'placeholder="Valfri"'))+
     '</div>'+
     '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="3">'+esc(issue.description||"")+'</textarea></label>'+
     '<div class="issue-grid">'+
-      field("Kopplat till",'<div class="issue-home-picker">'+
-        '<select name="issueHome" data-issue-home-select>'+issueHomeOptionsHtml(data,"",issueHome(issue))+'</select>'+
-        '<input type="search" data-issue-home-search placeholder="Sök annan fastighet eller annat avtal" aria-label="Sök koppling" autocomplete="off">'+
-        '</div>',"Förvalt objekt föreslås automatiskt. Sök om det ska kopplas om.")+
+      field("Hemvist",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej fördelad"))+
       field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"))+
     '</div></section>'+
     '<section class="issue-section"><h3>Tid och planering</h3><div class="issue-grid">'+
@@ -182,12 +113,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
       field("T.o.m.",input(issue,"endDate","date"))+
       field("Planeringsår",input(issue,"planningYear","number",'min="2000" max="2200" step="1"'))+
       field("Fas",input(issue,"phase","text"))+
-    '</div>'+
-    '<div class="issue-months" aria-label="Preliminära planeringsmånader"><span>Preliminär planering · välj månader</span>'+
-    '<div class="issue-month-choices">'+monthButtons+'</div>'+
-    '<input type="hidden" name="planningMonthsInput" value="'+esc(validMonths.join(","))+'">'+
-    '<small>Som i Planera: månaderna syns i tidslinjen när exakta datum saknas. Ändringar sparas med ärendet.</small></div>'+
-    allocations+'</section>'+
+    '</div>'+allocations+'</section>'+
     '<section class="issue-section"><h3>Kostnad och budget</h3><div class="issue-grid">'+
       field("Bedömd kostnad, kr",input(issue,"estimatedCost","number",'min="0" step="any"'))+
       field("Åtgärdens karaktär",choice("actionKind",activityKindOptions,issue.actionKind||

@@ -88,8 +88,7 @@ export function renderPropertyEditor(data, p, id, company=false) {
       '</section>'+
       (company?'<p class="computed">Källstyrd fastighetsdata ändras i underlaget. Kompletteringar och valda koordinater sparas via backend.</p>':'')+
       '<div class="actions editor-actions"><span>Vald kartposition sparas med övriga ändringar.</span>'+
-      '<div class="actions"><button type="button" data-new-issue-property="'+esc(p.id||"")+'"'+(!id?' disabled title="Spara fastigheten först"':'')+'>+ Nytt ärende</button>'+
-      '<button type="submit" class="primary">Spara ändring</button></div></div>'+
+      '<button type="submit" class="primary">Spara ändring</button></div>'+
     '</form></aside>';
 }
 

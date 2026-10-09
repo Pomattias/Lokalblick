@@ -30,7 +30,6 @@ import {
   reviewCandidateChoices,
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
-import { issueHomeOptionsHtml } from "./issue-editor.js";
 import { attachPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
 import { contextPersonSelect, newPersonDefaults, personFormHtml,
   updatedPersonRecord, refreshPropertyPersonSelectors } from "./property-person-dialog.js";
@@ -57,8 +56,6 @@ const ui = {
 };
 const labels = {
   overview: "Översikt",
-  properties: "Fastigheter",
-  issues: "Ärenden",
   contracts: "Avtal",
   plan: "Planera",
   budget: "Budget",
@@ -506,18 +503,15 @@ function render() {
     ? `<button data-clear-property>Hela urvalet</button><span>${esc(data.properties.find((p) => p.id === selection.propertyId)?.address || selection.propertyId)}</span>`
     : "<span>Portfölj</span>";
   filterArea.hidden = ["sources", "people", "settings"].includes(ui.view);
-  if (["overview","properties","issues"].includes(ui.view))
+  if (ui.view === "overview")
     content.innerHTML = overview(data, selection, {
       ...ui,
-      perspective: ui.view==="properties"?"Fastigheter":ui.view==="issues"?"Ärenden":ui.perspective,
-      hidePerspectiveTabs:ui.view!=="overview",
       year: new Date().getFullYear(),
     });
   if (ui.view === "contracts")
     content.innerHTML = overview(data, selection, {
       ...ui,
       perspective: "Avtal",
-      hidePerspectiveTabs:true,
       year: new Date().getFullYear(),
     });
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
@@ -557,13 +551,13 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-new-issue],[data-new-issue-property],[data-new-issue-contract],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-new-issue],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
-    !canEdit() || !["overview", "contracts", "properties", "issues"].includes(ui.view);
+    !canEdit() || !["overview", "contracts"].includes(ui.view);
   document.querySelector("#add").textContent =
-    (ui.view==="issues" || ui.view==="overview"&&ui.perspective==="Ärenden") ? "Nytt ärende" : "Lägg till";
+    ui.view==="overview" && ui.perspective==="Ärenden" ? "Nytt ärende" : "Lägg till";
 }
 async function mutation(change, { automatic = false, manualPositionIds = [] } = {}) {
   if (busy) throw Error("En ändring sparas redan");
@@ -647,38 +641,25 @@ async function run(fn) {
   }
 }
 function closeEditor() {
-  // Always release the modal lock even if a map provider fails during cleanup.
-  try {
-    if (propertyMapCleanup) propertyMapCleanup();
-  } catch (error) {
-    console.warn("Lokalblick: kunde inte stänga redigeringskartan",error);
-  } finally {
+  if (propertyMapCleanup) {
+    propertyMapCleanup();
     propertyMapCleanup = null;
-    const root=document.querySelector("#editor-root");
-    if (root) root.replaceChildren();
-    editor = null;
-    document.body.classList.remove("editing");
   }
+  document.querySelector("#editor-root").innerHTML = "";
+  editor = null;
+  document.body.classList.remove("editing");
 }
 function openEditor(col, id, defaults = {}) {
   if (!canEdit()) return;
+  const result = editorHtml(data, col, id, transport.company(), defaults);
+  editor = { col, id, record: result.record };
   const root = document.querySelector("#editor-root");
-  if (!root) throw Error("Redigeringsfönstrets plats saknas.");
-  if (editor) closeEditor();
-  // Never leave the whole application blocked if rendering or mounting an
-  // editor fails. Preparing HTML precedes setting the editing lock.
-  try {
-    const result = editorHtml(data, col, id, transport.company(), defaults);
-    root.innerHTML = result.html;
-    editor = { col, id, record: result.record };
-    if (col === "properties")
-      propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
-    document.body.classList.add("editing");
-    root.querySelector("input[name='title'], input:not([type='hidden']), select")?.focus({preventScroll:true});
-  } catch (error) {
-    closeEditor();
-    throw Error("Kunde inte öppna formuläret: "+(error?.message||"okänt fel"));
+  root.innerHTML = result.html;
+  document.body.classList.add("editing");
+  if (col === "properties") {
+    propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
   }
+  document.querySelector("#editor-root input, #editor-root select")?.focus();
 }
 function openPropertyPersonDialog(button) {
   if (!editor || editor.col !== "properties") return;
@@ -818,16 +799,10 @@ async function sourceAction(action) {
 }
 document.addEventListener("click", (event) =>
   run(async () => {
-    if (event.target.closest("#editor-root .editor-backdrop")) {
-      closeEditor();
-      return;
-    }
     const b = event.target.closest("button");
     if (!b || b.disabled) return;
     if (b.dataset.view) {
       ui.view = b.dataset.view;
-      if (ui.view==="properties") ui.perspective="Fastigheter";
-      if (ui.view==="issues") ui.perspective="Ärenden";
       ui.contractId = "";
       if (ui.view === "settings") ui.settingsYear = new Date().getFullYear();
       render();
@@ -846,46 +821,12 @@ document.addEventListener("click", (event) =>
     }
     if (b.dataset.perspective) {
       ui.perspective = b.dataset.perspective;
-      if (ui.view!=="overview") ui.view="overview";
       ui.contractId = "";
       render();
     }
     if (b.dataset.issueType) {
       ui.issueType = b.dataset.issueType;
       render();
-      return;
-    }
-    if (b.hasAttribute("data-issue-month")) {
-      const form=b.closest("#edit-form");
-      const hidden=form?.querySelector('[name="planningMonthsInput"]');
-      const month=Number(b.dataset.issueMonth);
-      if (!hidden || month<1 || month>12) return;
-      const months=new Set(String(hidden.value||"").split(",").filter(Boolean).map(Number));
-      if(months.has(month))months.delete(month);else months.add(month);
-      hidden.value=[...months].sort((x,y)=>x-y).join(",");
-      form.querySelectorAll("[data-issue-month]").forEach(button=>{
-        const on=months.has(Number(button.dataset.issueMonth));
-        button.classList.toggle("active",on);
-        button.setAttribute("aria-pressed",String(on));
-      });
-      return;
-    }
-    if (b.hasAttribute("data-new-issue-property") || b.hasAttribute("data-new-issue-contract")) {
-      const propertyId=b.dataset.newIssueProperty||"";
-      const contractId=b.dataset.newIssueContract||"";
-      if (contractId && !(data.contracts||[]).some(c=>c.id===contractId))
-        throw Error("Avtalet finns inte.");
-      if (propertyId && !(data.properties||[]).some(p=>p.id===propertyId))
-        throw Error("Fastigheten finns inte.");
-      if (editor) {
-        if (!confirm("Du lämnar nu formuläret. Osparade ändringar här sparas inte. Vill du fortsätta?")) return;
-        closeEditor();
-      }
-      openEditor("activities","",{
-        type:"",title:"",status:"Nytt",planningYear:ui.year,
-        budgetCategory:"Ej budget",includeInBudget:"Ja",
-        ...(contractId?{contractId,scopeType:"contract"}:{propertyId,scopeType:"property"}),
-      });
       return;
     }
     if (b.hasAttribute("data-new-issue")) {
@@ -914,14 +855,8 @@ document.addEventListener("click", (event) =>
       openPropertyPersonDialog(b);
       return;
     }
-    if (b.hasAttribute("data-edit")) {
-      openEditor(b.dataset.edit, b.dataset.id);
-      return;
-    }
-    if (b.hasAttribute("data-editor-close")) {
-      closeEditor();
-      return;
-    }
+    if (b.hasAttribute("data-edit")) openEditor(b.dataset.edit, b.dataset.id);
+    if (b.hasAttribute("data-editor-close")) closeEditor();
     if (b.dataset.editorTab) {
       document
         .querySelectorAll("[data-editor-section]")
@@ -1005,9 +940,9 @@ document.addEventListener("click", (event) =>
     }
     if (b.id === "add") {
       const col =
-        ui.view === "contracts" || (ui.view === "overview" && ui.perspective === "Avtal")
+        ui.view === "contracts" || ui.perspective === "Avtal"
           ? "contracts"
-          : ui.view === "properties" || (ui.view === "overview" && ui.perspective === "Fastigheter")
+          : ui.perspective === "Fastigheter"
             ? "properties"
             : "activities";
       if (
@@ -1099,16 +1034,6 @@ function refreshSmartTable(table) {
   });
 }
 document.addEventListener("input",event=>{
-  if(event.target.matches("[data-issue-home-search]")) {
-    const search=event.target;
-    const select=search.closest(".issue-home-picker")?.querySelector("[data-issue-home-select]");
-    if (select) {
-      const selected=select.value;
-      select.innerHTML=issueHomeOptionsHtml(data,search.value,selected);
-      select.value=selected;
-    }
-    return;
-  }
   if(event.target.matches("[data-review-search]")) {
     const input=event.target;
     const item=(data?.importReview||[]).find(x=>x.id===input.dataset.reviewSearch);
@@ -1272,9 +1197,7 @@ document.addEventListener("submit", (event) => {
     await mutation((d) => {
       if (!id) {
         next.id = crypto.randomUUID();
-        // A contract-linked issue derives its property; do not persist two homes.
-        if (!(col==="activities" && next.contractId))
-          next.propertyId = next.propertyId || selection.propertyId;
+        next.propertyId = next.propertyId || selection.propertyId;
         d[col].push(next);
         audit(d, col, next.id, {}, next, actor());
       } else {

@@ -58,7 +58,7 @@
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["scopeType","Hemvisttyp"],["unitId","Område"],
       ["type","Typ"],["actionKind","Åtgärdens karaktär"],["rentSurchargeStartDate","Hyrespåslag från"],["title","Aktivitet"],["description","Beskrivning"],["category","Kategori"],["status","Status"],["priority","Prioritet"],
-      ["planningYear","Planår"],["planningMonths","Planmånader"],["planningQuarter","Kvartal",true],["planningMonth","Månad",true],["budgetCategory","Budgetkategori",true],["includeInBudget","Ta med i budget"],
+      ["planningYear","Planår"],["planningQuarter","Kvartal",true],["planningMonth","Månad",true],["budgetCategory","Budgetkategori",true],["includeInBudget","Ta med i budget"],
       ["estimatedCost","Bedömd kostnad"],["phase","Fas"],["startDate","Start"],["endDate","Slut"]
     ],
     display:["Fastighet","Adress","Avtal","Ansvarig hos oss"]
@@ -336,11 +336,6 @@
       (schema.display || []).forEach(function(label) {
         out["__display_" + label] = row[label] == null ? "" : row[label];
       });
-      if (schema.key === "activities") {
-        const raw=out.planningMonths;
-        const parsed=Array.isArray(raw)?raw:String(raw||"").split(",");
-        out.planningMonths=[...new Set(parsed.map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=12))].sort((a,b)=>a-b);
-      }
       return out;
     });
   }
@@ -731,10 +726,7 @@
 
     const excelRows=(rows||[]).map(function(row) {
       const out={};
-      visible.forEach(function(column){
-        const value=row[column[0]];
-        out[column[1]]=column[0]==="planningMonths"&&Array.isArray(value)?value.join(","):value==null?"":value;
-      });
+      visible.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : row[column[0]];});
       (schema.display||[]).forEach(function(label){out[label]=displayValue(schema,label,row,data);});
       hidden.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : row[column[0]];});
       return out;

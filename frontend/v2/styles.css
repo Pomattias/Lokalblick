@@ -586,8 +586,10 @@ details .table-wrap {
 [hidden] {
   display: none;
 }
-/* The backdrop, not a global pointer-events lock, isolates the editor.
-   This avoids a permanently unresponsive app if the editor is interrupted. */
+.editing main,
+.editing .sidebar {
+  pointer-events: none;
+}
 @media (min-width: 1500px) {
   main {
     padding: 36px 52px;
@@ -975,25 +977,4 @@ details .table-wrap {
 @media (max-width:600px) {
   .issue-editor { width:100%; }
   .issue-editor .issue-grid { grid-template-columns:1fr; gap:9px; }
-}
-
-/* Förtydligad ärendevy: rubrik före egenskaper, kompakt månadsplanering. */
-.issue-editor .issue-name { font-size:26px; letter-spacing:-.025em; line-height:1.22; overflow-wrap:anywhere; max-width:640px; margin:5px 0; }
-.issue-editor .issue-title-field { grid-column:1 / -1; }
-.issue-editor .issue-title-field input { font-size:16px; font-weight:600; padding:10px 12px; }
-.issue-editor .issue-months { margin-top:12px; display:grid; gap:7px; }
-.issue-editor .issue-months > span { font-size:12px; font-weight:600; }
-.issue-editor .issue-month-choices { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:4px; }
-.issue-editor .issue-month-choices button { padding:7px 0; font-size:11px; border-radius:6px; min-width:0; }
-.issue-editor .issue-months small { font-size:11px; color:var(--muted); }
-.inline-record-actions { display:flex; gap:5px; align-items:center; justify-content:flex-end; }
-.inline-record-actions button { padding:5px 7px; font-size:11px; white-space:nowrap; }
-@media(max-width:700px) {
-  /* Keep all seven principal pages on one compact horizontal chip rail. */
-  .mobile-nav { justify-content:flex-start; align-items:center; gap:5px; padding:6px 7px calc(6px + env(safe-area-inset-bottom)); overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
-  .mobile-nav button { font-size:10px; padding:6px 9px; border:1px solid var(--line); border-radius:30px; white-space:nowrap; flex:0 0 auto; }
-  .mobile-nav button.active { background:var(--accent); color:white; }
-  .issue-editor .issue-name { font-size:22px; }
-  .issue-editor .issue-month-choices { grid-template-columns:repeat(6,minmax(0,1fr)); }
-  .issue-editor .issue-month-choices button { min-height:34px; }
 }
