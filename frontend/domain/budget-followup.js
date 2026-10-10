@@ -49,6 +49,29 @@
     plan.versions.push({at,by:actor,reason:reason.trim(),snapshot});
     plan.revisionReason=reason.trim();plan.revisedBy=actor;plan.revisedAt=at;
   }
+  function history(data,plan,row) {
+    const events=[],rowKey=key(row),matches=line=>key(line)===rowKey||key(line)===row.baselineKey;
+    const fields=(before,after)=>['amount','included','category','source','timing'].filter(field=>JSON.stringify(before?.[field])!==JSON.stringify(after?.[field])).map(field=>({field,from:before?.[field],to:after?.[field]}));
+    const versions=plan.versions||[];
+    versions.forEach((version,i)=>{
+      const before=(version.snapshot?.lines||[]).find(matches),after=((versions[i+1]?.snapshot||plan).lines||[]).find(matches);
+      if(!before&&!after)return;
+      const changes=fields(before,after);
+      if(changes.length)events.push({at:version.at,by:version.by,reason:version.reason,action:'Budgetpost justerad',fields:changes});
+    });
+    const col=collection(row);
+    for(const event of data.auditLog||[]) {
+      if(event.collection===col&&String(event.recordId)===String(row.sourceId))events.push({...event,action:'Källobjekt · '+event.action});
+      if(event.collection!=='budgetPlans'||String(event.recordId)!==String(plan.year))continue;
+      const lineField=(event.fields||[]).find(f=>f.field==='lines');
+      if(!lineField)continue;
+      const before=(Array.isArray(lineField.from)?lineField.from:[]).find(matches),after=(Array.isArray(lineField.to)?lineField.to:[]).find(matches);
+      if(!before&&!after)continue;
+      const changes=fields(before,after);
+      if(changes.length&&!events.some(e=>e.action==='Budgetpost justerad'&&JSON.stringify(e.fields)===JSON.stringify(changes)))events.push({...event,action:before?'Budgetpost justerad':'Budgetpost sparad',fields:changes});
+    }
+    return events.sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+  }
   function beginVersion(plan,reason,actor,at=new Date().toISOString()) {
     if(plan.status!=='Låst')throw Error('Budgeten är redan en arbetsbudget');
     revise(plan,'danger',reason,actor,at);
@@ -57,5 +80,5 @@
     plan.versionStartedAt=at;
     plan.versionStartedBy=actor;
   }
-  root.LokalblickBudgetFollowup={key,record,finalCost,compare,revise,beginVersion};
+  root.LokalblickBudgetFollowup={key,record,finalCost,compare,revise,beginVersion,history};
 })(typeof window==='undefined'?globalThis:window);

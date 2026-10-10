@@ -99,12 +99,21 @@ function showHistory(type='',id=''){
   const collection={contract:'contracts',activity:'activities',order:'orders',operation:'operations',maintenanceStatus:'maintenanceStatus'}[type]||type;
   const entries=data.auditLog.slice().reverse().filter(h=>!collection||(h.collection===collection&&String(h.recordId)===String(id)));
   const d=document.createElement('dialog');d.className='followup-dialog';
-  d.innerHTML='<h2>Ändringshistorik</h2>'+entries.map(h=>'<article><strong>'+esc(h.action)+' · '+esc(h.collection)+' · '+esc(h.recordId)+'</strong><p>'+esc(h.by)+' · '+esc(new Date(h.at).toLocaleString('sv-SE'))+'</p><ul>'+(h.fields||[]).map(f=>'<li>'+esc(f.label||f.field)+': '+esc(typeof f.from==='object'?JSON.stringify(f.from):f.from)+' → '+esc(typeof f.to==='object'?JSON.stringify(f.to):f.to)+'</li>').join('')+'</ul></article>').join('')+'<form method="dialog"><button>Stäng</button></form>';
+  d.innerHTML='<h2>Ändringshistorik</h2>'+(entries.length?'':'<p>Ingen sparad ändringshistorik för detta objekt.</p>')+entries.map(h=>'<article><strong>'+esc(h.action)+' · '+esc(h.collection)+' · '+esc(h.recordId)+'</strong><p>'+esc(h.by)+' · '+esc(new Date(h.at).toLocaleString('sv-SE'))+'</p><ul>'+(h.fields||[]).map(f=>'<li>'+esc(f.label||f.field)+': '+esc(typeof f.from==='object'?JSON.stringify(f.from):f.from)+' → '+esc(typeof f.to==='object'?JSON.stringify(f.to):f.to)+'</li>').join('')+'</ul></article>').join('')+'<form method="dialog"><button>Stäng</button></form>';
   document.body.append(d);d.onclose=()=>d.remove();d.showModal();
+}
+function showBudgetHistory(year,row) {
+  const plan=data.budgetPlans.find(p=>Number(p.year)===Number(year));
+  const entries=globalThis.LokalblickBudgetFollowup.history(data,plan,row);
+  const captions={amount:'Budgetbelopp',included:'Ingår i budget',category:'Kategori',source:'Benämning',timing:'Tidplan'};
+  const format=(field,value)=>value==null?'—':field==='amount'?money(value):field==='included'?(value===false?'Nej':'Ja'):typeof value==='object'?JSON.stringify(value):String(value);
+  const dialog=document.createElement('dialog');dialog.className='followup-dialog';
+  dialog.innerHTML=`<h2>Budgethistorik ${year}</h2><p>${esc(row.source||row.sub||row.category)}</p>${entries.length?entries.map(entry=>`<article><strong>${esc(entry.action)}</strong><p>${esc(entry.by||'Ej angivet')} · ${esc(entry.at?new Date(entry.at).toLocaleString('sv-SE'):'Datum saknas')}</p>${entry.reason?`<p>${esc(entry.reason)}</p>`:''}<ul>${(entry.fields||[]).map(field=>`<li>${esc(captions[field.field]||field.label||field.field)}: ${esc(format(field.field,field.from))} → ${esc(format(field.field,field.to))}</li>`).join('')}</ul></article>`).join(''):'<p>Ingen sparad ändringshistorik för denna budgetpost.</p>'}<form method="dialog"><button>Stäng</button></form>`;
+  document.body.append(dialog);dialog.onclose=()=>dialog.remove();dialog.showModal();
 }
 function bindBudget(){
   const before=clone(data),hasScope=()=>Boolean(Object.values(selection).some(Boolean));
-  globalThis.LokalblickBudgetUI.bind({state:data,esc,money,clone,selectedBudgetYear:ui.year,budgetPlan:y=>data.budgetPlans.find(p=>Number(p.year)===Number(y)),hasPortfolioScope:hasScope,portfolioScopeContracts:()=>scope(data,selection).contracts,budgetRowsForContracts:(rows,contracts)=>rows.filter(r=>r.contractId?contracts.some(c=>c.id===r.contractId):scope(data,selection).properties.some(p=>p.id===r.propertyId)),budgetRows:y=>calc().budgetRows(data,y,hasScope()?scope(data,selection).contracts:undefined,hasScope()?scope(data,selection).properties:undefined),canEdit,currentActorLabel:actor,requireActorIdentity,render,showHistory,budgetCategories:()=>categories,saveState:async()=>{
+  globalThis.LokalblickBudgetUI.bind({state:data,esc,money,clone,selectedBudgetYear:ui.year,budgetPlan:y=>data.budgetPlans.find(p=>Number(p.year)===Number(y)),hasPortfolioScope:hasScope,portfolioScopeContracts:()=>scope(data,selection).contracts,budgetRowsForContracts:(rows,contracts)=>rows.filter(r=>r.contractId?contracts.some(c=>c.id===r.contractId):scope(data,selection).properties.some(p=>p.id===r.propertyId)),budgetRows:y=>calc().budgetRows(data,y,hasScope()?scope(data,selection).contracts:undefined,hasScope()?scope(data,selection).properties:undefined),canEdit,currentActorLabel:actor,requireActorIdentity,render,showHistory,showBudgetHistory,budgetCategories:()=>categories,saveState:async()=>{
     if(busy||!canEdit())throw Error('Ändringen kan inte sparas nu.');
     busy=true;try{requireActorIdentity();captureChanges(before);data=await transport.save(data);}catch(e){data=before;throw e;}finally{busy=false;}
   }});

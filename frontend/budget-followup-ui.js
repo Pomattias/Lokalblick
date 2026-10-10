@@ -16,7 +16,7 @@ function budgetRevisionFields(plan) {
   return '<label>Anledning<textarea name="reason" required></textarea></label>'+(plan.status==='Låst'?'<p class="danger-warning">Varning: den låsta budgeten ändras. Tidigare version behålls.</p><label>Skriv danger för att bekräfta<input name="confirmation" required pattern="danger" autocomplete="off"></label>':'');
 }
 function bindBudgetFollowup(context=legacyBudgetContext()) {
-  const {state,esc,money,budgetPlan,selectedBudgetYear,hasPortfolioScope,portfolioScopeContracts,budgetRowsForContracts,budgetRows,canEdit,currentActorLabel,requireActorIdentity,clone,saveState,render,showHistory,budgetCategories}=context;
+  const {state,esc,money,budgetPlan,selectedBudgetYear,hasPortfolioScope,portfolioScopeContracts,budgetRowsForContracts,budgetRows,canEdit,currentActorLabel,requireActorIdentity,clone,saveState,render,showHistory,showBudgetHistory,budgetCategories}=context;
   const dialog=(title,fields,save)=>followupDialog(title,fields,save,esc);
   const plan=budgetPlan(selectedBudgetYear);if(!plan)return;
   const scoped=hasPortfolioScope(),contracts=portfolioScopeContracts();
@@ -30,7 +30,7 @@ function bindBudgetFollowup(context=legacyBudgetContext()) {
     LokalblickBudgetFollowup.revise(plan,values.confirmation,values.reason,currentActorLabel());
     try {change();await saveState();render();} catch(e){Object.keys(plan).forEach(k=>delete plan[k]);Object.assign(plan,previous);throw e;}
   }
-  bind('[data-followup-history]',b=>{const r=rows[Number(b.dataset.followupHistory)];showHistory(r.sourceType==='manual'?'budgetPlans':r.sourceType,r.sourceType==='manual'?String(plan.year):r.sourceId);});
+  bind('[data-followup-history]',b=>{const r=rows[Number(b.dataset.followupHistory)];if(showBudgetHistory)showBudgetHistory(plan.year,r);else showHistory('budgetPlans',String(plan.year));});
   bind('[data-followup-budget-history]',()=>showHistory('budgetPlans',String(plan.year)));
   bind('[data-followup-revise]',b=>{const row=rows[Number(b.dataset.followupRevise)];dialog('Justera budgetpost '+plan.year,'<p>'+esc(row.source||row.sub)+'</p><label>Budgetbelopp<input type="number" step="0.01" name="amount" value="'+row.budget+'" required></label><label><input type="checkbox" name="excluded"> Undanta från budgeten</label>'+budgetRevisionFields(plan),v=>revise(v,()=>{
     const line=plan.lines.find(x=>LokalblickBudgetFollowup.key(x)===(row.baselineKey||LokalblickBudgetFollowup.key(row)));
