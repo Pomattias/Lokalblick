@@ -51,7 +51,7 @@
   }
   function history(data,plan,row) {
     const events=[],rowKey=key(row),matches=line=>key(line)===rowKey||key(line)===row.baselineKey;
-    const fields=(before,after)=>['amount','included','category','source','timing'].filter(field=>JSON.stringify(before?.[field])!==JSON.stringify(after?.[field])).map(field=>({field,from:before?.[field],to:after?.[field]}));
+    const fields=(before,after)=>{before=before?{...before,included:before.included!==false}:before;after=after?{...after,included:after.included!==false}:after;return ['amount','included','category','source','timing'].filter(field=>JSON.stringify(before?.[field])!==JSON.stringify(after?.[field])).map(field=>({field,from:before?.[field],to:after?.[field]}));};
     const versions=plan.versions||[];
     versions.forEach((version,i)=>{
       const before=(version.snapshot?.lines||[]).find(matches),after=((versions[i+1]?.snapshot||plan).lines||[]).find(matches);
@@ -72,6 +72,14 @@
     }
     return events.sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
   }
+  function setRowAdjustment(plan,line,amount,included,actor,reason,at=new Date().toISOString()) {
+    if(!Number.isFinite(Number(amount)))throw Error('Ogiltigt budgetbelopp');
+    plan.rowAdjustments ||= {};
+    const base=Number(line.baseAmount??(Number(line.amount)-Number(line.manualAdjustmentAmount||0)-Number(line.adjustmentAmount||0)))||0;
+    plan.rowAdjustments[key(line)]={amount:Number(amount)-base-Number(line.adjustmentAmount||0),included,by:actor,reason,at};
+    line.baseAmount=base;line.manualAdjustmentAmount=plan.rowAdjustments[key(line)].amount;
+    line.amount=Number(amount);line.included=included;
+  }
   function beginVersion(plan,reason,actor,at=new Date().toISOString()) {
     if(plan.status!=='Låst')throw Error('Budgeten är redan en arbetsbudget');
     revise(plan,'danger',reason,actor,at);
@@ -80,5 +88,5 @@
     plan.versionStartedAt=at;
     plan.versionStartedBy=actor;
   }
-  root.LokalblickBudgetFollowup={key,record,finalCost,compare,revise,beginVersion,history};
+  root.LokalblickBudgetFollowup={key,record,finalCost,compare,revise,beginVersion,history,setRowAdjustment};
 })(typeof window==='undefined'?globalThis:window);

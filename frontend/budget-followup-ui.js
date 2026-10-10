@@ -20,21 +20,24 @@ function bindBudgetFollowup(context=legacyBudgetContext()) {
   const dialog=(title,fields,save)=>followupDialog(title,fields,save,esc);
   const plan=budgetPlan(selectedBudgetYear);if(!plan)return;
   const scoped=hasPortfolioScope(),contracts=portfolioScopeContracts();
-  const baseline=(scoped?budgetRowsForContracts(plan.lines||[],contracts):plan.lines||[]);
+  const working=context.budgetProposal&&plan.status!=='Låst'?context.budgetProposal(selectedBudgetYear):plan.lines||[];
+  const baseline=(scoped?budgetRowsForContracts(working,contracts):working);
   const rows=LokalblickBudgetFollowup.compare(state,baseline,budgetRows(selectedBudgetYear,contracts),selectedBudgetYear);
   function bind(selector,fn){document.querySelectorAll(selector).forEach(b=>{if(b.dataset.followupBound)return;b.dataset.followupBound='1';b.onclick=()=>{if(!selector.includes('history')&&!canEdit()){alert('Slå på Redigera för att ändra.');return;}fn(b);};});}
   async function revise(values,change){
     if(!canEdit())throw new Error('Slå på Redigera.');
     requireActorIdentity();
     const previous=clone(plan);
+    if(context.budgetProposal&&plan.status!=='Låst')plan.lines=clone(context.budgetProposal(selectedBudgetYear));
     LokalblickBudgetFollowup.revise(plan,values.confirmation,values.reason,currentActorLabel());
     try {change();await saveState();render();} catch(e){Object.keys(plan).forEach(k=>delete plan[k]);Object.assign(plan,previous);throw e;}
   }
   bind('[data-followup-history]',b=>{const r=rows[Number(b.dataset.followupHistory)];if(showBudgetHistory)showBudgetHistory(plan.year,r);else showHistory('budgetPlans',String(plan.year));});
   bind('[data-followup-budget-history]',()=>showHistory('budgetPlans',String(plan.year)));
-  bind('[data-followup-revise]',b=>{const row=rows[Number(b.dataset.followupRevise)];dialog('Justera budgetpost '+plan.year,'<p>'+esc(row.source||row.sub)+'</p><label>Budgetbelopp<input type="number" step="0.01" name="amount" value="'+row.budget+'" required></label><label><input type="checkbox" name="excluded"> Undanta från budgeten</label>'+budgetRevisionFields(plan),v=>revise(v,()=>{
+  bind('[data-followup-revise]',b=>{const row=rows[Number(b.dataset.followupRevise)];dialog('Justera budgetpost '+plan.year,'<p>'+esc(row.source||row.sub)+'</p><label>Budgetbelopp<input type="number" step="0.01" name="amount" value="'+row.budget+'" required></label><label><input type="checkbox" name="excluded" '+(row.included===false?'checked':'')+'> Undanta från budgeten</label>'+budgetRevisionFields(plan),v=>revise(v,()=>{
     const line=plan.lines.find(x=>LokalblickBudgetFollowup.key(x)===(row.baselineKey||LokalblickBudgetFollowup.key(row)));
-    const before=Number(line.amount)||0;line.amount=Number(v.amount);line.included=!v.excluded;
+    const before=Number(line.amount)||0;
+    LokalblickBudgetFollowup.setRowAdjustment(plan,line,Number(v.amount),!v.excluded,currentActorLabel(),v.reason);
     plan.targets[row.category]=(Number(plan.targets[row.category])||0)+(v.excluded?0:Number(v.amount))-before;
   }));});
   bind('[data-followup-add]',()=>dialog('Lägg till budgetpost','<label>Benämning<input name="title" required></label><label>Kategori<select name="category">'+budgetCategories().map(c=>'<option>'+esc(c)+'</option>').join('')+'</select></label><label>Belopp<input type="number" step="0.01" name="amount" required></label>'+budgetRevisionFields(plan),v=>revise(v,()=>{

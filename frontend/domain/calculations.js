@@ -419,9 +419,11 @@
   }
 
   function budgetGroup(row) { return row.category==='Hyra + drift'?'Hyra':row.category==='Projekt'?'Investering':'Drift'; }
+  function budgetRowKey(row) {return [row.sourceType||'legacy',row.sourceId||row.contractId||row.source,row.category,row.sourceType?'':row.sub||''].join('|');}
   function budgetProposal(data,year,{strict=false}={}) {
     const rows=budgetRows(data,year).map(row=>({...row,baseAmount:row.amount,adjustmentAmount:0,budgetGroup:budgetGroup(row)}));
     const plan=(data.budgetPlans||[]).find(p=>Number(p.year)===Number(year));
+    for(const row of rows){const override=plan?.rowAdjustments?.[budgetRowKey(row)];if(override)row.included=override.included!==false;}
     for(const group of ['Hyra','Investering','Drift']) {
       const members=rows.filter(r=>r.budgetGroup===group&&r.included!==false),total=members.reduce((n,r)=>n+r.baseAmount,0);
       const adjustment=number(plan?.adjustments?.[group]);
@@ -429,6 +431,14 @@
       let remaining=adjustment;
       members.forEach((r,i)=>{r.adjustmentAmount=i===members.length-1?remaining:Math.round(adjustment*r.baseAmount/total*100)/100;remaining-=r.adjustmentAmount;r.amount=r.baseAmount+r.adjustmentAmount;});
     }
+    for(const row of rows) {
+      const override=plan?.rowAdjustments?.[budgetRowKey(row)];
+      const saved=(plan?.lines||[]).find(line=>budgetRowKey(line)===budgetRowKey(row));
+      row.manualAdjustmentAmount=override?number(override.amount):saved?.baseAmount!=null?number(saved.amount)-number(saved.baseAmount)-number(saved.adjustmentAmount):0;
+      if(!override&&saved?.included===false)row.included=false;
+      row.amount+=row.manualAdjustmentAmount;
+    }
+    for(const line of (plan?.lines||[]).filter(line=>line.sourceType==='manual'))rows.push({...line,baseAmount:line.baseAmount??line.amount,budgetGroup:budgetGroup(line)});
     return rows;
   }
   function budgetRows(data, year, contracts, properties) {
@@ -588,6 +598,7 @@
     activityPlannedInYear,
     activityBudgetAmount,
     activityEconomics,
+    budgetRowKey,
     budgetGroup,
     budgetProposal,
     budgetIndex,
