@@ -37,7 +37,9 @@ test("compact contract form distinguishes owner from tenant and retains indexed 
   assert.match(html,/value="Hyresgäst AB"/);
   assert.match(html,/name="unitId"/);
   assert.match(html,/value="VARDBO" selected/);
-  assert.doesNotMatch(html,/name="businessPartyId"/);
+  assert.match(html,/name="businessPartyId"/);
+  assert.match(html,/name="tenantPartyId"/);
+  assert.match(html,/Hyresgäst \(juridisk part\)/);
   assert.doesNotMatch(html,/name="ownerResponsiblePersonId"|name="responsiblePersonId"/);
   assert.match(html,/Kontaktperson A/);
   assert.match(html,/value="Äldreboende" selected/);

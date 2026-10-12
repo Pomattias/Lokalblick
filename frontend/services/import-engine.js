@@ -1,4 +1,5 @@
 import '../domain/import-rules.js';
+import '../domain/responsibility-model.js';
 import {interpretCell,profileFormat,parseDate,dateField,numberField} from './import-formats.js';
 // Shared, local-only preparation for unknown workbook structures.
 // Uses the canonical schemas owned by source-service, never a second data model.
@@ -20,8 +21,8 @@ const aliases = {
   'hyresgast':'contracts.tenantName', 'verksamhet':'contracts.businessName',
 };
 export function fieldCatalog(schemas) {
-  const labels={sourceId:'Källans identifierare',objectId:'Objekt',propertyId:'Fastighet',contractId:'Avtal',activityId:'Aktivitet',organizationId:'Organisation',ownerPartyId:'Fastighetsägare',responsiblePersonId:'Ansvarig hos oss'};
-  return schemas.flatMap(s => s.columns.filter(([k,,hidden]) => (!hidden || ['sourceId','objectId','propertyId','contractId','activityId','organizationId','ownerPartyId','responsiblePersonId'].includes(k)) && !/^(geo|enrichment)/.test(k))
+  const labels={personId:'Person',targetType:'Måltyp',targetId:'Mål',roleKey:'Rollnyckel',tenantPartyId:'Hyresgäst (juridisk part)',tenantResponsiblePersonId:'Hyresgästens kontaktperson',sourceId:'Källans identifierare',objectId:'Objekt',propertyId:'Fastighet',contractId:'Avtal',activityId:'Aktivitet',organizationId:'Organisation',ownerPartyId:'Fastighetsägare',responsiblePersonId:'Ansvarig hos oss'};
+  return schemas.flatMap(s => s.columns.filter(([k,,hidden]) => (!hidden || ['sourceId','objectId','propertyId','contractId','activityId','organizationId','ownerPartyId','responsiblePersonId','personId','targetType','targetId','tenantPartyId','tenantResponsiblePersonId'].includes(k)) && !/^(geo|enrichment)/.test(k))
     .map(([field,label]) => ({target:s.key+'.'+field,collection:s.key,field,aliases:s.labelAliases?.[field]||[],label:s.sheet+' → '+(label.startsWith('_')?labels[field]||label:label)})));
 }
 export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
@@ -45,7 +46,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
     const contractSignals=headerKeys.filter(h=>/avtals|hyra|hyres|uppsagning|forlangning/.test(h));
     const signature = JSON.stringify(headers.filter(present).map(norm).sort());
     const previous = saved.find(s => s.sheet===name && (!source?.fileName||!s.fileName||s.fileName===source.fileName) && s.signature===signature);
-    const inferred = /part|organisation/i.test(name)?'organizations':/best[aä]llning|order/i.test(name)?'orders':/aktivitet/i.test(name)?'activities': /^objekt/i.test(name)?'objects': /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
+    const inferred = /ansvar|tilldelning/i.test(name)?'assignments':/part|organisation/i.test(name)?'organizations':/best[aä]llning|order/i.test(name)?'orders':/aktivitet/i.test(name)?'activities': /^objekt/i.test(name)?'objects': /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
     const columns = headers.map((header,index) => {
       if(!present(header)) return null;
       const values=matrix.slice(headerIndex+1).map(r=>r[index]).filter(present);
@@ -61,6 +62,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
       }
       if(inferred==='contracts'&&/^(?:forlangningstid|forlangningsperiod)(?:manader|man)?$/.test(h))contextualTarget='contracts.renewalPeriodMonths';
       if(inferred==='contracts'&&/^(?:uppsagningstid)(?:manader|man)?$/.test(h))contextualTarget='contracts.noticePeriodMonths';
+      if(inferred==='assignments'){contextualTarget=({person:'assignments.personId',mal:'assignments.targetId',maltyp:'assignments.targetType',fran:'assignments.fromDate',till:'assignments.toDate'})[h]||contextualTarget;}
       if(/^(?:id|identifierare|kallansidentifierare)$/.test(h)&&fields.some(f=>f.target===inferred+'.sourceId'))contextualTarget=inferred+'.sourceId';
       const target=rule?.target || contextualTarget || aliases[h] || aliases[fieldName(header)] || candidate?.target || '@extra';
       const date1904=Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904);
@@ -172,7 +174,7 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
   }
   const preparedAt=Date.now();
   // Resolve every parent table across all files before applying dependent records.
-  for(const collection of new Set(['organizations','people','properties','objects','contracts','activities','orders',...context.schemas.map(s=>s.key)])){
+  for(const collection of new Set(['organizations','people','properties','objects','contracts','activities','orders','assignments',...context.schemas.map(s=>s.key)])){
     for(const task of rows){
       const {profile,r,groups,rowRecords,fileName,sourceId,ruleId,rule}=task;
       const group=groups.get(collection);if(!group)continue;
@@ -194,13 +196,20 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         if(collection==='objects'&&rowRecords.properties&&!present(group.values.propertyId))group.values.propertyId=rowRecords.properties;
         if(collection==='contracts'&&rowRecords.objects&&!present(group.values.objectId))group.values.objectId=rowRecords.objects;
         if(collection==='contracts'&&rowRecords.properties&&!present(group.values.propertyId))group.values.propertyId=rowRecords.properties;
-        const parents={propertyId:'properties',objectId:'objects',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people'};
+        const parents={personId:'people',tenantPartyId:'organizations',propertyId:'properties',objectId:'objects',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people'};
         for(const [field,parent] of Object.entries(parents)){
           if(!present(group.values[field]))continue;
           const value=group.values[field];
           const values=[...new Set(['id','sourceId','designation','address','number','name','title'].flatMap(k=>indexFor(parent).lookup(k,value)))];
           const candidates=values.filter(x=>(parent!=='objects'||!group.values.propertyId||x.propertyId===group.values.propertyId)&&(x.id===value || [x.sourceId,x.designation,x.address,x.number,x.name,x.title].filter(present).some(v=>norm(v)===norm(value))));
           if(candidates.length===1)group.values[field]=candidates[0].id;else group.errors.push('Relationen '+field+' är inte entydig');
+        }
+        if(collection==='assignments'){
+          const names={Fastighet:'property',Objekt:'object',Avtal:'contract',Aktivitet:'activity',Verksamhet:'business',Part:'organization'};
+          group.values.targetType=names[group.values.targetType]||group.values.targetType;
+          const parent=globalThis.LokalblickResponsibility.types[group.values.targetType];
+          if(!parent||!group.values.targetId)group.errors.push('Ansvarsrelationen saknar hemvist');
+          else if(group.values.targetType!=='business'){const value=group.values.targetId,candidates=[...new Set(['id','number','designation','title','name'].flatMap(f=>indexFor(parent).lookup(f,value)))];if(candidates.length===1)group.values.targetId=candidates[0].id;else group.errors.push('Ansvarsrelationens hemvist är inte entydig');}
         }
         if(collection==='objects'&&!group.values.propertyId)group.errors.push('Objektet saknar fastighetskoppling');
         if(collection==='contracts'&&group.values.objectId){const obj=byId('objects',group.values.objectId);if(obj){if(group.values.propertyId&&group.values.propertyId!==obj.propertyId)group.errors.push('Objektet och avtalet pekar på olika fastigheter');else group.values.propertyId=obj.propertyId;}}
@@ -216,6 +225,7 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
           counts.unresolved++;continue;
         }
         let record=match.record;
+        const beforeAssignment=collection==='assignments'&&record?copy(record):null;
         if(!record){record={id:crypto.randomUUID(),provenance:{}};data[collection].push(record);counts.created++;}
         else counts.matched++;
         rowRecords[collection]=record.id;
@@ -232,6 +242,18 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
           }
           changes.push({collection,recordId:record.id,field,from:current??'',to:value,provenance:group.origins[field]});
           record[field]=value;record.provenance[field]={...group.origins[field],value,matchReason:match.reason,identityDecision:override?.recordId?'manual':'automatic'};counts.fields++;
+        }
+        if(collection==='assignments'){
+          globalThis.LokalblickResponsibility.normalize(data);
+          const problem=globalThis.LokalblickResponsibility.issues(data).find(e=>e.ids?.includes(record.id));
+          if(problem){
+            if(!match.record){data[collection].splice(data[collection].indexOf(record),1);counts.created--;}else {Object.keys(record).forEach(k=>delete record[k]);Object.assign(record,beforeAssignment);}
+            changes.splice(0,changes.length,...changes.filter(c=>c.recordId!==record.id));
+            entry.classification='D';entry.reason=problem.message;counts.unresolved++;
+            const id=sourceId+'|'+profile.name+'|'+(r+1)+'|'+collection;
+            if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'mapped-identity',source:fileName,status:'pending',...entry});
+            continue;
+          }
         }
         indexFor(collection).update(record);
         record.supplemental ||= [];
@@ -262,6 +284,7 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
   const consolidation={sourceRows:rows.length,uniqueRecords,mergedOccurrences:identified.length-uniqueRecords,files:new Set(profiles.map(p=>p.fileName||context.fileName)).size,sheets:profiles.length};
   for(const change of changes)data.auditLog.push({id:crypto.randomUUID(),at,by:context.actor,actorVerified:false,collection:change.collection,recordId:change.recordId,action:'Importerad',fields:[{field:change.field,from:change.from,to:change.to,provenance:change.provenance}]});
   globalThis.LokalblickObjectModel?.normalize(data);
+  globalThis.LokalblickResponsibility.normalize(data);
   counts.objectsAfter=(data.objects||[]).length;
   const tables=context.schemas.map(schema=>{
     const oldIds=new Set((base[schema.key]||[]).map(r=>r.id));

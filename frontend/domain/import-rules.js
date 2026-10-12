@@ -4,7 +4,7 @@
   const present=x=>x!=null&&(typeof x!=='string'||x.trim()!=='');
   const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   const key=x=>String(x??'').trim().toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'');
-  const entities=['organizations','people','properties','objects','contracts','activities','orders','operations','maintenanceStatus'];
+  const entities=['organizations','people','properties','objects','contracts','activities','orders','assignments','operations','maintenanceStatus'];
   const protectedField=field=>['id','sourceId','objectId','propertyId','contractId','activityId'].includes(field);
   // A fresh index belongs to one import run. Buckets retain all candidates so
   // duplicate identities are still reviewed rather than arbitrarily selected.
@@ -28,7 +28,7 @@
     return {lookup,update};
   }
   function identify(records,values,collection,identity=[],index){
-    const keys=identity.length?identity:({properties:present(values.sourceId)?['sourceId']:['designation'],objects:['number','propertyId'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId']}[collection]||[]);
+    const keys=identity.length?identity:({properties:present(values.sourceId)?['sourceId']:['designation'],objects:['number','propertyId'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId'],assignments:['personId','targetType','targetId','role','fromDate']}[collection]||[]);
     const usable=keys.filter(k=>present(values[k]));
     const objectIdentified=collection!=='objects'||identity.some(k=>k!=='propertyId'&&present(values[k]))||present(values.number)||present(values.id)||present(values.sourceId);
     const hits=usable.length&&objectIdentified?(index?index.lookup(usable[0],values[usable[0]]):records).filter(r=>(collection!=='objects'||r.propertyId===values.propertyId)&&usable.every(k=>key(r[k])===key(values[k]))):[];
@@ -51,6 +51,8 @@
     if(equal(current,value)||!present(value))return {action:'keep'};
     const approved=(data.importReview||[]).some(r=>r.kind==='operational-conflict'&&r.status==='accepted'&&r.collection===collection&&r.recordId===record.id&&r.field===field&&r.resolvedBy&&r.resolvedAt&&equal(r.current,current)&&equal(r.proposed,value));
     if(approved)return {action:'write'};
+    const model=root.LokalblickResponsibility,role=model?.fields[field],type=role&&Object.keys(model.types).find(t=>model.types[t]===collection);
+    if(type&&model.history(data,type,record.id,role).length)return {action:'review',protectedValue:true,current,proposed:value,reason:'Ansvarbyte behöver ett giltighetsdatum'};
     const protectedValue=previous?.source==='manual'||previous?.manual===true||(['latitude','longitude'].includes(field)&&(record.geoSource==='manual'||Boolean(record.geoConfirmedAt)));
     const preference=data.importFieldPreferences?.[[collection,field,origin.source||''].map(x=>String(x).trim().toLocaleLowerCase('sv')).join('|')];
     if(protectedValue||(present(current)&&preference!=='accept')||(protectedField(field)&&present(current))){
@@ -145,6 +147,7 @@
       }
     }
     root.LokalblickObjectModel?.normalize(data);
+    root.LokalblickResponsibility?.normalize(data);
     return {...result,data,report:{...result.report,commonRules:true,changes,counts:{...result.report?.counts,conflicts:data.importReview.filter(x=>x.kind==='operational-conflict'&&x.status==='pending').length}}};
   }
   const api={createIndex,identify,decideField,applyField,provenance,reconcile};root.LokalblickImportRules=api;if(root.window)root.window.LokalblickImportRules=api;

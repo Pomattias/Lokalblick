@@ -1,3 +1,4 @@
+import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, calc, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
 
@@ -72,7 +73,10 @@ export function renderContractEditor(data, c, id, company=false) {
           : display(propertyReference(property)||"Ej kopplad"))+
         field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>[x.number,x.name].filter(Boolean).join(" · "),"Välj objekt"))+
         field("Fastighetsägare",display(ownerName))+
-        field("Hyresgäst",input(c,"tenantName","text",false,'placeholder="Ange hyresgäst"'))+
+        field("Hyresgäst enligt källa",input(c,"tenantName","text",true))+
+        field("Hyresgäst (juridisk part)",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
+        field("Hyresgästens kontaktperson",select("tenantResponsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"))+
+        field("Verksamhetspart",select("businessPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
         field("Verksamhet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj verksamhet"))+
         field("Fastighetsägarens kontaktperson",display(ownerContact))+
         field("Verksamhetsansvarig",select("businessResponsiblePersonId",activityPersonOptions,c,x=>x.id,x=>x.name+(x.unitId&&units[x.unitId]?" · "+units[x.unitId]:""),"Ej kopplad"))+
@@ -111,6 +115,6 @@ export function renderContractEditor(data, c, id, company=false) {
         documentLink+
       '</section>'+
       (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+
-      '<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span>'+
+      responsibilityHtml(data,'contract',c.id)+'<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span>'+
       '<button type="submit" class="primary">Spara ändring</button></div></form></aside>';
 }

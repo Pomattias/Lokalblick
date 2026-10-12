@@ -1,3 +1,4 @@
+import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, calc, units, propertyReference } from "./views.js";
 import { clone } from "./model.js";
 import { renderContractEditor } from "./contract-editor.js";
@@ -8,6 +9,8 @@ const relations = {
   propertyId: ["properties", propertyReference],
   contractId: ["contracts", (x) => x.number || x.id],
   activityId: ["activities", (x) => x.title || x.id],
+  tenantPartyId: ["organizations", (x) => x.name],
+  tenantResponsiblePersonId: ["people", (x) => x.name],
   organizationId: ["organizations", (x) => x.name],
   ownerPartyId: ["organizations", (x) => x.name],
   businessPartyId: ["organizations", (x) => x.name],
@@ -85,7 +88,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
   };
   const fields = new Map(
     schema.columns
-      .filter(([k]) => !generated.test(k) && !(col === "activities" && ["planningQuarter", "planningMonth", "budgetCategory"].includes(k)))
+      .filter(([k]) => !generated.test(k) && !(col==='assignments'&&['roleKey','cancelled'].includes(k)) && !(col === "activities" && ["planningQuarter", "planningMonth", "budgetCategory"].includes(k)))
       .map(([key, label]) => [
         key,
         fieldLabels[key] || label.replace(/^_/, ""),
@@ -104,8 +107,13 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     const g = group(key);
     if (!groups.has(g)) groups.set(g, []);
     let control;
+    if(key==='responsibilityChangeDate')return;
     if(col==='objects'&&key==='predecessorIds') {
       control=`<select name="predecessorIds" multiple aria-label="Föregående objekt">${(data.objects||[]).filter(o=>o.id!==record.id&&(!record.propertyId||o.propertyId===record.propertyId)).map(o=>`<option value="${esc(o.id)}" ${(record.predecessorIds||[]).includes(o.id)?'selected':''}>${esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)}</option>`).join('')}</select><small>Välj tidigare objekt vid delning eller sammanslagning. Avsluta dem med eget t.o.m.-datum.</small>`;
+    } else if(col==='assignments'&&key==='targetType'){control=`<select name="targetType" data-assignment-type>${options(Object.entries(globalThis.LokalblickResponsibility.types),x=>x[0],x=>({property:'Fastighet',object:'Objekt',contract:'Avtal',business:'Verksamhet',activity:'Aktivitet',organization:'Part'})[x[0]],record.targetType,'Välj hemvist')}</select>`;
+    } else if(col==='assignments'&&key==='targetId'){const collection=globalThis.LokalblickResponsibility.types[record.targetType]||'properties';const items=record.targetType==='business'?[...new Set((data.contracts||[]).map(c=>c.unitId).filter(Boolean))].map(id=>({id,name:units[id]||id})):data[collection]||[];control=`<select name="targetId" data-assignment-target>${options(items,x=>x.id,x=>x.name||x.number||x.title||x.designation||x.id,record.targetId,'Välj post')}</select>`;
+    } else if(col==='assignments'&&key==='role'){const roles=[...new Set([...Object.values(globalThis.LokalblickResponsibility.roles),'Kontakt',record.role].filter(Boolean))];control=`<select name="role">${options(roles,x=>x,x=>x,record.role,'Välj roll')}</select>`;
+    } else if(col==='assignments'&&key==='shared'){control=`<select name="shared"><option value="Nej">Ensam i rollen</option><option value="Ja" ${record.shared?'selected':''}>Delat ansvar</option></select>`;
     } else if (relations[key]) {
       const [collection, fn] = relations[key];
       let items=data[collection];
@@ -218,13 +226,14 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     }. Klassificeringen är beräknad, inte en kopia av importerad drift/investering.</p>`;
   return {
     record,
-    html: `<div class="editor-backdrop"></div><aside class="editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="${col}" data-record-id="${esc(id)}"><div class="section-title"><div><small>${id ? "ÄNDRA" : "NY POST"}</small><h2 id="editor-title">${esc(schema.sheet)}</h2></div><button type="button" data-editor-close>Stäng</button></div><nav class="tabs" aria-label="Redigeringssektioner">${[...groups.keys()].map((g, i) => `<button type="button" data-editor-tab="${g}" class="${i ? "" : "active"}">${g}</button>`).join("")}</nav>${[...groups].map(([g, controls], i) => `<section data-editor-section="${g}" ${i ? "hidden" : ""}><div class="form-grid">${controls.join("")}</div></section>`).join("")}${economicSummary}${company ? '<p class="computed">Mastervärden från INT/EXT ändras i underlaget. Kompletteringar sparas i backend.</p>' : ""}${result ? `<p class="computed">Beräknat för ${new Date().getFullYear()}: hyra ${Math.round(result.rent.amount)} kr · ${esc(result.rent.status)}. Tillägg ${Math.round(result.addition.amount)} kr · ${esc(result.addition.status)}.</p>` : ""}<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span><button type="submit" class="primary">Spara ändring</button></div></form></aside>`,
+    html: `<div class="editor-backdrop"></div><aside class="editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="${col}" data-record-id="${esc(id)}"><div class="section-title"><div><small>${id ? "ÄNDRA" : "NY POST"}</small><h2 id="editor-title">${esc(schema.sheet)}</h2></div><button type="button" data-editor-close>Stäng</button></div><nav class="tabs" aria-label="Redigeringssektioner">${[...groups.keys()].map((g, i) => `<button type="button" data-editor-tab="${g}" class="${i ? "" : "active"}">${g}</button>`).join("")}</nav>${[...groups].map(([g, controls], i) => `<section data-editor-section="${g}" ${i ? "hidden" : ""}><div class="form-grid">${controls.join("")}</div></section>`).join("")}${col==='objects'?responsibilityHtml(data,'object',record.id):''}${economicSummary}${company ? '<p class="computed">Mastervärden från INT/EXT ändras i underlaget. Kompletteringar sparas i backend.</p>' : ""}${result ? `<p class="computed">Beräknat för ${new Date().getFullYear()}: hyra ${Math.round(result.rent.amount)} kr · ${esc(result.rent.status)}. Tillägg ${Math.round(result.addition.amount)} kr · ${esc(result.addition.status)}.</p>` : ""}<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span><button type="submit" class="primary">Spara ändring</button></div></form></aside>`,
   };
 }
 export function readEditor(form, record) {
   const out = clone(record);
   const submitted = new Set();
   new FormData(form).forEach((value, key) => {
+    if(key==='responsibilityChangeDate')return;
     submitted.add(key);
     out[key] = numeric.test(key) && value !== "" ? Number(value) : value;
     // Editor explicitly shows percentage points (80 means 80 %);
@@ -232,6 +241,7 @@ export function readEditor(form, record) {
     if ((key === "rentIndexPercent" || key === "additionIndexPercent") && value !== "")
       out[key] = Number(value) / 100;
   });
+  if(form.dataset?.collection==='assignments'){out.shared=out.shared==='Ja';out.roleKey=globalThis.LokalblickResponsibility.roleKey({...out,roleKey:''});}
   if(form.dataset?.collection==='objects')out.predecessorIds=new FormData(form).getAll('predecessorIds').filter(Boolean);
   if (form.dataset?.collection === "activities") {
     if (!String(out.title || "").trim())

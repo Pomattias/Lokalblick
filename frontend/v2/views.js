@@ -918,8 +918,9 @@ export function sources(data, transport) {
   )}</details>`;
 }
 export function organization(data) {
-  return `<div class="section-title"><h2>Personer och parter</h2><div>${edit("people","","Lägg till person")}${edit("organizations","","Lägg till part")}</div></div>
+  return `<div class="section-title"><h2>Personer och parter</h2><div>${edit("people","","Lägg till person")}${edit("organizations","","Lägg till part")}${edit("assignments","","Tilldela ansvar")}</div></div>
   ${table(["Person","Befattning","Telefonnummer","Part",""],data.people.map((x)=>row([esc(x.name),esc(x.role),esc(x.phone||"–"),esc(data.organizations.find((o)=>o.id===x.organizationId)?.name||""),edit("people",x.id)])))}
+  <details><summary>Ansvar och kontaktpersoner (${(data.assignments||[]).length})</summary>${table(['Person','Roll','Från','Till',''],(data.assignments||[]).map(a=>row([esc(data.people.find(p=>p.id===a.personId)?.name||a.personId),esc(a.role),esc(a.fromDate||'Okänt'),esc(a.toDate||'Ej angivet'),edit('assignments',a.id)])))}</details>
   <h3>Parter</h3>
   ${table(["Part","Typ",""],data.organizations.map((x)=>row([esc(x.name),esc(x.type),edit("organizations",x.id)])))}`;
 }

@@ -1,11 +1,13 @@
 import "../services/import-formats.js";
 import "../domain/object-model.js";
+import "../domain/responsibility-model.js";
 export const collections = [
   "properties",
   "objects",
   "contracts",
   "organizations",
   "people",
+  "assignments",
   "orders",
   "activities",
   "operations",
@@ -26,7 +28,6 @@ export const clone = (x) => JSON.parse(JSON.stringify(x));
 
 const legacyCollections = [
   "contacts",
-  "assignments",
   "projects",
   "maintenance",
   "investigations",
@@ -429,7 +430,7 @@ function canonicalRelations(out) {
   const validOwnerManager=(id,p)=>{const person=out.people.find(x=>x.id===id);const owner=out.organizations.find(x=>x.id===p.ownerPartyId);if(person&&/\bJULDAM\b/i.test([person.name,person.sourceId,person.id].join(" "))&&!/stadsfastigheter/i.test(owner?.name||""))return false;return Boolean(person&&p.ownerPartyId&&person.organizationId===p.ownerPartyId);};
   out.properties.forEach((p)=>{if(!p.ownerPartyId&&p.ownerOrgId)p.ownerPartyId=p.ownerOrgId;delete p.ownerOrgId;});
   out.properties.forEach(p=>{if(p.ownerResponsiblePersonId&&!validOwnerManager(p.ownerResponsiblePersonId,p))p.ownerResponsiblePersonId="";});
-  out.contracts.forEach((c)=>{if(!c.businessPartyId&&c.tenantOrgId)c.businessPartyId=c.tenantOrgId;delete c.tenantOrgId;delete c.ownerOrgId;["notice","annualRent","annualAdditions","rentPerSqm","derivedRentBaseIndex","rentIndexCurrent","rentIndexYear","rentCalculationYear","calculatedAnnualRent","rentCalculationVariance","rentCalculationStatus","derivedAdditionBaseIndex","additionIndexCurrent","additionIndexYear","additionCalculationYear","calculatedAnnualAdditions","additionCalculationVariance","additionCalculationStatus"].forEach((k)=>delete c[k]);});
+  out.contracts.forEach((c)=>{if(!c.tenantPartyId&&c.tenantOrgId)c.tenantPartyId=c.tenantOrgId;delete c.tenantOrgId;delete c.ownerOrgId;["notice","annualRent","annualAdditions","rentPerSqm","derivedRentBaseIndex","rentIndexCurrent","rentIndexYear","rentCalculationYear","calculatedAnnualRent","rentCalculationVariance","rentCalculationStatus","derivedAdditionBaseIndex","additionIndexCurrent","additionIndexYear","additionCalculationYear","calculatedAnnualAdditions","additionCalculationVariance","additionCalculationStatus"].forEach((k)=>delete c[k]);});
   (out.contacts||[]).filter((x)=>!x.toDate).forEach((c)=>{if(isOur(c.personId))return;const t=c.targetType==="object"?"contract":c.targetType;if(t==="property"){const p=out.properties.find((x)=>x.id===c.targetId);if(p&&!p.ownerResponsiblePersonId&&validOwnerManager(c.personId,p))p.ownerResponsiblePersonId=c.personId;}else if(t==="contract"){const a=out.contracts.find((x)=>x.id===c.targetId);if(a&&!a.businessResponsiblePersonId)a.businessResponsiblePersonId=c.personId;}});
   const migratedInvestigations=[];
   out.activities.forEach((a)=>{
@@ -535,6 +536,7 @@ export function normalize(data) {
   [...collections, ...legacyCollections].forEach((k) => {
     if (!Array.isArray(out[k])) out[k] = [];
   });
+  globalThis.LokalblickResponsibility.normalize(out);
   normalizeOwnerRelations(out);
   // An activity without a home is a planning task, not an import conflict.
   // Preserve the historical review record while removing it from the open queue.
@@ -555,7 +557,7 @@ export function normalize(data) {
     c.end = c.end ?? c.currentValidTo ?? "";
     c.notice = c.notice ?? c.noticeBy ?? "";
   });
-  return globalThis.LokalblickObjectModel.normalize(canonicalRelations(migrateLegacy(out)));
+  return globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickObjectModel.normalize(canonicalRelations(migrateLegacy(out))));
 }
 export function activities(data) {
   return (data.activities || []).map((record) => ({
@@ -814,7 +816,7 @@ export function assign(data, collection, id, person, actor) {
   const old = record.responsiblePersonId || "";
   if (old === person) return;
   const before = clone(record);
-  record.responsiblePersonId = person || "";
+  globalThis.LokalblickResponsibility.change(data,{targetType:targetCollection==='properties'?'property':'activity',targetId:id,role:'our',personId:person||'',actor});
   audit(data, targetCollection, id, before, record, actor);
 }
 export function moveWish(data, id, target, actor) {

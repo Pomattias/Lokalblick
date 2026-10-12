@@ -138,7 +138,8 @@ test("V2 API save persists budget, review, provenance and audit across backend r
     assert.equal(out.orders[0].activityId, "act1");
     assert.equal(out.orders[0].finalCost, 425);
     assert.equal(Object.hasOwn(out, "contacts"), false);
-    assert.equal(out.assignments.length, 0);
+    assert.ok(out.assignments.some(a=>a.personId==="person1" && a.targetType==="property"));
+    assert.ok(out.assignments.some(a=>a.personId==="person1" && a.targetType==="activity"));
   } finally {
     await new Promise((r) => server.close(r));
     await fs.rm(dir, { recursive: true, force: true });

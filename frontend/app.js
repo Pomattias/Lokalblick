@@ -123,6 +123,7 @@ function requireActorIdentity() {
 }
 async function saveState() {
   try { requireActorIdentity(); } catch(error) { if(auditBaseline)state=clone(auditBaseline);throw error; }
+  if(auditBaseline&&window.LokalblickResponsibility)window.LokalblickResponsibility.applyChanges(auditBaseline,state,{actor:currentActorLabel()});
   ensureAuditMetadata(state);
   recordAuditChanges();
   state = ensureShape(await window.LokalblickDataService.save(state));
@@ -1397,13 +1398,12 @@ function internalPeopleForPlanning() {
     return org && org.type==="our";
   }).sort(function(a,b){return String(a.name).localeCompare(String(b.name),"sv");});
 }
-function activeResponsibleId(targetType,targetId,fallbackId) {
-  const active=state.assignments.find(function(a){
-    return a.targetType===targetType && a.targetId===targetId && !a.toDate && a.role==="Ansvarig";
-  }) || state.assignments.find(function(a){
-    return a.targetType===targetType && a.targetId===targetId && !a.toDate;
-  });
-  return active ? active.personId : (fallbackId||"");
+function activeResponsibleId(targetType,targetId,fallbackId){
+  const model=window.LokalblickResponsibility,types={project:'activity',maintenance:'activity',driftIssue:'activity',wish:'activity',investigation:'activity'};
+  if(targetType==='maintenanceStatus'){targetType='activity';targetId='STATUS-ACT|'+targetId;}
+  targetType=types[targetType]||targetType;
+  const history=model.history(state,targetType,targetId,'our'),active=model.current(state,targetType,targetId,'our');
+  return active.length===1?active[0].personId:history.length?'':fallbackId||'';
 }
 function planningPropertyAddress(propertyId) {
   const p=state.properties.find(function(x){return x.id===propertyId;});
@@ -3618,35 +3618,11 @@ function logAssignmentChange(targetType,targetId,fromPersonId,toPersonId) {
     changedBy: currentActorLabel()
   });
 }
-function syncResponsibleAssignment(targetType, targetId, personId, fromDate) {
-  const today = new Date().toISOString().slice(0,10);
-  const active = state.assignments.filter(function(a) {
-    return a.targetType === targetType && a.targetId === targetId && !a.toDate;
-  });
-  const current = active.find(function(a){return a.role==="Ansvarig";}) || active[0] || null;
-  const previousPersonId = current ? current.personId : "";
-  const same = active.find(function(a) { return a.personId === personId; });
-
-  if ((previousPersonId||"") === (personId||"")) return;
-
-  active.forEach(function(a) {
-    a.toDate = today;
-  });
-
-  if (personId) {
-    const existingClosed = same && same.toDate;
-    state.assignments.push({
-      id: nextId("A", state.assignments),
-      personId: personId,
-      targetType: targetType,
-      targetId: targetId,
-      role: "Ansvarig",
-      fromDate: fromDate || today,
-      toDate: "",
-      allocation: 0
-    });
-  }
-  logAssignmentChange(targetType,targetId,previousPersonId,personId||"");
+function syncResponsibleAssignment(targetType,targetId,personId,fromDate){
+  const types={project:'activity',maintenance:'activity',driftIssue:'activity',wish:'activity',investigation:'activity'};
+  if(targetType==='maintenanceStatus'){targetType='activity';targetId='STATUS-ACT|'+targetId;}
+  window.LokalblickResponsibility.normalize(state);
+  return window.LokalblickResponsibility.change(state,{targetType:types[targetType]||targetType,targetId,personId,role:'our',fromDate:window.LokalblickResponsibility.today(),actor:currentActorLabel()});
 }
 async function saveEditor(form) {
   if (!canEdit()) return false;

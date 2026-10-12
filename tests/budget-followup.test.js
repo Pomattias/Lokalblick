@@ -48,8 +48,8 @@ test('real XLSX roundtrip keeps canonical activity identities, versions, zero fi
  assert.equal(restored.activities[0].includeInBudget,'Nej');assert.equal(Object.hasOwn(restored.activities[0],'finalCosts'),false);
  assert.equal(restored.orders[0].activityId,'UH1');assert.equal(restored.orders[0].finalCost,0);
  assert.equal(restored.activities[0].responsiblePersonId,'P1-INTERN');assert.equal(restored.properties[0].responsiblePersonId,'P1-INTERN');
- assert.equal(restored.auditLog[0].recordId,'UH1');assert.equal(restored.assignments?.length||0,0);
- assert.equal(Boolean(workbook.Sheets.Ansvar),false);assert.equal(Boolean(workbook.Sheets.Projekt),false);
+ assert.equal(restored.auditLog[0].recordId,'UH1');assert.ok(Array.isArray(restored.assignments));
+ assert.ok(workbook.Sheets.Ansvar);assert.equal(Boolean(workbook.Sheets.Projekt),false);
 });
 test('legacy snapshot matches only a unique source, ambiguous rows need review',()=>{
  const old={category:'Underhåll',source:'Tak',contractId:'C1',amount:100};

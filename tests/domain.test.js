@@ -598,7 +598,7 @@ test("actual XLSX bytes roundtrip keeps one activity model, responsibility and l
   assert.ok(workbookOut.Sheets["Tilläggsdata"]);
   assert.equal(Boolean(workbookOut.Sheets.Projekt), false);
   assert.equal(Boolean(workbookOut.Sheets.Underhåll), false);
-  assert.equal(Boolean(workbookOut.Sheets.Ansvar), false);
+  assert.ok(workbookOut.Sheets.Ansvar);
   assert.equal(Boolean(workbookOut.Sheets.Kostnader), false);
   assert.equal(Boolean(workbookOut.Sheets.Status), false);
   const out = svc.LokalblickSourceService.workbookToData(workbookOut);
@@ -687,7 +687,7 @@ test("non-demo normalization never inserts demo data; multi-contract scope stays
   assert.equal(v.contracts.length, 2);
   assert.equal(v.items.length, 1);
 });
-test("responsibility is stored directly and wish conversion keeps the same activity", () => {
+test("responsibility projects from its relation and wish conversion keeps the same activity", () => {
   const d = normalize({
     people:[{id:"person1",name:"Testperson"}],
     activities: [
@@ -704,7 +704,9 @@ test("responsibility is stored directly and wish conversion keeps the same activ
   assign(d, "activities", "w1", "person1", "Test");
   assert.equal(d.activities[0].responsiblePersonId, "person1");
   assert.equal(responsible(d, "activities", d.activities[0]), "person1");
-  assert.equal(d.assignments.length, 0);
+  assert.equal(d.assignments.length, 1);
+  assert.equal(d.assignments[0].targetId,"w1");
+  assert.equal(d.assignments[0].personId,"person1");
   moveWish(d, "w1", "Underhåll", "Test");
   assert.equal(d.activities.length, 1);
   assert.equal(d.activities[0].id, "w1");
