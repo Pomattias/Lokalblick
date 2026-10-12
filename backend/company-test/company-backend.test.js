@@ -120,11 +120,13 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   assert.equal((await repository.bootstrap()).properties.find((item) => item.id === "PROP-1").ownerResponsiblePersonId, person.id);
   assert.equal((await repository.bootstrap()).properties.find((item) => item.id === "PROP-1").responsiblePersonId, person.id);
   assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).annualRent, undefined);
-  assert.equal(await repository.delete("contracts", "SF|PROP-1|SF-100"), true);
-  assert.equal(await repository.delete("people", person.id), true);
+  await assert.rejects(repository.delete("contracts", "SF|PROP-1|SF-100"), /ansvarshistorik/);
+  await assert.rejects(repository.delete("people", person.id), /ansvarshistorik/);
+  const unlinked=await repository.create('people',{id:'UNLINKED',name:'Utan uppdrag'});
+  assert.equal(await repository.delete('people',unlinked.id),true);
   await repository.refreshSource();
   assert.deepEqual((await repository.bootstrap()).contracts.map((contract) => contract.id), [
-    "SF|PROP-1|SF-101",
+    "SF|PROP-1|SF-100", "SF|PROP-1|SF-101",
     "EXT|PROP-2|EXT-200"
   ]);
   core = parseLebWorkbook(syntheticWorkbook());
@@ -132,8 +134,8 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   const workspace = await repository.bootstrap();
   assert.equal(workspace.activities[0].title, "Syntetiskt projekt");
   assert.equal(workspace.properties.find((property) => property.id === "PROP-1").latitude, 60);
-  assert.deepEqual(workspace.contracts.map((contract) => contract.id), ["SF|PROP-1|SF-101", "EXT|PROP-2|EXT-200"]);
-  assert.equal(await repository.get("people", person.id), null);
+  assert.deepEqual(workspace.contracts.map((contract) => contract.id), ["SF|PROP-1|SF-100", "SF|PROP-1|SF-101", "EXT|PROP-2|EXT-200"]);
+  assert.equal((await repository.get("people", person.id)).id, person.id);
 });
 
 test("legacy company store migrates once to explicit responsibility, activities and orders", async (t) => {
@@ -243,7 +245,8 @@ test("legacy company store migrates once to explicit responsibility, activities 
   const stored = JSON.parse(await fs.readFile(dataPath, "utf8"));
   assert.equal(stored.version, 4);
   assert.equal(Object.hasOwn(stored.entities, "contacts"), false);
-  assert.equal(Object.hasOwn(stored.entities, "assignments"), false);
+  assert.ok(stored.entities.assignments.some(a=>a.id==="A1"));
+  assert.ok(stored.entities.assignments.some(a=>a.id==="A2"));
   assert.equal(Object.hasOwn(stored.entities, "maintenance"), false);
   assert.equal(stored.entities.activities.length, 1);
   assert.equal(stored.entities.orders.length, 1);

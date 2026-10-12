@@ -1,3 +1,4 @@
+import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, propertyReference, units, calc, money } from "./views.js";
 import { planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
 import { fieldCaption } from "./field-labels.js";
@@ -158,6 +159,6 @@ export function renderIssueEditor(data,issue,id,company=false) {
     '<section class="issue-section"><h3>Beställning och utfall</h3>'+orderSummary+
     '<p class="issue-note">Beställningar och utfall hör till samma ärende. Hanteras fortsatt i befintligt beställningsflöde.</p></section>'+
     (company?'<p class="computed">Importerade grunduppgifter och kompletteringar följer befintlig backendkoppling.</p>':"")+
-    '<div class="actions editor-actions"><span>Ändringar uppdaterar samma ärende i Planera, Ärenden och Budget.</span>'+
+    responsibilityHtml(data,'activity',issue.id)+'<div class="actions editor-actions"><span>Ändringar uppdaterar samma ärende i Planera, Ärenden och Budget.</span>'+
     '<button type="submit" class="primary">Spara ärende</button></div></form></aside>';
 }

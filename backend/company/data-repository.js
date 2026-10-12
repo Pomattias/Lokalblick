@@ -1,4 +1,5 @@
 import "../../frontend/domain/object-model.js";
+import "../../frontend/domain/responsibility-model.js";
 import "../../frontend/domain/import-rules.js";
 import {parseDate,numberField} from "../../frontend/services/import-formats.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -6,11 +7,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const USER_ENTITIES = [
-  "objects", "organizations", "people", "orders", "activities", "maintenanceStatus",
+  "assignments", "objects", "organizations", "people", "orders", "activities", "maintenanceStatus",
   "operations", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
 ];
 const LEGACY_USER_ENTITIES = [
-  "contacts", "assignments", "projects", "maintenance", "driftCosts", "driftIssues",
+  "contacts", "projects", "maintenance", "driftCosts", "driftIssues",
   "wishes", "investigations"
 ];
 
@@ -310,6 +311,11 @@ function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
     if (Array.isArray(value.deleted?.[entity])) store.deleted[entity] = value.deleted[entity];
   }
   store.imported=structuredClone(value.imported||{properties:[],contracts:[]});
+  const responsibilityData={...core,...store.entities,contacts:entities.contacts||[]};
+  // Overlay arrays do not replace the actual homes used by responsibility migration.
+  responsibilityData.properties=(core.properties||[]).map(p=>({...p,...store.entities.propertyOverlays.find(o=>o.propertyId===p.id)}));
+  responsibilityData.contracts=(core.contracts||[]).map(c=>({...c,...store.entities.contractOverlays.find(o=>o.contractId===c.id)}));
+  store.entities.assignments=globalThis.LokalblickResponsibility.normalize(responsibilityData).assignments;
   store.version = 4;
   store.updatedAt = typeof value.updatedAt === "string" ? value.updatedAt : null;
   return store;
@@ -367,6 +373,8 @@ export class LokalblickRepository {
     if (this.sourceAdapter) this.core = await this.sourceAdapter.loadCore();
     try {
       const rawStore = JSON.parse(await fs.readFile(this.dataPath, "utf8"));
+      const backup=this.dataPath+'.before-responsibility-v1.bak';
+      try{await fs.copyFile(this.dataPath,backup,1);}catch(error){if(error.code!=='EEXIST')throw error;}
       this.store = ensureStoreShape(rawStore, {...this.core,properties:[...this.core.properties,...(rawStore.imported?.properties||[])],contracts:[...this.core.contracts,...(rawStore.imported?.contracts||[])]});
       if (Number(rawStore.version || 1) < 4) await this.persist(this.store);
     } catch (error) {
@@ -375,6 +383,8 @@ export class LokalblickRepository {
     }
     const migrated=globalThis.LokalblickObjectModel.normalize({properties:this.effectiveCore().properties,contracts:structuredClone(this.effectiveCore().contracts),objects:[...(this.core.objects||[]).filter(o=>!this.store.entities.objects.some(saved=>saved.id===o.id)),...this.store.entities.objects],activities:this.store.entities.activities});
     if(JSON.stringify(migrated.objects)!==JSON.stringify(this.store.entities.objects))this.store.entities.objects=migrated.objects;
+    const responsibility=await this.bootstrap();
+    this.store.entities.assignments=responsibility.assignments;
     await this.persist(this.store);
     await this.applyCoordinates();
     return this;
@@ -438,7 +448,7 @@ export class LokalblickRepository {
     ]));
     const metadata=store.entities.budgetData.find(x=>x.id==="lokalblick-v2-workspace")?.workspace||{};
     const keys=["budgetPlans","indexSeries","priceBaseAmounts","auditLog","sourceRegistry","importReview","documents","importMappings","importFieldPreferences"];
-    return globalThis.LokalblickObjectModel.normalize({
+    return globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickObjectModel.normalize({
       ...Object.fromEntries(keys.filter(k=>Object.hasOwn(metadata,k)).map(k=>[k,structuredClone(metadata[k])])),
       isDemo: false,
       sourceName: "Lokal company source",
@@ -447,7 +457,7 @@ export class LokalblickRepository {
       properties: completedProperties,
       contracts,
       sourceCounts: structuredClone(this.core.sourceCounts || { sfRows: 0, extRows: 0 })
-    });
+    }));
   }
 
   effectiveCore(){
@@ -472,6 +482,7 @@ export class LokalblickRepository {
   }
   validateImportedData(data){
     globalThis.LokalblickObjectModel.validate(data);
+    globalThis.LokalblickResponsibility.validate(data);
     for(const collection of ['properties','objects','contracts','activities','orders'])for(const row of data[collection]||[]){
       for(const [field,value] of Object.entries(row)){
         if(value==null||value==='')continue;
@@ -533,6 +544,9 @@ export class LokalblickRepository {
     }
     if(Array.isArray(payload.objects)){const current=await this.bootstrap();globalThis.LokalblickObjectModel.validate({...current,...payload});}
     const currentData=await this.bootstrap();
+    const preparedResponsibility=globalThis.LokalblickResponsibility.normalize({...structuredClone(currentData),...structuredClone(payload)});
+    globalThis.LokalblickResponsibility.validate(preparedResponsibility,currentData);
+    payload={...payload,assignments:preparedResponsibility.assignments};
     const approved=(collection,row,field,value)=>(payload.importReview||payload.budgetData?.find(x=>x.id==="lokalblick-v2-workspace")?.workspace?.importReview||[]).some(r=>r.kind==="operational-conflict"&&r.status==="accepted"&&(r.collection===collection||!r.collection&&r.entity===(collection==="contracts"?"Avtal":"Fastighet"))&&r.recordId===row.id&&r.field===field&&r.resolvedBy&&r.resolvedAt&&JSON.stringify(r.proposed)===JSON.stringify(value)&&[r.current,value].some(v=>JSON.stringify(currentData[collection].find(x=>x.id===row.id)?.[field])===JSON.stringify(v)));
     const updates = {};
     for (const entity of USER_ENTITIES) {
@@ -610,7 +624,9 @@ export class LokalblickRepository {
       }
       updates.propertyOverlays = [...overlays.values()];
     }
-    await this.commit((store) => {
+    await this.commit(async (store) => {
+      const fresh=await this.bootstrap();
+      if(JSON.stringify(fresh.assignments)!==JSON.stringify(currentData.assignments)){const error=new Error('Ansvar har ändrats sedan inläsningen. Läs om innan du sparar');error.statusCode=409;throw error;}
       for (const [entity, records] of Object.entries(updates)) store.entities[entity] = records;
     });
     await this.applyCoordinates();
@@ -631,7 +647,8 @@ export class LokalblickRepository {
     if (!USER_ENTITIES.includes(entity)) throw new RangeError("Entity is read-only or unknown");
     const record = validateEntityRecord(entity, payload, undefined, this.effectiveCore());
     if(entity==='objects'){const data=await this.bootstrap();data.objects.push(record);globalThis.LokalblickObjectModel.validate(data);}
-    await this.commit((store) => {
+    await this.commit(async (store) => {
+      if(['assignments','people','organizations'].includes(entity)){const before=await this.bootstrap();const candidate=structuredClone(before);candidate[entity].push(record);globalThis.LokalblickResponsibility.validate(candidate,before);}
       if (store.entities[entity].some((item) => item.id === record.id)) {
         const error = new Error("Record already exists");
         error.statusCode = 409;
@@ -645,10 +662,11 @@ export class LokalblickRepository {
   async update(entity, id, payload) {
     if (!USER_ENTITIES.includes(entity)) throw new RangeError("Entity is read-only or unknown");
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new TypeError("Record payload must be an object");
-    return this.commit((store) => {
+    return this.commit(async (store) => {
       const index = store.entities[entity].findIndex((item) => item.id === id);
       if (index < 0) return null;
       const record = validateEntityRecord(entity, { ...store.entities[entity][index], ...payload, id }, id, this.effectiveCore());
+      if(['assignments','people','organizations'].includes(entity)){const current=await this.bootstrap();const data=structuredClone(current);data[entity]=data[entity].map(x=>x.id===id?record:x);globalThis.LokalblickResponsibility.validate(data,current);}
       if(entity==='objects'){const data={...this.core,objects:[...store.entities.objects.filter(o=>o.id!==id),record]};globalThis.LokalblickObjectModel.validate(data);}
       store.entities[entity][index] = record;
       return record;
@@ -657,6 +675,9 @@ export class LokalblickRepository {
 
   async delete(entity, id) {
     if (!ALL_ENTITIES.includes(entity)) throw new RangeError("Unknown entity");
+    const responsibility=await this.bootstrap();
+    if(responsibility.assignments.some(a=>a.personId===id&&entity==='people'||a.organizationId===id&&entity==='organizations'||a.targetType===Object.keys(globalThis.LokalblickResponsibility.types).find(k=>globalThis.LokalblickResponsibility.types[k]===entity)&&a.targetId===id))throw TypeError('Post med ansvarshistorik får inte raderas');
+    if(entity==='assignments')throw TypeError('Ansvar avslutas med till-datum; historiken får inte raderas');
     if(entity==='objects'){const data=await this.bootstrap();if(data.contracts.some(c=>c.objectId===id)||data.activities.some(a=>a.objectId===id)||data.objects.some(o=>(o.predecessorIds||[]).includes(id)))throw TypeError('Objekt med avtal, aktiviteter eller historik får inte raderas');}
     if (CORE_ENTITIES.includes(entity)) {
       const records = await this.list(entity);

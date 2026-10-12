@@ -16,13 +16,16 @@ export function createTransport() {
   const company = () =>
     window.LokalblickDataService.mode === "company-api" ||
     window.LokalblickDataService.mode === "m365-api";
+  let responsibilityBaseline;
   return {
     company,
     async load() {
-      return normalize(await window.LokalblickDataService.load());
+      const loaded=normalize(await window.LokalblickDataService.load());responsibilityBaseline=clone(loaded);return loaded;
     },
     async save(data) {
       const payload = clone(data);
+      globalThis.LokalblickResponsibility.normalize(payload);
+      globalThis.LokalblickResponsibility.validate(payload,responsibilityBaseline);
       if (company()) {
         payload.budgetData = (payload.budgetData || [])
           .filter((x) => x.id !== "lokalblick-v2-workspace")
@@ -35,7 +38,7 @@ export function createTransport() {
             },
           ]);
       }
-      return normalize(await window.LokalblickDataService.save(payload));
+      const saved=normalize(await window.LokalblickDataService.save(payload));responsibilityBaseline=clone(saved);return saved;
     },
     status() {
       return company()

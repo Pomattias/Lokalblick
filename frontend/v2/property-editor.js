@@ -1,3 +1,4 @@
+import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
 
@@ -76,6 +77,7 @@ export function renderPropertyEditor(data, p, id, company=false) {
         personSelect(data,"responsiblePersonId",p.responsiblePersonId,ourPeople,"Vår kontaktperson","our")+
       '</div><h4>Verksamhetens kontaktpersoner</h4>'+
       contactRows+'<small class="property-help">Kontakterna kopplas till respektive avtalsobjekt även om du ändrar dem här. Välj Ej kopplad för att koppla bort en person utan att radera personen.</small></section>'+
+      responsibilityHtml(data,'property',p.id)+
       '<section class="property-section"><h3>Placering på kartan</h3>'+
       '<p class="property-map-hint">'+(geo
         ? 'Fastighetens position visas på kartan. Klicka eller dra nålen för att rätta placeringen.'

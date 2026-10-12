@@ -1157,3 +1157,10 @@ details .table-wrap {
 .budget-index-panel p { margin:3px 0; }
 .budget-index-panel label { max-width:320px; }
 .budget-index-panel [data-budget-index] { justify-self:start; min-height:42px; }
+
+/* Same compact responsibility section at every viewport width. */
+.responsibility-section { border-top:1px solid var(--line); padding:10px 0; }
+.responsibility-section > label { display:grid; grid-template-columns:minmax(0,1fr) minmax(120px,160px); align-items:center; gap:8px; }
+.responsibility-section > small { display:block; margin:5px 0 8px; }
+.responsibility-section .mapping-table { max-width:100%; }
+.responsibility-section details { margin-top:8px; }

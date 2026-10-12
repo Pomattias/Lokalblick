@@ -29,6 +29,7 @@ import {
   organization,
   calc,
   categories,
+  units,
   reviewCandidateChoices,
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
@@ -584,7 +585,7 @@ function render() {
   document.querySelector("#add").textContent =
     ui.view==="activities" ? "Nytt ärende" : "Lägg till";
 }
-async function mutation(change, { automatic = false, manualPositionIds = [] } = {}) {
+async function mutation(change, { automatic = false, manualPositionIds = [], responsibilityDate } = {}) {
   if (busy) throw Error("En ändring sparas redan");
   if (!canEdit()) throw Error("Denna anslutning är skrivskyddad");
   if (!automatic) requireActorIdentity();
@@ -592,6 +593,7 @@ async function mutation(change, { automatic = false, manualPositionIds = [] } = 
   busy = true;
   try {
     change(data);
+    if(!automatic)globalThis.LokalblickResponsibility.applyChanges(before,data,{actor:actor(),fromDate:responsibilityDate||globalThis.LokalblickResponsibility.today()});
     globalThis.LokalblickObjectModel.normalize(data);
     if(data.objects.length)globalThis.LokalblickObjectModel.validate(data);
     const previousLocations = new Map((before.properties || []).map(p => [String(p.id), String(p.address || "") + "|" + String(p.city || "")]));
@@ -751,6 +753,12 @@ function openEditor(col, id, defaults = {}) {
   editor = { col, id, record: result.record };
   const root = document.querySelector("#editor-root");
   root.innerHTML = result.html;
+  const typeSelect=root.querySelector('[data-assignment-type]');
+  if(typeSelect)typeSelect.onchange=()=>{
+    const type=typeSelect.value,collection=globalThis.LokalblickResponsibility.types[type];
+    const items=type==='business'?[...new Set(data.contracts.map(c=>c.unitId).filter(Boolean))].map(id=>({id,name:units[id]||id})):data[collection]||[];
+    root.querySelector('[data-assignment-target]').innerHTML='<option value="">Välj post</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.number||x.title||x.designation||x.id)}</option>`).join('');
+  };
   root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,globalThis.LokalblickSourceService.schemas));
   document.body.classList.add("editing");
   if (col === "properties") {
@@ -1395,7 +1403,7 @@ document.addEventListener("submit", (event) => {
           contract.businessResponsiblePersonId=personId || "";
         });
       }
-    }, { manualPositionIds:manualPositionSelected && id ? [String(id)] : [] });
+    }, { responsibilityDate:event.target.elements.namedItem('responsibilityChangeDate')?.value,manualPositionIds:manualPositionSelected && id ? [String(id)] : [] });
     closeEditor();
   });
 });
