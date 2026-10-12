@@ -4,7 +4,7 @@
   const DB_NAME = "lokalblick-local-sources";
   const STORE = "handles";
   const HANDLE_KEY = "excel-source";
-  const MODEL_VERSION = "5";
+  const MODEL_VERSION = "6";
 
   // Canonical business model. Calculated values are deliberately not persisted.
   const SCHEMAS = [
@@ -13,9 +13,14 @@
       ["responsiblePersonId","_responsiblePersonId",true],["ownerPartyId","_ownerPartyId",true],["ownerResponsiblePersonId","_ownerResponsiblePersonId",true],
       ["type","Typ"],["address","Adress"],["city","Ort"],["designation","Fastighetsbeteckning"],["latitude","Latitud"],["longitude","Longitud"],["geoSource","Geokälla"],["geoConfirmedAt","Geobekräftad"],["geoConfirmedBy","Geobekräftad av"]
     ], display:["Fastighetsägare","Ansvarig hos fastighetsägaren","Ansvarig hos oss"] },
+    { sheet:"Objekt",key:"objects",prefix:"OBJ",columns:[
+      ["id","_id",true],["propertyId","_propertyId",true],["sourceId","_sourceId",true],
+      ["number","Objektnummer"],["name","Objektnamn"],["area","Objektarea, m²"],["category","Objektkategori"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],["unitId","Verksamhet"],
+      ["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"],["start","Giltigt fr.o.m."],["end","Giltigt t.o.m."],["predecessorIds","_predecessorIds",true],["comment","Kommentar"]
+    ],labelAliases:{number:["Objektnr","Objektsnummer","Objektsnr"],area:["Objektarea","Objektyta"]},display:["Fastighet","Adress","Föregående objekt"] },
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
-      ["propertyId","_propertyId",true],["businessPartyId","_businessPartyId",true],["businessResponsiblePersonId","_businessResponsiblePersonId",true],
+      ["objectId","_objectId",true],["propertyId","_propertyId",true],["businessPartyId","_businessPartyId",true],["businessResponsiblePersonId","_businessResponsiblePersonId",true],
       ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["tenantName","Hyresgäst"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
       ["start","Start"],["end","Slut"],["moveInDate","Inflyttning"],["moveOutDate","Utflyttning"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
       ["baseRent","Bashyra"],["baseAdditions","Bastillägg"],["rentBaseYear","Hyra basår"],["rentBaseIndex","Hyra bastal (KPI)"],["rentIndexPercent","Hyra uppräkning %"],["additionBaseYear","Tillägg basår"],["additionBaseIndex","Tillägg bastal (KPI)"],["additionIndexPercent","Tillägg uppräkning %"],
@@ -24,7 +29,7 @@
       ["mediaWaste","Sopor"],["mediaElectricity","El"],["mediaWater","VA"],["mediaHeating","Värme"],["mediaHotWater","VV"],["mediaVentilation","Vent"],["mediaOutdoor","Utem."],["mediaPropertyTax","F-skatt ingår"],
       ["unitId","_unitId",true],["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"],
       ["enrichmentSource","_enrichmentSource",true],["enrichmentSourceRow","_enrichmentSourceRow",true],["enrichmentTargetYear","_enrichmentTargetYear",true]
-    ], display:["Fastighet","Adress","Verksamhet","Verksamhetsansvarig"] },
+    ], display:["Objekt","Fastighet","Adress","Verksamhet","Verksamhetsansvarig"] },
     { sheet:"Parter", key:"organizations", prefix:"PART", columns:[
       ["id","_id",true],["name","Part"],["type","Typ"],["ownerClass","Ägarklass"],["investmentRule","Investeringsregel"],["investmentThreshold","Investeringsgräns kr"],["rentSurchargeRate","Hyrespåslag %"]
     ]},
@@ -56,12 +61,12 @@
     sheet:"Aktiviteter", key:"activities", prefix:"ACT",
     columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
-      ["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["scopeType","Hemvisttyp"],["unitId","Område"],
+      ["objectId","_objectId",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["scopeType","Hemvisttyp"],["unitId","Område"],
       ["type","Typ"],["actionKind","Åtgärdens karaktär"],["rentSurchargeStartDate","Hyrespåslag från"],["title","Aktivitet"],["description","Beskrivning"],["category","Kategori"],["status","Status"],["priority","Prioritet"],
       ["planningYear","Planår"],["planningQuarter","Kvartal",true],["planningMonth","Månad",true],["budgetCategory","Budgetkategori",true],["includeInBudget","Ta med i budget"],
       ["estimatedCost","Bedömd kostnad"],["phase","Fas"],["startDate","Start"],["endDate","Slut"]
     ],
-    display:["Fastighet","Adress","Avtal","Ansvarig hos oss"]
+    display:["Objekt","Fastighet","Adress","Avtal","Ansvarig hos oss"]
   };
   ACTIVITY_SCHEMA.fields = ACTIVITY_SCHEMA.columns.map(function(column){ return column[0]; });
 
@@ -71,7 +76,7 @@
     activities:{title:"Ärendenamn",responsiblePersonId:"Ansvarig",startDate:"Fr.o.m.",endDate:"T.o.m.",planningYear:"Planeringsår",estimatedCost:"Bedömd kostnad, kr"}
   };
   SCHEMAS.concat([ACTIVITY_SCHEMA]).forEach(function(schema){
-    schema.labelAliases={};
+    schema.labelAliases=schema.labelAliases||{};
     schema.columns.forEach(function(column){
       const label=FRONTEND_LABELS[schema.key]?.[column[0]];
       if(label&&label!==column[1]){schema.labelAliases[column[0]]=[column[1]];column[1]=label;}
@@ -430,7 +435,9 @@
       if (!row.ownerResponsiblePersonId && row["__display_Ansvarig hos fastighetsägaren"]) { const m=byDisplay(people,row["__display_Ansvarig hos fastighetsägaren"],personDisplay); if(m) row.ownerResponsiblePersonId=m.id; }
       if (!row.responsiblePersonId && row["__display_Ansvarig hos oss"]) { const m=byDisplay(people,row["__display_Ansvarig hos oss"],personDisplay); if(m) row.responsiblePersonId=m.id; }
     });
+    (data.objects||[]).forEach(function(row){if(!row.propertyId){const p=resolveDisplayedProperty(properties,row.__display_Fastighet,row.__display_Adress);if(p)row.propertyId=p.id;}});
     (data.contracts||[]).forEach(function(row) {
+      if(!row.objectId&&row.__display_Objekt){const candidates=(data.objects||[]).filter(o=>(!row.propertyId||o.propertyId===row.propertyId)&&[o.number,o.name].includes(row.__display_Objekt));if(candidates.length===1)row.objectId=candidates[0].id;}
       if (!row.propertyId) { const m=resolveDisplayedProperty(properties,row.__display_Fastighet,row.__display_Adress); if(m) row.propertyId=m.id; }
       if (!row.businessPartyId && row.__display_Verksamhetspart) { const m=byDisplay(organizations,row.__display_Verksamhetspart,orgDisplay); if(m) row.businessPartyId=m.id; }
       if (!row.businessResponsiblePersonId && row.__display_Verksamhetsansvarig) { const m=byDisplay(people,row.__display_Verksamhetsansvarig,personDisplay); if(m) row.businessResponsiblePersonId=m.id; }
@@ -543,7 +550,7 @@
   }
   function canonicalizeModel(data) {
     data=data||{};
-    ["properties","contracts","organizations","people","contacts","orders","activities","operations","maintenanceStatus","auditLog","sourceRegistry","importReview","documents"].forEach(function(key){ if(!Array.isArray(data[key])) data[key]=[]; });
+    ["properties","objects","contracts","organizations","people","contacts","orders","activities","operations","maintenanceStatus","auditLog","sourceRegistry","importReview","documents"].forEach(function(key){ if(!Array.isArray(data[key])) data[key]=[]; });
     if (!data.organizations.length && Array.isArray(data.legacyOrganizations)) data.organizations=data.legacyOrganizations.map(function(x){return clone(x);});
     if (!data.operations.length && Array.isArray(data.legacyOperations)) data.operations=data.legacyOperations.map(function(x){return clone(x);});
     function ensureParty(name,type){ const label=String(name||"").trim();if(!label)return "";let p=data.organizations.find(function(x){return (!type||x.type===type)&&String(x.name||"").trim().toLowerCase()===label.toLowerCase();});if(!p){p={id:nextStableId("PART",data.organizations),name:label,type:type||"business",ownerClass:type==="owner"?"Extern":""};data.organizations.push(p);}return p.id; }
@@ -704,12 +711,15 @@
     restoreExtras(workbook,data);
     canonicalizeModel(data);
     ensureStableIds(data);
+    if(window.LokalblickObjectModel)window.LokalblickObjectModel.normalize(data);
     return data;
   }
 
   function displayValue(schema, label, row, data) {
     const properties=data.properties||[],contracts=data.contracts||[],organizations=data.organizations||[],people=data.people||[],activities=data.activities||[];
     const activityProperty=function(a){if(!a)return "";if(a.propertyId)return a.propertyId;const c=contracts.find(function(x){return x.id===a.contractId;});return c&&c.propertyId||"";};
+    if(label==='Föregående objekt')return (row.predecessorIds||[]).map(id=>{const o=(data.objects||[]).find(o=>o.id===id);return o?o.number||o.name||o.id:id;}).join('; ');
+    if(label==='Objekt'){const object=(data.objects||[]).find(o=>o.id===row.objectId);return object?object.number||object.name||object.id:'';}
     if(label==="Fastighet"||label==="Adress"){
       const id=schema.key==="activities"?activityProperty(row):row.propertyId;
       const property=properties.find(function(x){return x.id===id;});
@@ -742,9 +752,9 @@
 
     const excelRows=(rows||[]).map(function(row) {
       const out={};
-      visible.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : row[column[0]];});
+      visible.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : Array.isArray(row[column[0]])?JSON.stringify(row[column[0]]):row[column[0]];});
       (schema.display||[]).forEach(function(label){out[label]=displayValue(schema,label,row,data);});
-      hidden.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : row[column[0]];});
+      hidden.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : Array.isArray(row[column[0]])?JSON.stringify(row[column[0]]):row[column[0]];});
       return out;
     });
 
@@ -761,7 +771,7 @@
     const headers=columns.map(function(column){return column[1];});
     const excelRows=(rows||[]).map(function(row){
       const out={};
-      columns.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : row[column[0]];});
+      columns.forEach(function(column){out[column[1]]=row[column[0]] == null ? "" : Array.isArray(row[column[0]])?JSON.stringify(row[column[0]]):row[column[0]];});
       return out;
     });
     const ws=excelRows.length ? XLSX.utils.json_to_sheet(excelRows,{header:headers}) : XLSX.utils.aoa_to_sheet([headers]);
@@ -774,6 +784,7 @@
 
   function dataToWorkbook(data) {
     const canonical=canonicalizeModel(clone(data||{}));
+    if(window.LokalblickObjectModel)window.LokalblickObjectModel.normalize(canonical);
     ensureStableIds(canonical);
     const workbook = XLSX.utils.book_new();
     const metadata = [

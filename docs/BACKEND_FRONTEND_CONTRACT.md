@@ -22,6 +22,7 @@ synthetic browser-storage exception remain unchanged.
 User-owned entities support `GET /api/{entity}`, `POST /api/{entity}`,
 `GET /api/{entity}/{id}`, `PATCH /api/{entity}/{id}`, and
 `DELETE /api/{entity}/{id}`. Canonical business entities are
+`objects` (shown as **Objekt**, owns `propertyId`, independent validity dates and predecessor links),
 `organizations` (shown as **Parter** in the UI/Excel), `people`,
 `activities`, `orders`, `maintenance-status`, `operations`,
 `budget-data`, and overlays.
@@ -87,3 +88,7 @@ The contact owner and unit are intentionally independent:
 - Company runtime persists the editable contract fields via backend-owned contract overlays; the imported LEB core remains read-only.
 - Source workbook export/import includes `Hyresgäst` and the existing `_unitId` / displayed `Verksamhet`. In the enrichment adapter, only an explicitly labeled `Hyresgäst` column populates `tenantName`: the unrelated legacy `Verksamhet` and `businessPartyId` fields must not silently become a tenant name.
 - Legacy `businessPartyId`, `businessName`, `tenantOrgId` and old V1 source representations have not been deleted; retire them after source mapping and migration are validated against real company workbooks. Do not duplicate person data when linking contacts.
+
+## Object hierarchy (model v6)
+
+`GET /api/bootstrap` includes `objects`. Agreements refer to `objectId`; their `propertyId` is derived from the object for existing integrations. Activities may refer directly to `objectId` without an agreement. `objects` supports the same CRUD routes as other user-owned entities. Workspace persistence validates object/property links, agreement and activity object references, validity dates, and predecessor lifecycle links. Referenced objects cannot be deleted. Existing data migrates deterministically without using agreement dates as object dates. Details: [OBJECT_MODEL.md](OBJECT_MODEL.md).

@@ -1,5 +1,7 @@
+import "../domain/object-model.js";
 export const collections = [
   "properties",
+  "objects",
   "contracts",
   "organizations",
   "people",
@@ -555,7 +557,7 @@ export function normalize(data) {
     c.end = c.end ?? c.currentValidTo ?? "";
     c.notice = c.notice ?? c.noticeBy ?? "";
   });
-  return canonicalRelations(migrateLegacy(out));
+  return globalThis.LokalblickObjectModel.normalize(canonicalRelations(migrateLegacy(out)));
 }
 export function activities(data) {
   return (data.activities || []).map((record) => ({
@@ -574,6 +576,7 @@ export function responsible(data, collection, record) {
   if (!record) return "";
   if (collection === "properties") return record.responsiblePersonId || "";
   if (collection === "activities") return record.responsiblePersonId || "";
+  if(collection==='objects')return record.responsiblePersonId||data.properties.find(p=>p.id===record.propertyId)?.responsiblePersonId||'';
   if (collection === "contracts") {
     const property = data.properties.find((x) => x.id === record.propertyId);
     return property?.responsiblePersonId || "";
@@ -596,10 +599,12 @@ export function scope(data, selection) {
     const p = propertyById.get(c.propertyId) || {};
     return (
       (!selection.propertyId || c.propertyId === selection.propertyId) &&
-      (!selection.unit || (c.unitId || p.unitId) === selection.unit) &&
+      (!selection.unit || ((data.objects||[]).find(o=>o.id===c.objectId)?.unitId||c.unitId || p.unitId) === selection.unit) &&
       (!selection.owner || p.ownerPartyId === selection.owner) &&
       (!q ||
         [
+          (data.objects||[]).find(o=>o.id===c.objectId)?.name,
+          (data.objects||[]).find(o=>o.id===c.objectId)?.number,
           c.number,
           c.tenantName,
           c.use,
@@ -618,13 +623,15 @@ export function scope(data, selection) {
     const unitMatch =
       !selection.unit ||
       p.unitId === selection.unit ||
-      related.some((c) => c.unitId === selection.unit);
+      related.some((c) => c.unitId === selection.unit)||
+      (data.objects||[]).some(o=>o.propertyId===p.id&&o.unitId===selection.unit);
     const qMatch =
       !q ||
       [p.address, p.designation]
         .join(" ")
         .toLocaleLowerCase("sv")
         .includes(q) ||
+      (data.objects||[]).some(o=>o.propertyId===p.id&&[o.number,o.name,o.use,o.businessName].join(' ').toLocaleLowerCase('sv').includes(q))||
       related.some((c) =>
         [c.number, c.use, c.businessName]
           .join(" ")
@@ -661,7 +668,8 @@ export function scope(data, selection) {
     if (selection.propertyId && propertyId !== selection.propertyId) return false;
     if (selection.owner && property.ownerPartyId !== selection.owner) return false;
     if (selection.unit) {
-      const relatedUnit = record.scopeType === "unit" ? record.unitId : contract
+      const object=(data.objects||[]).find(o=>o.id===record.objectId);
+      const relatedUnit = record.scopeType === "unit" ? record.unitId : object?object.unitId:contract
         ? (contract.unitId || property.unitId)
         : property.unitId ||
           (contractsByProperty.get(propertyId) || []).find(
@@ -671,6 +679,8 @@ export function scope(data, selection) {
     }
     if (q) {
       const haystack = [
+        (data.objects||[]).find(o=>o.id===record.objectId)?.name,
+        (data.objects||[]).find(o=>o.id===record.objectId)?.number,
         record.title,
         record.description,
         record.type,
@@ -692,13 +702,15 @@ export function scope(data, selection) {
     return true;
   });
 
-  return { contracts, properties, items };
+  const propertyIds=new Set(properties.map(p=>p.id));
+  const objects=(data.objects||[]).filter(o=>propertyIds.has(o.propertyId)&&(!selection.unit||o.unitId===selection.unit)&&(!q||[o.number,o.name,o.use,o.businessName,propertyById.get(o.propertyId)?.address,propertyById.get(o.propertyId)?.designation].join(' ').toLocaleLowerCase('sv').includes(q)));
+  return { contracts, properties, objects, items };
 }
 
 export function audit(data, collection, id, before, after, actor) {
   const at = new Date().toISOString();
   if(JSON.stringify(before)===JSON.stringify(after))return;
-  if(Object.keys(after).length&&['properties','contracts','people','organizations','activities','orders'].includes(collection)){
+  if(Object.keys(after).length&&['properties','objects','contracts','people','organizations','activities','orders'].includes(collection)){
     const originBefore=before.provenance||{};
     after.provenance ||= {};
     for(const field of Object.keys(after).filter(k=>!['provenance','updatedAt','updatedBy','versions','supplemental'].includes(k)&&JSON.stringify(before[k])!==JSON.stringify(after[k]))){
@@ -736,7 +748,9 @@ export function setActivityHome(data, id, selectedHome, actor) {
   if (!record) throw Error("Aktiviteten saknas");
   const before = clone(record);
   const value = String(selectedHome || "");
-  if (value.startsWith("contract:")) {
+  record.objectId="";
+  if(value.startsWith("object:")){const object=data.objects.find(o=>o.id===value.slice(7));if(!object)throw Error("Objektet saknas");record.objectId=object.id;record.contractId="";record.propertyId=object.propertyId;record.unitId="";record.scopeType="object";
+  }else if (value.startsWith("contract:")) {
     const contractId = value.slice("contract:".length);
     const contract = (data.contracts || []).find(c => String(c.id) === contractId);
     if (!contract) throw Error("Avtalet saknas");
@@ -827,8 +841,8 @@ export function moveWish(data, id, target, actor) {
 export const importPreferenceKey=(col,field,source)=>[col,field,source].map(x=>String(x||"").trim().toLocaleLowerCase("sv")).join("|");
 export const reviewCollection=item=>item.collection||(item.kind==="conflict"||item.entity==="Avtal"?"contracts":item.entity==="Fastighet"?"properties":"");
 export const bulkEligible=item=>item?.status==="pending"&&["conflict","operational-conflict"].includes(item.kind)&&
-  Boolean(item.field)&&Boolean(item.source)&&["properties","contracts","activities"].includes(reviewCollection(item))&&
-  !["id","sourceId","propertyId","contractId","hyresberäkning","tilläggsberäkning"].includes(item.field);
+  Boolean(item.field)&&Boolean(item.source)&&["properties","objects","contracts","activities"].includes(reviewCollection(item))&&
+  !["id","sourceId","objectId","propertyId","contractId","hyresberäkning","tilläggsberäkning"].includes(item.field);
 export function bulkReviewDecision(data,group,decision,actor) {
   if(!["accept","reject"].includes(decision))throw Error("Välj en prioriterad källa.");
   const items=(data.importReview||[]).filter(x=>bulkEligible(x)&&reviewCollection(x)===group.collection&&x.field===group.field&&x.source===group.source);

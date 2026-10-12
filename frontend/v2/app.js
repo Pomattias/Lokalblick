@@ -23,6 +23,7 @@ import {
   dashboard,
   planning,
   budget,
+  objectList,
   sources,
   economicSettings,
   organization,
@@ -62,6 +63,7 @@ const ui = {
 const labels = {
   overview: "Översikt",
   properties: "Fastighet",
+  objects: "Objekt",
   contracts: "Avtal",
   activities: "Aktiviteter",
   plan: "Planera",
@@ -491,7 +493,7 @@ function render() {
   globalThis.LokalblickMapService?.destroy();
   document.querySelector("#title").textContent = labels[ui.view];
   document.querySelectorAll("[data-view]").forEach((x) => {
-    const active=x.dataset.view===ui.view || (x.dataset.view==="more" && ["properties","contracts","activities","sources","people","settings"].includes(ui.view));
+    const active=x.dataset.view===ui.view || (x.dataset.view==="more" && ["properties","objects","contracts","activities","sources","people","settings"].includes(ui.view));
     x.classList.toggle("active", active);
     x.setAttribute(
       "aria-current",
@@ -534,13 +536,14 @@ function render() {
       year:new Date().getFullYear(),
     });
   }
+  if(ui.view==='objects')content.innerHTML=objectList(data,selection);
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
   if (ui.view === "budget") content.innerHTML = budget(data, selection, ui);
   if (ui.view === "budget") bindBudget();
   if (ui.view === "sources") content.innerHTML = sources(data, transport);
   if (ui.view === "settings") content.innerHTML = economicSettings(data, ui);
   if (ui.view === "people") content.innerHTML = organization(data);
-  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","contracts","activities","sources","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<a href="../index.html?legacy=1" data-ui-version="v1">Visa V1</a><small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
+  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","activities","sources","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<a href="../index.html?legacy=1" data-ui-version="v1">Visa V1</a><small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
     content.innerHTML =
       '<div class="section-title map-heading"><h2>Fastigheter i aktuellt urval</h2></div><div id="property-map" aria-label="Fastigheter på karta"></div><p class="map-help">Välj en fastighet på kartan för att öppna dess detaljer.</p>';
@@ -573,11 +576,11 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-new-issue],[data-plan-month],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-adjust],[data-budget-reopen],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-new-object],[data-new-issue],[data-plan-month],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-adjust],[data-budget-reopen],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
-    !canEdit() || !["properties","contracts","activities"].includes(ui.view);
+    !canEdit() || !["properties","objects","contracts","activities"].includes(ui.view);
   document.querySelector("#add").textContent =
     ui.view==="activities" ? "Nytt ärende" : "Lägg till";
 }
@@ -589,6 +592,8 @@ async function mutation(change, { automatic = false, manualPositionIds = [] } = 
   busy = true;
   try {
     change(data);
+    globalThis.LokalblickObjectModel.normalize(data);
+    if(data.objects.length)globalThis.LokalblickObjectModel.validate(data);
     const previousLocations = new Map((before.properties || []).map(p => [String(p.id), String(p.address || "") + "|" + String(p.city || "")]));
     const locationChanged = (data.properties || []).some(p => previousLocations.get(String(p.id)) !== (String(p.address || "") + "|" + String(p.city || "")));
     if (locationChanged && !data.isDemo && globalThis.LokalblickGeocodingService) {
@@ -1015,6 +1020,8 @@ document.addEventListener("click", (event) =>
       openPropertyPersonDialog(b);
       return;
     }
+    if(b.hasAttribute("data-new-object"))openEditor("objects","",{propertyId:selection.propertyId||"",start:"",end:"",predecessorIds:[]});
+    if(b.dataset.objectContract){ui.view="contracts";ui.contractId=b.dataset.objectContract;render();}
     if (b.hasAttribute("data-edit")) openEditor(b.dataset.edit, b.dataset.id);
     if (b.hasAttribute("data-editor-close")) closeEditor();
     if (b.dataset.editorTab) {
@@ -1352,6 +1359,7 @@ document.addEventListener("submit", (event) => {
       next.geoConfirmedAt=new Date().toISOString();
       next.geoConfirmedBy=actor();
     }
+    if(col==='contracts'&&!next.objectId)throw Error('Välj vilket objekt avtalet tillhör');
     await mutation((d) => {
       if (!id) {
         next.id = crypto.randomUUID();

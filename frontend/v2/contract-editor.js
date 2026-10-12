@@ -70,6 +70,7 @@ export function renderContractEditor(data, c, id, company=false) {
         field("Fastighet",(!id&&!c.propertyId)
           ? select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")
           : display(propertyReference(property)||"Ej kopplad"))+
+        field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>[x.number,x.name].filter(Boolean).join(" · "),"Välj objekt"))+
         field("Fastighetsägare",display(ownerName))+
         field("Hyresgäst",input(c,"tenantName","text",false,'placeholder="Ange hyresgäst"'))+
         field("Verksamhet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj verksamhet"))+

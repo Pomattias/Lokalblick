@@ -29,6 +29,7 @@ const choice=(name,list,selected,placeholder="Välj")=>'<select name="'+name+'">
 const currency=n=>money(Number(n)||0);
 function issueHome(activity) {
   if(activity.contractId) return "contract:"+activity.contractId;
+  if(activity.objectId)return "object:"+activity.objectId;
   if(activity.propertyId) return "property:"+activity.propertyId;
   if(activity.scopeType==="unit"&&activity.unitId)return "unit:"+activity.unitId;
   if(activity.scopeType==="general")return "general";
@@ -37,6 +38,7 @@ function issueHome(activity) {
 function homeChoices(data,current) {
   const list=[
     ...(data.properties||[]).map(p=>({value:"property:"+p.id,label:"Fastighet · "+propertyReference(p)})),
+    ...(data.objects||[]).map(o=>({value:"object:"+o.id,label:"Objekt · "+(o.number||o.name||o.id)})),
     ...(data.contracts||[]).map(c=>{
       const p=(data.properties||[]).find(p=>p.id===c.propertyId);
       return {value:"contract:"+c.id,label:"Avtal · "+(c.number||c.id)+" · "+propertyReference(p)};
@@ -56,7 +58,9 @@ function humanAssessment(economics) {
 }
 export function applyIssueHome(activity,home) {
   const value=String(home||"");
-  if(value.startsWith("contract:")) {
+  activity.objectId="";
+  if(value.startsWith("object:")){activity.objectId=value.slice(7);activity.contractId="";activity.propertyId="";activity.unitId="";activity.scopeType="object";
+  }else if(value.startsWith("contract:")) {
     activity.contractId=value.slice(9);
     activity.propertyId="";
     activity.unitId="";

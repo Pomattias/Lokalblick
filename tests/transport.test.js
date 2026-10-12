@@ -39,7 +39,7 @@ test("V2 API save persists budget, review, provenance and audit across backend r
       mode: "company-api",
       load: async () => {
         const r = await fetch(base + "/api/bootstrap");
-        assert.equal(r.status, 200);
+        assert.equal(r.status, 200,r.status===200?"":await r.text());
         return r.json();
       },
       save: async (data) => {
@@ -48,7 +48,7 @@ test("V2 API save persists budget, review, provenance and audit across backend r
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
-        assert.equal(r.status, 200);
+        assert.equal(r.status, 200,r.status===200?"":await r.text());
         return r.json();
       },
     },

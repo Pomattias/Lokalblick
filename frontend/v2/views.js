@@ -513,10 +513,12 @@ export function planning(data, s, ui) {
                     propertyReference(property)
                 };
               }),
+              ...(data.objects||[]).map(o=>({id:"object:"+o.id,label:"Objekt · "+(o.number||o.name||o.id)})),
               ...(data.properties || []).map(p => ({id:"property:"+p.id,label:"Fastighet · "+propertyReference(p)})),
               ...Object.entries(units).map(([id,label])=>({id:"unit:"+id,label:"Område · "+label})),
               {id:"general",label:"Generell"}
             ],x=>x.id,x=>x.label,x.record.contractId?"contract:"+x.record.contractId:
+            x.record.objectId?"object:"+x.record.objectId:
             x.record.propertyId?"property:"+x.record.propertyId:
             x.record.scopeType==="unit"&&x.record.unitId?"unit:"+x.record.unitId:
             x.record.scopeType==="general"?"general":"","Ej fördelad")}</select>`
@@ -561,6 +563,10 @@ export const categories = [
   "Driftkostnader",
   "Utredningar",
 ];
+export function objectList(data,s){
+  const view=scope(data,s);
+  return `<div class="section-title"><h2>Objekt i aktuellt urval</h2><button data-new-object>Nytt objekt</button></div>${table(['Objekt','Fastighet','Objektarea','Giltighet','Avtal',''],(view.objects||[]).map(o=>row([esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)+(o.migrationSourceContractId&&!o.number?'<small>Kontrollera objektnummer och koppling</small>':''),esc(propertyReference(data.properties.find(p=>p.id===o.propertyId))),num(o.area)+' m²',esc((o.start||'Ej angivet')+' – '+(o.end||'tills vidare')),data.contracts.filter(c=>c.objectId===o.id).map(c=>`<button data-object-contract="${esc(c.id)}">${esc(c.number||c.id)}</button>`).join(' '),edit('objects',o.id)])))}`;
+}
 export function budget(data,s,ui) {
   const scoped=Boolean(s.propertyId||s.unit||s.owner||s.person||s.q),view=scope(data,s);
   const plan=data.budgetPlans.find(p=>Number(p.year)===ui.year),locked=plan?.status==='Låst';
@@ -651,6 +657,7 @@ function reviewRecordLabel(data, item) {
   if (!record) return item.entity || "";
   if (collection === "properties")
     return [record.address, record.designation, record.sourceId].filter(Boolean).join(" · ");
+  if(collection==='objects')return [record.number,record.name,propertyLabel(data,record.propertyId)].filter(Boolean).join(' · ');
   if (collection === "contracts")
     return [
       record.number,
@@ -802,7 +809,7 @@ function priorityPanel(data,reviews){
     const key=encodeURIComponent(JSON.stringify([row.collection,row.field,row.source]));
     const prev=[...row.previous].join(" / ");
     return `<div class="source-priority-row">
-      <div><strong>${esc(importFieldLabel(row.field,row.collection))}</strong><small>${row.count} konflikter · ${esc(row.collection==="properties"?"Fastighet":row.collection==="contracts"?"Avtal":"Aktivitet")}</small></div>
+      <div><strong>${esc(importFieldLabel(row.field,row.collection))}</strong><small>${row.count} konflikter · ${esc(row.collection==="properties"?"Fastighet":row.collection==="contracts"?"Avtal":row.collection==="objects"?"Objekt":"Aktivitet")}</small></div>
       <label>Prioriterad källa
         <select data-priority-choice="${esc(key)}"><option value="">Välj källa</option>
           <option value="reject">Behåll tidigare (${esc(prev.length>80?"Registrerat i Lokalblick":prev)})</option>

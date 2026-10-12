@@ -14,8 +14,8 @@ const aliases = {
   'hyresgast':'contracts.tenantName', 'verksamhet':'contracts.businessName',
 };
 export function fieldCatalog(schemas) {
-  const labels={sourceId:'Källans identifierare',propertyId:'Fastighet',contractId:'Avtal',activityId:'Aktivitet',organizationId:'Organisation',ownerPartyId:'Fastighetsägare',responsiblePersonId:'Ansvarig hos oss'};
-  return schemas.flatMap(s => s.columns.filter(([k,,hidden]) => (!hidden || ['sourceId','propertyId','contractId','activityId','organizationId','ownerPartyId','responsiblePersonId'].includes(k)) && !/^(geo|enrichment)/.test(k))
+  const labels={sourceId:'Källans identifierare',objectId:'Objekt',propertyId:'Fastighet',contractId:'Avtal',activityId:'Aktivitet',organizationId:'Organisation',ownerPartyId:'Fastighetsägare',responsiblePersonId:'Ansvarig hos oss'};
+  return schemas.flatMap(s => s.columns.filter(([k,,hidden]) => (!hidden || ['sourceId','objectId','propertyId','contractId','activityId','organizationId','ownerPartyId','responsiblePersonId'].includes(k)) && !/^(geo|enrichment)/.test(k))
     .map(([field,label]) => ({target:s.key+'.'+field,collection:s.key,field,aliases:s.labelAliases?.[field]||[],label:s.sheet+' → '+(label.startsWith('_')?labels[field]||label:label)})));
 }
 export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
@@ -36,17 +36,17 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
     const contractSignals=headerKeys.filter(h=>/avtals|hyra|hyres|uppsagning|forlangning/.test(h));
     const signature = JSON.stringify(headers.filter(present).map(norm).sort());
     const previous = saved.find(s => s.sheet===name && s.signature===signature);
-    const inferred = /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
+    const inferred = /^objekt/i.test(name)?'objects': /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
     const columns = headers.map((header,index) => {
       if(!present(header)) return null;
       const values=matrix.slice(headerIndex+1).map(r=>r[index]).filter(present);
       const choices=fields.filter(f=>norm(f.label.split(' → ')[1])===norm(header)||f.aliases.some(a=>norm(a)===norm(header)));
       let candidate=choices.find(f=>f.collection===inferred) || (choices.length===1?choices[0]:null);
-      if(/^(tom|from)$/.test(norm(header))&&!['contracts','activities'].includes(inferred))candidate=null;
+      if(/^(tom|from)$/.test(norm(header))&&!['objects','contracts','activities'].includes(inferred))candidate=null;
       const rule=previous?.columns?.find(c=>norm(c.header)===norm(header));
       const h=norm(header);
       let contextualTarget='';
-      if(['contracts','activities'].includes(inferred)){
+      if(['objects','contracts','activities'].includes(inferred)){
         const dateField=/^(?:tom|tillochmed)$/.test(h)||/(?:giltigt|giltig|avtal|hyresperiod).*tom$/.test(h)?'end':/^(?:from|franochmed)$/.test(h)||/(?:giltigt|giltig|avtal|hyresperiod).*from$/.test(h)?'start':'';
         if(dateField)contextualTarget=inferred+'.'+(inferred==='activities'?dateField+'Date':dateField);
       }
@@ -88,9 +88,10 @@ function convert(cell, column, XLSX) {
   return value;
 }
 function identify(records, values, collection, identity) {
-  const keys=identity.length?identity:({properties:['designation'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId']}[collection]||[]);
+  const keys=identity.length?identity:({properties:['designation'],objects:['number','propertyId'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId']}[collection]||[]);
   const usable=keys.filter(k=>present(values[k]));
-  const hits=usable.length?records.filter(r=>usable.every(k=>norm(r[k])===norm(values[k]))):[];
+  const objectIdentified=collection!=='objects'||identity.some(k=>k!=='propertyId'&&present(values[k]))||present(values.number)||present(values.id)||present(values.sourceId);
+  const hits=usable.length&&objectIdentified?records.filter(r=>(collection!=='objects'||r.propertyId===values.propertyId)&&usable.every(k=>norm(r[k])===norm(values[k]))):[];
   if(hits.length===1){
     if(collection==='properties'&&present(values.city)&&present(hits[0].city)&&norm(values.city)!==norm(hits[0].city))return {kind:'B',candidates:hits,reason:'Identitet överensstämmer men ort skiljer sig'};
     return {kind:'A',record:hits[0],reason:'Unik identitet: '+usable.join(', ')};
@@ -102,7 +103,7 @@ function identify(records, values, collection, identity) {
     if(safe.length===1&&candidates.length===1)return {kind:'A',record:safe[0],reason:'Unik adress och samma ort'};
     if(candidates.length)return {kind:'B',candidates,reason:'Adress finns, identiteten behöver granskas'};
   }
-  const enough = collection==='properties' ? present(values.designation)||(present(values.address)&&present(values.city)) : usable.length>0;
+  const enough = collection==='objects'?objectIdentified:collection==='properties' ? present(values.designation)||(present(values.address)&&present(values.city)) : usable.length>0;
   return {kind:enough?'C':'D',reason:enough?'Ingen befintlig identitet hittades':'Tillräcklig identitet saknas'};
 }
 export async function fingerprint(buffer) {
@@ -114,7 +115,7 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
   const at=context.at || new Date().toISOString();
   const sourceId='source:'+context.fingerprint;
   data.sourceRegistry ||= []; data.auditLog ||= []; data.importReview ||= []; data.importMappings ||= [];
-  const counts={propertiesBefore:(base.properties||[]).length,contractsBefore:(base.contracts||[]).length,matched:0,created:0,fields:0,conflicts:0,preserved:0,unresolved:0};
+  const counts={objectsBefore:(base.objects||[]).length,propertiesBefore:(base.properties||[]).length,contractsBefore:(base.contracts||[]).length,matched:0,created:0,fields:0,conflicts:0,preserved:0,unresolved:0};
   const source={id:sourceId,name:context.fileName,fingerprint:context.fingerprint,importedAt:at,kind:'mapped-excel',sheets:profiles.map(p=>p.name)};
   if(!data.sourceRegistry.some(s=>s.id===sourceId))data.sourceRegistry.push(source);
   for(const profile of profiles){
@@ -145,19 +146,23 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         if(column.identity)group.identity.push(field);
       }
       const rowRecords={};
-      for(const [collection,group] of [...groups].sort(([a],[b])=>['properties','organizations','people','contracts','activities','orders'].indexOf(a)-['properties','organizations','people','contracts','activities','orders'].indexOf(b))){
+      for(const [collection,group] of [...groups].sort(([a],[b])=>['properties','objects','organizations','people','contracts','activities','orders'].indexOf(a)-['properties','objects','organizations','people','contracts','activities','orders'].indexOf(b))){
         data[collection] ||= [];
         const key=profile.name+'|'+(r+1)+'|'+collection;
         const override=context.decisions?.[key];
         if(override==='ignore'){decisions.push({sheet:profile.name,row:r+1,collection,classification:'D',reason:'Ignorerad av användaren',values:group.values});continue;}
+        if(collection==='objects'&&rowRecords.properties)group.values.propertyId=rowRecords.properties;
+        if(collection==='contracts'&&rowRecords.objects)group.values.objectId=rowRecords.objects;
         if(collection==='contracts'&&rowRecords.properties)group.values.propertyId=rowRecords.properties;
-        const parents={propertyId:'properties',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people'};
+        const parents={objectId:'objects',propertyId:'properties',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people'};
         for(const [field,parent] of Object.entries(parents)){
           if(!present(group.values[field]))continue;
           const values=data[parent]||[], value=group.values[field];
           const candidates=values.filter(x=>x.id===value || [x.designation,x.address,x.number,x.name,x.title].filter(present).some(v=>norm(v)===norm(value)));
           if(candidates.length===1)group.values[field]=candidates[0].id;else group.errors.push('Relationen '+field+' är inte entydig');
         }
+        if(collection==='objects'&&!group.values.propertyId)group.errors.push('Objektet saknar fastighetskoppling');
+        if(collection==='contracts'&&group.values.objectId){const obj=(data.objects||[]).find(o=>o.id===group.values.objectId);if(obj)group.values.propertyId=obj.propertyId;}
         let match=group.errors.length?{kind:'D',reason:group.errors.join('; ')}:identify(data[collection],group.values,collection,group.identity);
         if(override?.recordId&&!group.errors.length){const chosen=data[collection].find(x=>x.id===override.recordId);if(chosen)match={kind:'A',record:chosen,reason:'Manuellt vald koppling'};}
         if(override?.parentId){group.values[collection==='orders'?'activityId':'propertyId']=override.parentId;}
@@ -214,6 +219,8 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
   const registered=data.sourceRegistry.find(s=>s.id===sourceId);
   if(!registered.rows)Object.assign(registered,{rows:profiles.reduce((n,p)=>n+p.rowCount,0),matched:counts.matched,created:counts.created,review:counts.unresolved+counts.conflicts});
   for(const change of changes)data.auditLog.push({id:crypto.randomUUID(),at,by:context.actor,actorVerified:false,collection:change.collection,recordId:change.recordId,action:'Importerad',fields:[{field:change.field,from:change.from,to:change.to,provenance:change.provenance}]});
+  globalThis.LokalblickObjectModel?.normalize(data);
+  counts.objectsAfter=(data.objects||[]).length;
   data.isDemo=false;
   return {data,report:{profile:'Mappad Excelimport',fileName:context.fileName,counts,decisions,changes}};
 }

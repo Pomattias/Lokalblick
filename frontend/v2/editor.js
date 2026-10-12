@@ -4,6 +4,7 @@ import { renderContractEditor } from "./contract-editor.js";
 import { renderPropertyEditor } from "./property-editor.js";
 import { applyIssueHome, renderIssueEditor } from "./issue-editor.js";
 const relations = {
+  objectId: ["objects", x=>[x.number,x.name].filter(Boolean).join(" · ")||x.id],
   propertyId: ["properties", propertyReference],
   contractId: ["contracts", (x) => x.number || x.id],
   activityId: ["activities", (x) => x.title || x.id],
@@ -61,10 +62,12 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
   if (col === "activities")
     return { record, html: renderIssueEditor(data, record, id, company) };
   const fieldLabels = {
+    predecessorIds: "Föregående objekt",
+    objectId: "Objekt",
     propertyId: "Fastighet",
     contractId: "Avtal",
     activityId: "Aktivitet",
-    unitId: "Område",
+    unitId: "Verksamhet",
     ownerPartyId: "Fastighetsägare",
     businessPartyId: "Verksamhetspart",
     organizationId: "Part",
@@ -101,7 +104,9 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     const g = group(key);
     if (!groups.has(g)) groups.set(g, []);
     let control;
-    if (relations[key]) {
+    if(col==='objects'&&key==='predecessorIds') {
+      control=`<select name="predecessorIds" multiple aria-label="Föregående objekt">${(data.objects||[]).filter(o=>o.id!==record.id&&(!record.propertyId||o.propertyId===record.propertyId)).map(o=>`<option value="${esc(o.id)}" ${(record.predecessorIds||[]).includes(o.id)?'selected':''}>${esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)}</option>`).join('')}</select><small>Välj tidigare objekt vid delning eller sammanslagning. Avsluta dem med eget t.o.m.-datum.</small>`;
+    } else if (relations[key]) {
       const [collection, fn] = relations[key];
       let items=data[collection];
       if(key==="responsiblePersonId"||key==="orderedByPersonId")items=internalPeople(data);
@@ -161,7 +166,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
       control = `<input name="${key}" type="date" value="${esc(record[key]||"")}">`;
     else if (key === "unitId")
       control = `<select name="${key}">${options(
-        Object.entries(units),
+        [...Object.entries(units),...(record[key]&&!Object.hasOwn(units,record[key])?[[record[key],record[key]]]:[])],
         (x) => x[0],
         (x) => x[1],
         record[key],
@@ -227,6 +232,7 @@ export function readEditor(form, record) {
     if ((key === "rentIndexPercent" || key === "additionIndexPercent") && value !== "")
       out[key] = Number(value) / 100;
   });
+  if(form.dataset?.collection==='objects')out.predecessorIds=new FormData(form).getAll('predecessorIds').filter(Boolean);
   if (form.dataset?.collection === "activities") {
     if (!String(out.title || "").trim())
       throw Error("Ärendet behöver en rubrik.");

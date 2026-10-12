@@ -327,7 +327,7 @@
   // explicit assessment retain their legacy category until assessed.
   function activityEconomics(data, activity, year) {
     const contract=(data.contracts||[]).find(c=>c.id===activity.contractId);
-    const property=(data.properties||[]).find(p=>p.id===(activity.propertyId||contract?.propertyId));
+    const property=(data.properties||[]).find(p=>p.id===(activity.propertyId||(data.objects||[]).find(o=>o.id===activity.objectId)?.propertyId||contract?.propertyId));
     const owner=(data.organizations||[]).find(o=>o.id===property?.ownerPartyId);
     const ownerName=String(owner?.name||"").toLocaleLowerCase("sv").trim();
     const special=owner?.investmentRule==="stadsfastigheter" ||
@@ -455,7 +455,8 @@
           source:label||x.title||x.name||x.category||x.id,
           sub:label||x.title||x.category||"",
           amount,
-          propertyId:x.propertyId||contract?.propertyId||"",
+          propertyId:x.propertyId||(data.objects||[]).find(o=>o.id===x.objectId)?.propertyId||contract?.propertyId||"",
+          objectId:x.objectId||contract?.objectId||"",
           contractId:x.contractId||"",
           sourceType:type,
           sourceId:x.id,

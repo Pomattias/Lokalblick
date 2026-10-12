@@ -23,13 +23,14 @@ const data={
 };
 const selection={owner:"",unit:"",person:"",q:"",propertyId:""};
 
-test("Desktop sidebar has the requested ten sections in order",()=>{
+test("Desktop sidebar includes objects between property and agreements",()=>{
   const menu=page.match(/<nav aria-label="Huvudnavigation">([\s\S]*?)<\/nav>/)?.[1]||"";
   const buttons=[...menu.matchAll(/<button data-view="([^"]+)">([^<]+)<\/button/g)]
     .map(([,view,label])=>({view,label}));
   assert.deepEqual(buttons,[
     {view:"overview",label:"Översikt"},
     {view:"properties",label:"Fastighet"},
+    {view:"objects",label:"Objekt"},
     {view:"contracts",label:"Avtal"},
     {view:"activities",label:"Aktiviteter"},
     {view:"plan",label:"Planera"},

@@ -1,9 +1,10 @@
+import "../../frontend/domain/object-model.js";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
 export const USER_ENTITIES = [
-  "organizations", "people", "orders", "activities", "maintenanceStatus",
+  "objects", "organizations", "people", "orders", "activities", "maintenanceStatus",
   "operations", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
 ];
 const LEGACY_USER_ENTITIES = [
@@ -367,6 +368,9 @@ export class LokalblickRepository {
       if (error.code !== "ENOENT") throw error;
       await this.persist(this.store);
     }
+    const migrated=globalThis.LokalblickObjectModel.normalize({properties:this.core.properties,contracts:structuredClone(this.core.contracts),objects:[...(this.core.objects||[]).filter(o=>!this.store.entities.objects.some(saved=>saved.id===o.id)),...this.store.entities.objects],activities:this.store.entities.activities});
+    if(JSON.stringify(migrated.objects)!==JSON.stringify(this.store.entities.objects))this.store.entities.objects=migrated.objects;
+    await this.persist(this.store);
     await this.applyCoordinates();
     return this;
   }
@@ -425,14 +429,14 @@ export class LokalblickRepository {
       entity,
       structuredClone(store.entities[entity])
     ]));
-    return {
+    return globalThis.LokalblickObjectModel.normalize({
       isDemo: false,
       sourceName: "Lokal company source",
       ...workspace,
       properties: completedProperties,
       contracts,
       sourceCounts: structuredClone(this.core.sourceCounts || { sfRows: 0, extRows: 0 })
-    };
+    });
   }
 
   async status() {
@@ -455,6 +459,7 @@ export class LokalblickRepository {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       throw new TypeError("Workspace payload must be an object");
     }
+    if(Array.isArray(payload.objects)){const current=await this.bootstrap();globalThis.LokalblickObjectModel.validate({...current,...payload});}
     const updates = {};
     for (const entity of USER_ENTITIES) {
       if (Object.hasOwn(payload, entity)) {
@@ -551,6 +556,7 @@ export class LokalblickRepository {
   async create(entity, payload) {
     if (!USER_ENTITIES.includes(entity)) throw new RangeError("Entity is read-only or unknown");
     const record = validateEntityRecord(entity, payload, undefined, this.core);
+    if(entity==='objects'){const data=await this.bootstrap();data.objects.push(record);globalThis.LokalblickObjectModel.validate(data);}
     await this.commit((store) => {
       if (store.entities[entity].some((item) => item.id === record.id)) {
         const error = new Error("Record already exists");
@@ -569,6 +575,7 @@ export class LokalblickRepository {
       const index = store.entities[entity].findIndex((item) => item.id === id);
       if (index < 0) return null;
       const record = validateEntityRecord(entity, { ...store.entities[entity][index], ...payload, id }, id, this.core);
+      if(entity==='objects'){const data={...this.core,objects:[...store.entities.objects.filter(o=>o.id!==id),record]};globalThis.LokalblickObjectModel.validate(data);}
       store.entities[entity][index] = record;
       return record;
     });
@@ -576,6 +583,7 @@ export class LokalblickRepository {
 
   async delete(entity, id) {
     if (!ALL_ENTITIES.includes(entity)) throw new RangeError("Unknown entity");
+    if(entity==='objects'){const data=await this.bootstrap();if(data.contracts.some(c=>c.objectId===id)||data.activities.some(a=>a.objectId===id)||data.objects.some(o=>(o.predecessorIds||[]).includes(id)))throw TypeError('Objekt med avtal, aktiviteter eller historik får inte raderas');}
     if (CORE_ENTITIES.includes(entity)) {
       const records = await this.list(entity);
       if (!records.some((record) => record.id === id)) return false;

@@ -25,6 +25,7 @@ const MIME_TYPES = {
   ".svg": "image/svg+xml"
 };
 const API_ENTITIES = {
+  objects: "objects",
   organizations: "organizations",
   people: "people",
   orders: "orders",
