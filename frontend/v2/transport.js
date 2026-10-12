@@ -65,7 +65,7 @@ export function createTransport() {
     async prepareImport(onProgress) {
       if (company())
         throw Error("Excelimport kräver en backendadapter i företagsläget");
-      return source().prepareImportWorkbook(onProgress);
+      return source().prepareImportWorkbook(onProgress,{multiple:true});
     },
     async importPrepared(data, selectedSheets, onProgress) {
       if (company())

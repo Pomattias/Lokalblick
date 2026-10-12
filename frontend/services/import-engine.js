@@ -1,12 +1,16 @@
+import {interpretCell,profileFormat,parseDate,dateField,numberField} from './import-formats.js';
 // Shared, local-only preparation for unknown workbook structures.
 // Uses the canonical schemas owned by source-service, never a second data model.
 const copy = x => JSON.parse(JSON.stringify(x));
 const norm = x => String(x ?? '').trim().toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '');
 const present = x => x != null && (typeof x!=='string'||x.trim()!=='');
 const equal = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+const fieldName=x=>norm(String(x).replace(/(?:[, ]+|\()(?:m²|m2|kvm|tkr|mkr|kr|kronor|sek|%)(?:\s*\/\s*(?:år|ar|mån|man))?\)?$/i,''));
 const aliases = {
   'fastbet':'properties.designation', 'fastighetsbeteckning':'properties.designation',
   'adress':'properties.address', 'gatuadress':'properties.address', 'ort':'properties.city', 'postort':'properties.city',
+  'aktivitetsid':'activities.sourceId', 'projektid':'activities.sourceId',
+  'objektnr':'objects.number', 'objektnummer':'objects.number', 'objektsnummer':'objects.number',
   'avtalsnr':'contracts.number', 'avtalsnummer':'contracts.number',
   'bra':'contracts.area', 'lokalarea':'contracts.area', 'kvm':'contracts.area',
   'arshyra':'contracts.baseRent', 'manadshyra':'contracts.baseRent',
@@ -20,8 +24,10 @@ export function fieldCatalog(schemas) {
 }
 export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
   const fields = fieldCatalog(schemas);
-  return workbook.SheetNames.map(name => {
-    const sheet = workbook.Sheets[name];
+  return workbook.SheetNames.map(sheetKey => {
+    const source=workbook.__importSources?.find(s=>s.sheetKey===sheetKey);
+    const name=source?.sheetName||sheetKey;
+    const sheet = workbook.Sheets[sheetKey];
     const matrix = XLSX.utils.sheet_to_json(sheet, {header:1,defval:'',blankrows:true});
     const start = sheet['!ref'] ? XLSX.utils.decode_range(sheet['!ref']).s.r : 0;
     let headerIndex = 0, best = -1;
@@ -35,12 +41,12 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
     const headerKeys=headers.filter(present).map(norm);
     const contractSignals=headerKeys.filter(h=>/avtals|hyra|hyres|uppsagning|forlangning/.test(h));
     const signature = JSON.stringify(headers.filter(present).map(norm).sort());
-    const previous = saved.find(s => s.sheet===name && s.signature===signature);
-    const inferred = /^objekt/i.test(name)?'objects': /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
+    const previous = saved.find(s => s.sheet===name && (!source?.fileName||!s.fileName||s.fileName===source.fileName) && s.signature===signature);
+    const inferred = /part|organisation/i.test(name)?'organizations':/best[aä]llning|order/i.test(name)?'orders':/aktivitet/i.test(name)?'activities': /^objekt/i.test(name)?'objects': /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
     const columns = headers.map((header,index) => {
       if(!present(header)) return null;
       const values=matrix.slice(headerIndex+1).map(r=>r[index]).filter(present);
-      const choices=fields.filter(f=>norm(f.label.split(' → ')[1])===norm(header)||f.aliases.some(a=>norm(a)===norm(header)));
+      const choices=fields.filter(f=>fieldName(f.label.split(' → ')[1])===fieldName(header)||f.aliases.some(a=>fieldName(a)===fieldName(header)));
       let candidate=choices.find(f=>f.collection===inferred) || (choices.length===1?choices[0]:null);
       if(/^(tom|from)$/.test(norm(header))&&!['objects','contracts','activities'].includes(inferred))candidate=null;
       const rule=previous?.columns?.find(c=>norm(c.header)===norm(header));
@@ -52,40 +58,34 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
       }
       if(inferred==='contracts'&&/^(?:forlangningstid|forlangningsperiod)(?:manader|man)?$/.test(h))contextualTarget='contracts.renewalPeriodMonths';
       if(inferred==='contracts'&&/^(?:uppsagningstid)(?:manader|man)?$/.test(h))contextualTarget='contracts.noticePeriodMonths';
-      const target=rule?.target || contextualTarget || aliases[h] || candidate?.target || '@extra';
-      const formatSample=value=>{
-        if(/\.(?:start|end|startDate|endDate)$/.test(target)&&typeof value==='number'&&value>0&&value<100000){const d=XLSX.SSF.parse_date_code(value);if(d)return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;}
+      if(/^(?:id|identifierare|kallansidentifierare)$/.test(h)&&fields.some(f=>f.target===inferred+'.sourceId'))contextualTarget=inferred+'.sourceId';
+      const target=rule?.target || contextualTarget || aliases[h] || aliases[fieldName(header)] || candidate?.target || '@extra';
+      const date1904=Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904);
+      const format=profileFormat(matrix.slice(headerIndex+1).map((r,ri)=>sheet[XLSX.utils.encode_cell({r:start+headerIndex+1+ri,c:index+(sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0)})]).filter(Boolean),{target,header:String(header),date1904},XLSX);
+      const formatSample=(value,cell)=>{
+        if(format.type==='text'&&typeof value==='number'&&/^0{2,}$/.test(cell?.z||''))return XLSX.utils.format_cell(cell);
+        if(format.type==='date'&&value!==''){try{return parseDate(value,XLSX,date1904);}catch{}}
         return value;
       };
-      const examples=values.slice(0,3).map(formatSample);
-      const samples=matrix.slice(headerIndex+1,headerIndex+4).map(r=>formatSample(r[index]??''));
+      const samples=matrix.slice(headerIndex+1,headerIndex+4).map((r,ri)=>formatSample(r[index]??'',sheet[XLSX.utils.encode_cell({r:start+headerIndex+1+ri,c:index+(sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0)})]));
+      const examples=values.slice(0,3).map(value=>formatSample(value));
       return {header:String(header),index,target,collection:rule?.collection || (target.startsWith('@')?inferred:target.split('.')[0]),
-        transform:rule?.transform || (norm(header)==='manadshyra'?'monthly':'auto'),
-        examples,samples,reason:contextualTarget&&!rule?'Avtalssammanhang och kolumnens betydelse används för förslaget.':'',filled:values.length,missing:matrix.slice(headerIndex+1).length-values.length,
-        approved:Boolean(rule),identity:rule?.identity || /^(avtalsnummer|avtalsnr|fastighetsbeteckning|fastbet|epost|email)$/.test(norm(header))};
+        transform:(rule?.transform==='text'?'auto':rule?.transform) || (norm(header)==='manadshyra'?'monthly':'auto'),
+        examples,samples,format,date1904,reason:contextualTarget&&!rule?'Avtalssammanhang och kolumnens betydelse används för förslaget.':'',filled:values.length,missing:matrix.slice(headerIndex+1).length-values.length,
+        approved:Boolean(rule),identity:!dateField(target.split('.')[1]||'')&&!numberField(target.split('.')[1]||'')&&(rule?.identity ?? /\.(?:id|sourceId|number|designation|email|orderReference)$/.test(target))};
     }).filter(Boolean);
-    return {name,signature,headerIndex,headerRow:start+headerIndex+1,startColumn:sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0,columns,rowCount:matrix.slice(headerIndex+1).filter(r=>r.some(present)).length,inferred};
+    return {name,sheetKey,fileName:source?.fileName,fingerprint:source?.fingerprint,signature,headerIndex,headerRow:start+headerIndex+1,startColumn:sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0,columns,rowCount:matrix.slice(headerIndex+1).filter(r=>r.some(present)).length,inferred};
   });
 }
-function convert(cell, column, XLSX) {
-  let value=cell?.v ?? '';
-  const field=column.target.split('.')[1] || '';
-  if(/DocumentUrl$/.test(field)) value=cell?.l?.Target || value;
-  if(column.transform==='text')return String(value);
-  if(/^(area|baseRent|baseAdditions|annual|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|estimatedCost|orderedCost|finalCost|planningYear|noticePeriod|renewalPeriod|rentBase|additionBase|rentIndexPercent|additionIndexPercent)/.test(field)){
-    const numeric=String(value).replace(/[\s\u00a0]/g,'').replace(/(?:kr|sek|%)$/i,'').replace(/(?:mån|månader|man|manader)$/i,/Months$/.test(field)?'':'$&');
-    const n=typeof value==='number'?value:Number(numeric.includes(',')?numeric.replace(/\./g,'').replace(',','.'):numeric);
-    if(!Number.isFinite(n))throw Error('Ogiltigt tal');
-    if(/Percent$/.test(field)&&typeof value==='number'&&cell.z?.includes('%'))return n*100;
-    if(column.transform==='thousands')return n*1000;
-    return column.transform==='monthly'?n*12:n;
-  }
-  if(/^(start|end|.*Date|orderedAt|paidAt|completedAt)$/.test(field)&&typeof value==='number'){
-    const date=XLSX.SSF.parse_date_code(value);
-    if(!date)throw Error('Ogiltigt datum');
-    return `${date.y}-${String(date.m).padStart(2,'0')}-${String(date.d).padStart(2,'0')}`;
-  }
-  return value;
+const convert=(cell,column,XLSX)=>interpretCell(cell,column,XLSX);
+export function retargetColumn(workbook,profile,column,target,XLSX) {
+  if(column.target===target)return;
+  column.target=target;
+  column.identity=/\.(?:id|sourceId|number|designation|email|orderReference)$/.test(target);
+  column.transform='auto';
+  const sheet=workbook.Sheets[profile.sheetKey||profile.name],range=sheet?.['!ref']?XLSX.utils.decode_range(sheet['!ref']):null,cells=[];
+  if(range)for(let r=profile.headerRow;r<=range.e.r;r++)cells.push(sheet[XLSX.utils.encode_cell({r,c:column.index+profile.startColumn})]);
+  column.format=profileFormat(cells,column,XLSX);
 }
 function identify(records, values, collection, identity) {
   const keys=identity.length?identity:({properties:['designation'],objects:['number','propertyId'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId']}[collection]||[]);
@@ -103,28 +103,48 @@ function identify(records, values, collection, identity) {
     if(safe.length===1&&candidates.length===1)return {kind:'A',record:safe[0],reason:'Unik adress och samma ort'};
     if(candidates.length)return {kind:'B',candidates,reason:'Adress finns, identiteten behöver granskas'};
   }
-  const enough = collection==='objects'?objectIdentified:collection==='properties' ? present(values.designation)||(present(values.address)&&present(values.city)) : usable.length>0;
+  const enough = collection==='objects'?objectIdentified:collection==='properties' ? present(values.id)||present(values.sourceId)||present(values.designation)||(present(values.address)&&present(values.city)) : usable.length>0;
   return {kind:enough?'C':'D',reason:enough?'Ingen befintlig identitet hittades':'Tillräcklig identitet saknas'};
 }
 export async function fingerprint(buffer) {
   const hash=await crypto.subtle.digest('SHA-256',buffer);
   return [...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
 }
+// Internal sheet keys keep identically named sheets from separate files apart.
+// Original names and each workbook's date system travel with the source metadata.
+export async function combineImportSources(files, selected, XLSX) {
+  const workbook={SheetNames:[],Sheets:{},__importSources:[]},wanted=new Set(selected),hashes=[];
+  for(const file of files){
+    const chosen=file.sheets.filter(s=>wanted.has(s.name));if(!chosen.length)continue;
+    const hash=await fingerprint(file.buffer);hashes.push(hash);
+    const original=XLSX.read(file.buffer,{type:'array',cellDates:false,cellNF:true,sheets:chosen.map(s=>s.sheetName||s.name)});
+    for(const info of chosen){
+      const name=info.sheetName||info.name,sheet=original.Sheets[name];if(!sheet)continue;
+      const extent={s:{r:Infinity,c:Infinity},e:{r:-1,c:-1}};
+      for(const a of Object.keys(sheet)){if(a[0]==='!'||(!sheet[a]?.f&&!present(sheet[a]?.v)))continue;const p=XLSX.utils.decode_cell(a);extent.s.r=Math.min(extent.s.r,p.r);extent.s.c=Math.min(extent.s.c,p.c);extent.e.r=Math.max(extent.e.r,p.r);extent.e.c=Math.max(extent.e.c,p.c);}
+      if(extent.e.r<0)delete sheet['!ref'];else sheet['!ref']=XLSX.utils.encode_range(extent);
+      workbook.SheetNames.push(info.name);workbook.Sheets[info.name]=sheet;
+      workbook.__importSources.push({sheetKey:info.name,sheetName:name,fileName:file.fileName,fingerprint:hash,date1904:Boolean(original.Workbook?.WBProps?.date1904)});
+    }
+  }
+  if(!workbook.SheetNames.length)throw Error('Välj minst en flik att läsa.');
+  return {workbook,fingerprint:hashes.length===1?hashes[0]:await fingerprint(new TextEncoder().encode(hashes.sort().join('|')))};
+}
 export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
   const data=copy(base), changes=[], decisions=[];
   const at=context.at || new Date().toISOString();
-  const sourceId='source:'+context.fingerprint;
   data.sourceRegistry ||= []; data.auditLog ||= []; data.importReview ||= []; data.importMappings ||= [];
   const counts={objectsBefore:(base.objects||[]).length,propertiesBefore:(base.properties||[]).length,contractsBefore:(base.contracts||[]).length,matched:0,created:0,fields:0,conflicts:0,preserved:0,unresolved:0};
-  const source={id:sourceId,name:context.fileName,fingerprint:context.fingerprint,importedAt:at,kind:'mapped-excel',sheets:profiles.map(p=>p.name)};
-  if(!data.sourceRegistry.some(s=>s.id===sourceId))data.sourceRegistry.push(source);
+  const rows=[];
   for(const profile of profiles){
-    const ruleId=profile.name+'|'+profile.signature;
+    const fileName=profile.fileName||context.fileName,sourceId='source:'+(profile.fingerprint||context.fingerprint);
+    if(!data.sourceRegistry.some(s=>s.id===sourceId))data.sourceRegistry.push({id:sourceId,name:fileName,fingerprint:profile.fingerprint||context.fingerprint,importedAt:at,kind:'mapped-excel',sheets:profiles.filter(p=>(p.fileName||context.fileName)===fileName).map(p=>p.name)});
+    const ruleId=(profile.fileName?fileName+'|':'')+profile.name+'|'+profile.signature;
     const old=data.importMappings.find(r=>r.id===ruleId);
-    const rule={id:ruleId,sheet:profile.name,signature:profile.signature,columns:profile.columns.map(c=>({header:c.header,target:c.target,collection:c.collection,transform:c.transform,identity:c.identity})),version:old?.version||1,approvedBy:context.actor,actorVerified:false,approvedAt:at};
+    const rule={id:ruleId,fileName,sheet:profile.name,signature:profile.signature,columns:profile.columns.map(c=>({header:c.header,target:c.target,collection:c.collection,transform:c.transform,identity:c.identity})),version:old?.version||1,approvedBy:context.actor,actorVerified:false,approvedAt:at};
     if(old&&!equal(old.columns,rule.columns))rule.version++;
     if(!old)data.importMappings.push(rule);else if(!equal(old.columns,rule.columns))Object.assign(old,rule);
-    const sheet=workbook.Sheets[profile.name];
+    const sheet=workbook.Sheets[profile.sheetKey||profile.name];
     const range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):null;
     if(!range)continue;
     for(let r=profile.headerRow;r<=range.e.r;r++){
@@ -136,8 +156,11 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         const collection=column.target==='@extra'?column.collection:column.target.split('.')[0];
         if(!groups.has(collection))groups.set(collection,{values:{},origins:{},extras:[],identity:[],errors:[]});
         const group=groups.get(collection);
-        const origin={source:context.fileName,sourceId,sheet:profile.name,column:column.header,row:r+1,cell:address,originalValue:cell?.v??'',originalFormula:cell?.f||'',hyperlink:cell?.l?.Target||'',at,mappingRule:ruleId,mappingVersion:rule.version,decision:'manual-mapping',confirmedBy:context.actor,actorVerified:false,normalization:column.transform};
-        if(column.target==='@extra') {group.extras.push({label:column.header,value:cell.v??cell.f,provenance:origin});continue;}
+        const origin={source:fileName,sourceId,sheet:profile.name,column:column.header,row:r+1,cell:address,originalValue:cell?.v??'',originalFormula:cell?.f||'',hyperlink:cell?.l?.Target||'',at,mappingRule:ruleId,mappingVersion:rule.version,decision:'manual-mapping',confirmedBy:context.actor,actorVerified:false,normalization:column.transform};
+        if(column.target==='@extra') {
+          let value=cell.v??cell.f;try{if(present(cell.v))value=convert(cell,column,XLSX);}catch(e){group.errors.push(column.header+': '+e.message);}
+          group.extras.push({label:column.header,value,type:column.format?.type||'text',provenance:origin});continue;
+        }
         const field=column.target.split('.')[1];
         if(cell.f&&!present(cell.v)){group.origins[field]=origin;group.errors.push(column.header+': formeln saknar beräknat värde');continue;}
         if(!fieldCatalog(context.schemas).some(f=>f.target===column.target)){group.errors.push('Ogiltigt målfält');continue;}
@@ -145,32 +168,50 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         try{group.values[field]=convert(cell,column,XLSX);group.origins[field]=origin;}catch(e){group.errors.push(column.header+': '+e.message);}
         if(column.identity)group.identity.push(field);
       }
-      const rowRecords={};
-      for(const [collection,group] of [...groups].sort(([a],[b])=>['properties','objects','organizations','people','contracts','activities','orders'].indexOf(a)-['properties','objects','organizations','people','contracts','activities','orders'].indexOf(b))){
+      rows.push({profile,r,groups,rowRecords:{},fileName,sourceId,ruleId,rule});
+    }
+  }
+  // Resolve every parent table across all files before applying dependent records.
+  for(const collection of new Set(['organizations','people','properties','objects','contracts','activities','orders',...context.schemas.map(s=>s.key)])){
+    for(const task of rows){
+      const {profile,r,groups,rowRecords,fileName,sourceId,ruleId,rule}=task;
+      const group=groups.get(collection);if(!group)continue;
         data[collection] ||= [];
-        const key=profile.name+'|'+(r+1)+'|'+collection;
+        const key=(profile.fileName?fileName+'|':'')+profile.name+'|'+(r+1)+'|'+collection;
         const override=context.decisions?.[key];
         if(override==='ignore'){decisions.push({sheet:profile.name,row:r+1,collection,classification:'D',reason:'Ignorerad av användaren',values:group.values});continue;}
-        if(collection==='objects'&&rowRecords.properties)group.values.propertyId=rowRecords.properties;
-        if(collection==='contracts'&&rowRecords.objects)group.values.objectId=rowRecords.objects;
-        if(collection==='contracts'&&rowRecords.properties)group.values.propertyId=rowRecords.properties;
-        const parents={objectId:'objects',propertyId:'properties',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people'};
+        // An already identified agreement can anchor enrichment at its property
+        // or object even when the source repeats only a partial address.
+        const agreementValues=groups.get('contracts')?.values;
+        const agreement=agreementValues?.number?(data.contracts||[]).filter(c=>norm(c.number)===norm(agreementValues.number)):[];
+        if(agreement.length===1&&['properties','objects'].includes(collection)){
+          const known=collection==='properties'?(data.properties||[]).find(p=>p.id===agreement[0].propertyId):(data.objects||[]).find(o=>o.id===agreement[0].objectId);
+          if(known){
+            const field=collection==='properties'?'designation':'number';
+            if(!present(group.values[field])||norm(group.values[field])===norm(known[field])){group.values.id=known.id;group.identity=['id'];if(collection==='objects')group.values.propertyId=known.propertyId;}
+          }
+        }
+        if(collection==='objects'&&rowRecords.properties&&!present(group.values.propertyId))group.values.propertyId=rowRecords.properties;
+        if(collection==='contracts'&&rowRecords.objects&&!present(group.values.objectId))group.values.objectId=rowRecords.objects;
+        if(collection==='contracts'&&rowRecords.properties&&!present(group.values.propertyId))group.values.propertyId=rowRecords.properties;
+        const parents={propertyId:'properties',objectId:'objects',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people'};
         for(const [field,parent] of Object.entries(parents)){
           if(!present(group.values[field]))continue;
           const values=data[parent]||[], value=group.values[field];
-          const candidates=values.filter(x=>x.id===value || [x.designation,x.address,x.number,x.name,x.title].filter(present).some(v=>norm(v)===norm(value)));
+          const candidates=values.filter(x=>(parent!=='objects'||!group.values.propertyId||x.propertyId===group.values.propertyId)&&(x.id===value || [x.sourceId,x.designation,x.address,x.number,x.name,x.title].filter(present).some(v=>norm(v)===norm(value))));
           if(candidates.length===1)group.values[field]=candidates[0].id;else group.errors.push('Relationen '+field+' är inte entydig');
         }
         if(collection==='objects'&&!group.values.propertyId)group.errors.push('Objektet saknar fastighetskoppling');
-        if(collection==='contracts'&&group.values.objectId){const obj=(data.objects||[]).find(o=>o.id===group.values.objectId);if(obj)group.values.propertyId=obj.propertyId;}
+        if(collection==='contracts'&&group.values.objectId){const obj=(data.objects||[]).find(o=>o.id===group.values.objectId);if(obj){if(group.values.propertyId&&group.values.propertyId!==obj.propertyId)group.errors.push('Objektet och avtalet pekar på olika fastigheter');else group.values.propertyId=obj.propertyId;}}
         let match=group.errors.length?{kind:'D',reason:group.errors.join('; ')}:identify(data[collection],group.values,collection,group.identity);
         if(override?.recordId&&!group.errors.length){const chosen=data[collection].find(x=>x.id===override.recordId);if(chosen)match={kind:'A',record:chosen,reason:'Manuellt vald koppling'};}
         if(override?.parentId){group.values[collection==='orders'?'activityId':'propertyId']=override.parentId;}
-        const entry={sheet:profile.name,row:r+1,collection,classification:match.kind,reason:match.reason,values:group.values,candidates:(match.candidates||[]).map(copy),extras:group.extras,origins:group.origins};
+        if(match.kind==='C'&&['contracts','orders'].includes(collection)&&!group.values[collection==='contracts'?'propertyId':'activityId'])match={kind:'B',reason:'Hemvist saknas: välj rätt '+(collection==='contracts'?'fastighet':'aktivitet')};
+        const entry={source:fileName,sourceId,sheet:profile.name,row:r+1,collection,classification:match.kind,reason:match.reason,values:group.values,candidates:(match.candidates||[]).map(copy),extras:group.extras,origins:group.origins};
         decisions.push(entry);
         if(['B','D'].includes(match.kind)){
           const id=sourceId+'|'+profile.name+'|'+(r+1)+'|'+collection;
-          if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'mapped-identity',source:context.fileName,status:'pending',...entry});
+          if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'mapped-identity',source:fileName,status:'pending',...entry});
           counts.unresolved++;continue;
         }
         let record=match.record;
@@ -180,16 +221,16 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         entry.recordId=record.id;
         record.provenance ||= {};
         for(const [field,value] of Object.entries(group.values)){
-          group.origins[field] ||= {source:context.fileName,sourceId,sheet:profile.name,row:r+1,at,value,decision:'derived-relation',inputs:Object.values(group.origins).map(o=>o.cell).filter(Boolean),confirmedBy:context.actor,actorVerified:false};
+          group.origins[field] ||= {source:fileName,sourceId,sheet:profile.name,row:r+1,at,value,decision:'derived-relation',inputs:Object.values(group.origins).map(o=>o.cell).filter(Boolean),confirmedBy:context.actor,actorVerified:false};
           const current=record[field];
           if(equal(current,value)||(!present(value)))continue;
           const previous=record.provenance[field];
           const protectedValue=previous?.source==='manual'||previous?.manual===true||(['latitude','longitude'].includes(field)&&(record.geoSource==='manual'||Boolean(record.geoConfirmedAt)));
-          const preference=data.importFieldPreferences?.[[collection,field,context.fileName].map(x=>x.toLocaleLowerCase('sv')).join('|')];
+          const preference=data.importFieldPreferences?.[[collection,field,fileName].map(x=>x.toLocaleLowerCase('sv')).join('|')];
           if((present(current)||protectedValue)&&(protectedValue||preference!=='accept')){
             if(preference==='reject'&&!protectedValue)continue;
             const id=sourceId+'|'+record.id+'|'+field+'|'+JSON.stringify(value);
-            if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'operational-conflict',status:'pending',source:context.fileName,collection,recordId:record.id,field,current,proposed:value,sheet:profile.name,row:r+1,provenance:group.origins[field],currentSource:previous?.source||'Lokalblick-data',recordLabel:record.address||record.number||record.name||record.title||record.id,protectedValue});
+            if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'operational-conflict',status:'pending',source:fileName,collection,recordId:record.id,field,current,proposed:value,sheet:profile.name,row:r+1,provenance:group.origins[field],currentSource:previous?.source||'Lokalblick-data',recordLabel:record.address||record.number||record.name||record.title||record.id,protectedValue});
             counts.conflicts++;continue;
           }
           changes.push({collection,recordId:record.id,field,from:current??'',to:value,provenance:group.origins[field]});
@@ -199,7 +240,6 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         for(const extra of group.extras){
           if(!record.supplemental.some(x=>x.label===extra.label&&equal(x.value,extra.value)&&x.provenance?.sourceId===sourceId)){record.supplemental.push(extra);counts.preserved++;}
         }
-      }
     }
   }
   // Contracts and orders without their required parent remain staged for review.
@@ -210,17 +250,21 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
       list.splice(list.indexOf(record),1);counts.created--;counts.unresolved++;
       changes.splice(0,changes.length,...changes.filter(c=>c.recordId!==entry.recordId));
       entry.classification='B';entry.reason='Hemvist saknas: välj rätt '+(parent==='propertyId'?'fastighet':'aktivitet');
-      const id=sourceId+'|'+entry.sheet+'|'+entry.row+'|'+entry.collection;
-      if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'mapped-identity',source:context.fileName,status:'pending',...entry});
+      const id=entry.sourceId+'|'+entry.sheet+'|'+entry.row+'|'+entry.collection;
+      if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'mapped-identity',source:entry.source,status:'pending',...entry});
     }
   }
   counts.fields=changes.length;
   counts.propertiesAfter=(data.properties||[]).length;counts.contractsAfter=(data.contracts||[]).length;
-  const registered=data.sourceRegistry.find(s=>s.id===sourceId);
-  if(!registered.rows)Object.assign(registered,{rows:profiles.reduce((n,p)=>n+p.rowCount,0),matched:counts.matched,created:counts.created,review:counts.unresolved+counts.conflicts});
+  for(const registered of data.sourceRegistry.filter(s=>profiles.some(p=>'source:'+(p.fingerprint||context.fingerprint)===s.id))) {
+    if(!registered.rows){const own=decisions.filter(d=>d.sourceId===registered.id);Object.assign(registered,{rows:profiles.filter(p=>'source:'+(p.fingerprint||context.fingerprint)===registered.id).reduce((n,p)=>n+p.rowCount,0),matched:own.filter(d=>d.classification==='A').length,created:own.filter(d=>d.classification==='C').length,review:own.filter(d=>['B','D'].includes(d.classification)).length});}
+  }
+  const identified=decisions.filter(d=>d.recordId&&!['B','D'].includes(d.classification));
+  const uniqueRecords=new Set(identified.map(d=>d.collection+'|'+d.recordId)).size;
+  const consolidation={sourceRows:rows.length,uniqueRecords,mergedOccurrences:identified.length-uniqueRecords,files:new Set(profiles.map(p=>p.fileName||context.fileName)).size,sheets:profiles.length};
   for(const change of changes)data.auditLog.push({id:crypto.randomUUID(),at,by:context.actor,actorVerified:false,collection:change.collection,recordId:change.recordId,action:'Importerad',fields:[{field:change.field,from:change.from,to:change.to,provenance:change.provenance}]});
   globalThis.LokalblickObjectModel?.normalize(data);
   counts.objectsAfter=(data.objects||[]).length;
   data.isDemo=false;
-  return {data,report:{profile:'Mappad Excelimport',fileName:context.fileName,counts,decisions,changes}};
+  return {data,report:{profile:'Mappad Excelimport',fileName:context.fileName,counts,decisions,changes,consolidation}};
 }

@@ -1037,31 +1037,37 @@
     if(isCanonicalDataWorkbook(workbook))
       throw new Error("Detta är en Lokalblick-datafil. Välj Anslut Lokalblick-data i stället för Läs in Excel. Den kontrollen hindrar att arbetsfilen importeras som dubbla grunduppgifter.");
   }
-  async function prepareImportWorkbook(onProgress) {
+  async function prepareImportWorkbook(onProgress, options={}) {
     source.pendingImport=null;
-    if (!window.showOpenFilePicker) throw new Error("Excelimport kräver Edge eller Chrome med lokal filåtkomst.");
-    emitImportProgress(onProgress,{stage:"choose",message:"Välj Excel-fil…"});
-    const handles=await window.showOpenFilePicker({
-      multiple:false,
-      types:[{description:"Excelkälla till Lokalblick",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]
-    });
-    const handle=handles[0];
-    const access=await permission(handle,"read",true);
-    if(access!=="granted") throw new Error("Läsåtkomst till filen godkändes inte.");
-    const file=await handle.getFile();
-    emitImportProgress(onProgress,{stage:"read",message:"Läser filen "+file.name+"…"});
-    const buffer=await file.arrayBuffer();
-    await yieldImportUi();
-    emitImportProgress(onProgress,{stage:"sheets",message:"Identifierar flikar i "+file.name+"…"});
-    const overview=XLSX.read(buffer,{type:"array",bookSheets:true,bookProps:true});
-    preventCanonicalAsEnrichment(overview);
-    const sheets=(overview.SheetNames||[]).map(function(name,index){
-      const role=importSheetRole(name);
-      return {name:name,index:index,kind:role.kind,recommended:role.recommended};
-    });
-    source.pendingImport={fileName:file.name||"Excelimport.xlsx",buffer:buffer,sheets:sheets};
-    emitImportProgress(onProgress,{stage:"ready",message:sheets.length+" flikar hittades.",fileName:source.pendingImport.fileName,sheets:sheets});
-    return {fileName:source.pendingImport.fileName,sheets:clone(sheets)};
+    emitImportProgress(onProgress,{stage:"choose",message:"Välj Excel-underlag…"});
+    let files;
+    if(window.showOpenFilePicker){
+      const handles=await window.showOpenFilePicker({multiple:Boolean(options.multiple),types:[{description:"Excelkälla till Lokalblick",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]});
+      files=[];
+      for(const handle of handles){
+        if(await permission(handle,"read",true)!=="granted")throw new Error("Läsåtkomst till filen godkändes inte.");
+        files.push(await handle.getFile());
+      }
+    }else{
+      files=await new Promise((resolve,reject)=>{
+        const input=document.createElement("input");input.type="file";input.accept=".xlsx";input.multiple=Boolean(options.multiple);input.hidden=true;document.body.append(input);
+        input.onchange=()=>{const chosen=Array.from(input.files||[]);input.remove();if(chosen.length)resolve(chosen);else {const e=Error("Importen avbröts");e.name="AbortError";reject(e);}};
+        input.oncancel=()=>{input.remove();const e=Error("Importen avbröts");e.name="AbortError";reject(e);};input.click();
+      });
+    }
+    if(!files.length){const e=Error("Importen avbröts");e.name="AbortError";throw e;}
+    const underlag=[],sheets=[];
+    for(const [fi,file] of files.entries()){
+      emitImportProgress(onProgress,{stage:"read",message:"Läser "+file.name+"…"});
+      const buffer=await file.arrayBuffer();await yieldImportUi();
+      const overview=XLSX.read(buffer,{type:"array",bookSheets:true,bookProps:true});preventCanonicalAsEnrichment(overview);
+      const own=(overview.SheetNames||[]).map((name,index)=>({name:files.length===1?name:"F"+fi+"S"+index,sheetName:name,fileName:file.name,index,...importSheetRole(name)}));
+      underlag.push({fileName:file.name||"Excelimport.xlsx",buffer,sheets:own});sheets.push(...own);
+    }
+    const fileName=underlag.map(f=>f.fileName).join(", ");
+    source.pendingImport={fileName,buffer:underlag.length===1?underlag[0].buffer:null,files:underlag,sheets};
+    emitImportProgress(onProgress,{stage:"ready",message:sheets.length+" flikar i "+underlag.length+" filer hittades.",fileName,sheets});
+    return {fileName,fileCount:underlag.length,sheets:clone(sheets)};
   }
   function meaningfulSheetInfo(sheet) {
     if(!sheet) return {ref:"",rows:0,cells:0};
@@ -1649,10 +1655,12 @@
     async prepareMapping(data, selectedSheets) {
       if(!source.pendingImport)throw Error("Välj Excel-filen på nytt.");
       const engine=await import('./import-engine.js');
-      const workbook=selectedImportWorkbook(source.pendingImport.buffer,selectedSheets);
-      return {workbook,profiles:engine.profileWorkbook(workbook,this.schemas,XLSX,data.importMappings||[]),
-        fingerprint:await engine.fingerprint(source.pendingImport.buffer),fileName:source.pendingImport.fileName,
-        known:Boolean(window.LokalblickMigrationAdapter?.detect(workbook)||window.LokalblickOperationalEnrichmentAdapter?.detect(workbook)||window.LokalblickProject2027Adapter?.detect(workbook)||window.LokalblickContractEnrichmentAdapter?.detect(workbook))};
+      const pending=source.pendingImport;
+      const combined=await engine.combineImportSources(pending.files||[{fileName:pending.fileName,buffer:pending.buffer,sheets:pending.sheets}],selectedSheets,XLSX);
+      const workbook=combined.workbook;
+      return {workbook,profiles:engine.profileWorkbook(workbook,this.schemas,XLSX,data?.importMappings||[]),
+        fingerprint:combined.fingerprint,fileName:pending.fileName,fileCount:pending.files?.length||1,
+        known:(pending.files?.length||1)===1&&Boolean(window.LokalblickMigrationAdapter?.detect(workbook)||window.LokalblickOperationalEnrichmentAdapter?.detect(workbook)||window.LokalblickProject2027Adapter?.detect(workbook)||window.LokalblickContractEnrichmentAdapter?.detect(workbook))};
     },
     importPreparedWorkbook:importPreparedWorkbook,
     importWorkbook:importWorkbook,
