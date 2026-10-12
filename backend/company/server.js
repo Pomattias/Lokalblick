@@ -40,7 +40,7 @@ const API_ENTITIES = {
   contracts: "contracts"
 };
 const MAX_BODY_SIZE = 2 * 1024 * 1024;
-const COMPANY_DATA_SERVICE = `(function(){async function request(url,options){var response=await fetch(url,Object.assign({credentials:"same-origin",headers:{"Content-Type":"application/json"}},options||{}));if(!response.ok)throw new Error("Lokalblick API "+response.status);if(response.status===204)return null;return response.json()}window.LokalblickDataService={mode:"company-api",load:function(){return request("/api/bootstrap")},save:function(data){return request("/api/workspace",{method:"PATCH",body:JSON.stringify(data)})},reset:function(){return this.load()}}})();`;
+const COMPANY_DATA_SERVICE = `(function(){async function request(url,options){var response=await fetch(url,Object.assign({credentials:"same-origin",headers:{"Content-Type":"application/json"}},options||{}));if(!response.ok)throw new Error("Lokalblick API "+response.status);if(response.status===204)return null;return response.json()}window.LokalblickDataService={mode:"company-api",load:function(){return request("/api/bootstrap")},save:function(data){return request("/api/workspace",{method:"PATCH",body:JSON.stringify(data)})},previewImport:function(data){return request("/api/imports/preview",{method:"POST",body:JSON.stringify(data)})},applyImport:function(data){return request("/api/imports/apply",{method:"POST",body:JSON.stringify(data)})},reset:function(){return this.load()}}})();`;
 
 export function validateHost(host) {
   if (!ALLOWED_HOSTS.has(String(host || "").toLowerCase())) {
@@ -211,6 +211,8 @@ export function createLokalblickServer(repository, { host = DEFAULT_HOST, port =
       if (pathname === "/api/bootstrap" && request.method === "GET") {
         return sendJson(response, 200, await repository.bootstrap());
       }
+      if(pathname==="/api/imports/preview"&&request.method==="POST")return sendJson(response,200,await repository.previewImport(await readJson(request)));
+      if(pathname==="/api/imports/apply"&&request.method==="POST")return sendJson(response,200,await repository.applyImport(await readJson(request)));
       if (pathname === "/api/workspace" && request.method === "PATCH") {
         const data = await readJson(request);
         return sendJson(response, 200, await repository.saveWorkspace(data));

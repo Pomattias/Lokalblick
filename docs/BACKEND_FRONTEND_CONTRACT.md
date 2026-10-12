@@ -11,7 +11,7 @@ synthetic browser-storage exception remain unchanged.
   collections used by the UI.
 - `PATCH /api/workspace` accepts user-owned collections and applicable
   property/contract overlays and coordinates. LEB core fields are never
-  written to Excel or accepted as master-data updates.
+  written to Excel. Ordinary edits retain the read-only boundary; explicitly reviewed import corrections are persisted as backend overlays.
 - The company runtime saves the complete UI workspace through this endpoint;
   only backend-owned collections, coordinate overlays, and contract overlays
   are persisted.
@@ -44,7 +44,7 @@ only and are not active API entities. Existing external contacts are migrated
 to the explicit property/contract responsibility fields. Existing order
 fields on activities are migrated to `orders`.
 
-Properties and imported contracts are read-only LEB core. Their DELETE
+Properties and imported contracts retain read-only LEB source records. Reviewed corrections are overlays, and separately imported core records are persisted in the local backend store. Their DELETE
 operations persist backend tombstones; editable property and contract
 completions belong in property overlays and contract overlays.
 
@@ -92,3 +92,17 @@ The contact owner and unit are intentionally independent:
 ## Object hierarchy (model v6)
 
 `GET /api/bootstrap` includes `objects`. Agreements refer to `objectId`; their `propertyId` is derived from the object for existing integrations. Activities may refer directly to `objectId` without an agreement. `objects` supports the same CRUD routes as other user-owned entities. Workspace persistence validates object/property links, agreement and activity object references, validity dates, and predecessor lifecycle links. Referenced objects cannot be deleted. Existing data migrates deterministically without using agreement dates as object dates. Details: [OBJECT_MODEL.md](OBJECT_MODEL.md).
+
+
+## Reviewed company import (store version 4)
+
+The V2 import button is available in company API mode. Files are interpreted locally in the company-served frontend. Only normalized proposals and provenance are sent to the same company API; raw Excel bytes, source paths and source credentials are not part of this protocol.
+
+- `GET /api/bootstrap` includes `workspaceRevision` and persisted workspace metadata.
+- `POST /api/imports/preview` accepts `{data, report, baseRevision}`. The backend validates JSON, unique identifiers, object history, dates, amounts and parent relations, then applies the same field priorities and manual protection used locally. Preview does not write the store and returns `{previewId, baseRevision, data, report}`.
+- `POST /api/imports/apply` accepts `{previewId}`. The preview must still match the current repository revision. A stale preview returns HTTP 409. Unknown previews and invalid payloads return HTTP 400. The accepted proposal is written through the repository's atomic JSON transaction.
+- Imported properties and contracts are persisted in `store.imported`; user records and editable/corrected fields stay in the existing entity and overlay collections. LEB continues to be read-only. A later source refresh and backend restart preserve imported objects and source history.
+- Explicitly accepted field reviews can update an overlay for a master field. The stored current value must still match the review or its already accepted result. Later ordinary saves retain these overlays.
+- Source refresh goes through the serialized repository queue and the common import rules. Untouched master values are not frozen into full copies in overlays. Changed source values require review unless an applicable source priority accepts them.
+
+Run the company API runtime with `npm run setup:company` and `npm run company:api`. `npm run company` remains the existing local frontend/demo server. No database or SQL service is introduced.

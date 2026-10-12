@@ -15,7 +15,7 @@
     if(row.sourceType==='activity') {
       const orders=(data.orders||[]).filter(x=>String(x.activityId)===String(item.id));
       if(orders.length) {
-        const completed=orders.filter(x=>Number(x.finalCost)||x.completedAt||/faktura|betald|klar/i.test(x.paymentStatus||''));
+        const completed=orders.filter(x=>Number(x.finalCost)||x.completedAt||/^(utförd|klar|klart)$/i.test(x.status||'')||/faktura|betald|klar/i.test(x.paymentStatus||''));
         if(completed.length) return completed.reduce((sum,x)=>sum+(Number(x.finalCost)||0),0);
         return null;
       }

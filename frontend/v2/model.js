@@ -1,3 +1,4 @@
+import "../services/import-formats.js";
 import "../domain/object-model.js";
 export const collections = [
   "properties",
@@ -452,7 +453,7 @@ function canonicalRelations(out) {
   delete out.contacts;return out;
 }
 
-function obsoleteCrossObjectReviews(out) {
+function markCrossObjectReviews(out) {
   const pending=(out.importReview||[]).filter(
     (x)=>x.status==="pending"&&x.kind==="operational-conflict"&&(x.collection==="properties"||x.entity==="Fastighet"),
   );
@@ -467,17 +468,14 @@ function obsoleteCrossObjectReviews(out) {
     if(!groups.has(key))groups.set(key,[]);
     groups.get(key).push(item);
   });
-  const now=new Date().toISOString();
   groups.forEach((items)=>{
     const identityConflict=items.find(
       (x)=>x.field==="sourceId"&&String(x.current||"").trim()&&String(x.proposed||"").trim()&&String(x.current).trim()!==String(x.proposed).trim(),
     );
     if(!identityConflict)return;
     items.forEach((item)=>{
-      item.status="obsolete";
-      item.resolvedBy="Lokalblick";
-      item.resolvedAt=now;
-      item.resolutionReason="Olika objekts-ID får inte matchas som samma fastighet.";
+      item.identityMismatch=true;
+      item.matchWarning="Olika objekts-ID kräver ett uttryckligt identitetsval.";
     });
   });
   (out.sourceRegistry||[]).forEach((source)=>{
@@ -546,7 +544,7 @@ export function normalize(data) {
       review.resolutionReason = "Hemvist tilldelas under Planera.";
     }
   }
-  obsoleteCrossObjectReviews(out);
+  markCrossObjectReviews(out);
   for (const source of out.sourceRegistry) {
     source.review = out.importReview.filter(item =>
       item.status === "pending" && (!source.name || item.source === source.name)
@@ -892,6 +890,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
 
   if(item.kind==='mapped-identity'){
     if(decision==='accept'){
+      if(/ogiltigt|tvetydigt datum/i.test(item.reason||''))throw Error('Rätta det felaktiga värdet i underlaget och läs in på nytt.');
       const record=(data[item.collection]||[]).find(x=>x.id===targetId);
       if(!record)throw Error('Välj rätt befintlig post');
       const before=clone(record);record.provenance ||= {};
@@ -1017,6 +1016,12 @@ export function resolveReview(data, id, decision, targetId, actor) {
         if (matches.length === 1) record = matches[0];
       }
       if (!record) throw Error("Den registrerade posten kunde inte identifieras. Läs in filen på nytt.");
+      if(Object.hasOwn(item,"current")&&JSON.stringify(record[item.field]??"")!==JSON.stringify(item.current??""))throw Error("Värdet har ändrats sedan granskningen. Läs om underlaget.");
+      const formats=globalThis.LokalblickImportFormats;
+      if(formats.dateField(item.field)&&item.proposed)formats.parseDate(item.proposed,globalThis.XLSX);
+      if(formats.numberField(item.field)&&item.proposed!==''&&item.proposed!=null)formats.parseNumber(item.proposed);
+      const parents={propertyId:'properties',objectId:'objects',contractId:'contracts',activityId:'activities',ownerPartyId:'organizations',responsiblePersonId:'people'};
+      if(parents[item.field]&&item.proposed&&!(data[parents[item.field]]||[]).some(x=>x.id===item.proposed))throw Error('Kopplingen finns inte. Välj en befintlig post.');
       const before = clone(record);
       record[item.field] = item.proposed;
       record.provenance = record.provenance || {};

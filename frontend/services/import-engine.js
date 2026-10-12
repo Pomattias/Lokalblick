@@ -1,3 +1,4 @@
+import '../domain/import-rules.js';
 import {interpretCell,profileFormat,parseDate,dateField,numberField} from './import-formats.js';
 // Shared, local-only preparation for unknown workbook structures.
 // Uses the canonical schemas owned by source-service, never a second data model.
@@ -9,6 +10,7 @@ const fieldName=x=>norm(String(x).replace(/(?:[, ]+|\()(?:m²|m2|kvm|tkr|mkr|kr|
 const aliases = {
   'fastbet':'properties.designation', 'fastighetsbeteckning':'properties.designation',
   'adress':'properties.address', 'gatuadress':'properties.address', 'ort':'properties.city', 'postort':'properties.city',
+  'forvaltningsobjekt':'properties.sourceId',
   'aktivitetsid':'activities.sourceId', 'projektid':'activities.sourceId',
   'objektnr':'objects.number', 'objektnummer':'objects.number', 'objektsnummer':'objects.number',
   'avtalsnr':'contracts.number', 'avtalsnummer':'contracts.number',
@@ -87,25 +89,7 @@ export function retargetColumn(workbook,profile,column,target,XLSX) {
   if(range)for(let r=profile.headerRow;r<=range.e.r;r++)cells.push(sheet[XLSX.utils.encode_cell({r,c:column.index+profile.startColumn})]);
   column.format=profileFormat(cells,column,XLSX);
 }
-function identify(records, values, collection, identity) {
-  const keys=identity.length?identity:({properties:['designation'],objects:['number','propertyId'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId']}[collection]||[]);
-  const usable=keys.filter(k=>present(values[k]));
-  const objectIdentified=collection!=='objects'||identity.some(k=>k!=='propertyId'&&present(values[k]))||present(values.number)||present(values.id)||present(values.sourceId);
-  const hits=usable.length&&objectIdentified?records.filter(r=>(collection!=='objects'||r.propertyId===values.propertyId)&&usable.every(k=>norm(r[k])===norm(values[k]))):[];
-  if(hits.length===1){
-    if(collection==='properties'&&present(values.city)&&present(hits[0].city)&&norm(values.city)!==norm(hits[0].city))return {kind:'B',candidates:hits,reason:'Identitet överensstämmer men ort skiljer sig'};
-    return {kind:'A',record:hits[0],reason:'Unik identitet: '+usable.join(', ')};
-  }
-  if(hits.length>1)return {kind:'B',candidates:hits,reason:'Flera poster har samma identitet'};
-  if(collection==='properties' && present(values.address)){
-    const candidates=records.filter(r=>norm(r.address)===norm(values.address));
-    const safe=candidates.filter(r=>present(values.city)&&norm(r.city)===norm(values.city)&&(!present(values.designation)||!present(r.designation)||norm(r.designation)===norm(values.designation)));
-    if(safe.length===1&&candidates.length===1)return {kind:'A',record:safe[0],reason:'Unik adress och samma ort'};
-    if(candidates.length)return {kind:'B',candidates,reason:'Adress finns, identiteten behöver granskas'};
-  }
-  const enough = collection==='objects'?objectIdentified:collection==='properties' ? present(values.id)||present(values.sourceId)||present(values.designation)||(present(values.address)&&present(values.city)) : usable.length>0;
-  return {kind:enough?'C':'D',reason:enough?'Ingen befintlig identitet hittades':'Tillräcklig identitet saknas'};
-}
+const identify=(...args)=>globalThis.LokalblickImportRules.identify(...args);
 export async function fingerprint(buffer) {
   const hash=await crypto.subtle.digest('SHA-256',buffer);
   return [...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
@@ -158,14 +142,14 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         const group=groups.get(collection);
         const origin={source:fileName,sourceId,sheet:profile.name,column:column.header,row:r+1,cell:address,originalValue:cell?.v??'',originalFormula:cell?.f||'',hyperlink:cell?.l?.Target||'',at,mappingRule:ruleId,mappingVersion:rule.version,decision:'manual-mapping',confirmedBy:context.actor,actorVerified:false,normalization:column.transform};
         if(column.target==='@extra') {
-          let value=cell.v??cell.f;try{if(present(cell.v))value=convert(cell,column,XLSX);}catch(e){group.errors.push(column.header+': '+e.message);}
+          let value=cell.v??cell.f;try{if(present(cell.v))value=convert(cell,column,XLSX);}catch(e){group.origins[field]=origin;group.errors.push(column.header+': '+e.message);}
           group.extras.push({label:column.header,value,type:column.format?.type||'text',provenance:origin});continue;
         }
         const field=column.target.split('.')[1];
         if(cell.f&&!present(cell.v)){group.origins[field]=origin;group.errors.push(column.header+': formeln saknar beräknat värde');continue;}
         if(!fieldCatalog(context.schemas).some(f=>f.target===column.target)){group.errors.push('Ogiltigt målfält');continue;}
         if(Object.hasOwn(group.values,field)){group.errors.push('Flera kolumner kopplas till '+field);continue;}
-        try{group.values[field]=convert(cell,column,XLSX);group.origins[field]=origin;}catch(e){group.errors.push(column.header+': '+e.message);}
+        try{group.values[field]=convert(cell,column,XLSX);group.origins[field]=origin;}catch(e){group.origins[field]=origin;group.errors.push(column.header+': '+e.message);}
         if(column.identity)group.identity.push(field);
       }
       rows.push({profile,r,groups,rowRecords:{},fileName,sourceId,ruleId,rule});
@@ -224,14 +208,10 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
           group.origins[field] ||= {source:fileName,sourceId,sheet:profile.name,row:r+1,at,value,decision:'derived-relation',inputs:Object.values(group.origins).map(o=>o.cell).filter(Boolean),confirmedBy:context.actor,actorVerified:false};
           const current=record[field];
           if(equal(current,value)||(!present(value)))continue;
-          const previous=record.provenance[field];
-          const protectedValue=previous?.source==='manual'||previous?.manual===true||(['latitude','longitude'].includes(field)&&(record.geoSource==='manual'||Boolean(record.geoConfirmedAt)));
-          const preference=data.importFieldPreferences?.[[collection,field,fileName].map(x=>x.toLocaleLowerCase('sv')).join('|')];
-          if((present(current)||protectedValue)&&(protectedValue||preference!=='accept')){
-            if(preference==='reject'&&!protectedValue)continue;
-            const id=sourceId+'|'+record.id+'|'+field+'|'+JSON.stringify(value);
-            if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'operational-conflict',status:'pending',source:fileName,collection,recordId:record.id,field,current,proposed:value,sheet:profile.name,row:r+1,provenance:group.origins[field],currentSource:previous?.source||'Lokalblick-data',recordLabel:record.address||record.number||record.name||record.title||record.id,protectedValue});
-            counts.conflicts++;continue;
+          const decision=globalThis.LokalblickImportRules.decideField(data,collection,record,field,value,group.origins[field]);
+          if(decision.action==='keep')continue;
+          if(decision.action==='review'){
+            globalThis.LokalblickImportRules.applyField(data,collection,record,field,value,group.origins[field]);counts.conflicts++;continue;
           }
           changes.push({collection,recordId:record.id,field,from:current??'',to:value,provenance:group.origins[field]});
           record[field]=value;record.provenance[field]={...group.origins[field],value,matchReason:match.reason,identityDecision:override?.recordId?'manual':'automatic'};counts.fields++;

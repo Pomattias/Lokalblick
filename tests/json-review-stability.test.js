@@ -18,7 +18,7 @@ test("property annual cost is calculated from contract periods and never saved o
   {id:"c1",propertyId:"p",baseRent:120000,rentIndexPercent:0,baseAdditions:12000,additionIndexPercent:0,annualContractDrift:6000,start:"2026-07-01",end:"2026-12-31"},
   {id:"c2",propertyId:"p",baseRent:70000,rentIndexPercent:0,end:"2025-12-31"}]});
  const value=C.propertyAnnualCost(data,"p",2026);
- assert.ok(Math.abs(value.annualCost-138000*184/365)<0.001);
+ assert.ok(Math.abs(value.annualCost-132000*184/365)<0.001);
  assert.equal(value.activeContracts,1);
  assert.equal(C.propertyAnnualCost(data,"p",2027).annualCost,0);
  const html=overview(data,{propertyId:"",unit:"",owner:"",person:"",q:""},{perspective:"Fastigheter",year:2026,contractId:""});

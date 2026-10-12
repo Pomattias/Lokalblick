@@ -158,8 +158,15 @@
     data.orders = Array.isArray(data.orders) ? data.orders : [];
     var id = spec.id || "ORD|" + hash(activity.id + "|" + (spec.orderedAt || "") + "|" + (spec.orderReference || "") + "|" + (spec.supplier || "") + "|" + (spec.orderedCost || spec.finalCost || ""));
     var found=data.orders.find(function(x){return x.id===id;});
-    if(found) return found;
-    found={id:id,activityId:activity.id,orderedByPersonId:spec.orderedByPersonId||"",orderedAt:spec.orderedAt||"",supplier:spec.supplier||"",orderReference:spec.orderReference||"",orderedCost:Number(spec.orderedCost)||0,deliveryText:spec.deliveryText||"",completedAt:spec.completedAt||"",finalCost:Number(spec.finalCost)||0,paymentStatus:spec.paymentStatus||"",paidAt:spec.paidAt||"",invoiceComment:spec.invoiceComment||"",ownerPays:spec.ownerPays||"",provenance:{source:spec.source||"",sheet:spec.sheet||"",row:spec.row||""}};
+    if(found){
+      for(const field of ['status','orderedByPersonId','orderedAt','supplier','orderReference','orderedCost','deliveryText','completedAt','finalCost','paymentStatus','paidAt','invoiceComment','ownerPays'])if(spec[field]!==undefined&&spec[field]!==null&&spec[field]!==''){
+        const origin={source:spec.source||'',sheet:spec.sheet||'',row:spec.row||''};
+        if(root.LokalblickImportRules)root.LokalblickImportRules.applyField(data,'orders',found,field,spec[field],origin);
+        else setIfBlank(found,field,spec[field],origin.source,origin.sheet,origin.row,data,report);
+      }
+      return found;
+    }
+    found={id:id,activityId:activity.id,status:spec.status||"",orderedByPersonId:spec.orderedByPersonId||"",orderedAt:spec.orderedAt||"",supplier:spec.supplier||"",orderReference:spec.orderReference||"",orderedCost:Number(spec.orderedCost)||0,deliveryText:spec.deliveryText||"",completedAt:spec.completedAt||"",finalCost:Number(spec.finalCost)||0,paymentStatus:spec.paymentStatus||"",paidAt:spec.paidAt||"",invoiceComment:spec.invoiceComment||"",ownerPays:spec.ownerPays||"",provenance:{source:spec.source||"",sheet:spec.sheet||"",row:spec.row||""}};
     data.orders.push(found); report.counts.ordersCreated++; return found;
   }
   function propertyMatcher(data) {
@@ -185,13 +192,13 @@
         if(known.length===1)return {property:known[0],score:105,method:"Verifierad adressalias",
           candidates:[{id:known[0].id,property:known[0],score:105,reason:"Tidigare bekräftad matchning"}]};
       }
-      if(!spec.address&&!spec.designation) {
+      if(!spec.designation) {
         const keys=[spec.name,spec.business].map(aliasKey).filter(Boolean);
         for(const key of keys) {
           const ids=aliases.get(key);
           if(ids?.size===1) {
             const p=(data.properties||[]).find(p=>p.id===Array.from(ids)[0]);
-            if(p)return {property:p,score:105,method:"Tidigare bekräftad alias",candidates:[{id:p.id,property:p,score:105,reason:"Bekräftad alias"}]};
+            if(p&&(!spec.city||!p.city||root.LokalblickAddressMatch.norm(spec.city)===root.LokalblickAddressMatch.norm(p.city))&&(!spec.address||root.LokalblickAddressMatch.addressScore(spec.address,p.address)>=85))return {property:p,score:105,method:"Tidigare bekräftad alias",candidates:[{id:p.id,property:p,score:105,reason:"Bekräftad alias"}]};
           }
         }
       }
@@ -207,7 +214,7 @@
     return rows.length === 1 ? rows[0] : null;
   }
   function recordCollection(data, record) {
-    var keys = ["properties","contracts","activities","people","contacts"];
+    var keys = ["properties","contracts","activities","orders","people","contacts"];
     for (var i = 0; i < keys.length; i++) if ((data[keys[i]] || []).indexOf(record) >= 0) return keys[i];
     return "";
   }
@@ -263,12 +270,12 @@
     if (sourceId) {
       const existing=(data.activities||[]).filter(a=>a.sourceId===sourceId);
       if (existing.length===1) return {collection:"activities",type:existing[0].type,record:existing[0]};
-      if (existing.length>1 || sourceOnly) return null;
+      if (existing.length>1) return null;
     }
     if (!propertyId || !norm(title)) return null;
     const matches=activityCollections(data).filter(x=>{
       const pid=x.record.propertyId||(data.contracts||[]).find(c=>c.id===x.record.contractId)?.propertyId;
-      return pid===propertyId && x.type===type && norm(x.title)===norm(title);
+      return pid===propertyId && x.type===type && norm(x.title)===norm(title) && (!sourceOnly||x.record.category!=="Beställning");
     });
     return matches.length===1 ? matches[0] : null;
   }
@@ -418,14 +425,14 @@
       var orderedAt=excelDate(cell(row,hit.headers,["Beställningsdatum"])),orderedBy=text(cell(row,hit.headers,["Beställt av"])),business=text(cell(row,hit.headers,["Verksamhet"]));
       if(!orderedAt&&!orderedBy&&!business&&previous){previous.invoiceComment=[previous.invoiceComment,title].filter(Boolean).join(" · ");continue;}
       report.counts.sourceRows++;
-      var pm=matcher.match({name:business,business:business,address:business});
+      var pm=matcher.match({name:business,business:business,address:cell(row,hit.headers,["Adress","Postadress"])});
       var drift=num(cell(row,hit.headers,["Pris drift & underhåll"])),invest=num(cell(row,hit.headers,["Pris investering"])),type=invest>0?"Projekt":"Drift",cost=invest||drift;
       var done=/klart/i.test(text(cell(row,hit.headers,["Status (Enbart beställt eller klart)","Status"])));
       var rowSourceId="OP|Beställning|"+hash(source+"|"+(i+1)+"|"+norm(title));
       var found=findActivity(data,pm.property?pm.property.id:"",title,type,rowSourceId,true),
         spec={source:source,sheet:"Beställningar",row:i+1,propertyId:pm.property?pm.property.id:"",type:type,title:title,description:text(cell(row,hit.headers,["Kommentarer"])),category:"Beställning",status:done?"Klar":"Beställd",estimatedCost:cost,sourceId:rowSourceId};
-      var ref=found?enrichActivity(data,report,found,spec):createActivity(data,report,spec),r=ref.record;
-      var order=createOrder(data,report,r,{id:"ORD|Beställning|"+hash(source+"|"+(i+1)+"|"+title),orderedAt:orderedAt,supplier:text(cell(row,hit.headers,["Leverantör"])),orderReference:text(cell(row,hit.headers,["Reqs","Diarienr"])),orderedCost:cost,deliveryText:text(cell(row,hit.headers,["Leveransdatum"])),completedAt:done?excelDate(cell(row,hit.headers,["Leveransdatum"])):"",finalCost:done?cost:0,paymentStatus:/faktura|betald/i.test(text(cell(row,hit.headers,["Kommentarer"])))?"Faktura registrerad":"",invoiceComment:text(cell(row,hit.headers,["Kommentarer"])),source:source,sheet:"Beställningar",row:i+1});
+      var ref=found||createActivity(data,report,spec),r=ref.record;
+      var order=createOrder(data,report,r,{id:"ORD|Beställning|"+hash(source+"|"+(i+1)+"|"+title),orderedAt:orderedAt,status:done?"Klar":"Beställd",supplier:text(cell(row,hit.headers,["Leverantör"])),orderReference:text(cell(row,hit.headers,["Reqs","Diarienr"])),orderedCost:cost,deliveryText:text(cell(row,hit.headers,["Leveransdatum"])),completedAt:done?excelDate(cell(row,hit.headers,["Leveransdatum"])):"",finalCost:done?cost:0,paymentStatus:/faktura|betald/i.test(text(cell(row,hit.headers,["Kommentarer"])))?"Faktura registrerad":"",invoiceComment:text(cell(row,hit.headers,["Kommentarer"])),source:source,sheet:"Beställningar",row:i+1});
       previous=order;report.counts.ordersMatched++;
       splitNames(orderedBy).forEach(function(name,index){var p=ensurePerson(data,report,{name:name,organizationId:ourOrgId(data),role:"",provisional:name.indexOf(" ")<0,source:source,sheet:"Beställningar",row:i+1});if(index===0&&!order.orderedByPersonId)order.orderedByPersonId=p.id;});
     }
@@ -448,7 +455,7 @@
     data.sourceRegistry = (data.sourceRegistry || []).filter(function (x) { return !(x.kind === "operational-enrichment" && x.name === source); });
     data.sourceRegistry.push({ id: "source:operational:" + hash(source), name: source, kind: "operational-enrichment", importedAt: new Date().toISOString(), rows: report.counts.sourceRows, matched: report.counts.propertiesMatched + report.counts.contractsMatched + report.counts.activitiesUpdated, created: report.counts.activitiesCreated + report.counts.peopleCreated, review: report.counts.needsReview, sheets: report.sheets.join(", ") });
     data.operationalEnrichmentReport = clone(report);
-    return { data: data, report: report };
+    const result={data,report};return root.LokalblickImportRules?root.LokalblickImportRules.reconcile(baseData||{},result,workbook,source,root.window?.LokalblickSourceService?.schemas||[]):result;
   }
   root.LokalblickOperationalEnrichmentAdapter = { id: "operational-enrichment-v1", label: "Fastigheter, personer & åtgärder", detect: detect, enrich: enrich };
 })(globalThis);

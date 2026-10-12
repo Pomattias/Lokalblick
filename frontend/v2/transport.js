@@ -3,6 +3,7 @@ const metadataKeys = [
   "budgetPlans",
   "indexSeries",
   "priceBaseAmounts",
+  "priceBaseAmounts",
   "auditLog",
   "sourceRegistry",
   "importReview",
@@ -63,39 +64,31 @@ export function createTransport() {
       return normalize(await source().createFile(data, "readwrite", blank));
     },
     async prepareImport(onProgress) {
-      if (company())
-        throw Error("Excelimport kräver en backendadapter i företagsläget");
       return source().prepareImportWorkbook(onProgress,{multiple:true});
     },
     async importPrepared(data, selectedSheets, onProgress) {
-      if (company())
-        throw Error("Excelimport kräver en backendadapter i företagsläget");
       return source().importPreparedWorkbook(data, selectedSheets, onProgress);
     },
     async import(data, onProgress) {
-      if (company())
-        throw Error("Excelimport kräver en backendadapter i företagsläget");
       return source().importWorkbook(data, onProgress);
     },
     async enrich(data) {
-      if (company())
-        throw Error("Berikning kräver en backendadapter i företagsläget");
       return source().enrichContracts(data);
     },
     async operational(data) {
-      if (company())
-        throw Error("Operativ berikning kräver en backendadapter i företagsläget");
       return source().enrichOperational(data);
     },
     async supplement(data, key) {
-      if (company())
-        throw Error("Import kräver en backendadapter i företagsläget");
       return source().importSupplement(data, key);
     },
     async index(data) {
-      if (company())
-        throw Error("Indeximport kräver en backendadapter i företagsläget");
       return source().importIndexSeries(data);
+    },
+    async commitImport(result){
+      const api=window.LokalblickDataService;
+      if(!api.previewImport||!api.applyImport)throw Error('Företagsbackend behöver uppdateras för granskad import.');
+      const preview=await api.previewImport({data:result.data,report:result.report,baseRevision:result.data.workspaceRevision});
+      return normalize(await api.applyImport({previewId:preview.previewId}));
     },
     async refresh() {
       if (company()) {

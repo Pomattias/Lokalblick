@@ -13,6 +13,7 @@ import {
   assign,
   moveWish,
   resolveReview,
+  clone,
 } from "../frontend/v2/model.js";
 const C = globalThis.LokalblickCalculations;
 function services() {
@@ -21,6 +22,8 @@ function services() {
     crypto: webcrypto,
     XLSX,
     console,
+    setTimeout,
+    clearTimeout,
     Date,
     Map,
     Set,
@@ -37,6 +40,8 @@ function services() {
   });
   for (const file of [
     "domain/calculations.js",
+    "domain/object-model.js",
+    "domain/import-rules.js",
     "domain/supplemental-adapter.js",
     "data/demo-data.js",
     "services/data-service.js",
@@ -94,7 +99,7 @@ test("zero index share is valid and decreasing index preserves floor", () => {
   assert.equal(C.indexedAmount(100, 200, 0.5, 100), 100);
   assert.equal(C.indexedAmount(100, 200, 0.5, 100, false), 75);
 });
-test("only October may supply a custom annual index", () => {
+test("custom index series retains its identity and September is preliminary", () => {
   assert.equal(
     C.october([{ year: 2025, month: 9, value: 400, seriesBase: "custom" }], 2025, "custom"),
     null,
@@ -107,7 +112,7 @@ test("only October may supply a custom annual index", () => {
       0,
       [{ year: 2025, month: 9, value: 400, seriesBase: "custom" }],
     ).status,
-    "Behöver kontroll",
+    "Preliminär",
   );
 });
 test("SCB October KPI calculates current rent without a separate KPI import", () => {
@@ -191,15 +196,16 @@ test("budget snapshot resolves the exact October index used", () => {
   const fixed = C.budgetIndex({ indexSeries: series }, 2026, 999);
   assert.deepEqual(
     plain(fixed),
-    { year: 2025, value: 400, source: "known", status: "Fastställd" },
+    { year: 2025, month:10, value: 400, source: "known", status: "Fastställd" },
   );
   const preliminary = C.budgetIndex({ indexSeries: series }, 2027, 425);
   assert.deepEqual(
     plain(preliminary),
     {
       year: 2026,
+      month:10,
       value: 425,
-      source: "Preliminärt budgetindex",
+      source: "Manuellt preliminärt index",
       status: "Preliminär",
     },
   );
@@ -383,7 +389,7 @@ test("budget includes activities planned during the budget year", () => {
     },
   ];
   assert.equal(C.activityPlannedInYear(activities[0], 2027), true);
-  assert.equal(C.activityPlannedInYear(activities[1], 2027), false);
+  assert.equal(C.activityPlannedInYear(activities[1], 2027), true);
   assert.equal(C.activityPlannedInYear(activities[2], 2027), true);
   assert.equal(C.activityPlannedInYear(activities[3], 2027), false);
   assert.equal(C.activityPlannedInYear(activities[4], 2027), true);
@@ -401,7 +407,7 @@ test("budget includes activities planned during the budget year", () => {
   );
   assert.deepEqual(
     rows.map((row) => row.sourceId).sort(),
-    ["date-overlap", "plan-year", "year-budget"],
+    ["date-overlap", "other-year", "plan-year", "year-budget"],
   );
   assert.equal(rows.find((row) => row.sourceId === "year-budget").amount, 250);
 });
@@ -683,6 +689,7 @@ test("non-demo normalization never inserts demo data; multi-contract scope stays
 });
 test("responsibility is stored directly and wish conversion keeps the same activity", () => {
   const d = normalize({
+    people:[{id:"person1",name:"Testperson"}],
     activities: [
       {
         id: "w1",
@@ -825,7 +832,7 @@ test("failed Excel write keeps pending changes and baseline until retry succeeds
   assert.equal(
     XLSX.utils.sheet_to_json(
       XLSX.read(bytes, { type: "array" }).Sheets.Avtal,
-    )[0]["Bashyra"],
+    )[0]["Bashyra, kr/år"],
     123456,
   );
 });
@@ -936,7 +943,7 @@ test("prepared Excel import lists sheets and imports only selected sheets with p
   const progress = [];
   const prepared = await api.prepareImportWorkbook((x) => progress.push(plain(x)));
   assert.deepEqual(
-    prepared.sheets.map((x) => x.name),
+    plain(prepared.sheets.map((x) => x.name)),
     ["SF", "Fastighetslista", "Noteringar"],
   );
   assert.equal(prepared.sheets.find((x) => x.name === "SF").recommended, true);
@@ -949,7 +956,7 @@ test("prepared Excel import lists sheets and imports only selected sheets with p
     ["SF"],
     (x) => progress.push(plain(x)),
   );
-  assert.deepEqual(result.report.sheets, ["SF"]);
+  assert.deepEqual(plain(result.report.sheets), ["SF"]);
   assert.equal(result.data.properties.length, 1);
   assert.equal(result.data.contracts.length, 1);
   assert.equal(
@@ -1038,7 +1045,7 @@ test("unified Excel import seeds empty property and contract data before enrichm
   assert.equal(second.data.properties.length, 1);
   assert.equal(second.data.contracts.length, 2);
   assert.deepEqual(
-    second.data.contracts.map((x) => x.number).sort(),
+    plain(second.data.contracts.map((x) => x.number).sort()),
     ["12345", "67890"],
   );
 
@@ -1087,7 +1094,7 @@ test("unified Excel import seeds empty property and contract data before enrichm
     changed.data.contracts.find((x) => x.number === "12345").id,
   );
   assert.equal(areaConflict.entity, "Avtal");
-  assert.equal(areaConflict.currentSource, "SF");
+  assert.equal(areaConflict.currentSource, "SF.xlsx");
   assert.equal(
     changed.data.importReview.some((x) => x.field === "source"),
     false,
@@ -1136,7 +1143,7 @@ test("different property object IDs never merge through designation or address f
     false,
   );
 });
-test("old cross-object review groups become obsolete automatically", () => {
+test("cross-object review stays pending until an explicit identity decision", () => {
   const data = normalize({
     isDemo: false,
     properties: [
@@ -1178,9 +1185,9 @@ test("old cross-object review groups become obsolete automatically", () => {
       },
     ],
   });
-  assert.equal(data.importReview.filter((x) => x.status === "pending").length, 0);
-  assert.ok(data.importReview.every((x) => x.status === "obsolete"));
-  assert.equal(data.sourceRegistry[0].review, 0);
+  assert.equal(data.importReview.filter((x) => x.status === "pending").length, 2);
+  assert.ok(data.importReview.every((x) => x.identityMismatch));
+  assert.equal(data.sourceRegistry[0].review, 2);
 });
 test("legacy core conflict can still resolve against the registered record", () => {
   const data = normalize({
@@ -1304,7 +1311,7 @@ test("Lokalblick workbook exposes human source sheet and hides technical extras"
   const meta = (w.Workbook?.Sheets || []).find((x) => x.name === "Tilläggsdata");
   const audit = (w.Workbook?.Sheets || []).find((x) => x.name === "Ändringslogg");
   assert.equal(meta?.Hidden, 1);
-  assert.notEqual(audit?.Hidden, 1);
+  assert.equal(audit?.Hidden, 1); // Full history is preserved in the app and technical workbook sheets.
 });
 
 test("supplemental activities cannot create an unknown property or move a contract", () => {

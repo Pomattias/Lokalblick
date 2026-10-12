@@ -16,7 +16,7 @@
     2020:336.97,2021:346.44,2022:384.04,2023:409.07,2024:415.51,
     2025:419.35
   });
-  const seriesBase = (value) => String(value || "").replace(/[^0-9]/g, "");
+  const seriesBase = (value) => {const text=String(value||"").trim().toLowerCase();return text.match(/^(\d{4})(?:\s*=\s*100)?$/)?.[1]||text;};
   function defaultOctober(year) {
     const value=DEFAULT_OCTOBER_1980[Number(year)];
     return value
@@ -252,8 +252,10 @@
   }
   function validDate(value) {
     if (!value) return null;
-    const date = new Date(String(value).slice(0, 10) + "T00:00:00Z");
-    return Number.isFinite(date.getTime()) ? date : null;
+    const text=String(value).slice(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(text))return null;
+    const date = new Date(text + "T00:00:00Z");
+    return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===text ? date : null;
   }
   function budgetPeriod(c, year) {
     const budgetYear = Number(year);
@@ -279,7 +281,7 @@
     const nextYear = new Date(Date.UTC(budgetYear + 1, 0, 1));
     const daysInYear = Math.round((nextYear - yearStart) / dayMs);
 
-    if (start && end && end < start)
+    if ((startValue&&!start)||(endValue&&!end)||(start && end && end < start))
       return {
         ...empty,
         daysInYear,
@@ -380,6 +382,7 @@
     // Never repeat the same legacy estimate over several years.
     const start = activity?.startDate ? validDate(activity.startDate) : null;
     const end = activity?.endDate ? validDate(activity.endDate) : null;
+    if((activity?.startDate&&!start)||(activity?.endDate&&!end)||(start&&end&&end<start))return 0;
     const firstYear = start?.getUTCFullYear(), lastYear = end?.getUTCFullYear();
     const spansYears = Boolean(firstYear && lastYear && firstYear !== lastYear);
     const explicit = number(activity?.["budgetAmount" + targetYear]);
@@ -396,7 +399,12 @@
 
   function budgetIndex(data, year, preliminaryIndex, preferredBase="1980") {
     const indexYear = number(year) - 1;
+    preferredBase=seriesBase(preferredBase)||'1980';
+    const entries=((data&&data.indexSeries)||[]).filter(x=>Number(x.year)===indexYear&&number(x.value)>0&&(!x.seriesBase||seriesBase(x.seriesBase)===preferredBase));
+    const octoberEntries=entries.filter(x=>Number(x.month)===10||String(x.period||'').toLowerCase()==='oktober');
+    if(new Set(octoberEntries.map(x=>number(x.value))).size>1)return {year:indexYear,month:10,value:0,source:'Motstridiga oktoberindex',status:'Behöver kontroll'};
     const row = october((data && data.indexSeries) || [], indexYear, preferredBase);
+    if(row?.seriesBase&&seriesBase(row.seriesBase)!==preferredBase)return {year:indexYear,month:10,value:0,source:"KPI-seriernas bas skiljer sig",status:"Behöver kontroll"};
     const known =
       row && !row.preliminary && !/prelim|prognos/i.test(row.source || "")
         ? number(row.value)
@@ -408,7 +416,8 @@
         source:row.source || "SCB KPI",
         status:"Fastställd"
       };
-    const latest=((data&&data.indexSeries)||[]).filter(x=>Number(x.year)===indexYear&&Number(x.month)>0&&Number(x.month)<10&&number(x.value)>0&&(!x.seriesBase||seriesBase(x.seriesBase)===preferredBase)&&!x.preliminary).sort((a,b)=>Number(b.month)-Number(a.month))[0];
+    const latest=entries.filter(x=>Number(x.month)>0&&Number(x.month)<10&&!x.preliminary).sort((a,b)=>Number(b.month)-Number(a.month))[0];
+    if(!number(preliminaryIndex)&&latest&&new Set(entries.filter(x=>Number(x.month)===Number(latest.month)&&!x.preliminary).map(x=>number(x.value))).size>1)return {year:indexYear,month:Number(latest.month),value:0,source:'Motstridiga preliminära indextal',status:'Behöver kontroll'};
     const preliminary = number(preliminaryIndex)||number(row?.value)||number(latest?.value);
     return {
       year:indexYear,month:number(preliminaryIndex)||row?.value?10:number(latest?.month),
@@ -421,6 +430,10 @@
   function budgetGroup(row) { return row.category==='Hyra + drift'?'Hyra':row.category==='Projekt'?'Investering':'Drift'; }
   function budgetRowKey(row) {return [row.sourceType||'legacy',row.sourceId||row.contractId||row.source,row.category,row.sourceType?'':row.sub||''].join('|');}
   function budgetProposal(data,year,{strict=false}={}) {
+    if(strict){
+      if((data.contracts||[]).some(c=>budgetPeriod(c,year).invalid))throw Error('Budgeten innehåller ett avtal med ogiltiga datum');
+      if((data.activities||[]).some(a=>budgetIncluded(a)&&((a.startDate&&!validDate(a.startDate))||(a.endDate&&!validDate(a.endDate))||(a.startDate&&a.endDate&&a.endDate<a.startDate))))throw Error('Budgeten innehåller en aktivitet med ogiltiga datum');
+    }
     const rows=budgetRows(data,year).map(row=>({...row,baseAmount:row.amount,adjustmentAmount:0,budgetGroup:budgetGroup(row)}));
     const plan=(data.budgetPlans||[]).find(p=>Number(p.year)===Number(year));
     for(const row of rows){const override=plan?.rowAdjustments?.[budgetRowKey(row)];if(override)row.included=override.included!==false;}
@@ -438,6 +451,7 @@
       if(!override&&saved?.included===false)row.included=false;
       row.amount+=row.manualAdjustmentAmount;
     }
+    if(strict&&rows.some(r=>r.included!==false&&r.status==='Behöver kontroll'))throw Error('Kontrollera hyresvillkor och index innan budgeten låses');
     for(const line of (plan?.lines||[]).filter(line=>line.sourceType==='manual'))rows.push({...line,baseAmount:line.baseAmount??line.amount,budgetGroup:budgetGroup(line)});
     return rows;
   }

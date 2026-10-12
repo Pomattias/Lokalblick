@@ -28,6 +28,8 @@
           body: JSON.stringify(data)
         });
       },
+      async previewImport(data){return request(api+"/imports/preview",{method:"POST",headers:jsonHeaders(),body:JSON.stringify(data)});},
+      async applyImport(data){return request(api+"/imports/apply",{method:"POST",headers:jsonHeaders(),body:JSON.stringify(data)});},
       async reset() {
         return this.load();
       }

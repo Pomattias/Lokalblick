@@ -36,15 +36,14 @@ test('danger and reason required; previous locked version retained',()=>{
 test('renamed record keeps identity',()=>{assert.equal(service.key(line('1')),service.key({...line('1'),sub:'Nytt namn'}));});
 function workbookAdapter(){
  const c=vm.createContext({window:{},XLSX,console});
- // Expose private conversion functions in this test only; production surface stays unchanged.
- let text=readFileSync('frontend/services/source-service.js','utf8').replace('schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]),','schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]), _read:workbookToData, _write:dataToWorkbook,');
+ const text=readFileSync('frontend/services/source-service.js','utf8');
  vm.runInContext(text,c);return c.window.LokalblickSourceService;
 }
 test('real XLSX roundtrip keeps canonical activity identities, versions, zero final costs and full history',()=>{
  const adapter=workbookAdapter();
  const data={properties:[{id:'P1',address:'Demogatan 1',responsiblePersonId:'P1-INTERN'}],contracts:[{id:'C1',propertyId:'P1',number:'DEMO-1'}],people:[{id:'P1-INTERN',name:'Intern'}],activities:[{id:'UH1',type:'Underhåll',propertyId:'P1',title:'Tak',planningYear:2026,estimatedCost:100,budgetCategory:'Underhåll',includeInBudget:'Nej',responsiblePersonId:'P1-INTERN'}],orders:[{id:'O1',activityId:'UH1',finalCost:0,completedAt:'2026-10-07'}],budgetPlans:[{year:2026,status:'Låst',lines:[line('UH1')],targets:{Underhåll:100},versions:[{by:'Mattias',reason:'Test',snapshot:{year:2026,lines:[line('UH1')]}}]}],auditLog:[{id:'H1',by:'Mattias',at:'2026-10-07',collection:'activities',recordId:'UH1',action:'Ändrad',fields:[{field:'responsiblePersonId',from:'',to:'P1-INTERN'}]}]};
- const workbook=adapter._write(data);const bytes=XLSX.write(workbook,{type:'buffer',bookType:'xlsx'});
- const restored=adapter._read(XLSX.read(bytes,{type:'buffer'}));
+ const workbook=adapter.dataToWorkbook(data);const bytes=XLSX.write(workbook,{type:'buffer',bookType:'xlsx'});
+ const restored=adapter.workbookToData(XLSX.read(bytes,{type:'buffer'}));
  assert.equal(restored.budgetPlans[0].lines[0].sourceId,'UH1');assert.equal(restored.budgetPlans[0].versions[0].by,'Mattias');
  assert.equal(restored.activities[0].includeInBudget,'Nej');assert.equal(Object.hasOwn(restored.activities[0],'finalCosts'),false);
  assert.equal(restored.orders[0].activityId,'UH1');assert.equal(restored.orders[0].finalCost,0);

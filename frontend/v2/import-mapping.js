@@ -92,7 +92,16 @@ export async function previewImport(prepared,mapping,base,schemas,actor,legacyRe
   return waitForDialog(d,(finish,abort)=>{
     const bind=()=>{
       d.querySelector('[data-cancel]').onclick=abort;
-      d.querySelector('[data-apply]').onclick=()=>finish(result);
+      d.querySelector('[data-apply]').onclick=()=>{
+        result.report.actor=actor;
+        const previous=new Set((base.auditLog||[]).map(x=>x.id));
+        for(const entry of result.data.auditLog||[])if(!previous.has(entry.id)&&entry.action==='Importerad'){
+          entry.by=actor;entry.actorVerified=false;
+          const record=(result.data[entry.collection]||[]).find(r=>r.id===entry.recordId);
+          for(const change of entry.fields||[])if(record?.provenance?.[change.field]&&record.provenance[change.field].source!=='manual'){record.provenance[change.field].confirmedBy=actor;record.provenance[change.field].actorVerified=false;}
+        }
+        finish(result);
+      };
       d.querySelectorAll('[data-preview-collection]').forEach(node=>{const [pi,ci]=node.dataset.previewCollection.split(':').map(Number),col=mapping.profiles[pi].columns[ci];node.value=col.target.startsWith('@')?col.collection:col.target.split('.')[0];});
       d.querySelectorAll('[data-preview-map]').forEach(node=>{const [pi,ci]=node.dataset.previewMap.split(':').map(Number);node.value=mapping.profiles[pi].columns[ci].target;});
       d.querySelectorAll('[data-column-rule]').forEach(node=>{

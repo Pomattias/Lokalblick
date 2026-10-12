@@ -91,3 +91,14 @@ test('object exclusion and independent adjustments remain saved in proposal',()=
  const result=calc.budgetProposal(data,2027);
  assert.equal(result[0].included,false);assert.equal(result[0].amount,110);assert.equal(result[1].amount,200);
 });
+test('duplicate preliminary month cannot silently select an index; explicit preliminary value resolves it',()=>{
+ const data={indexSeries:[{year:2026,month:9,value:420,seriesBase:'1980'},{year:2026,month:9,value:421,seriesBase:'1980'}]};
+ assert.equal(calc.budgetIndex(data,2027).status,'Behöver kontroll');assert.equal(calc.budgetIndex(data,2027).value,0);assert.equal(calc.budgetIndex(data,2027,425).value,425);
+ data.indexSeries.push({year:2026,month:10,value:422,seriesBase:'1980'},{year:2026,month:10,value:423,seriesBase:'1980'});assert.equal(calc.budgetIndex(data,2027,425).status,'Behöver kontroll');
+});
+test('invalid calendar dates and unresolved index block locking instead of silently losing budget rows',()=>{
+ const contract={id:'c',baseRent:100000,rentIndexPercent:0,start:'2027-02-29'};
+ assert.equal(calc.budgetPeriod(contract,2027).invalid,true);assert.throws(()=>calc.budgetProposal({contracts:[contract]},2027,{strict:true}),/ogiltiga datum/);
+ assert.throws(()=>calc.budgetProposal({activities:[{id:'a',type:'Projekt',estimatedCost:6000000,startDate:'2027-04-31'}]},2027,{strict:true}),/ogiltiga datum/);
+ assert.throws(()=>calc.budgetProposal({contracts:[{id:'c',baseRent:100000,rentIndexPercent:100,rentBaseYear:2027}]},2027,{strict:true}),/index/);
+});

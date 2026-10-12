@@ -38,7 +38,7 @@
     ], display:["Part","Område"] },
     { sheet:"Beställningar", key:"orders", prefix:"ORD", columns:[
       ["id","_id",true],["activityId","_activityId",true],["orderedByPersonId","_orderedByPersonId",true],
-      ["orderedAt","Beställningsdatum"],["supplier","Leverantör"],["orderReference","Beställningsreferens"],["orderedCost","Beställt belopp"],
+      ["orderedAt","Beställningsdatum"],["status","Beställningsstatus"],["supplier","Leverantör"],["orderReference","Beställningsreferens"],["orderedCost","Beställt belopp"],
       ["deliveryText","Leverans"],["completedAt","Utförd"],["finalCost","Utfall"],["paymentStatus","Betalstatus"],["paidAt","Betald"],["invoiceComment","Kommentar"],["ownerPays","Betalas av fastighetsägaren"]
     ], display:["Aktivitet","Beställd av"] },
   ];
@@ -1102,7 +1102,7 @@
   }
   function selectedImportWorkbook(buffer, selectedSheets) {
     const wanted=new Set(selectedSheets||[]);
-    const workbook=XLSX.read(buffer,{type:"array",cellDates:false,sheets:selectedSheets});
+    const workbook=XLSX.read(buffer,{type:"array",cellDates:false,cellNF:true,sheets:selectedSheets});
     workbook.SheetNames=(workbook.SheetNames||[]).filter(function(name){return wanted.has(name) && workbook.Sheets[name];});
     const filtered={};
     workbook.SheetNames.forEach(function(name){
@@ -1322,10 +1322,26 @@
       propertyMap.set(row.id,found.id);
     });
 
+    const objectMap=new Map();base.objects=base.objects||[];
+    (incoming.objects||[]).forEach(function(row){
+      const mapped=clone(row);mapped.propertyId=propertyMap.get(mapped.propertyId)||mapped.propertyId;
+      let found=base.objects.find(o=>o.id===mapped.id);
+      if(!found&&mapped.number){const hits=base.objects.filter(o=>o.propertyId===mapped.propertyId&&String(o.number)===String(mapped.number));if(hits.length===1)found=hits[0];}
+      if(!found&&!mapped.number&&mapped.migrationSourceContractId){
+        const sourceContract=incoming.contracts.find(c=>c.id===mapped.migrationSourceContractId),number=String(sourceContract?.number||'').replace(/\s/g,'').toUpperCase();
+        const matches=base.contracts.filter(c=>number&&c.propertyId===mapped.propertyId&&String(c.number||'').replace(/\s/g,'').toUpperCase()===number);
+        if(matches.length===1)found=base.objects.find(o=>o.id===matches[0].objectId);
+      }
+      if(!found){base.objects.push(mapped);found=mapped;report.counts.objectsCreated=(report.counts.objectsCreated||0)+1;}
+      else mergeFields(found,mapped,['number','name','area','category','use','businessName','unitId','employees','users','rooms','commonArea','apartmentArea','start','end','comment'],'objects','Objekt');
+      objectMap.set(row.id,found.id);
+    });
+
     function contractNumber(value){return String(value||"").replace(/\s+/g,"").toUpperCase();}
     (incoming.contracts||[]).forEach(function(row){
       const mapped=clone(row);
       mapped.propertyId=propertyMap.get(mapped.propertyId)||mapped.propertyId||"";
+      if(mapped.objectId)mapped.objectId=objectMap.get(mapped.objectId)||mapped.objectId;
       if(mapped.businessPartyId)mapped.businessPartyId=orgMap.get(mapped.businessPartyId)||mapped.businessPartyId;
       if(mapped.businessResponsiblePersonId)mapped.businessResponsiblePersonId=personMap.get(mapped.businessResponsiblePersonId)||mapped.businessResponsiblePersonId;
       const number=contractNumber(mapped.number||mapped.sourceId);
@@ -1340,7 +1356,7 @@
         if(base.contracts.some(function(x){return x.id===mapped.id;}))mapped.id=nextStableId("AVT",base.contracts);
         base.contracts.push(mapped);found=mapped;report.counts.contractsCreated++;
       } else if(mergeFields(found,mapped,[
-        "sourceId","propertyId","number","area","category","tenantName","use","businessPartyId","businessName","businessResponsiblePersonId",
+        "sourceId","objectId","propertyId","number","area","category","tenantName","use","businessPartyId","businessName","businessResponsiblePersonId",
         "start","end","noticePeriodMonths","renewalPeriodMonths","originalTerm","baseRent","baseAdditions","rentBaseYear","rentIndexPercent",
         "additionBaseYear","additionIndexPercent","annualContractDrift","annualPropertyTax","costCenterOperations","costCenterPremises","ekotObject",
         "contractDocumentUrl","contractDocumentName","contractDocumentKind","unitId","employees","users","rooms","commonArea","apartmentArea"
@@ -1366,9 +1382,10 @@
 
   function appendImportAudit(before,after,fileName) {
     after.auditLog=Array.isArray(after.auditLog)?after.auditLog:[];
+    const existingImports=after.auditLog.slice((before.auditLog||[]).length).filter(x=>x.action==="Importerad");
     const at=new Date().toISOString();
     diffData(before,after).forEach(function(change,index){
-      if(change.key==="metadata")return;
+      if(change.key==="metadata"||existingImports.some(x=>x.collection===change.key&&x.recordId===change.id))return;
       const fields=(change.fields||[]).map(function(field){
         return {field:field,from:change.before?change.before[field]:"",to:change.after?change.after[field]:""};
       });
@@ -1395,7 +1412,9 @@
       const migrated=window.LokalblickMigrationAdapter.migrate(workbook,fileName||"Excelimport");
       const primary=clone(migrated.data||{});
       canonicalizeModel(primary);
+      const beforeCore=clone(data);
       const coreReport=mergePrimaryData(data,primary,fileName);
+      if(window.LokalblickImportRules)data=window.LokalblickImportRules.reconcile(beforeCore,{data,report:coreReport},workbook,fileName||"Excelimport",SCHEMAS.concat([ACTIVITY_SCHEMA])).data;
       report.stages.push(coreReport);recognized=true;
       (migrated.report&&migrated.report.warnings||[]).forEach(function(x){if(report.warnings.indexOf(x)<0)report.warnings.push(x);});
     }
@@ -1455,7 +1474,9 @@
       const migrated=window.LokalblickMigrationAdapter.migrate(workbook,fileName||"Excelimport");
       const primary=clone(migrated.data||{});
       canonicalizeModel(primary);
+      const beforeCore=clone(data);
       const coreReport=mergePrimaryData(data,primary,fileName);
+      if(window.LokalblickImportRules)data=window.LokalblickImportRules.reconcile(beforeCore,{data,report:coreReport},workbook,fileName||"Excelimport",SCHEMAS.concat([ACTIVITY_SCHEMA])).data;
       report.stages.push(coreReport);recognized=true;
       (migrated.report&&migrated.report.warnings||[]).forEach(function(x){if(report.warnings.indexOf(x)<0)report.warnings.push(x);});
       emitImportProgress(onProgress,{stage:"core-done",step:1,totalSteps:totalStages,message:"Grunddata klar.",counts:importProgressCounts(data,{
@@ -1515,13 +1536,46 @@
     return {data:data,report:report};
   }
 
+  async function importPreparedSources(data,selectedSheets,onProgress){
+    const pending=source.pendingImport,engine=await import('./import-engine.js');
+    const sources=pending.files.map(file=>{const chosen=file.sheets.filter(s=>selectedSheets.includes(s.name));if(!chosen.length)return null;const workbook=selectedImportWorkbook(file.buffer,chosen.map(s=>s.sheetName));workbook.__importSources=(pending.importSources||[]).filter(s=>s.fileName===file.fileName);return {file,workbook};}).filter(Boolean);
+    let output=clone(data||{});canonicalizeModel(output);const before=clone(output),stages=[];
+    // Establish every core table before resolving complements from any file.
+    for(const {file,workbook} of sources)if(window.LokalblickMigrationAdapter?.detect(workbook)){
+      const primary=window.LokalblickMigrationAdapter.migrate(workbook,file.fileName).data,beforeCore=clone(output);canonicalizeModel(primary);
+      const report=mergePrimaryData(output,primary,file.fileName);stages.push(report);
+      if(window.LokalblickImportRules)output=window.LokalblickImportRules.reconcile(beforeCore,{data:output,report},workbook,file.fileName,SCHEMAS.concat([ACTIVITY_SCHEMA])).data;
+    }
+    const adapters=[window.LokalblickOperationalEnrichmentAdapter,window.LokalblickProject2027Adapter,window.LokalblickContractEnrichmentAdapter];
+    const unknown=sources.filter(({workbook})=>!window.LokalblickMigrationAdapter?.detect(workbook)&&!adapters.some(a=>a?.detect(workbook))&&!(window.LokalblickContractEnrichmentAdapter?.parseIndexWorkbook(workbook,'')||[]).length);
+    if(unknown.length){
+      const combined=await engine.combineImportSources(unknown.map(s=>s.file),selectedSheets,XLSX),schemas=SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS);
+      const profiles=engine.profileWorkbook(combined.workbook,schemas,XLSX,output.importMappings||[]);
+      const result=engine.prepareMappedImport(combined.workbook,profiles,output,{schemas,fileName:unknown.map(s=>s.file.fileName).join(', '),fingerprint:combined.fingerprint,actor:'Excelimport'},XLSX);output=result.data;stages.push(result.report);canonicalizeModel(output);
+    }
+    for(const adapter of adapters)for(const {file,workbook} of sources)if(adapter?.detect(workbook)){
+      if(adapter===window.LokalblickContractEnrichmentAdapter&&!output.contracts.length)continue;
+      const result=adapter.enrich(workbook,output,file.fileName,file.buffer);output=result.data;stages.push(result.report);canonicalizeModel(output);
+      emitImportProgress(onProgress,{stage:'enrich',message:'Kopplar '+file.fileName+'…',counts:importProgressCounts(output)});await yieldImportUi();
+    }
+    for(const {file,workbook} of sources){
+      const index=window.LokalblickContractEnrichmentAdapter?.parseIndexWorkbook(workbook,file.fileName)||[];
+      if(index.length)output=window.LokalblickContractEnrichmentAdapter.applyIndexSeries(output,index,file.fileName).data;
+
+    }
+    canonicalizeModel(output);appendImportAudit(before,output,pending.fileName);source.pendingImport=null;
+    return {data:output,report:{profile:'Samlad Excelimport',fileName:pending.fileName,stages,commonRules:true,changes:stages.flatMap(s=>s.changes||[]),counts:{propertiesAfter:output.properties.length,objectsAfter:output.objects.length,contractsAfter:output.contracts.length,activitiesAfter:output.activities.length,review:output.importReview.filter(x=>x.status==='pending').length}}};
+  }
+
   async function importPreparedWorkbook(data,selectedSheets,onProgress) {
     if(!source.pendingImport) throw new Error("Välj Excel-filen på nytt.");
+    if(source.pendingImport.files?.length>1)return importPreparedSources(data,selectedSheets,onProgress);
     const selected=(selectedSheets||[]).filter(function(name){return source.pendingImport.sheets.some(function(x){return x.name===name;});});
     if(!selected.length) throw new Error("Markera minst en flik att läsa in.");
     emitImportProgress(onProgress,{stage:"parse",message:"Läser "+selected.length+" markerade flikar…",selectedSheets:selected});
     await yieldImportUi();
     const workbook=selectedImportWorkbook(source.pendingImport.buffer,selected);
+    workbook.__importSources=source.pendingImport.importSources||[];
     emitImportProgress(onProgress,{
       stage:"parsed-sheets",message:"Markerade flikar lästa.",
       sheets:selected.map(function(name){return {name:name,rows:sheetRowCount(workbook,name)};})
@@ -1657,10 +1711,10 @@
       const engine=await import('./import-engine.js');
       const pending=source.pendingImport;
       const combined=await engine.combineImportSources(pending.files||[{fileName:pending.fileName,buffer:pending.buffer,sheets:pending.sheets}],selectedSheets,XLSX);
-      const workbook=combined.workbook;
+      const workbook=combined.workbook;pending.importSources=workbook.__importSources;
       return {workbook,profiles:engine.profileWorkbook(workbook,this.schemas,XLSX,data?.importMappings||[]),
         fingerprint:combined.fingerprint,fileName:pending.fileName,fileCount:pending.files?.length||1,
-        known:(pending.files?.length||1)===1&&Boolean(window.LokalblickMigrationAdapter?.detect(workbook)||window.LokalblickOperationalEnrichmentAdapter?.detect(workbook)||window.LokalblickProject2027Adapter?.detect(workbook)||window.LokalblickContractEnrichmentAdapter?.detect(workbook))};
+        known:workbook.__importSources.some(s=>{const single={SheetNames:[s.sheetName],Sheets:{[s.sheetName]:workbook.Sheets[s.sheetKey]}};return Boolean(window.LokalblickMigrationAdapter?.detect(single)||window.LokalblickOperationalEnrichmentAdapter?.detect(single)||window.LokalblickProject2027Adapter?.detect(single)||window.LokalblickContractEnrichmentAdapter?.detect(single));})};
     },
     importPreparedWorkbook:importPreparedWorkbook,
     importWorkbook:importWorkbook,

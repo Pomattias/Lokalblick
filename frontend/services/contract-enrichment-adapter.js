@@ -508,7 +508,7 @@
     report.needsReview.concat(report.unmatched).forEach(function(item){data.importReview.push({id:"review:"+(data.importReview.length+1),kind:"match",source:fileName||hit.sheet,sheet:hit.sheet,row:item.sourceRow,candidates:item.candidates||[],record:rows.find(function(x){return x.sourceRow===item.sourceRow;}),status:"pending"});});
     report.discrepancies.forEach(function(item){data.importReview.push({id:"review:"+(data.importReview.length+1),kind:"conflict",source:fileName||hit.sheet,sheet:hit.sheet,row:item.sourceRow,contractId:item.contractId,field:item.field,current:item.primary,proposed:item.enrichment,status:"pending"});});
     data.contractEnrichmentReport=clone(report);
-    return {data:data,report:report};
+    const result={data,report};return window.LokalblickImportRules?window.LokalblickImportRules.reconcile(baseData||{},result,workbook,fileName||hit.sheet,window.LokalblickSourceService?.schemas||[]):result;
   }
 
   function applyIndexSeries(baseData,series,fileName){

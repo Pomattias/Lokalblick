@@ -866,7 +866,7 @@ async function sourceAction(action) {
       const cityWarning = cityResult.skipped
         ? " " + cityResult.skipped + " fastigheter saknar fortfarande ort och geokodas inte förrän ort kompletterats."
         : "";
-      const retained = await retainImportedData(
+      const retained = transport.company()?{data:await transport.commitImport(result),mode:"connected"}:await retainImportedData(
         result.data, transport,
         globalThis.LokalblickViewBridge,
         globalThis.LokalblickSourceService,
@@ -891,7 +891,7 @@ async function sourceAction(action) {
       data,
       document.querySelector("#supplement-kind")?.value,
     );
-    data = await transport.save(result.data);
+    data = transport.company()?await transport.commitImport(result):await transport.save(result.data);
     notice(
       "Underlaget läst. Granska matchningar och konflikter innan du sparar arbetsfilen.",
     );

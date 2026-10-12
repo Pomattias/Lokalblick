@@ -3,7 +3,7 @@
   const norm=v=>String(v??"").replace(/\u00a0/g," ").toLocaleLowerCase("sv").trim()
     .replace(/[.,;]/g," ").replace(/(\d)\s+([a-zåäö])(?=$|\s)/gi,"$1$2").replace(/\s+/g," ");
   const compact=v=>norm(v).replace(/\s+/g,"");
-  const parts=v=>{const m=norm(v).match(/^(.*?)(?:\s+(\d+)([a-zåäö])?)?$/i);
+  const parts=v=>{const m=norm(v).match(/^(.*?)(?:\s+(\d+)([a-zåäö](?:-[a-zåäö])?)?)?$/i);
     return {street:m?.[1]?.trim()||"",number:m?.[2]||"",suffix:m?.[3]||"",full:norm(v)};};
   function addressScore(a,b){
     const x=parts(a),y=parts(b);

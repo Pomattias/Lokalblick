@@ -80,3 +80,12 @@ Objektnummer matchas inom fastigheten. Dubbla objekt- eller fastighetskandidater
 Normal filväljare används när webbläsaren saknar `showOpenFilePicker`, utan uppladdning. Kända specialadaptrar för enskilda filer finns kvar för deras befintliga index- och tilläggsregler. Flera filer använder den generella konsolideringen; de äldre specialberäkningarna är inte automatiskt översatta till gemensamma batchregler. En tabell per flik tolkas fortfarande. Direkt Excelimport i företags-API-läge omfattas av den tidigare spärren.
 
 Verifiering: 74 riktade importer-, format-, objekt-, transport- och förhandsgranskningstester passerar, inklusive riktiga XLSX-bytes, olika datumsystem, omvänd filordning och oförändrad återimport. Hela sviten har fortsatt 16 redan kända underkända tester. Webbläsarverifieringen kunde inte genomföras eftersom Chromium inte startade i körmiljön. Ingen verksamhetsfil har ändrats.
+
+
+## Gemensamma regler och företagsimport
+
+`frontend/domain/import-rules.js` äger de gemensamma identitets- och skrivbesluten. Generell kolumnmappning, operativ berikning, avtalstolkning, projektunderlag och kärnimport får samma källprioritet och skydd av manuella värden. Specialtolkarna föreslår fortfarande källspecifika belopp och kopplingar; deras resultat granskas av den gemensamma policyn före lagring. Osäkra projektbelopps enhet antas inte utan underlag. Exakta celler och inmatningsceller för härledda värden följer med.
+
+Flera kända och okända filer kan väljas tillsammans. Grunddata och generella kolumner behandlas före operativa tillägg; objekt- och avtalsreferenser översätts till samma fastighets-ID. Kända specialtolkningar finns kvar även för flera filer. Ändrad kolumnmappning kan använda den generella vägen.
+
+Företagsläget har nu samma importval i V2. Den godkända förhandsgranskningen skickas till företagets API för validering och skrivs i en enda transaktion tillsammans med regler och historik. Den tidigare generella spärren för Excelimport i företagsläget är ersatt av ett kontrollerat importkontrakt. Se `BACKEND_FRONTEND_CONTRACT.md` och `TEST_FAILURE_REVIEW.md`. Årsfördelning, index, gamla testförväntningar och verkliga funktionsfel har verifierats separat.

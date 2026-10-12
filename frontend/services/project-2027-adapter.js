@@ -134,7 +134,7 @@
       warnings:["Beloppsenheten måste bekräftas innan budgetpåverkan kan aktiveras.",
       "Möjliga dubbletter skapas inte automatiskt.","Kommentarer utan datum får inget påhittat datum."]};
     data.project2027ImportReport=report;
-    return {data,report};
+    const result={data,report};return root.LokalblickImportRules?root.LokalblickImportRules.reconcile(original||{},result,workbook,source,root.window?.LokalblickSourceService?.schemas||[]):result;
   }
   root.LokalblickProject2027Adapter={id:"project-2027-v1",detect,enrich};
 })(globalThis);

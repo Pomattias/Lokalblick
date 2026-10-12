@@ -20,7 +20,7 @@ function excelService(){
 }
 test("property and address remain distinct in V2 tables",()=>{
  const data=sample();
- for(const perspective of ["Fastigheter","Avtal","Projekt","Underhåll","Drift","Önskemål"]){
+ for(const perspective of ["Fastigheter","Avtal","Ärenden"]){
    const html=overview(data,selection,{year:2026,perspective,contractId:""});
    assert.match(html,/Fastighet(?:\s*<span|<\/th>)/);
    assert.match(html,/Adress(?:\s*<span|<\/th>)/);
@@ -29,7 +29,7 @@ test("property and address remain distinct in V2 tables",()=>{
  assert.match(properties,/<td class="primary-cell">HAMNEN 2<\/td>/);
  assert.match(properties,/<td class="primary-cell">–<\/td>/);
  assert.match(properties,/Kajgatan 14/);
- const upkeep=overview(data,selection,{year:2026,perspective:"Underhåll",contractId:""});
+ const upkeep=overview(data,selection,{year:2026,perspective:"Ärenden",issueType:"Underhåll",contractId:""});
  assert.match(upkeep,/Renovering/);
  assert.match(upkeep,/HAMNEN 2/);
  assert.match(upkeep,/Kajgatan 14/);

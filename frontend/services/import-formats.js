@@ -59,3 +59,6 @@ export function profileFormat(cells,column,XLSX) {
  let invalid=0;for(const c of values){try{if(type==='date')parseDate(c.v,XLSX,column.date1904);else if(['currency','number'].includes(type))parseNumber(c.v);}catch{invalid++;}}
  return {type,label:{date:'Datum',currency:'Kronor',number:'Tal',text:'Text'}[type],invalid,checked:values.length};
 }
+// Available to classic source interpreters after module initialization.
+globalThis.LokalblickImportFormats={parseNumber,parseDate,interpretCell,dateField,numberField};
+if(globalThis.window)globalThis.window.LokalblickImportFormats=globalThis.LokalblickImportFormats;

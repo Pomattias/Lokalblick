@@ -241,7 +241,7 @@ test("legacy company store migrates once to explicit responsibility, activities 
   assert.equal(workspace.orders[0].finalCost, 88000);
   assert.equal(Object.hasOwn(workspace, "contacts"), false);
   const stored = JSON.parse(await fs.readFile(dataPath, "utf8"));
-  assert.equal(stored.version, 3);
+  assert.equal(stored.version, 4);
   assert.equal(Object.hasOwn(stored.entities, "contacts"), false);
   assert.equal(Object.hasOwn(stored.entities, "assignments"), false);
   assert.equal(Object.hasOwn(stored.entities, "maintenance"), false);
