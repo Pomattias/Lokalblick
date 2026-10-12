@@ -1538,7 +1538,7 @@
 
   async function importPreparedSources(data,selectedSheets,onProgress){
     const pending=source.pendingImport,engine=await import('./import-engine.js');
-    const sources=pending.files.map(file=>{const chosen=file.sheets.filter(s=>selectedSheets.includes(s.name));if(!chosen.length)return null;const workbook=selectedImportWorkbook(file.buffer,chosen.map(s=>s.sheetName));workbook.__importSources=(pending.importSources||[]).filter(s=>s.fileName===file.fileName);return {file,workbook};}).filter(Boolean);
+    const sources=pending.files.map(file=>{const chosen=file.sheets.filter(s=>selectedSheets.includes(s.name));if(!chosen.length)return null;const workbook=engine.readImportSource(file,chosen.map(s=>s.sheetName),XLSX);workbook.__importSources=(pending.importSources||[]).filter(s=>s.fileName===file.fileName);return {file,workbook};}).filter(Boolean);
     let output=clone(data||{});canonicalizeModel(output);const before=clone(output),stages=[];
     // Establish every core table before resolving complements from any file.
     for(const {file,workbook} of sources)if(window.LokalblickMigrationAdapter?.detect(workbook)){
@@ -1574,7 +1574,8 @@
     if(!selected.length) throw new Error("Markera minst en flik att läsa in.");
     emitImportProgress(onProgress,{stage:"parse",message:"Läser "+selected.length+" markerade flikar…",selectedSheets:selected});
     await yieldImportUi();
-    const workbook=selectedImportWorkbook(source.pendingImport.buffer,selected);
+    const selectionKey=JSON.stringify([...selected].sort());
+    const workbook=source.pendingImport.preparedWorkbooks?.get(selectionKey)||selectedImportWorkbook(source.pendingImport.buffer,selected);
     workbook.__importSources=source.pendingImport.importSources||[];
     emitImportProgress(onProgress,{
       stage:"parsed-sheets",message:"Markerade flikar lästa.",
@@ -1712,6 +1713,11 @@
       const pending=source.pendingImport;
       const combined=await engine.combineImportSources(pending.files||[{fileName:pending.fileName,buffer:pending.buffer,sheets:pending.sheets}],selectedSheets,XLSX);
       const workbook=combined.workbook;pending.importSources=workbook.__importSources;
+      if(pending.files?.length===1){
+        const names=pending.files[0].sheets.filter(s=>selectedSheets.includes(s.name)).map(s=>s.sheetName||s.name);
+        pending.preparedWorkbooks ||= new Map();
+        pending.preparedWorkbooks.set(JSON.stringify([...selectedSheets].sort()),engine.readImportSource(pending.files[0],names,XLSX));
+      }
       return {workbook,profiles:engine.profileWorkbook(workbook,this.schemas,XLSX,data?.importMappings||[]),
         fingerprint:combined.fingerprint,fileName:pending.fileName,fileCount:pending.files?.length||1,
         known:workbook.__importSources.some(s=>{const single={SheetNames:[s.sheetName],Sheets:{[s.sheetName]:workbook.Sheets[s.sheetKey]}};return Boolean(window.LokalblickMigrationAdapter?.detect(single)||window.LokalblickOperationalEnrichmentAdapter?.detect(single)||window.LokalblickProject2027Adapter?.detect(single)||window.LokalblickContractEnrichmentAdapter?.detect(single));})};

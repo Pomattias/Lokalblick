@@ -26,6 +26,7 @@ export function fieldCatalog(schemas) {
 }
 export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
   const fields = fieldCatalog(schemas);
+  const knownLabels=new Set(fields.map(f=>norm(f.label.split(' → ')[1])));
   return workbook.SheetNames.map(sheetKey => {
     const source=workbook.__importSources?.find(s=>s.sheetKey===sheetKey);
     const name=source?.sheetName||sheetKey;
@@ -35,7 +36,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
     let headerIndex = 0, best = -1;
     matrix.slice(0,50).forEach((row,i) => {
       const values = row.filter(present);
-      const known = values.filter(v => aliases[norm(v)] || fields.some(f => norm(f.label.split(' → ')[1])===norm(v))).length;
+      const known = values.filter(v => aliases[norm(v)] || knownLabels.has(norm(v))).length;
       const score = known*8 + values.filter(v=>typeof v==='string').length - values.filter(v=>typeof v==='number').length;
       if(score>best){best=score;headerIndex=i;}
     });
@@ -96,17 +97,28 @@ export async function fingerprint(buffer) {
 }
 // Internal sheet keys keep identically named sheets from separate files apart.
 // Original names and each workbook's date system travel with the source metadata.
+const parsedSources=new WeakMap();
+export function readImportSource(file,selectedSheets,XLSX){
+  const key=JSON.stringify([...selectedSheets].sort());
+  let cached=parsedSources.get(file);if(!cached){cached=new Map();parsedSources.set(file,cached);}
+  if(cached.has(key))return cached.get(key);
+  const original=XLSX.read(file.buffer,{type:'array',cellDates:false,cellNF:true,sheets:selectedSheets});
+  original.SheetNames=original.SheetNames.filter(name=>selectedSheets.includes(name));
+  for(const name of original.SheetNames){
+    const sheet=original.Sheets[name],extent={s:{r:Infinity,c:Infinity},e:{r:-1,c:-1}};
+    for(const a of Object.keys(sheet)){if(a[0]==='!'||(!sheet[a]?.f&&!present(sheet[a]?.v)))continue;const p=XLSX.utils.decode_cell(a);extent.s.r=Math.min(extent.s.r,p.r);extent.s.c=Math.min(extent.s.c,p.c);extent.e.r=Math.max(extent.e.r,p.r);extent.e.c=Math.max(extent.e.c,p.c);}
+    if(extent.e.r<0)delete sheet['!ref'];else sheet['!ref']=XLSX.utils.encode_range(extent);
+  }
+  cached.set(key,original);return original;
+}
 export async function combineImportSources(files, selected, XLSX) {
   const workbook={SheetNames:[],Sheets:{},__importSources:[]},wanted=new Set(selected),hashes=[];
   for(const file of files){
     const chosen=file.sheets.filter(s=>wanted.has(s.name));if(!chosen.length)continue;
     const hash=await fingerprint(file.buffer);hashes.push(hash);
-    const original=XLSX.read(file.buffer,{type:'array',cellDates:false,cellNF:true,sheets:chosen.map(s=>s.sheetName||s.name)});
+    const original=readImportSource(file,chosen.map(s=>s.sheetName||s.name),XLSX);
     for(const info of chosen){
       const name=info.sheetName||info.name,sheet=original.Sheets[name];if(!sheet)continue;
-      const extent={s:{r:Infinity,c:Infinity},e:{r:-1,c:-1}};
-      for(const a of Object.keys(sheet)){if(a[0]==='!'||(!sheet[a]?.f&&!present(sheet[a]?.v)))continue;const p=XLSX.utils.decode_cell(a);extent.s.r=Math.min(extent.s.r,p.r);extent.s.c=Math.min(extent.s.c,p.c);extent.e.r=Math.max(extent.e.r,p.r);extent.e.c=Math.max(extent.e.c,p.c);}
-      if(extent.e.r<0)delete sheet['!ref'];else sheet['!ref']=XLSX.utils.encode_range(extent);
       workbook.SheetNames.push(info.name);workbook.Sheets[info.name]=sheet;
       workbook.__importSources.push({sheetKey:info.name,sheetName:name,fileName:file.fileName,fingerprint:hash,date1904:Boolean(original.Workbook?.WBProps?.date1904)});
     }
@@ -115,11 +127,14 @@ export async function combineImportSources(files, selected, XLSX) {
   return {workbook,fingerprint:hashes.length===1?hashes[0]:await fingerprint(new TextEncoder().encode(hashes.sort().join('|')))};
 }
 export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
-  const data=copy(base), changes=[], decisions=[];
+  const started=Date.now(),data=copy(base), changes=[], decisions=[];
   const at=context.at || new Date().toISOString();
   data.sourceRegistry ||= []; data.auditLog ||= []; data.importReview ||= []; data.importMappings ||= [];
   const counts={objectsBefore:(base.objects||[]).length,propertiesBefore:(base.properties||[]).length,contractsBefore:(base.contracts||[]).length,matched:0,created:0,fields:0,conflicts:0,preserved:0,unresolved:0};
-  const rows=[];
+  const rows=[], targets=new Set(fieldCatalog(context.schemas).map(f=>f.target)), indexes=new Map();
+  const indexFor=collection=>{if(!indexes.has(collection)){data[collection] ||= [];indexes.set(collection,globalThis.LokalblickImportRules.createIndex(data[collection]));}return indexes.get(collection);};
+  const byId=(collection,id)=>indexFor(collection).lookup('id',id).find(r=>r.id===id);
+
   for(const profile of profiles){
     const fileName=profile.fileName||context.fileName,sourceId='source:'+(profile.fingerprint||context.fingerprint);
     if(!data.sourceRegistry.some(s=>s.id===sourceId))data.sourceRegistry.push({id:sourceId,name:fileName,fingerprint:profile.fingerprint||context.fingerprint,importedAt:at,kind:'mapped-excel',sheets:profiles.filter(p=>(p.fileName||context.fileName)===fileName).map(p=>p.name)});
@@ -142,12 +157,12 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         const group=groups.get(collection);
         const origin={source:fileName,sourceId,sheet:profile.name,column:column.header,row:r+1,cell:address,originalValue:cell?.v??'',originalFormula:cell?.f||'',hyperlink:cell?.l?.Target||'',at,mappingRule:ruleId,mappingVersion:rule.version,decision:'manual-mapping',confirmedBy:context.actor,actorVerified:false,normalization:column.transform};
         if(column.target==='@extra') {
-          let value=cell.v??cell.f;try{if(present(cell.v))value=convert(cell,column,XLSX);}catch(e){group.origins[field]=origin;group.errors.push(column.header+': '+e.message);}
+          let value=cell.v??cell.f;try{if(present(cell.v))value=convert(cell,column,XLSX);}catch(e){group.errors.push(column.header+': '+e.message);}
           group.extras.push({label:column.header,value,type:column.format?.type||'text',provenance:origin});continue;
         }
         const field=column.target.split('.')[1];
         if(cell.f&&!present(cell.v)){group.origins[field]=origin;group.errors.push(column.header+': formeln saknar beräknat värde');continue;}
-        if(!fieldCatalog(context.schemas).some(f=>f.target===column.target)){group.errors.push('Ogiltigt målfält');continue;}
+        if(!targets.has(column.target)){group.errors.push('Ogiltigt målfält');continue;}
         if(Object.hasOwn(group.values,field)){group.errors.push('Flera kolumner kopplas till '+field);continue;}
         try{group.values[field]=convert(cell,column,XLSX);group.origins[field]=origin;}catch(e){group.origins[field]=origin;group.errors.push(column.header+': '+e.message);}
         if(column.identity)group.identity.push(field);
@@ -155,6 +170,7 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
       rows.push({profile,r,groups,rowRecords:{},fileName,sourceId,ruleId,rule});
     }
   }
+  const preparedAt=Date.now();
   // Resolve every parent table across all files before applying dependent records.
   for(const collection of new Set(['organizations','people','properties','objects','contracts','activities','orders',...context.schemas.map(s=>s.key)])){
     for(const task of rows){
@@ -167,9 +183,9 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         // An already identified agreement can anchor enrichment at its property
         // or object even when the source repeats only a partial address.
         const agreementValues=groups.get('contracts')?.values;
-        const agreement=agreementValues?.number?(data.contracts||[]).filter(c=>norm(c.number)===norm(agreementValues.number)):[];
+        const agreement=agreementValues?.number?indexFor('contracts').lookup('number',agreementValues.number):[];
         if(agreement.length===1&&['properties','objects'].includes(collection)){
-          const known=collection==='properties'?(data.properties||[]).find(p=>p.id===agreement[0].propertyId):(data.objects||[]).find(o=>o.id===agreement[0].objectId);
+          const known=collection==='properties'?byId('properties',agreement[0].propertyId):byId('objects',agreement[0].objectId);
           if(known){
             const field=collection==='properties'?'designation':'number';
             if(!present(group.values[field])||norm(group.values[field])===norm(known[field])){group.values.id=known.id;group.identity=['id'];if(collection==='objects')group.values.propertyId=known.propertyId;}
@@ -181,14 +197,15 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         const parents={propertyId:'properties',objectId:'objects',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people'};
         for(const [field,parent] of Object.entries(parents)){
           if(!present(group.values[field]))continue;
-          const values=data[parent]||[], value=group.values[field];
+          const value=group.values[field];
+          const values=[...new Set(['id','sourceId','designation','address','number','name','title'].flatMap(k=>indexFor(parent).lookup(k,value)))];
           const candidates=values.filter(x=>(parent!=='objects'||!group.values.propertyId||x.propertyId===group.values.propertyId)&&(x.id===value || [x.sourceId,x.designation,x.address,x.number,x.name,x.title].filter(present).some(v=>norm(v)===norm(value))));
           if(candidates.length===1)group.values[field]=candidates[0].id;else group.errors.push('Relationen '+field+' är inte entydig');
         }
         if(collection==='objects'&&!group.values.propertyId)group.errors.push('Objektet saknar fastighetskoppling');
-        if(collection==='contracts'&&group.values.objectId){const obj=(data.objects||[]).find(o=>o.id===group.values.objectId);if(obj){if(group.values.propertyId&&group.values.propertyId!==obj.propertyId)group.errors.push('Objektet och avtalet pekar på olika fastigheter');else group.values.propertyId=obj.propertyId;}}
-        let match=group.errors.length?{kind:'D',reason:group.errors.join('; ')}:identify(data[collection],group.values,collection,group.identity);
-        if(override?.recordId&&!group.errors.length){const chosen=data[collection].find(x=>x.id===override.recordId);if(chosen)match={kind:'A',record:chosen,reason:'Manuellt vald koppling'};}
+        if(collection==='contracts'&&group.values.objectId){const obj=byId('objects',group.values.objectId);if(obj){if(group.values.propertyId&&group.values.propertyId!==obj.propertyId)group.errors.push('Objektet och avtalet pekar på olika fastigheter');else group.values.propertyId=obj.propertyId;}}
+        let match=group.errors.length?{kind:'D',reason:group.errors.join('; ')}:identify(data[collection],group.values,collection,group.identity,indexFor(collection));
+        if(override?.recordId&&!group.errors.length){const chosen=byId(collection,override.recordId);if(chosen)match={kind:'A',record:chosen,reason:'Manuellt vald koppling'};}
         if(override?.parentId){group.values[collection==='orders'?'activityId':'propertyId']=override.parentId;}
         if(match.kind==='C'&&['contracts','orders'].includes(collection)&&!group.values[collection==='contracts'?'propertyId':'activityId'])match={kind:'B',reason:'Hemvist saknas: välj rätt '+(collection==='contracts'?'fastighet':'aktivitet')};
         const entry={source:fileName,sourceId,sheet:profile.name,row:r+1,collection,classification:match.kind,reason:match.reason,values:group.values,candidates:(match.candidates||[]).map(copy),extras:group.extras,origins:group.origins};
@@ -216,6 +233,7 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
           changes.push({collection,recordId:record.id,field,from:current??'',to:value,provenance:group.origins[field]});
           record[field]=value;record.provenance[field]={...group.origins[field],value,matchReason:match.reason,identityDecision:override?.recordId?'manual':'automatic'};counts.fields++;
         }
+        indexFor(collection).update(record);
         record.supplemental ||= [];
         for(const extra of group.extras){
           if(!record.supplemental.some(x=>x.label===extra.label&&equal(x.value,extra.value)&&x.provenance?.sourceId===sourceId)){record.supplemental.push(extra);counts.preserved++;}
@@ -245,6 +263,12 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
   for(const change of changes)data.auditLog.push({id:crypto.randomUUID(),at,by:context.actor,actorVerified:false,collection:change.collection,recordId:change.recordId,action:'Importerad',fields:[{field:change.field,from:change.from,to:change.to,provenance:change.provenance}]});
   globalThis.LokalblickObjectModel?.normalize(data);
   counts.objectsAfter=(data.objects||[]).length;
+  const tables=context.schemas.map(schema=>{
+    const oldIds=new Set((base[schema.key]||[]).map(r=>r.id));
+    return {collection:schema.key,label:schema.sheet,created:(data[schema.key]||[]).filter(r=>!oldIds.has(r.id)).length,
+      updated:new Set(changes.filter(c=>c.collection===schema.key&&oldIds.has(c.recordId)).map(c=>c.recordId)).size,
+      review:new Set(data.importReview.filter(d=>d.collection===schema.key&&d.status==='pending'&&profiles.some(p=>(p.fileName||context.fileName)===d.source)).map(d=>d.source+'|'+d.sheet+'|'+(d.row||d.recordId))).size};
+  }).filter(t=>t.created||t.updated||t.review);
   data.isDemo=false;
-  return {data,report:{profile:'Mappad Excelimport',fileName:context.fileName,counts,decisions,changes,consolidation}};
+  return {data,report:{profile:'Mappad Excelimport',fileName:context.fileName,counts,decisions,changes,consolidation,tables,timing:{prepareMs:preparedAt-started,matchMs:Date.now()-preparedAt,totalMs:Date.now()-started}}};
 }
