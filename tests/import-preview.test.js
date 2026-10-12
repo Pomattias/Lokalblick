@@ -35,3 +35,9 @@ test('sheet preview places headers above three aligned rows and column-wide choi
  assert.ok(html.includes('Gäller hela kolumnen'));
  assert.ok(html.indexOf('Avtalsnr')<html.indexOf('Rad 5'));
 });
+test('mapping shows table before field and omits table prefix from field labels',()=>{
+ const html=columnPreviewHtml(prepared,mapping,{data:{},report:{}},schemas);
+ assert.ok(html.indexOf('data-preview-collection="0:0"')<html.indexOf('data-preview-map="0:0"'));
+ assert.ok(html.includes('>Avtalsnummer</option>'));
+ assert.ok(!html.includes('Avtal → Avtalsnummer'));
+});

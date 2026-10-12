@@ -22,31 +22,35 @@ function sheetTable(profile, controls) {
     <tr class="column-targets"><th scope="row">Lokalblick-data<br><small>Gäller hela kolumnen</small></th>${cells(controls)}</tr>
     </tbody></table></div>`;
 }
+export function mappingFieldOptions(fields,collection) {
+  return fields.filter(f=>f.collection===collection).map(f=>`<option value="${esc(f.target)}">${esc(f.label.split(' → ').slice(1).join(' → ')||f.label)}</option>`).join('');
+}
+const collectionOptions=schemas=>schemas.map(s=>`<option value="${esc(s.key)}">${esc(s.sheet)}</option>`).join('');
 export async function mapImport(prepared,schemas) {
   const profiles=structuredClone(prepared.profiles), fields=fieldCatalog(schemas);
-  const optionHtml=fields.map(f=>`<option value="${esc(f.target)}">${esc(f.label)}</option>`).join('');
+
   const d=dialog(`<h2>2. Koppla kolumner</h2><p>${esc(prepared.fileName)}. Välj måltabell och fält för varje kolumn. Samma flik kan berika flera tabeller. Kontrollera förslagen. Kolumner utan standardfält bevaras som kompletterande uppgifter.</p>
     ${prepared.known?'<label><input type="checkbox" data-existing checked> Använd befintlig specialadapter för denna kända struktur (bevarar index- och tilläggsregler)</label>':''}
     <label>Sök målfält<input data-field-search type="search" placeholder="Area, hyra, adress…"></label>
-    ${profiles.map((p,pi)=>`<details open><summary>${esc(p.name)} · rubrikrad ${p.headerRow} · ${p.rowCount} rader</summary>${sheetTable(p,(c,ci)=>`<select aria-label="Koppling för ${esc(c.header)}" data-map="${pi}:${ci}"><option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>${optionHtml}</select><select data-extra="${pi}:${ci}">${schemas.map(s=>`<option value="${esc(s.key)}">${esc(s.sheet)}</option>`).join('')}</select><small>${c.filled} ifyllda · ${c.approved?'Tidigare godkänd regel':'Automatiskt förslag'}</small><select aria-label="Tolkning för ${esc(c.header)}" data-transform="${pi}:${ci}"><option value="auto">Automatisk datatyp</option><option value="text">Text</option><option value="monthly">Månadshyra × 12</option></select><label><input data-identity="${pi}:${ci}" type="checkbox" ${c.identity?'checked':''}> Identitetsnyckel</label>`)}</details>`).join('')}
+    ${profiles.map((p,pi)=>`<details open><summary>${esc(p.name)} · rubrikrad ${p.headerRow} · ${p.rowCount} rader</summary>${sheetTable(p,(c,ci)=>`<label>Måltabell<select aria-label="Måltabell för ${esc(c.header)}" data-extra="${pi}:${ci}">${collectionOptions(schemas)}</select></label><label>Fält<select aria-label="Koppling för ${esc(c.header)}" data-map="${pi}:${ci}"><option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>${mappingFieldOptions(fields,c.target.startsWith('@')?c.collection:c.target.split('.')[0])}</select></label><small>${c.filled} ifyllda · ${c.approved?'Tidigare godkänd regel':'Automatiskt förslag'}</small><select aria-label="Tolkning för ${esc(c.header)}" data-transform="${pi}:${ci}"><option value="auto">Automatisk datatyp</option><option value="text">Text</option><option value="monthly">Månadshyra × 12</option></select><label><input data-identity="${pi}:${ci}" type="checkbox" ${c.identity?'checked':''}> Identitetsnyckel</label>`)}</details>`).join('')}
     <p data-mapping-status></p><div class="actions"><button data-cancel>Avbryt</button><button data-next class="primary-action">Förhandsgranska</button></div>`);
   const locate=node=>{const [pi,ci]=Object.values(node.dataset)[0].split(':').map(Number);return profiles[pi].columns[ci];};
   d.querySelectorAll('[data-map]').forEach(n=>{n.value=locate(n).target;});
-  d.querySelectorAll('[data-extra]').forEach(n=>{n.value=locate(n).collection;});
+  d.querySelectorAll('[data-extra]').forEach(n=>{n.value=locate(n).target.startsWith('@')?locate(n).collection:locate(n).target.split('.')[0];});
   d.querySelectorAll('[data-transform]').forEach(n=>{n.value=locate(n).transform;});
   const update=()=>{
     d.querySelectorAll('[data-map]').forEach(n=>{locate(n).target=n.value;});
-    d.querySelectorAll('[data-extra]').forEach(n=>{locate(n).collection=n.value;n.hidden=locate(n).target!=='@extra';});
+    d.querySelectorAll('[data-extra]').forEach(n=>{locate(n).collection=n.value;});
     d.querySelectorAll('[data-transform]').forEach(n=>{locate(n).transform=n.value;});
     d.querySelectorAll('[data-identity]').forEach(n=>{locate(n).identity=n.checked;});
     d.querySelector('[data-mapping-status]').textContent=profiles.map(p=>p.name+': '+p.columns.filter(c=>!c.target.startsWith('@')).length+' kopplade kolumner, '+p.columns.filter(c=>c.target==='@extra').length+' kompletterande').join(' · ');
   };
-  d.addEventListener('change',e=>{if(e.target.matches('[data-map],[data-extra],[data-transform],[data-identity]')&&d.querySelector('[data-existing]'))d.querySelector('[data-existing]').checked=false;update();});update();
+  d.addEventListener('change',e=>{if(e.target.matches('[data-extra]')){const col=locate(e.target),select=d.querySelector(`[data-map="${e.target.dataset.extra}"]`);col.collection=e.target.value;const keep=col.target.startsWith('@')||col.target.split('.')[0]===col.collection?col.target:'@extra';select.innerHTML='<option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>'+mappingFieldOptions(fields,col.collection);select.value=keep;}if(e.target.matches('[data-map],[data-extra],[data-transform],[data-identity]')&&d.querySelector('[data-existing]'))d.querySelector('[data-existing]').checked=false;update();});update();
   d.querySelector('[data-field-search]').oninput=e=>{const q=e.target.value.toLocaleLowerCase('sv');d.querySelectorAll('[data-map] option').forEach(o=>{o.hidden=!o.value.startsWith('@')&&o.value!==o.parentElement.value&&!o.textContent.toLocaleLowerCase('sv').includes(q);});};
   return waitForDialog(d,finish=>{d.querySelector('[data-next]').onclick=()=>finish({profiles,existing:Boolean(d.querySelector('[data-existing]')?.checked)});});
 }
 export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}) {
-  const fields=fieldCatalog(schemas), names=Object.fromEntries(fields.map(f=>[f.target,f.label]));
+  const fields=fieldCatalog(schemas), names=Object.fromEntries(fields.map(f=>[f.target,f.label.split(' → ').slice(1).join(' → ')]));
   const reviews=(result.data.importReview||[]).filter(r=>r.status==='pending'&&r.source===prepared.fileName);
   const problems=new Map();
   const uncertainRows=new Set();
@@ -57,7 +61,7 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
     if(!problems.has(key))problems.set(key,{sheet:row.sheet,collection:row.collection,reason:row.reason,count:0});
     problems.get(key).count++;
   }
-  const options=fields.map(f=>`<option value="${esc(f.target)}">${esc(f.label)}</option>`).join('');
+
   return `<h2>3. Kontrollera kolumnkopplingar</h2><p>${esc(prepared.fileName)}. Samma flik kan berika flera tabeller. Välj måltabell och fält för varje kolumn. Regeln gäller alla matchade poster i kolumnen. Manuellt verifierade värden skyddas.</p>
     <details><summary>Visa sammanställning av importen</summary>${countsHtml(result.report.counts)}</details>
     ${mapping.profiles.map((profile,pi)=>`<details open><summary>${esc(profile.name)} · ${profile.rowCount} rader</summary>${sheetTable(profile,(col,ci)=>{
@@ -66,7 +70,7 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
       const conflicts=reviews.filter(r=>r.collection===collection&&r.field===field&&(!r.sheet||r.sheet===profile.name));
       const key=[collection,field,prepared.fileName].map(x=>String(x||'').trim().toLocaleLowerCase('sv')).join('|');
       const canPrioritize=!col.target.startsWith('@')&&!['id','sourceId','propertyId','contractId','activityId'].includes(field);
-      return `<select aria-label="Koppling för ${esc(col.header)}" data-preview-map="${pi}:${ci}"><option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>${options}</select><small>${esc(names[col.target]|| (col.target==='@extra'?'Bevaras som kompletterande information':'Importeras inte'))}${col.identity?' · Identitetsnyckel':''}</small>${canPrioritize?`<select aria-label="Berikningsregel för ${esc(col.header)}" data-column-rule="${pi}:${ci}"><option value="">Komplettera tomma fält, granska konflikter</option><option value="accept">Använd denna källa vid avvikelse</option><option value="reject">Behåll befintliga värden vid avvikelse</option></select>`:''}<small>${col.target.startsWith('@')?'':changes.length+' fältändringar · '+conflicts.length+' avvikelser'}${preferences[key]?' · Sparad kolumnregel':''}</small>`;
+      return `<label>Måltabell<select data-preview-collection="${pi}:${ci}" aria-label="Måltabell för ${esc(col.header)}">${collectionOptions(schemas)}</select></label><label>Fält<select aria-label="Koppling för ${esc(col.header)}" data-preview-map="${pi}:${ci}"><option value="@extra">Kompletterande information</option><option value="@ignore">Ignorera</option>${mappingFieldOptions(fields,col.target.startsWith('@')?col.collection:collection)}</select></label><small>${esc(names[col.target]|| (col.target==='@extra'?'Bevaras som kompletterande information':'Importeras inte'))}${col.identity?' · Identitetsnyckel':''}</small>${canPrioritize?`<select aria-label="Berikningsregel för ${esc(col.header)}" data-column-rule="${pi}:${ci}"><option value="">Komplettera tomma fält, granska konflikter</option><option value="accept">Använd denna källa vid avvikelse</option><option value="reject">Behåll befintliga värden vid avvikelse</option></select>`:''}<small>${col.target.startsWith('@')?'':changes.length+' fältändringar · '+conflicts.length+' avvikelser'}${preferences[key]?' · Sparad kolumnregel':''}</small>`;
     })}</details>`).join('')}
     ${problems.size?`<details><summary>Rader som behöver bättre identitet eller koppling (${uncertainRows.size})</summary><p>Ändra kolumnkopplingarna ovan. Poster som fortfarande saknar säker identitet sparas i granskningsunderlaget och läggs inte automatiskt in som nya objekt.</p><table><thead><tr><th>Flik / objekttyp</th><th>Orsak</th><th>Antal</th></tr></thead><tbody>${[...problems.values()].map(p=>`<tr><td>${esc(p.sheet)} · ${esc(schemas.find(s=>s.key===p.collection)?.sheet||p.collection)}</td><td>${esc(p.reason)}</td><td>${p.count}</td></tr>`).join('')}</tbody></table></details>`:''}
     <div class="actions"><button data-cancel>Avbryt</button><button data-apply class="primary-action">4. Genomför import</button></div>`;
@@ -89,6 +93,7 @@ export async function previewImport(prepared,mapping,base,schemas,actor,legacyRe
     const bind=()=>{
       d.querySelector('[data-cancel]').onclick=abort;
       d.querySelector('[data-apply]').onclick=()=>finish(result);
+      d.querySelectorAll('[data-preview-collection]').forEach(node=>{const [pi,ci]=node.dataset.previewCollection.split(':').map(Number),col=mapping.profiles[pi].columns[ci];node.value=col.target.startsWith('@')?col.collection:col.target.split('.')[0];});
       d.querySelectorAll('[data-preview-map]').forEach(node=>{const [pi,ci]=node.dataset.previewMap.split(':').map(Number);node.value=mapping.profiles[pi].columns[ci].target;});
       d.querySelectorAll('[data-column-rule]').forEach(node=>{
         const [pi,ci]=node.dataset.columnRule.split(':').map(Number), col=mapping.profiles[pi].columns[ci];
@@ -96,7 +101,12 @@ export async function previewImport(prepared,mapping,base,schemas,actor,legacyRe
       });
     };
     d.addEventListener('change',e=>{
-      if(e.target.dataset.previewMap){
+      if(e.target.dataset.previewCollection){
+        const [pi,ci]=e.target.dataset.previewCollection.split(':').map(Number),col=mapping.profiles[pi].columns[ci];
+        col.collection=e.target.value;
+        if(!col.target.startsWith('@')&&col.target.split('.')[0]!==col.collection)col.target='@extra';
+        usingLegacy=false;
+      }else if(e.target.dataset.previewMap){
         const [pi,ci]=e.target.dataset.previewMap.split(':').map(Number);
         mapping.profiles[pi].columns[ci].target=e.target.value;usingLegacy=false;
       }else if(e.target.dataset.columnRule){
