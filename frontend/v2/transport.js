@@ -24,6 +24,8 @@ export function createTransport() {
     },
     async save(data) {
       const payload = clone(data);
+      globalThis.LokalblickBusinessModel.normalize(payload);
+      globalThis.LokalblickBusinessModel.validate(payload,responsibilityBaseline);
       globalThis.LokalblickResponsibility.normalize(payload);
       globalThis.LokalblickResponsibility.validate(payload,responsibilityBaseline);
       if (company()) {

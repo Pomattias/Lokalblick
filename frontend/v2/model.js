@@ -1,6 +1,7 @@
 import "../services/import-formats.js";
 import "../domain/object-model.js";
 import "../domain/responsibility-model.js";
+import "../domain/business-model.js";
 export const collections = [
   "properties",
   "objects",
@@ -8,6 +9,8 @@ export const collections = [
   "organizations",
   "people",
   "assignments",
+  "businesses",
+  "contractBusinesses",
   "orders",
   "activities",
   "operations",
@@ -536,6 +539,7 @@ export function normalize(data) {
   [...collections, ...legacyCollections].forEach((k) => {
     if (!Array.isArray(out[k])) out[k] = [];
   });
+  globalThis.LokalblickBusinessModel.normalize(out);
   globalThis.LokalblickResponsibility.normalize(out);
   normalizeOwnerRelations(out);
   // An activity without a home is a planning task, not an import conflict.
@@ -557,7 +561,7 @@ export function normalize(data) {
     c.end = c.end ?? c.currentValidTo ?? "";
     c.notice = c.notice ?? c.noticeBy ?? "";
   });
-  return globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickObjectModel.normalize(canonicalRelations(migrateLegacy(out))));
+  return globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickBusinessModel.normalize(globalThis.LokalblickObjectModel.normalize(canonicalRelations(migrateLegacy(out)))));
 }
 export function activities(data) {
   return (data.activities || []).map((record) => ({
@@ -576,10 +580,11 @@ export function responsible(data, collection, record) {
   if (!record) return "";
   if (collection === "properties") return record.responsiblePersonId || "";
   if (collection === "activities") return record.responsiblePersonId || "";
+  if (collection === "businesses") return record.businessResponsiblePersonId || "";
   if(collection==='objects')return record.responsiblePersonId||data.properties.find(p=>p.id===record.propertyId)?.responsiblePersonId||'';
   if (collection === "contracts") {
     const property = data.properties.find((x) => x.id === record.propertyId);
-    return property?.responsiblePersonId || "";
+    return record.responsiblePersonId || property?.responsiblePersonId || "";
   }
   return "";
 }
@@ -889,6 +894,29 @@ export function resolveReview(data, id, decision, targetId, actor) {
   const item = data.importReview.find((x) => x.id === id);
   if (!item || item.status !== "pending")
     throw Error("Förslaget är redan hanterat");
+
+  if(item.kind==='multi-contract-value'){
+    if(decision==='accept')throw Error('Ange värdet per avtal i underlaget eller avtalsformuläret. Ett gemensamt belopp får inte kopieras till flera avtal.');
+    item.status='rejected';item.resolvedBy=actor;item.resolvedAt=new Date().toISOString();return;
+  }
+  if(item.kind==='business-identity'){
+    if(decision==='accept'){
+      const c=data.contracts.find(c=>c.id===(item.values?.contractId||item.values?.id));
+      if(!c)throw Error('Avtalet saknas');
+      const before=clone(c);
+      if(item.collection==='contracts'){
+        if(!data.organizations.some(o=>o.id===targetId))throw Error('Välj rätt hyresgäst');
+        c.tenantPartyId=targetId;c.provenance ||= {};c.provenance.tenantPartyId={source:item.source,value:targetId,confirmedBy:actor};
+      }else{
+        if(!data.businesses.some(b=>b.id===targetId))throw Error('Välj rätt verksamhet');
+        c.businessLinksManaged=true;
+        if(!data.contractBusinesses.some(l=>l.contractId===c.id&&l.businessId===targetId))data.contractBusinesses.push({id:'CB|'+c.id+'|'+targetId,contractId:c.id,businessId:targetId,fromDate:'',toDate:'',usedArea:null,costSharePercent:null,provenance:{source:item.source,confirmedBy:actor}});
+        globalThis.LokalblickBusinessModel.validate(data);
+      }
+      audit(data,'contracts',c.id,before,c,actor);
+    }
+    item.status=decision==='accept'?'accepted':'rejected';item.resolvedBy=actor;item.resolvedAt=new Date().toISOString();return;
+  }
 
   if(item.kind==='mapped-identity'){
     if(decision==='accept'){

@@ -1,3 +1,4 @@
+import {businessList} from './business-editor.js';
 import {
   collections,
   normalize,
@@ -63,6 +64,7 @@ const ui = {
 };
 const labels = {
   overview: "Översikt",
+  businesses:"Verksamheter",
   properties: "Fastighet",
   objects: "Objekt",
   contracts: "Avtal",
@@ -502,7 +504,7 @@ function render() {
     );
   });
   filterArea.innerHTML = filters(data, selection);
-  document.querySelector("#summary").innerHTML = ["sources", "people", "settings", "more"].includes(
+  document.querySelector("#summary").innerHTML = ["sources", "people", "businesses", "settings", "more"].includes(
     ui.view,
   )
     ? ""
@@ -525,7 +527,7 @@ function render() {
   document.querySelector("#context").innerHTML = selection.propertyId
     ? `<button data-clear-property>Hela urvalet</button><span>${esc(data.properties.find((p) => p.id === selection.propertyId)?.address || selection.propertyId)}</span>`
     : "<span>Portfölj</span>";
-  filterArea.hidden = ["sources", "people", "settings", "more"].includes(ui.view);
+  filterArea.hidden = ["sources", "people", "businesses", "settings", "more"].includes(ui.view);
   if (ui.view === "overview")
     content.innerHTML = dashboard(data, selection, new Date().getFullYear());
   if (["properties","contracts","activities"].includes(ui.view)) {
@@ -538,13 +540,14 @@ function render() {
     });
   }
   if(ui.view==='objects')content.innerHTML=objectList(data,selection);
+  if(ui.view==='businesses')content.innerHTML=businessList(data);
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
   if (ui.view === "budget") content.innerHTML = budget(data, selection, ui);
   if (ui.view === "budget") bindBudget();
   if (ui.view === "sources") content.innerHTML = sources(data, transport);
   if (ui.view === "settings") content.innerHTML = economicSettings(data, ui);
   if (ui.view === "people") content.innerHTML = organization(data);
-  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","activities","sources","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<a href="../index.html?legacy=1" data-ui-version="v1">Visa V1</a><small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
+  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","businesses","activities","sources","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<a href="../index.html?legacy=1" data-ui-version="v1">Visa V1</a><small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
     content.innerHTML =
       '<div class="section-title map-heading"><h2>Fastigheter i aktuellt urval</h2></div><div id="property-map" aria-label="Fastigheter på karta"></div><p class="map-help">Välj en fastighet på kartan för att öppna dess detaljer.</p>';
@@ -581,7 +584,7 @@ function render() {
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
-    !canEdit() || !["properties","objects","contracts","activities"].includes(ui.view);
+    !canEdit() || !["properties","objects","contracts","businesses","activities"].includes(ui.view);
   document.querySelector("#add").textContent =
     ui.view==="activities" ? "Nytt ärende" : "Lägg till";
 }
@@ -594,6 +597,8 @@ async function mutation(change, { automatic = false, manualPositionIds = [], res
   try {
     change(data);
     if(!automatic)globalThis.LokalblickResponsibility.applyChanges(before,data,{actor:actor(),fromDate:responsibilityDate||globalThis.LokalblickResponsibility.today()});
+    globalThis.LokalblickBusinessModel.normalize(data);
+    globalThis.LokalblickBusinessModel.validate(data,before);
     globalThis.LokalblickObjectModel.normalize(data);
     if(data.objects.length)globalThis.LokalblickObjectModel.validate(data);
     const previousLocations = new Map((before.properties || []).map(p => [String(p.id), String(p.address || "") + "|" + String(p.city || "")]));
@@ -756,7 +761,7 @@ function openEditor(col, id, defaults = {}) {
   const typeSelect=root.querySelector('[data-assignment-type]');
   if(typeSelect)typeSelect.onchange=()=>{
     const type=typeSelect.value,collection=globalThis.LokalblickResponsibility.types[type];
-    const items=type==='business'?[...new Set(data.contracts.map(c=>c.unitId).filter(Boolean))].map(id=>({id,name:units[id]||id})):data[collection]||[];
+    const items=data[collection]||[];
     root.querySelector('[data-assignment-target]').innerHTML='<option value="">Välj post</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.number||x.title||x.designation||x.id)}</option>`).join('');
   };
   root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,globalThis.LokalblickSourceService.schemas));
@@ -1394,6 +1399,11 @@ document.addEventListener("submit", (event) => {
           });
         d[col][index] = next;
         audit(d, col, id, before, next, actor());
+      }
+      if(col==='contracts'&&event.target.elements.namedItem('businessIds')){
+        const ids=new FormData(event.target).getAll('businessIds'),values={};
+        for(const bid of ids){const area=event.target.elements.namedItem('businessArea|'+bid)?.value,share=event.target.elements.namedItem('businessShare|'+bid)?.value;values[bid]={};if(area!==undefined)values[bid].usedArea=area===''?null:Number(area);if(share!==undefined)values[bid].costSharePercent=share===''?null:Number(share);}
+        globalThis.LokalblickBusinessModel.applyLinks(d,next.id,ids,values,event.target.elements.namedItem('responsibilityChangeDate')?.value||globalThis.LokalblickResponsibility.today(),actor());
       }
       if (col === "properties" && id) {
         contractContactChanges.forEach(({contractId,personId})=>{

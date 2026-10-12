@@ -20,8 +20,8 @@
     ],labelAliases:{number:["Objektnr","Objektsnummer","Objektsnr"],area:["Objektarea","Objektyta"]},display:["Fastighet","Adress","Föregående objekt"] },
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
-      ["objectId","_objectId",true],["propertyId","_propertyId",true],["businessPartyId","_businessPartyId",true],["businessResponsiblePersonId","_businessResponsiblePersonId",true],
-      ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["tenantName","Hyresgäst"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
+      ["objectId","_objectId",true],["propertyId","_propertyId",true],["businessPartyId","_businessPartyId",true],["businessResponsiblePersonId","_businessResponsiblePersonId",true],["responsiblePersonId","_responsiblePersonId",true],
+      ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["tenantName","Hyresgäst enligt källa"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
       ["start","Start"],["end","Slut"],["moveInDate","Inflyttning"],["moveOutDate","Utflyttning"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
       ["baseRent","Bashyra"],["baseAdditions","Bastillägg"],["rentBaseYear","Hyra basår"],["rentBaseIndex","Hyra bastal (KPI)"],["rentIndexPercent","Hyra uppräkning %"],["additionBaseYear","Tillägg basår"],["additionBaseIndex","Tillägg bastal (KPI)"],["additionIndexPercent","Tillägg uppräkning %"],
       ["annualContractDrift","Media per år"],["annualPropertyTax","F-skatt per år"],
@@ -42,10 +42,14 @@
       ["deliveryText","Leverans"],["completedAt","Utförd"],["finalCost","Utfall"],["paymentStatus","Betalstatus"],["paidAt","Betald"],["invoiceComment","Kommentar"],["ownerPays","Betalas av fastighetsägaren"]
     ], display:["Aktivitet","Beställd av"] },
   ];
+  SCHEMAS.push({sheet:'Verksamheter',key:'businesses',prefix:'BUS',columns:[['id','_id',true],['sourceId','Källans verksamhets-ID'],['name','Verksamhetsnamn'],['type','Verksamhetstyp'],['unitId','Organisatorisk tillhörighet'],['organizationId','_organizationId',true],['status','Status'],['businessResponsiblePersonId','_businessResponsiblePersonId',true]],display:['Part','Verksamhetsansvarig']},
+   {sheet:'AvtalVerksamhet',key:'contractBusinesses',prefix:'CB',columns:[['id','_id',true],['contractId','_contractId',true],['businessId','_businessId',true],['fromDate','Giltigt fr.o.m.'],['toDate','Giltigt t.o.m.'],['usedArea','Nyttjad area, m²'],['costSharePercent','Kostnadsandel, %'],['cancelled','_cancelled',true]],display:['Avtal','Verksamhet']});
+  SCHEMAS.find(s=>s.key==='objects').columns.push(['areaType','Areatyp']);
   SCHEMAS.forEach(function(schema) { schema.fields = schema.columns.map(function(column){ return column[0]; }); });
 
   SCHEMAS.find(s=>s.key==='contracts').columns.push(['tenantPartyId','_tenantPartyId',true],['tenantResponsiblePersonId','_tenantResponsiblePersonId',true]);
-  SCHEMAS.find(s=>s.key==='contracts').display.push('Hyresgäst (juridisk part)','Hyresgästens kontaktperson');
+  SCHEMAS.find(s=>s.key==='contracts').labelAliases={tenantName:['Hyresgäst']};
+  SCHEMAS.find(s=>s.key==='contracts').display.push('Hyresgäst','Hyresgästens kontaktperson');
   // Compatibility-only data: preserved for older imports and calculations,
   // but not written as parallel visible business sheets in model v5.
   const AUXILIARY_SCHEMAS = [
@@ -127,6 +131,7 @@
   SCHEMAS.push(assignmentSchema);LEGACY_SCHEMAS.splice(LEGACY_SCHEMAS.indexOf(assignmentSchema),1);
   assignmentSchema.fields=assignmentSchema.columns.map(c=>c[0]);
   assignmentSchema.display.push('Part');
+  SCHEMAS.forEach(s=>{s.fields=s.columns.map(c=>c[0]);});
   LEGACY_SCHEMAS.forEach(function(schema) {
     schema.fields = schema.columns.map(function(column){ return column[0]; });
   });
@@ -448,7 +453,7 @@
       if (!row.propertyId) { const m=resolveDisplayedProperty(properties,row.__display_Fastighet,row.__display_Adress); if(m) row.propertyId=m.id; }
       if (!row.businessPartyId && row.__display_Verksamhetspart) { const m=byDisplay(organizations,row.__display_Verksamhetspart,orgDisplay); if(m) row.businessPartyId=m.id; }
       if (!row.businessResponsiblePersonId && row.__display_Verksamhetsansvarig) { const m=byDisplay(people,row.__display_Verksamhetsansvarig,personDisplay); if(m) row.businessResponsiblePersonId=m.id; }
-      if(!row.tenantPartyId&&row['__display_Hyresgäst (juridisk part)']){const m=byDisplay(organizations,row['__display_Hyresgäst (juridisk part)'],orgDisplay);if(m)row.tenantPartyId=m.id;}
+      if(!row.tenantPartyId&&(row.__display_Hyresgäst||row['__display_Hyresgäst (juridisk part)'])){const m=byDisplay(organizations,(row.__display_Hyresgäst||row['__display_Hyresgäst (juridisk part)']),orgDisplay);if(m)row.tenantPartyId=m.id;}
       if(!row.tenantResponsiblePersonId&&row['__display_Hyresgästens kontaktperson']){const m=byDisplay(people,row['__display_Hyresgästens kontaktperson'],personDisplay);if(m)row.tenantResponsiblePersonId=m.id;}
       if (!row.unitId && (row.__display_Verksamhet || row.__display_Område)) row.unitId=unitIdFromDisplay(row.__display_Verksamhet || row.__display_Område);
     });
@@ -478,6 +483,7 @@
         for (const group of groups) { if(row.targetType&&row.targetType!==group[0])continue;const m=(group[1]||[]).find(function(x){return String(group[2](x)||"").trim().toLowerCase()===wanted;}); if(m){row.targetType=group[0];row.targetId=m.id;break;} }
       }
     }
+    (data.contractBusinesses||[]).forEach(function(row){if(!row.contractId&&row.__display_Avtal){const m=byDisplay(contracts,row.__display_Avtal,contractDisplay);if(m)row.contractId=m.id;}if(!row.businessId&&row.__display_Verksamhet){const hits=(data.businesses||[]).filter(b=>String(b.name).trim()===String(row.__display_Verksamhet).trim());if(hits.length===1)row.businessId=hits[0].id;}});
     (data.contacts||[]).forEach(resolveRelation); (data.assignments||[]).forEach(resolveRelation);
     SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).concat(LEGACY_SCHEMAS).forEach(function(schema) { (data[schema.key]||[]).forEach(function(row) { Object.keys(row).filter(function(key){return key.indexOf("__display_")===0;}).forEach(function(key){delete row[key];}); }); });
   }
@@ -602,15 +608,17 @@
     });
     migratedInvestigations.forEach(function(a){if(a.contractId&&data.contracts.some(function(c){return c.id===a.contractId;}))delete a.propertyId;data.activities.push(a);byActivity.set(a.id,a);});
     (data.assignmentChanges||[]).forEach(function(ch){const id="legacy-assignment|"+String(ch.id||ch.changedAt||ch.targetId||"");if(data.auditLog.some(function(x){return x.id===id;}))return;data.auditLog.push({id:id,at:ch.changedAt||"",by:ch.changedBy||"Migrerad historik",collection:"responsibility",recordId:ch.targetId||"",action:"Ansvar ändrat",fields:[{field:"responsiblePersonId",from:ch.fromPersonId||"",to:ch.toPersonId||""}]});});
+    window.LokalblickBusinessModel?.normalize(data);
     window.LokalblickResponsibility?.normalize(data);
     delete data.contacts;["legacyOrganizations","projects","maintenance","investigations","driftIssues","wishes","assignmentChanges","legacyOperations"].forEach(function(k){data[k]=[];});data.maintenanceStatus.forEach(function(s){delete s.responsiblePersonId;});
     function migrateBudgetLine(line){if(!line)return line;if(["project","maintenance","investigation","driftIssue","wish"].includes(line.sourceType))line.sourceType="activity";if(line.sourceType==="maintenanceStatus"){line.sourceType="activity";line.sourceId="STATUS-ACT|"+line.sourceId;}return line;}
     (data.budgetPlans||[]).forEach(function(p){(p.lines||[]).forEach(migrateBudgetLine);(p.versions||[]).forEach(function(v){((v.snapshot||{}).lines||[]).forEach(migrateBudgetLine);});});
+    window.LokalblickBusinessModel?.normalize(data);
     window.LokalblickResponsibility?.normalize(data);
     return data;
   }
 
-  const EXTRA_KEYS = ["assignments","operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog"];
+  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog"];
   const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings"];
   function extraRows(data) {
     const rows=[];
@@ -740,11 +748,12 @@
     }
     if(label==="Avtal")return contractDisplay(contracts.find(function(x){return x.id===row.contractId;}));
     if(label==="Fastighetsägare")return orgDisplay(organizations.find(function(x){return x.id===row.ownerPartyId;}));
-    if(label==='Hyresgäst (juridisk part)')return orgDisplay(organizations.find(x=>x.id===row.tenantPartyId));
+    if(label==='Hyresgäst')return orgDisplay(organizations.find(x=>x.id===row.tenantPartyId));
     if(label==='Hyresgästens kontaktperson')return personDisplay(people.find(x=>x.id===row.tenantResponsiblePersonId));
     if(label=="Verksamhetspart")return orgDisplay(organizations.find(function(x){return x.id===row.businessPartyId;}));
     if(label==="Part"||label==="Organisation")return orgDisplay(organizations.find(function(x){return x.id===row.organizationId;}));
-    if(label==="Område"||label==="Verksamhet")return unitDisplay(row.unitId);
+    if(label==='Verksamhet'&&schema.key==='contractBusinesses'){const b=(data.businesses||[]).find(b=>b.id===row.businessId);return b?.name||row.businessId||'';}
+    if(label=="Område"||label=="Verksamhet")return unitDisplay(row.unitId);
     if(label==="Ansvarig"||label==="Ansvarig hos oss")return personDisplay(people.find(function(x){return x.id===row.responsiblePersonId;}));
     if(label==="Ansvarig hos fastighetsägaren")return personDisplay(people.find(function(x){return x.id===row.ownerResponsiblePersonId;}));
     if(label==="Verksamhetsansvarig")return personDisplay(people.find(function(x){return x.id===row.businessResponsiblePersonId;}));
@@ -962,6 +971,8 @@
       async load() { return clone(source.data || {}); },
       async save(data) {
         const next = clone(data);
+        window.LokalblickBusinessModel?.normalize(next);
+        window.LokalblickBusinessModel?.validate(next,source.data);
         window.LokalblickResponsibility?.normalize(next);
         window.LokalblickResponsibility?.validate(next,source.data);
         next.isDemo = false;

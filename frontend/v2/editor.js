@@ -1,3 +1,4 @@
+import {businessDetails} from './business-editor.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, calc, units, propertyReference } from "./views.js";
 import { clone } from "./model.js";
@@ -5,6 +6,7 @@ import { renderContractEditor } from "./contract-editor.js";
 import { renderPropertyEditor } from "./property-editor.js";
 import { applyIssueHome, renderIssueEditor } from "./issue-editor.js";
 const relations = {
+  businessId: ["businesses",x=>x.name],
   objectId: ["objects", x=>[x.number,x.name].filter(Boolean).join(" · ")||x.id],
   propertyId: ["properties", propertyReference],
   contractId: ["contracts", (x) => x.number || x.id],
@@ -31,7 +33,7 @@ const internalPeople = (data) =>
 const generated =
   /^(?:id|sourceId|sourceSheet|sourceRow|enrichment|derived|calculated|rentPerSqm|rentCalculation|additionCalculation|rentIndexCurrent|additionIndexCurrent|rentIndexYear|additionIndexYear|provenance|createdAt|createdBy|updatedAt|updatedBy)/;
 const numeric =
-  /^(?:area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths|investmentThreshold|rentSurchargeRate)/;
+  /^(?:usedArea|costSharePercent|area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths|investmentThreshold|rentSurchargeRate)/;
 const group = (key) =>
   /^media/.test(key)
     ? "Media"
@@ -70,7 +72,8 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     propertyId: "Fastighet",
     contractId: "Avtal",
     activityId: "Aktivitet",
-    unitId: "Verksamhet",
+    businessId:"Verksamhet",
+    unitId: col==='businesses'?'Organisatorisk tillhörighet':"Verksamhet",
     ownerPartyId: "Fastighetsägare",
     businessPartyId: "Verksamhetspart",
     organizationId: "Part",
@@ -88,7 +91,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
   };
   const fields = new Map(
     schema.columns
-      .filter(([k]) => !generated.test(k) && !(col==='assignments'&&['roleKey','cancelled'].includes(k)) && !(col === "activities" && ["planningQuarter", "planningMonth", "budgetCategory"].includes(k)))
+      .filter(([k]) => (!generated.test(k)||col==='businesses'&&k==='sourceId') && !(col==='assignments'&&['roleKey','cancelled'].includes(k)) && !(col === "activities" && ["planningQuarter", "planningMonth", "budgetCategory"].includes(k)))
       .map(([key, label]) => [
         key,
         fieldLabels[key] || label.replace(/^_/, ""),
@@ -107,11 +110,11 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     const g = group(key);
     if (!groups.has(g)) groups.set(g, []);
     let control;
-    if(key==='responsibilityChangeDate')return;
+    if(key==='responsibilityChangeDate'||col==='businesses'&&['responsiblePersonId','ownerResponsiblePersonId','tenantResponsiblePersonId'].includes(key))return;
     if(col==='objects'&&key==='predecessorIds') {
       control=`<select name="predecessorIds" multiple aria-label="Föregående objekt">${(data.objects||[]).filter(o=>o.id!==record.id&&(!record.propertyId||o.propertyId===record.propertyId)).map(o=>`<option value="${esc(o.id)}" ${(record.predecessorIds||[]).includes(o.id)?'selected':''}>${esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)}</option>`).join('')}</select><small>Välj tidigare objekt vid delning eller sammanslagning. Avsluta dem med eget t.o.m.-datum.</small>`;
     } else if(col==='assignments'&&key==='targetType'){control=`<select name="targetType" data-assignment-type>${options(Object.entries(globalThis.LokalblickResponsibility.types),x=>x[0],x=>({property:'Fastighet',object:'Objekt',contract:'Avtal',business:'Verksamhet',activity:'Aktivitet',organization:'Part'})[x[0]],record.targetType,'Välj hemvist')}</select>`;
-    } else if(col==='assignments'&&key==='targetId'){const collection=globalThis.LokalblickResponsibility.types[record.targetType]||'properties';const items=record.targetType==='business'?[...new Set((data.contracts||[]).map(c=>c.unitId).filter(Boolean))].map(id=>({id,name:units[id]||id})):data[collection]||[];control=`<select name="targetId" data-assignment-target>${options(items,x=>x.id,x=>x.name||x.number||x.title||x.designation||x.id,record.targetId,'Välj post')}</select>`;
+    } else if(col==='assignments'&&key==='targetId'){const collection=globalThis.LokalblickResponsibility.types[record.targetType]||'properties';const items=data[collection]||[];control=`<select name="targetId" data-assignment-target>${options(items,x=>x.id,x=>x.name||x.number||x.title||x.designation||x.id,record.targetId,'Välj post')}</select>`;
     } else if(col==='assignments'&&key==='role'){const roles=[...new Set([...Object.values(globalThis.LokalblickResponsibility.roles),'Kontakt',record.role].filter(Boolean))];control=`<select name="role">${options(roles,x=>x,x=>x,record.role,'Välj roll')}</select>`;
     } else if(col==='assignments'&&key==='shared'){control=`<select name="shared"><option value="Nej">Ensam i rollen</option><option value="Ja" ${record.shared?'selected':''}>Delat ansvar</option></select>`;
     } else if (relations[key]) {
@@ -181,7 +184,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
         "Ej vald",
       )}</select>`;
     else {
-      const type = numeric.test(key)
+      const type = key==='areaType'?'text':numeric.test(key)
         ? "number"
         : /^(start|end|moveIn|.*Date|fromDate|toDate|paidAt|orderedAt|completedAt)$/.test(
               key,
@@ -226,16 +229,16 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     }. Klassificeringen är beräknad, inte en kopia av importerad drift/investering.</p>`;
   return {
     record,
-    html: `<div class="editor-backdrop"></div><aside class="editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="${col}" data-record-id="${esc(id)}"><div class="section-title"><div><small>${id ? "ÄNDRA" : "NY POST"}</small><h2 id="editor-title">${esc(schema.sheet)}</h2></div><button type="button" data-editor-close>Stäng</button></div><nav class="tabs" aria-label="Redigeringssektioner">${[...groups.keys()].map((g, i) => `<button type="button" data-editor-tab="${g}" class="${i ? "" : "active"}">${g}</button>`).join("")}</nav>${[...groups].map(([g, controls], i) => `<section data-editor-section="${g}" ${i ? "hidden" : ""}><div class="form-grid">${controls.join("")}</div></section>`).join("")}${col==='objects'?responsibilityHtml(data,'object',record.id):''}${economicSummary}${company ? '<p class="computed">Mastervärden från INT/EXT ändras i underlaget. Kompletteringar sparas i backend.</p>' : ""}${result ? `<p class="computed">Beräknat för ${new Date().getFullYear()}: hyra ${Math.round(result.rent.amount)} kr · ${esc(result.rent.status)}. Tillägg ${Math.round(result.addition.amount)} kr · ${esc(result.addition.status)}.</p>` : ""}<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span><button type="submit" class="primary">Spara ändring</button></div></form></aside>`,
+    html: `<div class="editor-backdrop"></div><aside class="editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="${col}" data-record-id="${esc(id)}"><div class="section-title"><div><small>${id ? "ÄNDRA" : "NY POST"}</small><h2 id="editor-title">${esc(schema.sheet)}</h2></div><button type="button" data-editor-close>Stäng</button></div><nav class="tabs" aria-label="Redigeringssektioner">${[...groups.keys()].map((g, i) => `<button type="button" data-editor-tab="${g}" class="${i ? "" : "active"}">${g}</button>`).join("")}</nav>${[...groups].map(([g, controls], i) => `<section data-editor-section="${g}" ${i ? "hidden" : ""}><div class="form-grid">${controls.join("")}</div></section>`).join("")}${col==='objects'?responsibilityHtml(data,'object',record.id):col==='businesses'?businessDetails(data,record)+responsibilityHtml(data,'business',record.id):''}${economicSummary}${company ? '<p class="computed">Mastervärden från INT/EXT ändras i underlaget. Kompletteringar sparas i backend.</p>' : ""}${result ? `<p class="computed">Beräknat för ${new Date().getFullYear()}: hyra ${Math.round(result.rent.amount)} kr · ${esc(result.rent.status)}. Tillägg ${Math.round(result.addition.amount)} kr · ${esc(result.addition.status)}.</p>` : ""}<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span><button type="submit" class="primary">Spara ändring</button></div></form></aside>`,
   };
 }
 export function readEditor(form, record) {
   const out = clone(record);
   const submitted = new Set();
   new FormData(form).forEach((value, key) => {
-    if(key==='responsibilityChangeDate')return;
+    if(key==='responsibilityChangeDate'||key==='businessIds'||/^business(?:Area|Share)\|/.test(key))return;
     submitted.add(key);
-    out[key] = numeric.test(key) && value !== "" ? Number(value) : value;
+    out[key] = key!=='areaType'&&numeric.test(key) && value !== "" ? Number(value) : value;
     // Editor explicitly shows percentage points (80 means 80 %);
     // canonical model stores the share as 0.80.
     if ((key === "rentIndexPercent" || key === "additionIndexPercent") && value !== "")

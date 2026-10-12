@@ -1,3 +1,4 @@
+import {contractBusinessControls} from './business-editor.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, calc, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
@@ -74,17 +75,19 @@ export function renderContractEditor(data, c, id, company=false) {
         field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>[x.number,x.name].filter(Boolean).join(" · "),"Välj objekt"))+
         field("Fastighetsägare",display(ownerName))+
         field("Hyresgäst enligt källa",input(c,"tenantName","text",true))+
-        field("Hyresgäst (juridisk part)",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
+        field("Hyresgäst",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
         field("Hyresgästens kontaktperson",select("tenantResponsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"))+
         field("Verksamhetspart",select("businessPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
-        field("Verksamhet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj verksamhet"))+
+        field("Organisatorisk tillhörighet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj tillhörighet"))+
         field("Fastighetsägarens kontaktperson",display(ownerContact))+
         field("Verksamhetsansvarig",select("businessResponsiblePersonId",activityPersonOptions,c,x=>x.id,x=>x.name+(x.unitId&&units[x.unitId]?" · "+units[x.unitId]:""),"Ej kopplad"))+
-        field("Vår kontaktperson",display(ourContact))+
+        field("Vår ansvarige för avtalet",select("responsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"))+
+        field("Vår kontaktperson för fastigheten",display(ourContact))+
         field("Avtalsnummer",input(c,"number","text",masterLocked))+
         field("Lokalkategori",categorySelect)+
         field("Area, m²",input(c,"area","number",masterLocked,'min="0" step="any"'))+
       '</div></section>'+
+      contractBusinessControls(data,c)+
       '<section class="contract-section"><h3>Avtalstid</h3><div class="contract-grid">'+
         field("Giltigt fr.o.m.",input(c,"start","date"))+
         field("Giltigt t.o.m.",input(c,"end","date"))+

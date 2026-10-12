@@ -10,11 +10,11 @@
   const previousDay=d=>new Date(Date.parse(date(d)+'T00:00:00Z')-86400000).toISOString().slice(0,10);
   const roleKey=a=>a.roleKey||(/fastighetsäg|hyresvärd/i.test(a.role)?'owner':/verksamhet/i.test(a.role)?'business':/hyresgäst/i.test(a.role)?'tenant':/ansvar|projektledare/i.test(a.role)?'our':a.role||'Kontakt');
   const slot=a=>a.targetType+'|'+a.targetId+'|'+roleKey(a);
-  function target(data,type,id){if(type==='business')return ((data.businesses||[]).some(x=>x.id===id)||(data.contracts||[]).some(x=>x.unitId===id))?{id}:null;return (data[types[type]]||[]).find(x=>x.id===id);}
+  function target(data,type,id){if(type==='business')return (data.businesses||[]).find(x=>x.id===id)||((data.contracts||[]).some(x=>x.unitId===id)?{id}:null);return (data[types[type]]||[]).find(x=>x.id===id);}
   const active=(a,at=today())=>(!a.fromDate||a.fromDate<=at)&&(!a.toDate||a.toDate>=at)&&a.cancelled!==true;
   function history(data,type,id,role){return (data.assignments||[]).filter(a=>a.targetType===type&&a.targetId===id&&(!role||roleKey(a)===role));}
   function current(data,type,id,role,at=today()){return history(data,type,id,role).filter(a=>active(a,at));}
-  function organizationFor(data,row,type,role,personId){return role==='owner'?(type==='property'?row.ownerPartyId:(data.properties||[]).find(p=>p.id===row.propertyId)?.ownerPartyId)||'':role==='business'?row.businessPartyId||'':role==='tenant'?row.tenantPartyId||'':(data.people||[]).find(p=>p.id===personId)?.organizationId||'';}
+  function organizationFor(data,row,type,role,personId){return role==='owner'?(type==='property'?row.ownerPartyId:(data.properties||[]).find(p=>p.id===row.propertyId)?.ownerPartyId)||'':role==='business'?(type==='business'?row.organizationId:row.businessPartyId)||'':role==='tenant'?row.tenantPartyId||'':(data.people||[]).find(p=>p.id===personId)?.organizationId||'';}
   function legacyRole(data,a){
     if(a.roleKey)return a.roleKey;
     const person=data.people.find(p=>p.id===a.personId),org=data.organizations.find(o=>o.id===person?.organizationId),home=target(data,a.targetType,a.targetId);

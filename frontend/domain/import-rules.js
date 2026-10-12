@@ -4,7 +4,8 @@
   const present=x=>x!=null&&(typeof x!=='string'||x.trim()!=='');
   const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   const key=x=>String(x??'').trim().toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'');
-  const entities=['organizations','people','properties','objects','contracts','activities','orders','assignments','operations','maintenanceStatus'];
+  const exactKey=x=>String(x??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('sv');
+  const entities=['organizations','people','properties','objects','contracts','activities','orders','businesses','contractBusinesses','assignments','operations','maintenanceStatus'];
   const protectedField=field=>['id','sourceId','objectId','propertyId','contractId','activityId'].includes(field);
   // A fresh index belongs to one import run. Buckets retain all candidates so
   // duplicate identities are still reviewed rather than arbitrarily selected.
@@ -28,11 +29,14 @@
     return {lookup,update};
   }
   function identify(records,values,collection,identity=[],index){
-    const keys=identity.length?identity:({properties:present(values.sourceId)?['sourceId']:['designation'],objects:['number','propertyId'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId'],assignments:['personId','targetType','targetId','role','fromDate']}[collection]||[]);
+    const businessIdentity=collection==='businesses'?(present(values.id)?['id']:present(values.sourceId)?['sourceId']:present(values.organizationId)&&present(values.name)&&(present(values.unitId)||present(values.type))?['name','organizationId',...(present(values.unitId)?['unitId']:[]),...(present(values.type)?['type']:[])]:[]):null;
+    if(collection==='businesses'&&!identity.length&&!businessIdentity.length){const candidates=records.filter(r=>exactKey(r.name)===exactKey(values.name));if(candidates.length)return {kind:'B',candidates,reason:'Verksamhetsnamn kräver säker organisations- eller källidentitet'};return {kind:present(values.name)?'C':'D',reason:present(values.name)?'Ny verksamhet, ingen namnmatchning':'Verksamhetsidentitet saknas'};}
+    const keys=identity.length?identity:businessIdentity||({properties:present(values.sourceId)?['sourceId']:['designation'],objects:['number','propertyId'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId'],contractBusinesses:['contractId','businessId','fromDate'],assignments:['personId','targetType','targetId','role','fromDate']}[collection]||[]);
     const usable=keys.filter(k=>present(values[k]));
     const objectIdentified=collection!=='objects'||identity.some(k=>k!=='propertyId'&&present(values[k]))||present(values.number)||present(values.id)||present(values.sourceId);
-    const hits=usable.length&&objectIdentified?(index?index.lookup(usable[0],values[usable[0]]):records).filter(r=>(collection!=='objects'||r.propertyId===values.propertyId)&&usable.every(k=>key(r[k])===key(values[k]))):[];
+    const hits=usable.length&&objectIdentified?(index?index.lookup(usable[0],values[usable[0]]):records).filter(r=>(collection!=='objects'||r.propertyId===values.propertyId)&&usable.every(k=>['businesses','organizations'].includes(collection)&&k==='name'?exactKey(r[k])===exactKey(values[k]):collection==='businesses'&&k==='sourceId'?String(r[k]||'').trim()===String(values[k]||'').trim():key(r[k])===key(values[k]))):[];
     if(hits.length===1){
+      if(collection==='businesses'&&present(values.organizationId)&&present(hits[0].organizationId)&&values.organizationId!==hits[0].organizationId)return {kind:'B',candidates:hits,reason:'Verksamhetens käll-ID pekar på olika organisationer'};
       if(collection==='properties'&&present(values.city)&&present(hits[0].city)&&key(values.city)!==key(hits[0].city))return {kind:'B',candidates:hits,reason:'Identitet överensstämmer men ort skiljer sig'};
       return {kind:'A',record:hits[0],reason:'Unik identitet: '+usable.join(', ')};
     }
@@ -110,7 +114,7 @@
       const rows=copy(base[collection]||[]);data[collection]=rows;const index=createIndex(rows);
       for(const incoming of candidate[collection]||[]){
         const proposed=copy(incoming);
-        for(const field of ['propertyId','objectId','contractId','activityId','ownerPartyId','organizationId','responsiblePersonId','orderedByPersonId'])if(remap.has(proposed[field]))proposed[field]=remap.get(proposed[field]);
+        for(const field of ['propertyId','objectId','contractId','activityId','businessId','ownerPartyId','organizationId','responsiblePersonId','orderedByPersonId'])if(remap.has(proposed[field]))proposed[field]=remap.get(proposed[field]);
         const existing=index.lookup('id',proposed.id).find(r=>r.id===proposed.id);
         let match=existing?{kind:'A',record:existing}:identify(rows,proposed,collection,[],index);
         // Parser-generated IDs anchor legacy rows lacking a human identifier.
@@ -147,6 +151,7 @@
       }
     }
     root.LokalblickObjectModel?.normalize(data);
+    root.LokalblickBusinessModel?.normalize(data);
     root.LokalblickResponsibility?.normalize(data);
     return {...result,data,report:{...result.report,commonRules:true,changes,counts:{...result.report?.counts,conflicts:data.importReview.filter(x=>x.kind==='operational-conflict'&&x.status==='pending').length}}};
   }

@@ -1,5 +1,6 @@
 import '../domain/import-rules.js';
 import '../domain/responsibility-model.js';
+import '../domain/business-model.js';
 import {interpretCell,profileFormat,parseDate,dateField,numberField} from './import-formats.js';
 // Shared, local-only preparation for unknown workbook structures.
 // Uses the canonical schemas owned by source-service, never a second data model.
@@ -12,6 +13,7 @@ const aliases = {
   'fastbet':'properties.designation', 'fastighetsbeteckning':'properties.designation',
   'adress':'properties.address', 'gatuadress':'properties.address', 'ort':'properties.city', 'postort':'properties.city',
   'forvaltningsobjekt':'properties.sourceId',
+  'verksamhetsid':'businesses.sourceId','verksamhetsnamn':'businesses.name','avtalverksamhet':'contractBusinesses.contractId','nyttjadarea':'contractBusinesses.usedArea','kostnadsandel':'contractBusinesses.costSharePercent',
   'aktivitetsid':'activities.sourceId', 'projektid':'activities.sourceId',
   'objektnr':'objects.number', 'objektnummer':'objects.number', 'objektsnummer':'objects.number',
   'avtalsnr':'contracts.number', 'avtalsnummer':'contracts.number',
@@ -21,8 +23,8 @@ const aliases = {
   'hyresgast':'contracts.tenantName', 'verksamhet':'contracts.businessName',
 };
 export function fieldCatalog(schemas) {
-  const labels={personId:'Person',targetType:'Måltyp',targetId:'Mål',roleKey:'Rollnyckel',tenantPartyId:'Hyresgäst (juridisk part)',tenantResponsiblePersonId:'Hyresgästens kontaktperson',sourceId:'Källans identifierare',objectId:'Objekt',propertyId:'Fastighet',contractId:'Avtal',activityId:'Aktivitet',organizationId:'Organisation',ownerPartyId:'Fastighetsägare',responsiblePersonId:'Ansvarig hos oss'};
-  return schemas.flatMap(s => s.columns.filter(([k,,hidden]) => (!hidden || ['sourceId','objectId','propertyId','contractId','activityId','organizationId','ownerPartyId','responsiblePersonId','personId','targetType','targetId','tenantPartyId','tenantResponsiblePersonId'].includes(k)) && !/^(geo|enrichment)/.test(k))
+  const labels={businessId:'Verksamhet',personId:'Person',targetType:'Måltyp',targetId:'Mål',roleKey:'Rollnyckel',tenantPartyId:'Hyresgäst',tenantResponsiblePersonId:'Hyresgästens kontaktperson',sourceId:'Källans identifierare',objectId:'Objekt',propertyId:'Fastighet',contractId:'Avtal',activityId:'Aktivitet',organizationId:'Organisation',ownerPartyId:'Fastighetsägare',responsiblePersonId:'Ansvarig hos oss'};
+  return schemas.flatMap(s => s.columns.filter(([k,,hidden]) => (!hidden || ['sourceId','objectId','propertyId','contractId','activityId','organizationId','ownerPartyId','responsiblePersonId','personId','targetType','targetId','tenantPartyId','tenantResponsiblePersonId','businessId'].includes(k)) && !/^(geo|enrichment)/.test(k))
     .map(([field,label]) => ({target:s.key+'.'+field,collection:s.key,field,aliases:s.labelAliases?.[field]||[],label:s.sheet+' → '+(label.startsWith('_')?labels[field]||label:label)})));
 }
 export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
@@ -46,7 +48,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
     const contractSignals=headerKeys.filter(h=>/avtals|hyra|hyres|uppsagning|forlangning/.test(h));
     const signature = JSON.stringify(headers.filter(present).map(norm).sort());
     const previous = saved.find(s => s.sheet===name && (!source?.fileName||!s.fileName||s.fileName===source.fileName) && s.signature===signature);
-    const inferred = /ansvar|tilldelning/i.test(name)?'assignments':/part|organisation/i.test(name)?'organizations':/best[aä]llning|order/i.test(name)?'orders':/aktivitet/i.test(name)?'activities': /^objekt/i.test(name)?'objects': /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
+    const inferred = /avtalverksamhet/i.test(name)?'contractBusinesses':/verksamheter|verksamhetsregister/i.test(name)?'businesses':/ansvar|tilldelning/i.test(name)?'assignments':/part|organisation/i.test(name)?'organizations':/best[aä]llning|order/i.test(name)?'orders':/aktivitet/i.test(name)?'activities': /^objekt/i.test(name)?'objects': /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
     const columns = headers.map((header,index) => {
       if(!present(header)) return null;
       const values=matrix.slice(headerIndex+1).map(r=>r[index]).filter(present);
@@ -62,6 +64,8 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
       }
       if(inferred==='contracts'&&/^(?:forlangningstid|forlangningsperiod)(?:manader|man)?$/.test(h))contextualTarget='contracts.renewalPeriodMonths';
       if(inferred==='contracts'&&/^(?:uppsagningstid)(?:manader|man)?$/.test(h))contextualTarget='contracts.noticePeriodMonths';
+      if(inferred==='businesses'){contextualTarget=({namn:'businesses.name',verksamhet:'businesses.name',organisation:'businesses.organizationId',part:'businesses.organizationId',verksamhetsid:'businesses.sourceId'})[h]||contextualTarget;}
+      if(inferred==='contractBusinesses'){contextualTarget=({avtalsnummer:'contractBusinesses.contractId',avtal:'contractBusinesses.contractId',verksamhet:'contractBusinesses.businessId'})[h]||contextualTarget;}
       if(inferred==='assignments'){contextualTarget=({person:'assignments.personId',mal:'assignments.targetId',maltyp:'assignments.targetType',fran:'assignments.fromDate',till:'assignments.toDate'})[h]||contextualTarget;}
       if(/^(?:id|identifierare|kallansidentifierare)$/.test(h)&&fields.some(f=>f.target===inferred+'.sourceId'))contextualTarget=inferred+'.sourceId';
       const target=rule?.target || contextualTarget || aliases[h] || aliases[fieldName(header)] || candidate?.target || '@extra';
@@ -93,6 +97,7 @@ export function retargetColumn(workbook,profile,column,target,XLSX) {
   column.format=profileFormat(cells,column,XLSX);
 }
 const identify=(...args)=>globalThis.LokalblickImportRules.identify(...args);
+export function splitContractReferences(value){return Array.isArray(value)?value.flatMap(splitContractReferences):String(value??'').split(/[;,\n|]+|\s+\/\s+/).map(v=>v.trim()).filter(Boolean);}
 export async function fingerprint(buffer) {
   const hash=await crypto.subtle.digest('SHA-256',buffer);
   return [...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
@@ -169,12 +174,28 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
         try{group.values[field]=convert(cell,column,XLSX);group.origins[field]=origin;}catch(e){group.origins[field]=origin;group.errors.push(column.header+': '+e.message);}
         if(column.identity)group.identity.push(field);
       }
-      rows.push({profile,r,groups,rowRecords:{},fileName,sourceId,ruleId,rule});
+      if(groups.has('businesses')&&groups.has('contracts')&&!groups.has('contractBusinesses'))groups.set('contractBusinesses',{values:{},origins:{contractId:copy(groups.get('contracts').origins.number||{}),businessId:copy(groups.get('businesses').origins.sourceId||groups.get('businesses').origins.name||{})},extras:[],identity:[],errors:[]});
+      const contractGroup=groups.get('contracts'),linkGroup=groups.get('contractBusinesses');
+      const reference=contractGroup?.values.number||linkGroup?.values.contractId;
+      const references=splitContractReferences(reference);
+      if(references.length>1){
+        for(const number of references){const expanded=new Map([...groups].map(([key,value])=>[key,copy(value)]));
+          if(contractGroup){expanded.get('contracts').values.number=number;
+            for(const field of Object.keys(expanded.get('contracts').values))if(!['number','propertyId','objectId','tenantName','tenantPartyId','businessName','businessPartyId','unitId'].includes(field)){
+              const origin=expanded.get('contracts').origins[field],id=sourceId+'|'+profile.name+'|'+(r+1)+'|multiple|'+field;
+              if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'multi-contract-value',status:'pending',source:fileName,sheet:profile.name,row:r+1,collection:'contracts',field,proposed:copy(expanded.get('contracts').values[field]),provenance:origin,reason:'Värdet avser flera avtalsreferenser och får inte kopieras till varje avtal'});
+              delete expanded.get('contracts').values[field];
+            }
+if(!(data.contracts||[]).some(c=>norm(c.number)===norm(number)))expanded.get('contracts').errors.push('Flera avtalsreferenser: avtalet måste identifieras säkert före berikning');}
+          if(linkGroup)expanded.get('contractBusinesses').values.contractId=number;
+          rows.push({profile,r,groups:expanded,rowRecords:{},fileName,sourceId,ruleId,rule});
+        }
+      }else rows.push({profile,r,groups,rowRecords:{},fileName,sourceId,ruleId,rule});
     }
   }
   const preparedAt=Date.now();
   // Resolve every parent table across all files before applying dependent records.
-  for(const collection of new Set(['organizations','people','properties','objects','contracts','activities','orders','assignments',...context.schemas.map(s=>s.key)])){
+  for(const collection of new Set(['organizations','people','properties','objects','contracts','businesses','activities','orders','contractBusinesses','assignments',...context.schemas.map(s=>s.key)])){
     for(const task of rows){
       const {profile,r,groups,rowRecords,fileName,sourceId,ruleId,rule}=task;
       const group=groups.get(collection);if(!group)continue;
@@ -193,23 +214,26 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
             if(!present(group.values[field])||norm(group.values[field])===norm(known[field])){group.values.id=known.id;group.identity=['id'];if(collection==='objects')group.values.propertyId=known.propertyId;}
           }
         }
+        if(collection==='businesses'&&!group.identity.length&&!group.values.sourceId){const old=(data.businesses||[]).filter(b=>b.provenance?.name?.sourceId===sourceId&&b.provenance.name.cell===group.origins.name?.cell&&b.name===group.values.name);if(old.length===1){group.values.id=old[0].id;group.identity=['id'];}}
+        if(collection==='contractBusinesses'){group.values.contractId ||= rowRecords.contracts;group.values.businessId ||= rowRecords.businesses;}
         if(collection==='objects'&&rowRecords.properties&&!present(group.values.propertyId))group.values.propertyId=rowRecords.properties;
         if(collection==='contracts'&&rowRecords.objects&&!present(group.values.objectId))group.values.objectId=rowRecords.objects;
         if(collection==='contracts'&&rowRecords.properties&&!present(group.values.propertyId))group.values.propertyId=rowRecords.properties;
-        const parents={personId:'people',tenantPartyId:'organizations',propertyId:'properties',objectId:'objects',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people'};
+        const parents={businessId:'businesses',personId:'people',tenantPartyId:'organizations',propertyId:'properties',objectId:'objects',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people'};
         for(const [field,parent] of Object.entries(parents)){
           if(!present(group.values[field]))continue;
           const value=group.values[field];
           const values=[...new Set(['id','sourceId','designation','address','number','name','title'].flatMap(k=>indexFor(parent).lookup(k,value)))];
-          const candidates=values.filter(x=>(parent!=='objects'||!group.values.propertyId||x.propertyId===group.values.propertyId)&&(x.id===value || [x.sourceId,x.designation,x.address,x.number,x.name,x.title].filter(present).some(v=>norm(v)===norm(value))));
+          const candidates=values.filter(x=>(parent!=='objects'||!group.values.propertyId||x.propertyId===group.values.propertyId)&&(x.id===value || [x.sourceId,x.designation,x.address,x.number,x.name,x.title].filter(present).some(v=>['businesses','organizations'].includes(parent)?globalThis.LokalblickBusinessModel.key(v)===globalThis.LokalblickBusinessModel.key(value):norm(v)===norm(value))));
           if(candidates.length===1)group.values[field]=candidates[0].id;else group.errors.push('Relationen '+field+' är inte entydig');
         }
+        if(collection==='contractBusinesses'&&(!group.values.contractId||!group.values.businessId))group.errors.push('Avtalsverksamheten saknar säker koppling');
         if(collection==='assignments'){
           const names={Fastighet:'property',Objekt:'object',Avtal:'contract',Aktivitet:'activity',Verksamhet:'business',Part:'organization'};
           group.values.targetType=names[group.values.targetType]||group.values.targetType;
           const parent=globalThis.LokalblickResponsibility.types[group.values.targetType];
           if(!parent||!group.values.targetId)group.errors.push('Ansvarsrelationen saknar hemvist');
-          else if(group.values.targetType!=='business'){const value=group.values.targetId,candidates=[...new Set(['id','number','designation','title','name'].flatMap(f=>indexFor(parent).lookup(f,value)))];if(candidates.length===1)group.values.targetId=candidates[0].id;else group.errors.push('Ansvarsrelationens hemvist är inte entydig');}
+          else {const value=group.values.targetId,candidates=[...new Set(['id','sourceId','number','designation','title','name'].flatMap(f=>indexFor(parent).lookup(f,value)))].filter(x=>parent!=='businesses'||x.id===value||x.sourceId===value||globalThis.LokalblickBusinessModel.key(x.name)===globalThis.LokalblickBusinessModel.key(value));if(candidates.length===1)group.values.targetId=candidates[0].id;else group.errors.push('Ansvarsrelationens hemvist är inte entydig');}
         }
         if(collection==='objects'&&!group.values.propertyId)group.errors.push('Objektet saknar fastighetskoppling');
         if(collection==='contracts'&&group.values.objectId){const obj=byId('objects',group.values.objectId);if(obj){if(group.values.propertyId&&group.values.propertyId!==obj.propertyId)group.errors.push('Objektet och avtalet pekar på olika fastigheter');else group.values.propertyId=obj.propertyId;}}
@@ -225,7 +249,7 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
           counts.unresolved++;continue;
         }
         let record=match.record;
-        const beforeAssignment=collection==='assignments'&&record?copy(record):null;
+        const beforeAssignment=['assignments','contractBusinesses'].includes(collection)&&record?copy(record):null;
         if(!record){record={id:crypto.randomUUID(),provenance:{}};data[collection].push(record);counts.created++;}
         else counts.matched++;
         rowRecords[collection]=record.id;
@@ -242,6 +266,13 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
           }
           changes.push({collection,recordId:record.id,field,from:current??'',to:value,provenance:group.origins[field]});
           record[field]=value;record.provenance[field]={...group.origins[field],value,matchReason:match.reason,identityDecision:override?.recordId?'manual':'automatic'};counts.fields++;
+        }
+        if(collection==='contractBusinesses'&&(!group.values.contractId||!group.values.businessId))group.errors.push('Avtalsverksamheten saknar säker koppling');
+        if(collection==='contractBusinesses'){
+          const problem=globalThis.LokalblickBusinessModel.issues(data).find(e=>e.id===record.id||e.id===record.contractId);
+          if(problem){if(!match.record){data[collection].splice(data[collection].indexOf(record),1);counts.created--;}else{Object.keys(record).forEach(k=>delete record[k]);Object.assign(record,beforeAssignment);}
+            changes.splice(0,changes.length,...changes.filter(c=>c.recordId!==record.id));entry.classification='D';entry.reason=problem.message;counts.unresolved++;
+            const id=sourceId+'|'+profile.name+'|'+(r+1)+'|'+collection;if(!data.importReview.some(x=>x.id===id))data.importReview.push({id,kind:'mapped-identity',source:fileName,status:'pending',...entry});continue;}
         }
         if(collection==='assignments'){
           globalThis.LokalblickResponsibility.normalize(data);
@@ -284,6 +315,7 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
   const consolidation={sourceRows:rows.length,uniqueRecords,mergedOccurrences:identified.length-uniqueRecords,files:new Set(profiles.map(p=>p.fileName||context.fileName)).size,sheets:profiles.length};
   for(const change of changes)data.auditLog.push({id:crypto.randomUUID(),at,by:context.actor,actorVerified:false,collection:change.collection,recordId:change.recordId,action:'Importerad',fields:[{field:change.field,from:change.from,to:change.to,provenance:change.provenance}]});
   globalThis.LokalblickObjectModel?.normalize(data);
+  globalThis.LokalblickBusinessModel.normalize(data);
   globalThis.LokalblickResponsibility.normalize(data);
   counts.objectsAfter=(data.objects||[]).length;
   const tables=context.schemas.map(schema=>{
