@@ -1,117 +1,989 @@
-// Public demo data only. Never place real company/LEB data in this file.
+// Endast syntetiska, publika DEMO-exempel. Aldrig verkliga verksamhetsuppgifter eller källdata.
 window.LokalblickDemoData = {
-  isDemo: true,
-  sourceName: "Demodata",
-  properties: [
-    { id: "DEMO-101", type: "Intern", address: "Hamnvägen 12", designation: "Hamnen 4", owner: "Stadsfastigheter", manager: "A. Förvaltare", latitude: 55.6098, longitude: 13.0105 },
-    { id: "DEMO-201", type: "Extern", address: "Storgatan 20", designation: "Centrum 5", owner: "Fastighetsbolaget AB", manager: "B. Handläggare", latitude: 55.6057, longitude: 13.0004 },
-    { id: "DEMO-301", type: "Intern", address: "Västanväg 119", designation: "Gräset 2", owner: "Stadsfastigheter", manager: "C. Förvaltare", latitude: 55.5855, longitude: 13.0108 }
-  ],
-  contracts: [
+  "isDemo": true,
+  "sourceName": "Syntetisk demodata – relationstest",
+  "currentUser": {
+    "name": "Demoanvändare",
+    "identitySource": "synthetic"
+  },
+  "properties": [
     {
-      id: "SF|DEMO-101-1", propertyId: "DEMO-101", number: "SF-DEMO-101-1", source: "SF", tenantName: "Kommunen (demo)",
-      area: 1348, category: "ÄBO Äldreboende", use: "VÅRDBO", start: "2024-01-01", end: "2028-12-31", notice: "2027-12-31",
-      annualRent: 2450000, annualContractDrift: 460000, unitId: "VARDBO",
-      tenantOrgId: "ORG-TENANT-HVO", ownerOrgId: "ORG-OWNER-SF",
-      employees: 46, users: 54, rooms: 58, commonArea: 510, apartmentArea: 620
+      "id": "DEMO-101",
+      "type": "Intern",
+      "address": "Hamnvägen 12",
+      "city": "Malmö",
+      "designation": "Hamnen 4",
+      "ownerPartyId": "ORG-OWNER-SF",
+      "responsiblePersonId": "P1",
+      "ownerResponsiblePersonId": "P5",
+      "latitude": 55.6098,
+      "longitude": 13.0105,
+      "sourceId": "FAST-DEMO-101"
     },
     {
-      id: "EXT|DEMO-201-1", propertyId: "DEMO-201", number: "5307-10030", source: "EXT", tenantName: "Kommunen (demo)",
-      area: 8224, category: "KP Kontor", use: "ORDBO", start: "2026-01-01", end: "2030-11-30", notice: "2029-11-30",
-      annualRent: 11800000, annualContractDrift: 1950000, unitId: "ORDBO",
-      tenantOrgId: "ORG-TENANT-HVO", ownerOrgId: "ORG-OWNER-EXT1",
-      employees: 410, users: 0, rooms: 0, commonArea: 1700, apartmentArea: 0
+      "id": "DEMO-201",
+      "type": "Extern",
+      "address": "Storgatan 20",
+      "city": "Malmö",
+      "designation": "Centrum 5",
+      "ownerPartyId": "ORG-OWNER-EXT",
+      "responsiblePersonId": "P2",
+      "ownerResponsiblePersonId": "P4",
+      "latitude": 55.6057,
+      "longitude": 13.0004,
+      "sourceId": "FAST-DEMO-201"
     },
     {
-      id: "SF|DEMO-301-1", propertyId: "DEMO-301", number: "SF-DEMO-301-1", source: "SF", tenantName: "Kommunen (demo)",
-      area: 1714, category: "DV Daglig verksamhet", use: "Hälsa & Förebyggande", start: "2026-01-01", end: "2028-12-31", notice: "2027-12-31",
-      annualRent: 2650000, annualContractDrift: 390000, unitId: "HOF",
-      tenantOrgId: "ORG-TENANT-HVO", ownerOrgId: "ORG-OWNER-SF",
-      employees: 34, users: 88, rooms: 0, commonArea: 640, apartmentArea: 0
+      "id": "DEMO-301",
+      "type": "Intern",
+      "address": "Västanväg 119",
+      "city": "Malmö",
+      "designation": "Gräset 2",
+      "ownerPartyId": "ORG-OWNER-SF",
+      "responsiblePersonId": "P1",
+      "ownerResponsiblePersonId": "P5",
+      "latitude": 55.5855,
+      "longitude": 13.0108,
+      "sourceId": "FAST-DEMO-301"
     }
   ],
-  organizations: [
-    { id: "ORG-OUR", name: "Vår organisation", type: "our" },
-    { id: "ORG-TENANT-HVO", name: "Hyresgästen / verksamheten", type: "tenant" },
-    { id: "ORG-OWNER-SF", name: "Stadsfastigheter", type: "owner", ownerClass: "Intern" },
-    { id: "ORG-OWNER-EXT1", name: "Fastighetsbolaget AB", type: "owner", ownerClass: "Extern" }
-  ],
-  people: [
-    { id: "P1", name: "Anna Lind", organizationId: "ORG-OUR", unitId: "VARDBO", role: "Projektledare", email: "" },
-    { id: "P2", name: "Johan Ek", organizationId: "ORG-OUR", unitId: "ORDBO", role: "Objektansvarig", email: "" },
-    { id: "P3", name: "Eva Nilsson", organizationId: "ORG-TENANT-HVO", unitId: "VARDBO", role: "Verksamhetschef", email: "" },
-    { id: "P4", name: "Anders Berg", organizationId: "ORG-OWNER-EXT1", unitId: "", role: "Fastighetsförvaltare", email: "" }
-  ],
-  assignments: [
-    { id: "A1", personId: "P1", targetType: "project", targetId: "PR1", role: "Projektledare", allocation: 35 },
-    { id: "A2", personId: "P2", targetType: "object", targetId: "EXT|DEMO-201-1", role: "Objektansvarig", allocation: 35 },
-    { id: "A3", personId: "P3", targetType: "object", targetId: "SF|DEMO-101-1", role: "Hyresgästkontakt", allocation: 0 },
-    { id: "A4", personId: "P4", targetType: "object", targetId: "EXT|DEMO-201-1", role: "Fastighetsägarkontakt", allocation: 0 }
-  ],
-  projects: [
+  "objects": [
     {
-      id: "PR1", propertyId: "DEMO-101", contractId: "SF|DEMO-101-1", name: "Ventilationsåtgärder",
-      description: "Förbättrad ventilation och komfort.", status: "Pågår", phase: "Genomförande",
-      start: "2026-09-01", end: "2027-05-31", moveIn: "2027-06-15", budgetYear: 2027,
-      budgetInvestigation: 250000, budgetExecution: 3200000, budgetFurnishing: 150000, preliminaryCost: 3800000, planningQuarter: 2, planningMonth: 5
+      "id": "OBJ-DEMO-101-A",
+      "propertyId": "DEMO-101",
+      "number": "101-01",
+      "name": "Solgläntans särskilda boende",
+      "area": 1348,
+      "unitId": "VARDBO",
+      "category": "Äldreboende",
+      "start": "2024-01-01",
+      "predecessorIds": []
+    },
+    {
+      "id": "OBJ-DEMO-201-A",
+      "propertyId": "DEMO-201",
+      "number": "201-01",
+      "name": "Hemtjänst och hemsjukvård",
+      "area": 500,
+      "unitId": "ORDBO",
+      "category": "Kontor",
+      "start": "2025-01-01",
+      "predecessorIds": []
+    },
+    {
+      "id": "OBJ-DEMO-201-B",
+      "propertyId": "DEMO-201",
+      "number": "201-02",
+      "name": "Administrationslokaler",
+      "area": 260,
+      "unitId": "ORDBO",
+      "category": "Kontor",
+      "start": "2025-01-01",
+      "predecessorIds": []
+    },
+    {
+      "id": "OBJ-DEMO-301-A",
+      "propertyId": "DEMO-301",
+      "number": "301-01",
+      "name": "Daglig verksamhet Västan",
+      "area": 1714,
+      "unitId": "HOF",
+      "category": "Daglig verksamhet",
+      "start": "2026-01-01",
+      "predecessorIds": []
     }
   ],
-  maintenance: [
-    { id: "UH1", propertyId: "DEMO-101", contractId: "SF|DEMO-101-1", title: "Tak", year: 2028, cost: 4500000, priority: "Hög", status: "Planerad", planningQuarter: 3, planningMonth: null },
-    { id: "UH2", propertyId: "DEMO-301", contractId: "SF|DEMO-301-1", title: "Ytskikt", year: 2027, cost: 650000, priority: "Medel", status: "Identifierad", planningQuarter: 2, planningMonth: null }
-  ],
-  operations: [
-    { id: "D1", propertyId: "DEMO-101", contractId: "SF|DEMO-101-1", period: 2027, category: "Energi", budget: 640000, actual: 0 },
-    { id: "D2", propertyId: "DEMO-201", contractId: "EXT|DEMO-201-1", period: 2027, category: "Energi", budget: 450000, actual: 0 }
-  ],
-  investigations: [
-    { id: "U1", propertyId: "DEMO-201", contractId: "EXT|DEMO-201-1", title: "Kapacitetsutredning", year: 2027, cost: 280000, status: "Planerad" }
-  ],
-  maintenanceStatus: [
-    { id:"MS1", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Ytskick", assessedDate:"2026-09-15", status:"Åtgärdsbehov", priority:"Medel", comment:"Slitage i gemensamma ytor.", actionNeed:"Målning och mindre lagningar", budgetYear:2027, estimatedCost:180000, includeInBudget:"Ja", responsiblePersonId:"P2", planningQuarter:1, planningMonth:3 },
-    { id:"MS2", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Brand / utrymning", assessedDate:"2026-09-15", status:"Bra", priority:"Låg", comment:"Kontrollerat.", actionNeed:"", budgetYear:null, estimatedCost:0, includeInBudget:"Nej", responsiblePersonId:"" },
-    { id:"MS3", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Passage", assessedDate:"2026-09-20", status:"Acceptabel", priority:"Medel", comment:"Äldre läsare på plan 2.", actionNeed:"Utred byte", budgetYear:2027, estimatedCost:90000, includeInBudget:"Ja", responsiblePersonId:"P2", planningQuarter:3, planningMonth:9 }
-  ],
-  driftIssues: [
-    { id:"DI1", contractId:"EXT|DEMO-201-1", propertyId:"DEMO-201", category:"Ventilation", title:"Ojämn temperatur plan 3", description:"Återkommande felanmälningar från verksamheten.", createdDate:"2026-09-25", targetDate:"2026-11-15", decisionDate:"", completedDate:"", status:"Pågår", priority:"Hög", responsiblePersonId:"P2", budgetYear:2027, estimatedCost:120000, finalCost:0, includeInBudget:"Ja", planningQuarter:1, planningMonth:null }
-  ],
-  wishes: [
-    { id:"W1", contractId:"SF|DEMO-101-1", propertyId:"DEMO-101", category:"Verksamhetsanpassning", title:"Lugnare mötesrum", description:"Önskemål om bättre akustik och avskärmning.", createdDate:"2026-09-10", targetDate:"2027-02-01", decisionDate:"2026-10-20", completedDate:"", status:"Beslutat", responsiblePersonId:"P1", budgetYear:2027, budgetCategory:"Projekt", estimatedCost:240000, finalCost:0, includeInBudget:"Ja" }
-  ],
-  budgetPlans: [
+  "contracts": [
     {
-      year: 2027,
-      status: "Låst",
-      createdAt: "2026-09-25",
-      lockedAt: "2026-10-01",
-      notes: {
-        "Projekt": "Avrundning och reserv för mindre projekteringsändringar",
-        "Underhåll": "Årsreserv för mindre ej identifierade åtgärder",
-        "Driftkostnader": "Reserv för pris- och volymförändringar",
-        "Utredningar": "Avrundning till beslutad årsram"
-      },
-      targets: {
-        "Hyra + drift": 19700000,
-        "Projekt": 3600000,
-        "Underhåll": 1000000,
-        "Driftkostnader": 1250000,
-        "Utredningar": 550000
-      },
-      lines: [
-        { category:"Hyra + drift", sub:"Avtal", source:"SF-DEMO-101-1", contractId:"SF|DEMO-101-1", amount:2910000 },
-        { category:"Hyra + drift", sub:"Avtal", source:"5307-10030", contractId:"EXT|DEMO-201-1", amount:13750000 },
-        { category:"Hyra + drift", sub:"Avtal", source:"SF-DEMO-301-1", contractId:"SF|DEMO-301-1", amount:3040000 },
-        { category:"Utredningar", sub:"Projektutredning", source:"Ventilationsåtgärder", contractId:"SF|DEMO-101-1", amount:250000 },
-        { category:"Projekt", sub:"Genomförande + inredning", source:"Ventilationsåtgärder", contractId:"SF|DEMO-101-1", amount:3350000 },
-        { category:"Projekt", sub:"Verksamhetsanpassning", source:"Önskemål: Lugnare mötesrum", contractId:"SF|DEMO-101-1", amount:240000 },
-        { category:"Underhåll", sub:"Ytskikt", source:"Ytskikt", contractId:"SF|DEMO-301-1", amount:650000 },
-        { category:"Underhåll", sub:"Ytskick", source:"Status: Ytskick", contractId:"SF|DEMO-101-1", amount:180000 },
-        { category:"Underhåll", sub:"Passage", source:"Status: Passage", contractId:"EXT|DEMO-201-1", amount:90000 },
-        { category:"Driftkostnader", sub:"Energi", source:"Energi", contractId:"SF|DEMO-101-1", amount:640000 },
-        { category:"Driftkostnader", sub:"Energi", source:"Energi", contractId:"EXT|DEMO-201-1", amount:450000 },
-        { category:"Driftkostnader", sub:"Ventilation", source:"Ärende: Ojämn temperatur plan 3", contractId:"EXT|DEMO-201-1", amount:120000 },
-        { category:"Utredningar", sub:"Kapacitetsutredning", source:"Kapacitetsutredning", contractId:"EXT|DEMO-201-1", amount:280000 }
+      "id": "AVT-DEMO-101",
+      "number": "101-2024",
+      "propertyId": "DEMO-101",
+      "objectId": "OBJ-DEMO-101-A",
+      "area": 1348,
+      "source": "DEMO",
+      "tenantName": "Omsorgsförvaltningen (demo)",
+      "tenantPartyId": "ORG-TENANT",
+      "businessPartyId": "ORG-TENANT",
+      "start": "2025-01-01",
+      "end": "2028-12-31",
+      "noticePeriodMonths": 9,
+      "renewalPeriodMonths": 12,
+      "baseRent": 2450000,
+      "baseAdditions": 0,
+      "rentIndexPercent": 0,
+      "additionIndexPercent": 0,
+      "annualContractDrift": 294000,
+      "unitId": "VARDBO",
+      "businessName": "Solgläntan",
+      "sourceId": "101-2024",
+      "businessResponsiblePersonId": "P3",
+      "tenantResponsiblePersonId": "P3",
+      "responsiblePersonId": "P1",
+      "businessLinksManaged": true
+    },
+    {
+      "id": "AVT-DEMO-201",
+      "number": "201-2025",
+      "propertyId": "DEMO-201",
+      "objectId": "OBJ-DEMO-201-A",
+      "area": 500,
+      "source": "DEMO",
+      "tenantName": "Omsorgsförvaltningen (demo)",
+      "tenantPartyId": "ORG-TENANT",
+      "businessPartyId": "ORG-TENANT",
+      "start": "2025-01-01",
+      "end": "2029-12-31",
+      "noticePeriodMonths": 9,
+      "renewalPeriodMonths": 12,
+      "baseRent": 950000,
+      "baseAdditions": 0,
+      "rentIndexPercent": 0,
+      "additionIndexPercent": 0,
+      "annualContractDrift": 114000,
+      "unitId": "ORDBO",
+      "businessName": "Hemtjänst Centrum / Hemsjukvård Centrum",
+      "sourceId": "201-2025",
+      "businessResponsiblePersonId": "P6",
+      "tenantResponsiblePersonId": "P3",
+      "responsiblePersonId": "P2",
+      "businessLinksManaged": true
+    },
+    {
+      "id": "AVT-DEMO-202",
+      "number": "202-2025",
+      "propertyId": "DEMO-201",
+      "objectId": "OBJ-DEMO-201-B",
+      "area": 260,
+      "source": "DEMO",
+      "tenantName": "Omsorgsförvaltningen (demo)",
+      "tenantPartyId": "ORG-TENANT",
+      "businessPartyId": "ORG-TENANT",
+      "start": "2025-01-01",
+      "end": "2029-12-31",
+      "noticePeriodMonths": 9,
+      "renewalPeriodMonths": 12,
+      "baseRent": 600000,
+      "baseAdditions": 0,
+      "rentIndexPercent": 0,
+      "additionIndexPercent": 0,
+      "annualContractDrift": 72000,
+      "unitId": "ORDBO",
+      "businessName": "Hemtjänst Centrum",
+      "sourceId": "202-2025",
+      "businessResponsiblePersonId": "P6",
+      "responsiblePersonId": "P2",
+      "tenantResponsiblePersonId": "P6",
+      "businessLinksManaged": true
+    },
+    {
+      "id": "AVT-DEMO-301",
+      "number": "301-2026",
+      "propertyId": "DEMO-301",
+      "objectId": "OBJ-DEMO-301-A",
+      "area": 1714,
+      "source": "DEMO",
+      "tenantName": "Omsorgsförvaltningen (demo)",
+      "tenantPartyId": "ORG-TENANT",
+      "businessPartyId": "ORG-TENANT",
+      "start": "2025-01-01",
+      "end": "2028-12-31",
+      "noticePeriodMonths": 9,
+      "renewalPeriodMonths": 12,
+      "baseRent": 2650000,
+      "baseAdditions": 0,
+      "rentIndexPercent": 0,
+      "additionIndexPercent": 0,
+      "annualContractDrift": 318000,
+      "unitId": "HOF",
+      "businessName": "Daglig verksamhet Västan",
+      "sourceId": "301-2026",
+      "businessResponsiblePersonId": "P3",
+      "responsiblePersonId": "P1",
+      "businessLinksManaged": true
+    }
+  ],
+  "organizations": [
+    {
+      "id": "ORG-OUR",
+      "name": "Lokalförvaltningen (demo)",
+      "type": "our"
+    },
+    {
+      "id": "ORG-TENANT",
+      "name": "Omsorgsförvaltningen (demo)",
+      "type": "tenant"
+    },
+    {
+      "id": "ORG-OWNER-SF",
+      "name": "Stadsfastigheter (demo)",
+      "type": "owner",
+      "ownerClass": "Intern"
+    },
+    {
+      "id": "ORG-OWNER-EXT",
+      "name": "Fastighetsbolaget Exempel AB",
+      "type": "owner",
+      "ownerClass": "Extern"
+    }
+  ],
+  "people": [
+    {
+      "id": "P1",
+      "name": "Anna Lind",
+      "organizationId": "ORG-OUR",
+      "unitId": "VARDBO",
+      "role": "Projektledare"
+    },
+    {
+      "id": "P2",
+      "name": "Johan Ek",
+      "organizationId": "ORG-OUR",
+      "unitId": "ORDBO",
+      "role": "Fastighetsansvarig"
+    },
+    {
+      "id": "P3",
+      "name": "Eva Nilsson",
+      "organizationId": "ORG-TENANT",
+      "unitId": "VARDBO",
+      "role": "Verksamhetschef"
+    },
+    {
+      "id": "P4",
+      "name": "Anders Berg",
+      "organizationId": "ORG-OWNER-EXT",
+      "role": "Förvaltare"
+    },
+    {
+      "id": "P5",
+      "name": "Karin Holm",
+      "organizationId": "ORG-OWNER-SF",
+      "role": "Förvaltare"
+    },
+    {
+      "id": "P6",
+      "name": "Sara Lund",
+      "organizationId": "ORG-TENANT",
+      "unitId": "ORDBO",
+      "role": "Enhetschef"
+    }
+  ],
+  "assignments": [
+    {
+      "id": "ANS-101-OUR",
+      "personId": "P1",
+      "targetType": "property",
+      "targetId": "DEMO-101",
+      "roleKey": "our",
+      "role": "Vår ansvarige",
+      "organizationId": "ORG-OUR",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-101-OWNER",
+      "personId": "P5",
+      "targetType": "property",
+      "targetId": "DEMO-101",
+      "roleKey": "owner",
+      "role": "Fastighetsägarens kontaktperson",
+      "organizationId": "ORG-OWNER-SF",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-201-OUR-OLD",
+      "personId": "P1",
+      "targetType": "property",
+      "targetId": "DEMO-201",
+      "roleKey": "our",
+      "role": "Vår ansvarige",
+      "organizationId": "ORG-OUR",
+      "fromDate": "2025-01-01",
+      "toDate": "2026-09-30",
+      "shared": false
+    },
+    {
+      "id": "ANS-201-OUR",
+      "personId": "P2",
+      "targetType": "property",
+      "targetId": "DEMO-201",
+      "roleKey": "our",
+      "role": "Vår ansvarige",
+      "organizationId": "ORG-OUR",
+      "fromDate": "2026-10-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-201-OWNER",
+      "personId": "P4",
+      "targetType": "property",
+      "targetId": "DEMO-201",
+      "roleKey": "owner",
+      "role": "Fastighetsägarens kontaktperson",
+      "organizationId": "ORG-OWNER-EXT",
+      "fromDate": "2025-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-301-OUR",
+      "personId": "P1",
+      "targetType": "property",
+      "targetId": "DEMO-301",
+      "roleKey": "our",
+      "role": "Vår ansvarige",
+      "organizationId": "ORG-OUR",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-301-OWNER",
+      "personId": "P5",
+      "targetType": "property",
+      "targetId": "DEMO-301",
+      "roleKey": "owner",
+      "role": "Fastighetsägarens kontaktperson",
+      "organizationId": "ORG-OWNER-SF",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-101-BUS",
+      "personId": "P3",
+      "targetType": "contract",
+      "targetId": "AVT-DEMO-101",
+      "roleKey": "business",
+      "role": "Verksamhetsansvarig",
+      "organizationId": "ORG-TENANT",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-101-TEN",
+      "personId": "P3",
+      "targetType": "contract",
+      "targetId": "AVT-DEMO-101",
+      "roleKey": "tenant",
+      "role": "Hyresgästens kontaktperson",
+      "organizationId": "ORG-TENANT",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-201-BUS",
+      "personId": "P6",
+      "targetType": "contract",
+      "targetId": "AVT-DEMO-201",
+      "roleKey": "business",
+      "role": "Verksamhetsansvarig",
+      "organizationId": "ORG-TENANT",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-201-TEN",
+      "personId": "P3",
+      "targetType": "contract",
+      "targetId": "AVT-DEMO-201",
+      "roleKey": "tenant",
+      "role": "Hyresgästens kontaktperson",
+      "organizationId": "ORG-TENANT",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-202-BUS",
+      "personId": "P6",
+      "targetType": "contract",
+      "targetId": "AVT-DEMO-202",
+      "roleKey": "business",
+      "role": "Verksamhetsansvarig",
+      "organizationId": "ORG-TENANT",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-202-TEN",
+      "personId": "P6",
+      "targetType": "contract",
+      "targetId": "AVT-DEMO-202",
+      "roleKey": "tenant",
+      "role": "Hyresgästens kontaktperson",
+      "organizationId": "ORG-TENANT",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-VENT-OUR",
+      "personId": "P1",
+      "targetType": "activity",
+      "targetId": "ACT-DEMO-VENT",
+      "roleKey": "our",
+      "role": "Vår ansvarige",
+      "organizationId": "ORG-OUR",
+      "fromDate": "2026-09-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-TEMP-OUR",
+      "personId": "P2",
+      "targetType": "activity",
+      "targetId": "ACT-DEMO-TEMP",
+      "roleKey": "our",
+      "role": "Vår ansvarige",
+      "organizationId": "ORG-OUR",
+      "fromDate": "2026-09-15",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-PASS-OUR",
+      "personId": "P2",
+      "targetType": "activity",
+      "targetId": "ACT-DEMO-PASS",
+      "roleKey": "our",
+      "role": "Vår ansvarige",
+      "organizationId": "ORG-OUR",
+      "fromDate": "2026-09-20",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-OBJECT",
+      "personId": "P2",
+      "targetType": "object",
+      "targetId": "OBJ-DEMO-201-A",
+      "roleKey": "our",
+      "role": "Vår ansvarige",
+      "organizationId": "ORG-OUR",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    },
+    {
+      "id": "ANS-BUS",
+      "personId": "P6",
+      "targetType": "business",
+      "targetId": "BUS-DEMO-HEM",
+      "roleKey": "business",
+      "role": "Verksamhetsansvarig",
+      "organizationId": "ORG-TENANT",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "shared": false
+    }
+  ],
+  "businesses": [
+    {
+      "id": "BUS-DEMO-SOL",
+      "sourceId": "V-101",
+      "name": "Solgläntans äldreboende",
+      "type": "Äldreboende",
+      "unitId": "VARDBO",
+      "organizationId": "ORG-TENANT",
+      "status": "Aktiv",
+      "businessResponsiblePersonId": "P3"
+    },
+    {
+      "id": "BUS-DEMO-HEM",
+      "sourceId": "V-201",
+      "name": "Hemtjänst Centrum",
+      "type": "Hemtjänst",
+      "unitId": "ORDBO",
+      "organizationId": "ORG-TENANT",
+      "status": "Aktiv",
+      "businessResponsiblePersonId": "P6"
+    },
+    {
+      "id": "BUS-DEMO-HS",
+      "sourceId": "V-202",
+      "name": "Hemsjukvård Centrum",
+      "type": "Hemsjukvård",
+      "unitId": "ORDBO",
+      "organizationId": "ORG-TENANT",
+      "status": "Aktiv",
+      "businessResponsiblePersonId": "P3"
+    },
+    {
+      "id": "BUS-DEMO-DAG",
+      "sourceId": "V-301",
+      "name": "Daglig verksamhet Västan",
+      "type": "Daglig verksamhet",
+      "unitId": "HOF",
+      "organizationId": "ORG-TENANT",
+      "status": "Aktiv",
+      "businessResponsiblePersonId": "P3"
+    }
+  ],
+  "contractBusinesses": [
+    {
+      "id": "CB-DEMO-101",
+      "contractId": "AVT-DEMO-101",
+      "businessId": "BUS-DEMO-SOL",
+      "fromDate": "2024-01-01",
+      "toDate": "",
+      "usedArea": null,
+      "costSharePercent": null
+    },
+    {
+      "id": "CB-DEMO-201-A",
+      "contractId": "AVT-DEMO-201",
+      "businessId": "BUS-DEMO-HEM",
+      "fromDate": "2025-01-01",
+      "toDate": "",
+      "usedArea": 300,
+      "costSharePercent": 60
+    },
+    {
+      "id": "CB-DEMO-201-B",
+      "contractId": "AVT-DEMO-201",
+      "businessId": "BUS-DEMO-HS",
+      "fromDate": "2025-01-01",
+      "toDate": "",
+      "usedArea": 200,
+      "costSharePercent": 40
+    },
+    {
+      "id": "CB-DEMO-202",
+      "contractId": "AVT-DEMO-202",
+      "businessId": "BUS-DEMO-HEM",
+      "fromDate": "2025-01-01",
+      "toDate": "",
+      "usedArea": null,
+      "costSharePercent": null
+    },
+    {
+      "id": "CB-DEMO-301",
+      "contractId": "AVT-DEMO-301",
+      "businessId": "BUS-DEMO-DAG",
+      "fromDate": "2026-01-01",
+      "toDate": "",
+      "usedArea": null,
+      "costSharePercent": null
+    }
+  ],
+  "activities": [
+    {
+      "id": "ACT-DEMO-VENT",
+      "title": "Ventilation och inomhusklimat",
+      "type": "Projekt",
+      "status": "Pågår",
+      "priority": "Hög",
+      "planningYear": 2027,
+      "includeInBudget": "Ja",
+      "budgetCategory": "Projekt",
+      "scopeType": "contract",
+      "objectId": "",
+      "propertyId": "",
+      "contractId": "AVT-DEMO-101",
+      "responsiblePersonId": "P1",
+      "estimatedCost": 3200000,
+      "startDate": "2026-09-01",
+      "endDate": "2027-05-31",
+      "description": "Modernisering av ventilationssystemet i äldreboendet.",
+      "phase": "Genomförande"
+    },
+    {
+      "id": "ACT-DEMO-TAK",
+      "title": "Takbesiktning och åtgärder",
+      "type": "Underhåll",
+      "status": "Planerad",
+      "priority": "Medel",
+      "planningYear": 2027,
+      "includeInBudget": "Ja",
+      "budgetCategory": "Underhåll",
+      "scopeType": "object",
+      "objectId": "OBJ-DEMO-101-A",
+      "propertyId": "",
+      "contractId": "",
+      "responsiblePersonId": "P1",
+      "estimatedCost": 450000,
+      "startDate": "2027-03-01",
+      "endDate": "2027-06-15",
+      "category": "Tak"
+    },
+    {
+      "id": "ACT-DEMO-TEMP",
+      "title": "Ojämn temperatur plan 3",
+      "type": "Drift",
+      "status": "Pågår",
+      "priority": "Hög",
+      "planningYear": 2027,
+      "includeInBudget": "Ja",
+      "budgetCategory": "Driftkostnader",
+      "scopeType": "contract",
+      "objectId": "",
+      "propertyId": "",
+      "contractId": "AVT-DEMO-201",
+      "responsiblePersonId": "P2",
+      "estimatedCost": 120000,
+      "startDate": "2026-09-15",
+      "endDate": "2026-11-30",
+      "description": "Temperaturavvikelser anmälda av hemsjukvård."
+    },
+    {
+      "id": "ACT-DEMO-SIGN",
+      "title": "Skyltning och bättre orientering",
+      "type": "Önskemål",
+      "status": "Inkommen",
+      "priority": "Medel",
+      "planningYear": 2027,
+      "includeInBudget": "Nej",
+      "budgetCategory": "Ej budget",
+      "scopeType": "object",
+      "objectId": "OBJ-DEMO-201-B",
+      "propertyId": "",
+      "contractId": "",
+      "responsiblePersonId": "P2",
+      "estimatedCost": 85000,
+      "startDate": "2026-10-01",
+      "endDate": "2027-02-15"
+    },
+    {
+      "id": "ACT-DEMO-PASS",
+      "title": "Byte av passersystem",
+      "type": "Underhåll",
+      "status": "Beslutat",
+      "priority": "Medel",
+      "planningYear": 2027,
+      "includeInBudget": "Ja",
+      "budgetCategory": "Underhåll",
+      "scopeType": "contract",
+      "objectId": "",
+      "propertyId": "",
+      "contractId": "AVT-DEMO-201",
+      "responsiblePersonId": "P2",
+      "estimatedCost": 90000,
+      "startDate": "2027-04-01",
+      "endDate": "2027-05-31",
+      "category": "Passage"
+    },
+    {
+      "id": "ACT-DEMO-DAG",
+      "title": "Utredning av nya aktivitetsrum",
+      "type": "Utredning",
+      "status": "Pågår",
+      "priority": "Medel",
+      "planningYear": 2027,
+      "includeInBudget": "Ja",
+      "budgetCategory": "Utredningar",
+      "scopeType": "property",
+      "objectId": "",
+      "propertyId": "DEMO-301",
+      "contractId": "",
+      "responsiblePersonId": "P1",
+      "estimatedCost": 280000,
+      "startDate": "2026-10-01",
+      "endDate": "2027-04-30",
+      "description": "Utredning av lokalbehov och möjliga planlösningar."
+    },
+    {
+      "id": "ACT-DEMO-AKUST",
+      "title": "Akustikanpassning mötesrum",
+      "type": "Önskemål",
+      "status": "Beslutat",
+      "priority": "Medel",
+      "planningYear": 2027,
+      "includeInBudget": "Ja",
+      "budgetCategory": "Projekt",
+      "scopeType": "contract",
+      "objectId": "",
+      "propertyId": "",
+      "contractId": "AVT-DEMO-101",
+      "responsiblePersonId": "P1",
+      "estimatedCost": 240000,
+      "startDate": "2026-09-10",
+      "endDate": "2027-02-01"
+    },
+    {
+      "id": "ACT-DEMO-GEN",
+      "title": "Samordnad lokalöversyn",
+      "type": "Utredning",
+      "status": "Identifierad",
+      "priority": "Medel",
+      "planningYear": 2027,
+      "includeInBudget": "Ja",
+      "budgetCategory": "Utredningar",
+      "scopeType": "unit",
+      "objectId": "",
+      "propertyId": "",
+      "contractId": "",
+      "responsiblePersonId": "P1",
+      "estimatedCost": 40000,
+      "startDate": "2027-01-01",
+      "endDate": "2027-03-31",
+      "unitId": "HOF",
+      "description": "Områdesgemensam aktivitet utan fastighetskoppling (avsiktligt testfall)."
+    }
+  ],
+  "orders": [
+    {
+      "id": "ORD-DEMO-VENT",
+      "activityId": "ACT-DEMO-VENT",
+      "orderedByPersonId": "P1",
+      "orderedAt": "2026-10-05",
+      "status": "Beställd",
+      "supplier": "Teknikentreprenad Demo AB",
+      "orderReference": "BEST-2026-101",
+      "orderedCost": 700000,
+      "completedAt": "",
+      "finalCost": 0
+    },
+    {
+      "id": "ORD-DEMO-TEMP",
+      "activityId": "ACT-DEMO-TEMP",
+      "orderedByPersonId": "P2",
+      "orderedAt": "2026-09-28",
+      "status": "Pågår",
+      "supplier": "Klimatservice Demo AB",
+      "orderReference": "BEST-2026-201",
+      "orderedCost": 45000,
+      "completedAt": "",
+      "finalCost": 0
+    }
+  ],
+  "auditLog": [
+    {
+      "id": "LOG-DEMO-1",
+      "at": "2026-09-08T09:10:00+02:00",
+      "by": "Anna Lind",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-VENT",
+      "action": "Journalanteckning",
+      "fields": [
+        {
+          "field": "comment",
+          "from": "",
+          "to": "Startmöte genomfört. Verksamheten vill att arbetet delas upp etappvis."
+        }
       ]
+    },
+    {
+      "id": "LOG-DEMO-2",
+      "at": "2026-09-24T14:25:00+02:00",
+      "by": "Eva Nilsson",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-VENT",
+      "action": "Journalanteckning",
+      "fields": [
+        {
+          "field": "comment",
+          "from": "",
+          "to": "Önskemål om extra ljuddämpning i samlingsrummen."
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-3",
+      "at": "2026-10-02T11:20:00+02:00",
+      "by": "Anna Lind",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-VENT",
+      "action": "Ändrad",
+      "fields": [
+        {
+          "field": "estimatedCost",
+          "from": 2800000,
+          "to": 3200000
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-4",
+      "at": "2026-10-02T11:25:00+02:00",
+      "by": "Anna Lind",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-VENT",
+      "action": "Journalanteckning",
+      "fields": [
+        {
+          "field": "comment",
+          "from": "",
+          "to": "Ny kostnadsbedömning 3,2 mnkr efter projektering. Berörda informerade."
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-5",
+      "at": "2026-10-08T13:40:00+02:00",
+      "by": "Anna Lind",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-VENT",
+      "action": "Ändrad",
+      "fields": [
+        {
+          "field": "endDate",
+          "from": "2027-04-30",
+          "to": "2027-05-31"
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-6",
+      "at": "2026-10-08T13:45:00+02:00",
+      "by": "Anna Lind",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-VENT",
+      "action": "Journalanteckning",
+      "fields": [
+        {
+          "field": "comment",
+          "from": "",
+          "to": "Tidplan justerad till 31 maj på grund av leveranstid."
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-7",
+      "at": "2026-09-16T10:00:00+02:00",
+      "by": "Johan Ek",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-TEMP",
+      "action": "Journalanteckning",
+      "fields": [
+        {
+          "field": "comment",
+          "from": "",
+          "to": "Felanmälan mottagen från hemsjukvården. Temperaturmätning beställd."
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-8",
+      "at": "2026-09-29T08:20:00+02:00",
+      "by": "Johan Ek",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-TEMP",
+      "action": "Ändrad",
+      "fields": [
+        {
+          "field": "estimatedCost",
+          "from": 80000,
+          "to": 120000
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-9",
+      "at": "2026-09-29T08:30:00+02:00",
+      "by": "Johan Ek",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-TEMP",
+      "action": "Journalanteckning",
+      "fields": [
+        {
+          "field": "comment",
+          "from": "",
+          "to": "Kostnadsbedömning höjd efter inspektion av ventilationsaggregat."
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-10",
+      "at": "2026-10-06T15:05:00+02:00",
+      "by": "Anna Lind",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-DAG",
+      "action": "Journalanteckning",
+      "fields": [
+        {
+          "field": "comment",
+          "from": "",
+          "to": "Behovsworkshop genomförd med verksamhetschef. Två alternativa planlösningar tas fram."
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-11",
+      "at": "2026-10-09T09:00:00+02:00",
+      "by": "Johan Ek",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-PASS",
+      "action": "Journalanteckning",
+      "fields": [
+        {
+          "field": "comment",
+          "from": "",
+          "to": "Beslut om upphandling. Samordna med fastighetsägaren."
+        }
+      ]
+    },
+    {
+      "id": "LOG-DEMO-12",
+      "at": "2026-10-10T11:40:00+02:00",
+      "by": "Eva Nilsson",
+      "collection": "activities",
+      "recordId": "ACT-DEMO-AKUST",
+      "action": "Journalanteckning",
+      "fields": [
+        {
+          "field": "comment",
+          "from": "",
+          "to": "Verksamheten har godkänt förslag till akustikåtgärder."
+        }
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "id": "KOST-DEMO-101",
+      "propertyId": "DEMO-101",
+      "contractId": "AVT-DEMO-101",
+      "period": 2027,
+      "category": "Energi",
+      "budget": 640000,
+      "actual": 0
+    }
+  ],
+  "maintenanceStatus": [
+    {
+      "id": "MS-DEMO-101",
+      "propertyId": "DEMO-101",
+      "contractId": "AVT-DEMO-101",
+      "category": "Brand / utrymning",
+      "assessedDate": "2026-09-15",
+      "status": "Bra",
+      "priority": "Låg",
+      "comment": "Godkänt vid kontroll (demo).",
+      "actionNeed": "",
+      "estimatedCost": 0
+    }
+  ],
+  "budgetPlans": [
+    {
+      "year": 2027,
+      "status": "Arbetsbudget",
+      "createdAt": "2026-10-01",
+      "adjustments": {},
+      "notes": {
+        "Projekt": "Syntetiskt exempel – ingen faktisk budget"
+      },
+      "lines": []
+    }
+  ],
+  "sourceRegistry": [
+    {
+      "name": "Inbyggt syntetiskt demoexempel",
+      "kind": "demo",
+      "rows": 16,
+      "matched": 0,
+      "created": 16,
+      "review": 0,
+      "importedAt": "2026-10-13T09:00:00+02:00",
+      "sheets": "Fastigheter, Objekt, Avtal, Verksamheter, Aktiviteter"
     }
   ]
 };
