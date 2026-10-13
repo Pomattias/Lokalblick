@@ -122,17 +122,17 @@ export function renderIssueEditor(data,issue,id,company=false) {
     '<div class="section-title"><div><small>'+(id?"ÄNDRA ÄRENDE":"NYTT ÄRENDE")+'</small>'+
     '<h2 id="editor-title" class="issue-title-heading">'+esc(issue.title||"Nytt ärende")+'</h2><small>'+esc(issue.type||"Projekt · Underhåll · Drift · Önskemål")+'</small>'+
     '</div><button type="button" data-editor-close>Stäng</button></div>'+
-    '<section class="issue-section"><h3>Ärende</h3><div class="issue-grid">'+
+    '<section class="issue-section issue-main-section"><div class="issue-grid">'+
       '<div class="issue-title-field">'+field("Ärendenamn",input(issue,"title","text",'required maxlength="250"'))+'</div>'+
+      '<div class="issue-home-row"><div class="issue-property-reference"><span>Fastighet</span><strong title="'+esc(propertyName)+'">'+esc(propertyName)+'</strong></div>'+field("Kopplat till",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+'</div>'+
+      '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="2">'+esc(issue.description||"")+'</textarea></label>'+
+      '<div class="issue-compact-meta">'+
       field("Typ",typeSelect)+
       field("Status",choice("status",statuses.map(value=>({value,label:value})),issue.status,"Välj status"))+
       field("Kategori",choice("category",issueCategoryChoices(issue.category),issue.category,"Välj kategori"))+
       field("Prioritet",choice("priority",priorities.map(value=>({value,label:value})),issue.priority,"Ej prioriterad"))+
-    '</div>'+
-    '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="3">'+esc(issue.description||"")+'</textarea></label>'+
-    '<div class="issue-grid">'+
-      '<div class="issue-home-row"><div class="issue-property-reference"><span>Fastighet</span><strong title="'+esc(propertyName)+'">'+esc(propertyName)+'</strong></div>'+field("Kopplat till",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+'</div>'+
-      field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"))+
+      '</div>'+
+      '<div class="issue-owner-row">'+field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"))+'</div>'+
     '</div></section>'+
     (id?activityJournalHtml(data,id):'<section class="issue-section activity-journal"><h3>Noteringar och historik</h3><p class="issue-note">Spara ärendet först för att börja föra en daterad journal.</p></section>')+
     '<section class="issue-section"><h3>Tid och planering</h3><div class="issue-grid">'+
