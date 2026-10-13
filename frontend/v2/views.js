@@ -311,8 +311,11 @@ export function dashboard(data, selection, year) {
 function activityRows(data, items) {
   return items.map(x => {
     const property = propertyById(data, x.propertyId);
+    const notes=(data.auditLog||[]).filter(h=>h.collection==="activities"&&String(h.recordId)===String(x.record.id)&&h.action==="Journalanteckning").sort((a,b)=>String(b.at||"").localeCompare(String(a.at||"")));
+    const latest=notes[0];
+    const date=latest?.at&&!Number.isNaN(Date.parse(latest.at))?new Date(latest.at).toLocaleDateString("sv-SE"):null;
     return row([
-      `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>`,
+      `<strong>${esc(x.title)}</strong><small>${esc(x.label)}${latest?" · "+notes.length+" journalanteckningar · senaste "+date:""}</small>`,
       esc(propertyDesignation(property) || "–"),
       propertyAddressCell(property),
       esc(personLabel(data, responsible(data, x.collection, x.record))),
