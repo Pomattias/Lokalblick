@@ -1396,3 +1396,67 @@ details .table-wrap {
  body[data-view="plan"] .plan-exceptions { margin:2px 0; }
  body[data-view="plan"] .plan-mobile-list { margin-top:0; }
 }
+
+
+/* Shared mobile filter controls: use the same compact proportions on every page. */
+@media(max-width:700px){
+ .filters .filter-chip,body[data-view="plan"] .filters .filter-chip{
+   box-sizing:border-box;min-height:36px;height:36px;padding:4px 6px;
+   border-radius:9px;gap:0;
+ }
+ .filters .filter-chip .filter-value,body[data-view="plan"] .filters .filter-chip .filter-value{
+   font-size:11px;font-weight:600;line-height:1.2;
+ }
+ .filters{gap:4px;}
+ .filters .search input{height:37px;box-sizing:border-box;}
+ /* Overview: compact, actionable navigation without billboard-sized cards. */
+ body[data-view="overview"] .dashboard-intro{margin:5px 0 8px;gap:6px;align-items:center;}
+ body[data-view="overview"] .dashboard-intro h2{font-size:16px;margin:0;}
+ body[data-view="overview"] .dashboard-intro p{display:none;}
+ body[data-view="overview"] .dashboard-year{padding:4px 8px;font-size:11px;}
+ body[data-view="overview"] .dashboard-quicklinks{gap:6px;margin:6px 0 10px;}
+ body[data-view="overview"] .dashboard-link{
+   min-height:56px;box-sizing:border-box;padding:7px 9px;gap:7px;
+   border-radius:9px;align-items:center;
+ }
+ body[data-view="overview"] .dashboard-link-icon{width:27px;height:27px;font-size:16px;border-radius:7px;flex:none;}
+ body[data-view="overview"] .dashboard-link strong{font-size:12px;line-height:1.2;}
+ body[data-view="overview"] .dashboard-link small{font-size:10px;line-height:1.2;}
+ body[data-view="overview"] .dashboard-panels{gap:8px;}
+ body[data-view="overview"] .dashboard-panel{padding:10px 11px;border-radius:9px;}
+ body[data-view="overview"] .dashboard-panel h3{margin-bottom:8px;font-size:13px;}
+ body[data-view="overview"] .dashboard-bar-row{margin:6px 0;gap:6px;grid-template-columns:87px minmax(0,1fr) 24px;font-size:11px;}
+ /* New and existing case use the same responsive full-height drawer. */
+ #editor-root>.editor-backdrop{inset:0;}
+ #editor-root>.editor.issue-editor{
+   box-sizing:border-box;position:fixed;inset:0!important;
+   width:100vw!important;max-width:100vw!important;
+   height:100dvh!important;max-height:100dvh!important;
+   margin:0!important;border-radius:0!important;
+   overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;
+   padding:10px 12px calc(95px + env(safe-area-inset-bottom,0px))!important;
+ }
+ .issue-editor #edit-form{width:100%;min-width:0;box-sizing:border-box;}
+ .issue-editor .section-title{position:sticky;top:-10px;z-index:2;background:white;align-items:center;padding:7px 0 8px;margin:0 0 7px;}
+ .issue-editor .section-title small{font-size:10px;}
+ .issue-editor .section-title .issue-title-heading{font-size:18px;}
+ .issue-editor .issue-section{padding:7px 0;}
+ .issue-editor .issue-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 8px;}
+ .issue-editor .issue-field{min-width:0;}
+ .issue-editor .issue-field input,.issue-editor .issue-field select,.issue-editor .issue-field textarea{
+   box-sizing:border-box;width:100%;max-width:100%;
+   font-size:16px;min-height:37px;padding:6px 8px;
+   border-radius:8px;border-color:var(--line,#dbe4e0);
+ }
+ .issue-editor .issue-field textarea{min-height:52px;}
+ .issue-editor .issue-title-field input{font-size:16px;}
+ .issue-editor .issue-description textarea{font-size:16px;min-height:54px;}
+ .issue-editor .issue-home-row{min-width:0;}
+ .issue-editor .issue-home-row .issue-field select{max-width:100%;min-width:0;}
+ .issue-editor .editor-actions{
+   position:sticky;bottom:-1px;z-index:4;
+   margin:10px -12px -12px;padding:7px 12px calc(10px + env(safe-area-inset-bottom,0px));
+   background:white;border-top:1px solid var(--line,#dbe4e0);
+ }
+ .issue-editor .editor-actions button{border-radius:9px;}
+}
