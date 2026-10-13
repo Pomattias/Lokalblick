@@ -22,7 +22,7 @@ export function issueCategoryChoices(current) {
   const categories=ISSUE_CATEGORIES.map(value=>({value,label:value}));
   const legacy=String(current||"").trim();
   if(legacy && !categories.some(item=>item.value===legacy))
-    categories.push({value:legacy,label:legacy+" (tidigare kategori – välj om vid behov)"});
+    categories.push({value:legacy,label:legacy});
   return categories;
 }
 const field=(label,html,help="")=>'<label class="issue-field">'+esc(fieldCaption('activities',html,label))+html+(help?'<small>'+esc(help)+'</small>':"")+'</label>';
