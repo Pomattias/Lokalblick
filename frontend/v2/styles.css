@@ -1358,3 +1358,18 @@ details .table-wrap {
  .issue-editor .activity-journal-entry { padding:4px 7px; }
  .issue-editor .activity-journal-entry p { margin-top:2px; }
 }
+
+
+/* A case inherits its property via object/contract; show both on one compact row. */
+.issue-editor .issue-home-row { grid-column:1/-1; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:9px; align-items:end; min-width:0; }
+.issue-editor .issue-home-row .issue-field { min-width:0; }
+.issue-editor .issue-property-reference { min-width:0; display:grid; gap:4px; font-size:12px; }
+.issue-editor .issue-property-reference > span { color:var(--muted,#687870); font-size:11px; font-weight:600; }
+.issue-editor .issue-property-reference > strong { display:block; min-height:36px; padding:8px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
+.issue-editor #edit-form.editor-readonly .issue-home-row { grid-column:1/-1; grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.issue-editor #edit-form.editor-readonly .issue-property-reference { display:flex; gap:5px; align-items:baseline; font-size:12px; }
+.issue-editor #edit-form.editor-readonly .issue-property-reference > strong { min-height:0; padding:0; font-size:12px; }
+@media(max-width:700px){
+ .issue-editor .issue-home-row { gap:7px; }
+ .issue-editor .issue-property-reference > strong { font-size:12px; }
+}
