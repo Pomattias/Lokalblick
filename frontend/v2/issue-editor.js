@@ -135,7 +135,8 @@ export function renderIssueEditor(data,issue,id,company=false) {
       field("Planeringsår",input(issue,"planningYear","number",'min="2000" max="2200" step="1"'))+
       field("Fas",input(issue,"phase","text"))+
     '</div>'+
-    '<div class="issue-visual-planner" data-issue-planner data-plan-span="1">'+
+    '<details class="issue-visual-planner" data-issue-planner data-plan-span="1">'+
+      '<summary>Grafisk tidplan – visa / dölj</summary>'+
       '<div class="issue-visual-heading"><strong>Grafisk planering</strong>'+
       '<div class="actions"><button type="button" data-issue-plan-span="1" class="active" aria-pressed="true">1 år</button>'+
       '<button type="button" data-issue-plan-span="3" aria-pressed="false">3 år</button></div></div>'+
@@ -143,7 +144,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
       '<div class="issue-planner-scroll"><div class="issue-plan-content" style="--timeline-columns:12">'+
       '<div class="timeline-track timeline-plan-header">'+planningMonthHeader(year,1)+'</div>'+
       '<div class="timeline-track timeline-plan-months">'+planningMonthButtons(issue,year,1,"form")+'</div>'+
-      '</div></div></div>'+
+      '</div></div></details>'+
     allocations+'</section>'+
     '<section class="issue-section"><h3>Kostnad och budget</h3><div class="issue-grid">'+
       field("Bedömd kostnad, kr",input(issue,"estimatedCost","number",'min="0" step="any"'))+
