@@ -13,6 +13,7 @@ const activityKindOptions = [
   {value:"like_for_like",label:"Utbyte 1:1"},
 ];
 const budgetTypes=["Ja","Nej"];
+const PROJECT_PHASES=["Behov / idé","Förstudie","Utredning","Program","Projektering","Upphandling","Genomförande","Besiktning","Avslut / överlämning"];
 // Begränsad kodlista: påverkar enbart formulärets alternativ, inte lagrad data.
 export const ISSUE_CATEGORIES=[
   "Ytskikt","Inredning","Installationer","Ventilation","Ombyggnad",
@@ -124,7 +125,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
     '</div><button type="button" data-editor-close>Stäng</button></div>'+
     '<section class="issue-section issue-main-section"><div class="issue-grid">'+
       '<div class="issue-title-field">'+field("Ärendenamn",input(issue,"title","text",'required maxlength="250"'))+'</div>'+
-      '<div class="issue-home-row"><div class="issue-property-reference"><span>Fastighet</span><strong title="'+esc(propertyName)+'">'+esc(propertyName)+'</strong></div>'+field("Kopplat till",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+'</div>'+
+      '<div class="issue-home-row"><div class="issue-property-reference"><span>Fastighet</span><strong title="'+esc(propertyName)+'">'+esc(propertyName)+'</strong></div>'+field("Objekt",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+'</div>'+
       '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="2">'+esc(issue.description||"")+'</textarea></label>'+
       '<div class="issue-compact-meta">'+
       field("Typ",typeSelect)+
@@ -139,7 +140,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
       field("Fr.o.m.",input(issue,"startDate","date"))+
       field("T.o.m.",input(issue,"endDate","date"))+
       field("Planeringsår",input(issue,"planningYear","number",'min="2000" max="2200" step="1"'))+
-      field("Fas",input(issue,"phase","text"))+
+      field("Fas",choice("phase",[...new Set([...PROJECT_PHASES,issue.phase].filter(Boolean))].map(value=>({value,label:value})),issue.phase,"Välj fas"))+
     '</div>'+
     '<details class="issue-visual-planner" data-issue-planner data-plan-span="1">'+
       '<summary>Grafisk tidplan – visa / dölj</summary>'+
@@ -154,8 +155,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
     allocations+'</section>'+
     '<section class="issue-section"><h3>Kostnad och budget</h3><div class="issue-grid">'+
       field("Bedömd kostnad, kr",input(issue,"estimatedCost","number",'min="0" step="any"'))+
-      field("Åtgärdens karaktär",choice("actionKind",activityKindOptions,issue.actionKind||
-        (issue.standardEnhancing===true?"value_enhancing":issue.standardEnhancing===false?"like_for_like":""),"Ej bedömd"))+
+      '<label class="issue-enhancing-toggle"><input type="checkbox" name="enhancingToggle" value="Ja" data-initial-checked="'+((issue.actionKind|| (issue.standardEnhancing===true?"value_enhancing":""))==="value_enhancing"?"true":"false")+'" '+((issue.actionKind|| (issue.standardEnhancing===true?"value_enhancing":""))==="value_enhancing"?"checked":"")+'><span>Värdehöjande</span></label>'+
       field("Ta med i budget",choice("includeInBudget",budgetTypes.map(value=>({value,label:value})),issue.includeInBudget||(issue.budgetIncluded===false?"Nej":"Ja"),"Välj"))+
       field("Hyrespåslag från",input(issue,"rentSurchargeStartDate","date"),"Endast aktuellt vid hyresfinansierad investering")+
     '</div>'+
