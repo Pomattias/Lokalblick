@@ -1,4 +1,5 @@
 import {businessList} from './business-editor.js';
+import {relationshipView,bindRelationshipView} from "./relationships.js";
 import {
   collections,
   normalize,
@@ -76,6 +77,7 @@ const labels = {
   people: "Parter",
   settings: "Inställningar",
   more: "Mer",
+  datamodel: "Datamodell",
 };
 const actor = () =>
   data.currentUser?.name ||
@@ -496,7 +498,7 @@ function render() {
   globalThis.LokalblickMapService?.destroy();
   document.querySelector("#title").textContent = labels[ui.view];
   document.querySelectorAll("[data-view]").forEach((x) => {
-    const active=x.dataset.view===ui.view || (x.dataset.view==="more" && ["properties","objects","contracts","activities","sources","people","settings"].includes(ui.view));
+    const active=x.dataset.view===ui.view || (x.dataset.view==="more" && ["properties","objects","contracts","activities","sources","people","settings","datamodel"].includes(ui.view));
     x.classList.toggle("active", active);
     x.setAttribute(
       "aria-current",
@@ -504,7 +506,7 @@ function render() {
     );
   });
   filterArea.innerHTML = filters(data, selection);
-  document.querySelector("#summary").innerHTML = ["sources", "people", "businesses", "settings", "more"].includes(
+  document.querySelector("#summary").innerHTML = ["sources", "people", "businesses", "settings", "more", "datamodel"].includes(
     ui.view,
   )
     ? ""
@@ -527,7 +529,7 @@ function render() {
   document.querySelector("#context").innerHTML = selection.propertyId
     ? `<button data-clear-property>Hela urvalet</button><span>${esc(data.properties.find((p) => p.id === selection.propertyId)?.address || selection.propertyId)}</span>`
     : "<span>Portfölj</span>";
-  filterArea.hidden = ["sources", "people", "businesses", "settings", "more"].includes(ui.view);
+  filterArea.hidden = ["sources", "people", "businesses", "settings", "more", "datamodel"].includes(ui.view);
   if (ui.view === "overview")
     content.innerHTML = dashboard(data, selection, new Date().getFullYear());
   if (["properties","contracts","activities"].includes(ui.view)) {
@@ -545,9 +547,10 @@ function render() {
   if (ui.view === "budget") content.innerHTML = budget(data, selection, ui);
   if (ui.view === "budget") bindBudget();
   if (ui.view === "sources") content.innerHTML = sources(data, transport);
+  if (ui.view === "datamodel") { content.innerHTML = relationshipView(data); bindRelationshipView(); }
   if (ui.view === "settings") content.innerHTML = economicSettings(data, ui);
   if (ui.view === "people") content.innerHTML = organization(data);
-  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","businesses","activities","sources","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<a href="../index.html?legacy=1" data-ui-version="v1">Visa V1</a><small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
+  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","businesses","activities","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<a href="../index.html?legacy=1" data-ui-version="v1">Visa V1</a><small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
     content.innerHTML =
       '<div class="section-title map-heading"><h2>Fastigheter i aktuellt urval</h2></div><div id="property-map" aria-label="Fastigheter på karta"></div><p class="map-help">Välj en fastighet på kartan för att öppna dess detaljer.</p>';
