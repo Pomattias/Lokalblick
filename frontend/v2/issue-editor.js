@@ -1,4 +1,5 @@
 import {responsibilityHtml} from "./responsibility-editor.js";
+import {activityJournalHtml} from "./activity-journal.js";
 import { esc, options, propertyReference, units, calc, money } from "./views.js";
 import { planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
 import { fieldCaption } from "./field-labels.js";
@@ -127,6 +128,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
       field("Kopplat till",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+
       field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"))+
     '</div></section>'+
+    (id?activityJournalHtml(data,id):'<section class="issue-section activity-journal"><h3>Noteringar och historik</h3><p class="issue-note">Spara ärendet först för att börja föra en daterad journal.</p></section>')+
     '<section class="issue-section"><h3>Tid och planering</h3><div class="issue-grid">'+
       field("Fr.o.m.",input(issue,"startDate","date"))+
       field("T.o.m.",input(issue,"endDate","date"))+
