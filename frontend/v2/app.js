@@ -1,4 +1,5 @@
 import {businessList} from './business-editor.js';
+import {activityJournalHtml} from "./activity-journal.js";
 import {relationshipView,bindRelationshipView} from "./relationships.js";
 import {
   collections,
@@ -768,6 +769,7 @@ function openEditor(col, id, defaults = {}) {
     root.querySelector('[data-assignment-target]').innerHTML='<option value="">Välj post</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.number||x.title||x.designation||x.id)}</option>`).join('');
   };
   root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,globalThis.LokalblickSourceService.schemas));
+  if(col==="activities"&&id)root.querySelector("#edit-form")?.insertAdjacentHTML("beforeend",activityJournalHtml(data,id));
   document.body.classList.add("editing");
   if (col === "properties") {
     propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
@@ -921,6 +923,22 @@ document.addEventListener("click", (event) =>
   run(async () => {
     const b = event.target.closest("button");
     if (!b || b.disabled) return;
+    if (b.hasAttribute("data-activity-journal-save")) {
+      const id=b.dataset.activityId;
+      if(!editor||editor.col!=="activities"||String(editor.id)!==String(id))throw Error("Öppna aktiviteten på nytt.");
+      const field=b.closest(".activity-journal")?.querySelector("[data-activity-journal-note]");
+      const note=String(field?.value||"").trim();
+      if(!note)throw Error("Skriv en anteckning innan du sparar.");
+      if(note.length>5000)throw Error("Anteckningen är för lång (max 5 000 tecken).");
+      await mutation(d=>{
+        if(!(d.activities||[]).some(a=>String(a.id)===String(id)))throw Error("Aktiviteten finns inte längre.");
+        d.auditLog ||= [];
+        d.auditLog.push({id:crypto.randomUUID(),at:new Date().toISOString(),by:actor(),collection:"activities",recordId:id,action:"Journalanteckning",fields:[{field:"comment",from:"",to:note}]});
+      });
+      const panel=document.querySelector("#edit-form .activity-journal");
+      if(panel)panel.outerHTML=activityJournalHtml(data,id);
+      return;
+    }
     if (b.hasAttribute("data-plan-month")) {
       if(!canEdit())throw Error("Datakällan är skrivskyddad.");
       const id=b.dataset.planIssue,key=b.dataset.planMonth;
