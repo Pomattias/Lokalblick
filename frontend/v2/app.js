@@ -723,10 +723,32 @@ function editorForm(){return document.querySelector("#editor-root #edit-form");}
 function hasUnsavedEditorChanges(){
   return !!editor && editorHasUnsavedChanges(editorForm(),editor.initialSnapshot);
 }
+function setEditorReadMode(readOnly){
+  const form=editorForm();
+  if(!form||!editor||!editor.id)return;
+  editor.readOnly=Boolean(readOnly);
+  form.classList.toggle("editor-readonly",editor.readOnly);
+  for(const field of form.querySelectorAll("input, select, textarea, button")){
+    if(field.closest(".activity-journal") || field.matches("[data-editor-close],[data-editor-activate],[data-editor-tab]"))continue;
+    if(field.dataset.editorOriginalDisabled===undefined)
+      field.dataset.editorOriginalDisabled=field.disabled?"true":"false";
+    field.disabled=editor.readOnly || field.dataset.editorOriginalDisabled==="true";
+  }
+  const activate=form.querySelector("[data-editor-activate]");
+  if(activate)activate.hidden=!editor.readOnly;
+  const footer=form.querySelector(".editor-actions");
+  if(footer)footer.hidden=editor.readOnly;
+  updateEditorActions();
+}
 function updateEditorActions(){
   const form=editorForm();
   if(!editor||!form)return;
   const dirty=hasUnsavedEditorChanges();
+  if(editor.readOnly){
+    const footer=form.querySelector(".editor-actions");
+    if(footer)footer.hidden=true;
+    return;
+  }
   const status=form.querySelector("[data-editor-save-status]");
   if(status){
     status.textContent=dirty?"Osparade ändringar":"Inga osparade ändringar";
@@ -792,6 +814,17 @@ function openEditor(col, id, defaults = {}) {
   };
   root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,globalThis.LokalblickSourceService.schemas));
   const form=root.querySelector("#edit-form");
+  if(form&&id){
+    const closeButton=form.querySelector("[data-editor-close]");
+    if(closeButton){
+      const editButton=document.createElement("button");
+      editButton.type="button";
+      editButton.dataset.editorActivate="";
+      editButton.className="editor-activate";
+      editButton.textContent="Redigera";
+      closeButton.before(editButton);
+    }
+  }
   const footer=form?.querySelector(".editor-actions");
   if(footer){
     const save=footer.querySelector('button[type="submit"]');
@@ -813,12 +846,13 @@ function openEditor(col, id, defaults = {}) {
     root.addEventListener("input",updateEditorActions);
     root.addEventListener("change",updateEditorActions);
     updateEditorActions();
+    if(id)setEditorReadMode(true);
   }
   document.body.classList.add("editing");
   if (col === "properties") {
     propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
   }
-  document.querySelector("#editor-root input, #editor-root select")?.focus();
+  (id ? root.querySelector("[data-editor-activate]") : root.querySelector("input:not(:disabled),select:not(:disabled)"))?.focus();
 }
 function openPropertyPersonDialog(button) {
   if (!editor || editor.col !== "properties") return;
@@ -996,6 +1030,12 @@ document.addEventListener("click", (event) =>
         journal.scrollIntoView({behavior:"smooth",block:"nearest"});
         journal.querySelector("[data-activity-journal-note]")?.focus({preventScroll:true});
       }
+      return;
+    }
+    if (b.hasAttribute("data-editor-activate")) {
+      if(!editor)return;
+      setEditorReadMode(false);
+      editorForm()?.querySelector('input[name="title"],input[name="name"],input[name="number"],select[name="type"]')?.focus();
       return;
     }
     if (b.hasAttribute("data-editor-undo")) {
@@ -1440,6 +1480,7 @@ document.addEventListener("submit", (event) => {
   if (event.target.id !== "edit-form") return;
   event.preventDefault();
   run(async () => {
+    if(editor?.readOnly)throw Error("Tryck på Redigera innan du ändrar och sparar.");
     const next = readEditor(event.target, editor.record),
       col = editor.col,
       id = editor.id,
