@@ -1373,3 +1373,26 @@ details .table-wrap {
  .issue-editor .issue-home-row { gap:7px; }
  .issue-editor .issue-property-reference > strong { font-size:12px; }
 }
+
+
+/* Planera: one compact, consistent control zone below KPIs. */
+.plan-mobile-actions { display:flex; align-items:center; gap:7px; }
+.plan-mobile-actions > .actions { display:flex; align-items:center; flex:1; gap:6px; margin:0; }
+.plan-mobile-actions > button[data-new-issue] { flex:none; }
+@media(max-width:700px){
+ body[data-view="plan"] .plan-topbar { display:none; }
+ body[data-view="plan"] .plan-mobile-actions { display:flex; align-items:stretch; gap:5px; margin:4px 0 7px; }
+ body[data-view="plan"] .plan-mobile-actions > .actions { flex:1; min-width:0; gap:5px; margin:0; }
+ body[data-view="plan"] .issue-type-filters { margin:3px 0 5px; gap:5px; }
+ body[data-view="plan"] :is(.issue-type-filters button,.plan-mobile-actions button) {
+   box-sizing:border-box; min-height:36px; height:36px; padding:6px 11px; border-radius:22px;
+   border:1px solid var(--line,#d8e1dc); background:var(--paper,#fff); color:var(--ink,#1c4133);
+   font-size:12px; font-weight:500; white-space:nowrap; line-height:1.2;
+ }
+ body[data-view="plan"] :is(.issue-type-filters button.active,.plan-mobile-actions button.active,.plan-mobile-actions button[data-new-issue]) {
+   background:var(--accent,#196f58); border-color:var(--accent,#196f58); color:#fff;
+ }
+ body[data-view="plan"] .plan-mobile-actions button[data-new-issue] { margin-left:auto; flex:none; }
+ body[data-view="plan"] .plan-exceptions { margin:2px 0; }
+ body[data-view="plan"] .plan-mobile-list { margin-top:0; }
+}
