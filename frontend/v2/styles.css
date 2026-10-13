@@ -1460,3 +1460,26 @@ details .table-wrap {
  }
  .issue-editor .editor-actions button{border-radius:9px;}
 }
+
+
+/* Shared mobile chrome: navigation already names the page. Keep filters visible while scrolling. */
+@media(max-width:700px){
+ main > header #title{display:none!important;}
+ main > header{margin:0!important;min-height:0!important;gap:0;}
+ main > header:has(.actions > :not([hidden]):not(#source-label):not(#history):not(#demo):not([data-ui-version])){padding:3px 0 5px;}
+ main > header:not(:has(.actions > :not([hidden]):not(#source-label):not(#history):not(#demo):not([data-ui-version]))){display:none;}
+ #filters:not([hidden]){
+   position:sticky;top:0;z-index:45;
+   background:var(--background,#f5f7f5);
+   padding:5px 0 7px;margin:0;
+   box-shadow:0 5px 10px rgba(23,58,43,.05);
+ }
+ body[data-view="map"] #filters:not([hidden]){position:relative;top:auto;z-index:1;box-shadow:none;}
+ .summary{margin:7px 0 9px!important;align-items:stretch;}
+ .summary > div{min-height:0!important;padding:5px 6px!important;}
+ .summary > div span{font-size:9px!important;line-height:1.1;}
+ .summary > div strong{font-size:13px!important;line-height:1.15;display:block;margin-top:3px;}
+ .summary > div small{display:none;}
+ .summary > div:nth-child(even){border-right:1px solid var(--line);}
+ .summary > div:last-child{border-right:0;}
+}
