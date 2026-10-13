@@ -1188,3 +1188,53 @@ details .table-wrap {
  .issue-editor .activity-journal-actions button { width:100%; }
  .issue-editor .activity-journal-entries { max-height:220px; }
 }
+
+
+/* Compact, deliberate edit/save states across Lokalblick editors. */
+.editor .editor-actions { display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; }
+.editor .editor-actions > span:not(.editor-save-status) { display:none; }
+.editor .editor-save-status { flex:1 1 100%; font-size:12px; color:var(--muted,#596c63); }
+.editor .editor-save-status[data-dirty="true"] { color:#87551c; font-weight:700; }
+.editor .editor-actions [data-editor-undo] { background:#fff; border:1px solid var(--line,#cfd9d3); color:var(--ink,#183b2d); }
+.editor .editor-actions button[type="submit"] { min-width:125px; }
+.editor .editor-actions button:disabled { opacity:.45; cursor:default; }
+.issue-visual-planner > summary { font-size:12px; font-weight:650; cursor:pointer; padding:3px 2px; color:var(--ink,#183b2d); }
+.issue-visual-planner[open] > summary { margin-bottom:9px; }
+.issue-editor .issue-visual-planner { margin-top:8px; padding:8px 10px; }
+@media(max-width:700px) {
+ .editor { box-sizing:border-box; }
+ .editor #edit-form { padding-bottom:76px; }
+ .editor .editor-actions {
+   position:fixed; bottom:0; left:0; right:0; margin:0;
+   padding:8px 12px calc(9px + env(safe-area-inset-bottom, 0px));
+   z-index:1010; box-sizing:border-box; width:100%;
+   background:#fff; border-top:1px solid var(--line,#dbe4e0);
+   box-shadow:0 -5px 24px #193c2d18;
+   display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+   gap:5px 9px;
+ }
+ .editor .editor-save-status { grid-column:1/-1; font-size:11px; }
+ .editor .editor-actions button { width:100%; min-width:0; min-height:42px; padding:9px 10px; }
+ .editor .section-title { margin-bottom:6px; padding-bottom:4px; gap:8px; }
+ .editor .section-title h2 { margin:2px 0; line-height:1.14; font-size:19px; }
+ .issue-editor { padding:11px 12px 18px; overflow-x:hidden; }
+ .issue-editor .issue-title-heading { font-size:20px; }
+ .issue-editor .issue-section { padding:9px 0; }
+ .issue-editor .issue-section h3 { font-size:13px; margin-bottom:7px; }
+ .issue-editor .issue-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 9px; }
+ .issue-editor .issue-title-field, .issue-editor .issue-field:has([name="issueHome"]) { grid-column:1/-1; }
+ .issue-editor .issue-field { font-size:11px; gap:3px; }
+ .issue-editor .issue-field input, .issue-editor .issue-field select { min-height:36px; padding:6px 7px; font-size:13px; }
+ .issue-editor .issue-description { margin:7px 0; }
+ .issue-editor .issue-description textarea { min-height:58px; font-size:13px; }
+ .issue-editor .issue-assessment { padding:7px 9px; margin-top:7px; font-size:11px; }
+ .issue-editor .activity-journal { margin:6px 0; padding:8px; }
+ .issue-editor .activity-journal-entries { max-height:155px; }
+ .issue-editor .activity-journal-entry { margin:5px 0; padding:6px 8px; }
+ .issue-editor .activity-journal-compose textarea { min-height:60px; }
+ .issue-editor .activity-journal-actions { padding:5px 0; }
+}
+@media(max-width:365px) {
+ .issue-editor .issue-grid { grid-template-columns:1fr; }
+ .issue-editor .issue-title-field, .issue-editor .issue-field:has([name="issueHome"]) { grid-column:auto; }
+}
