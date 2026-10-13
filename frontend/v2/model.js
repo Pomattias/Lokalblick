@@ -573,15 +573,23 @@ export function normalize(data) {
   delete canonical.legacyOrganizations;
   return canonical;
 }
+export function activityPropertyId(data, record) {
+  if (!record) return "";
+  const properties = data.properties || [];
+  const objects = data.objects || [];
+  const contracts = data.contracts || [];
+  const contract = record.contractId ? contracts.find(c => String(c.id) === String(record.contractId)) : null;
+  const objectId = record.objectId || contract?.objectId || "";
+  const object = objectId ? objects.find(o => String(o.id) === String(objectId)) : null;
+  const id = record.propertyId || contract?.propertyId || object?.propertyId || "";
+  return properties.some(p => String(p.id) === String(id)) ? id : "";
+}
 export function activities(data) {
   return (data.activities || []).map((record) => ({
     collection: "activities",
     label: record.type || "Ärende",
     record,
-    propertyId:
-      record.propertyId ||
-      data.contracts.find((c) => c.id === record.contractId)?.propertyId ||
-      "",
+    propertyId: activityPropertyId(data, record),
     title: record.title || record.category || record.id,
     cost: Number(record.estimatedCost) || 0,
   }));
