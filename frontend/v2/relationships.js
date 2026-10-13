@@ -1,3 +1,4 @@
+import {activityPropertyId} from "./model.js";
 // Read-only schema diagram. Documented relationships reflect the V2 source schemas.
 const tables=[
  {id:"properties",name:"Fastigheter",x:12,y:12,fields:["id","sourceId","address","designation","ownerPartyId","responsiblePersonId"]},
@@ -44,9 +45,9 @@ export function bindRelationshipView(data){
  function openTable(id){
    const t=tables.find(x=>x.id===id);if(!t||!detail)return;
    const rows=Array.isArray(data[id])?data[id]:[];
-   const fields=allFields(data,id);
+   const fields=id==="activities"?[...allFields(data,id),"resolvedPropertyId (beräknad)"]:allFields(data,id);
    const related=links.filter(x=>x.a===id||x.b===id);
-   detail.innerHTML=`<h3 style="margin:0 0 8px">${esc(t.name)} · ${rows.length} poster</h3><p>Verkliga fält i ansluten data. Tabellen är skrivskyddad. ${rows.length>100?"Visar de första 100 posterna.":""}</p><div style="overflow:auto;max-height:430px;border:1px solid #ddd"><table style="border-collapse:collapse;white-space:nowrap;font-size:12px"><thead><tr>${fields.map(f=>`<th style="position:sticky;top:0;background:#e3efeb;text-align:left;padding:9px;border:1px solid #d5dedb">${esc(f)}</th>`).join("")}</tr></thead><tbody>${rows.slice(0,100).map(row=>`<tr>${fields.map(f=>`<td style="padding:7px;border:1px solid #e5e7eb;max-width:250px;overflow:hidden;text-overflow:ellipsis" title="${esc(showValue(row[f]))}">${esc(showValue(row[f]))}</td>`).join("")}</tr>`).join("")}</tbody></table>${!rows.length?"<p style=\"padding:12px\">Inga poster i aktuell datakälla.</p>":""}</div><h4>Kopplade kolumner</h4>${related.map(x=>`<div style="padding:5px 0"><code>${esc(x.a+"."+x.af+" → "+x.b+"."+x.bf)}</code></div>`).join("")}`;
+   detail.innerHTML=`<h3 style="margin:0 0 8px">${esc(t.name)} · ${rows.length} poster</h3><p>Verkliga fält i ansluten data. Tabellen är skrivskyddad. ${rows.length>100?"Visar de första 100 posterna.":""}</p><div style="overflow:auto;max-height:430px;border:1px solid #ddd"><table style="border-collapse:collapse;white-space:nowrap;font-size:12px"><thead><tr>${fields.map(f=>`<th style="position:sticky;top:0;background:#e3efeb;text-align:left;padding:9px;border:1px solid #d5dedb">${esc(f)}</th>`).join("")}</tr></thead><tbody>${rows.slice(0,100).map(row=>`<tr>${fields.map(f=>`<td style="padding:7px;border:1px solid #e5e7eb;max-width:250px;overflow:hidden;text-overflow:ellipsis" title="${esc(showValue(f==="resolvedPropertyId (beräknad)"?activityPropertyId(data,row):row[f]))}">${esc(showValue(f==="resolvedPropertyId (beräknad)"?activityPropertyId(data,row):row[f]))}</td>`).join("")}</tr>`).join("")}</tbody></table>${!rows.length?"<p style=\"padding:12px\">Inga poster i aktuell datakälla.</p>":""}</div><h4>Kopplade kolumner</h4>${related.map(x=>`<div style="padding:5px 0"><code>${esc(x.a+"."+x.af+" → "+x.b+"."+x.bf)}</code></div>`).join("")}`;
    document.querySelectorAll("[data-relationship-table]").forEach(el=>{el.style.outline=el.dataset.relationshipTable===id?"3px solid #0f766e":"none";});
    document.querySelectorAll("[data-relationship-line]").forEach((line,i)=>{const l=links[i],active=l.a===id||l.b===id;line.style.opacity=active?"1":".13";line.style.strokeWidth=active?"3":"2";});
    detail.scrollIntoView({behavior:"smooth",block:"nearest"});
