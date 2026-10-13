@@ -86,7 +86,7 @@ const actor = () =>
   data.currentUser?.email ||
   (data.isDemo ? "Demoanvändare" : "Okänd användare");
 function requireActorIdentity(){
-  if(!data.isDemo&&!data.currentUser?.name&&!data.currentUser?.email){
+  if(!data.isDemo&&!data.currentUser?.name&&!data.currentUser?.displayName&&!data.currentUser?.email){
     const name=prompt('Ange ditt namn för ändringshistoriken (själv angivet namn):');
     if(!name?.trim())throw Error('Namn krävs för att spara ändringar.');
     data.currentUser={...data.currentUser,name:name.trim(),identitySource:'self-declared'};
