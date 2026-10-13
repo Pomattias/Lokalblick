@@ -90,6 +90,12 @@ export function renderIssueEditor(data,issue,id,company=false) {
     ? ISSUE_TYPES : [...ISSUE_TYPES,issue.type];
   const years=Array.isArray(issue.yearAllocations)?issue.yearAllocations.filter(x=>Number.isFinite(Number(x.year))):[];
   const orderList=(data.orders||[]).filter(x=>x.activityId===issue.id);
+  const linkedContract=(data.contracts||[]).find(x=>x.id===issue.contractId);
+  const linkedObject=(data.objects||[]).find(x=>x.id===(issue.objectId||linkedContract?.objectId));
+  const linkedPropertyId=linkedObject?.propertyId||linkedContract?.propertyId||issue.propertyId||"";
+  const linkedProperty=(data.properties||[]).find(x=>x.id===linkedPropertyId);
+  const propertyName=linkedProperty?([linkedProperty.designation,linkedProperty.address].filter(Boolean).join(" · ")||linkedProperty.id):"Ingen fastighet kopplad";
+
   const year=Number(issue.planningYear)||new Date().getFullYear();
   const assessment=calc().activityEconomics(data,issue,year);
   const typeSelect=choice("type",kinds.map(value=>({value,label:value})),issue.type,"Välj ärendetyp");
@@ -125,7 +131,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
     '</div>'+
     '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="3">'+esc(issue.description||"")+'</textarea></label>'+
     '<div class="issue-grid">'+
-      field("Kopplat till",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+
+      '<div class="issue-home-row"><div class="issue-property-reference"><span>Fastighet</span><strong title="'+esc(propertyName)+'">'+esc(propertyName)+'</strong></div>'+field("Kopplat till",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+'</div>'+
       field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"))+
     '</div></section>'+
     (id?activityJournalHtml(data,id):'<section class="issue-section activity-journal"><h3>Noteringar och historik</h3><p class="issue-note">Spara ärendet först för att börja föra en daterad journal.</p></section>')+
