@@ -40,23 +40,20 @@ export function appendActivityNote(data,id,text,actor){
 }
 export function activityJournalHtml(data,id){
  const entries=activityJournalEntries(data,id);
- const noteCount=entries.filter(e=>e.action==="Journalanteckning").length;
- const history=entries.map(e=>{
-   const note=e.action==="Journalanteckning";
+ const notes=entries.filter(e=>e.action==="Journalanteckning");
+ const changes=entries.filter(e=>e.action!=="Journalanteckning");
+ const renderEntry=(e,note)=>{
    const body=note?(e.fields||[]).filter(f=>["comment","note","journal"].includes(f.field)).map(f=>f.to).filter(Boolean).join(" · "):
      (e.fields||[]).filter(f=>Object.hasOwn(labels,f.field)).map(f=>labels[f.field]+": "+formatValue(f.field,f.from)+" → "+formatValue(f.field,f.to)).join("; ");
    if(!body)return "";
-   return `<article class="activity-journal-entry ${note?"is-note":"is-change"}">
-     <div class="activity-journal-entry-meta"><time datetime="${esc(e.at||"")}">${esc(dateLabel(e.at))}</time><span>· ${esc(e.by||"Okänd avsändare")}</span><span>· ${note?"Notering":"Ändring"}</span></div>
-     <p>${esc(body)}</p>
-   </article>`;
- }).join("");
+   return `<article class="activity-journal-entry ${note?"is-note":"is-change"}"><div class="activity-journal-entry-meta"><time datetime="${esc(e.at||"")}">${esc(dateLabel(e.at))}</time><span>· ${esc(e.by||"Okänd avsändare")}</span></div><p>${esc(body)}</p></article>`;
+ };
  return `<section class="issue-section activity-journal" id="activity-journal" aria-label="Noteringar och ärendehistorik">
- <div class="activity-journal-heading"><h3>Noteringar och historik</h3><span>${noteCount} noteringar · ${entries.length} händelser</span></div>
- <label class="activity-journal-compose">Ny notering
-   <textarea data-activity-journal-note rows="3" maxlength="5000" placeholder="Skriv exempelvis mötesanteckning, beslut eller uppföljning …"></textarea>
- </label>
- <div class="activity-journal-actions"><small>Datum och avsändare loggas automatiskt. Tidigare noteringar kan inte skrivas över.</small><button type="button" data-activity-journal-save data-activity-id="${esc(id)}">Spara notering</button></div>
- <div class="activity-journal-entries" role="log" aria-label="Ärendets noteringar och ändringar" aria-live="polite">${history||"<p>Ännu inga noteringar eller ändringar.</p>"}</div>
+ <div class="activity-journal-heading"><h3>Journal</h3><span>${notes.length} noteringar · ${changes.length} ändringar</span></div>
+ <div class="activity-journal-compose-row"><label class="activity-journal-compose"><span class="visually-hidden">Ny notering</span><textarea data-activity-journal-note rows="2" maxlength="5000" placeholder="Skriv en notering …"></textarea></label><button type="button" data-activity-journal-save data-activity-id="${esc(id)}">Spara</button></div>
+ <div class="activity-journal-groups">
+ <div class="activity-journal-group"><h4>Noteringar</h4><div class="activity-journal-entries" role="log" aria-label="Noteringar">${notes.slice(0,2).map(e=>renderEntry(e,true)).join("")||"<small>Inga noteringar ännu</small>"}</div>${notes.length>2?`<details><summary>Visa ${notes.length-2} äldre noteringar</summary>${notes.slice(2).map(e=>renderEntry(e,true)).join("")}</details>`:""}</div>
+ <div class="activity-journal-group"><h4>Ändringar av kostnad och tidplan</h4><div class="activity-journal-entries">${changes.slice(0,2).map(e=>renderEntry(e,false)).join("")||"<small>Inga ändringar registrerade</small>"}</div>${changes.length>2?`<details><summary>Visa ${changes.length-2} äldre ändringar</summary>${changes.slice(2).map(e=>renderEntry(e,false)).join("")}</details>`:""}</div>
+ </div>
  </section>`;
 }
