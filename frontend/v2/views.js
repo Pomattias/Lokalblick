@@ -486,7 +486,7 @@ export function planning(data, s, ui) {
   );
   if (ui.unassigned) items = missing;
   const withoutHome = items.filter(x => x.collection === "activities" &&
-    !x.record.propertyId && !x.record.contractId &&
+    !x.record.propertyId && !x.record.objectId && !x.record.contractId &&
     x.record.scopeType !== "general" &&
     !(x.record.scopeType === "unit" && x.record.unitId));
   if (ui.unassignedHome) items = withoutHome;
