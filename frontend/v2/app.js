@@ -781,7 +781,7 @@ function openEditor(col, id, defaults = {}) {
   if(editor&&!closeEditor())return;
   pendingPlanSelection=null;
   const result = editorHtml(data, col, id, transport.company(), defaults);
-  editor = { col, id, record: result.record };
+  editor = { col, id, defaults:clone(defaults), record: result.record };
   const root = document.querySelector("#editor-root");
   root.innerHTML = result.html;
   const typeSelect=root.querySelector('[data-assignment-type]');
@@ -1000,9 +1000,9 @@ document.addEventListener("click", (event) =>
     }
     if (b.hasAttribute("data-editor-undo")) {
       if(!editor||!hasUnsavedEditorChanges())return;
-      const {col,id}=editor;
+      const {col,id,defaults}=editor;
       closeEditor({force:true});
-      openEditor(col,id);
+      openEditor(col,id,defaults);
       return;
     }
     if (b.hasAttribute("data-plan-month")) {
@@ -1502,6 +1502,10 @@ document.addEventListener("submit", (event) => {
           contract.businessResponsiblePersonId=personId || "";
         });
       }
+      // Saving the case also saves any unsent note in the same transaction.
+      if(noteDraft)appendActivityNote(d,next.id,noteDraft,{
+        name:actor(),id:d.currentUser?.id||d.currentUser?.userId||"",verified:false
+      });
     }, { responsibilityDate:event.target.elements.namedItem('responsibilityChangeDate')?.value,manualPositionIds:manualPositionSelected && id ? [String(id)] : [] });
     closeEditor({force:true});
   });
