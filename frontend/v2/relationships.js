@@ -1,14 +1,15 @@
 import {activityPropertyId} from "./model.js";
 // Read-only schema diagram. Documented relationships reflect the V2 source schemas.
 const tables=[
- {id:"properties",name:"Fastigheter",x:12,y:12,fields:["id","sourceId","address","designation","ownerPartyId","responsiblePersonId"]},
+ {id:"properties",name:"Fastigheter",x:12,y:12,fields:["id","address","ownerPartyId","responsiblePersonId","ownerResponsiblePersonId","designation"]},
  {id:"objects",name:"Objekt",x:314,y:12,fields:["id","propertyId","number","name","area","unitId"]},
- {id:"contracts",name:"Avtal",x:616,y:12,fields:["id","propertyId","objectId","number","tenantPartyId","businessPartyId"]},
+ {id:"contracts",name:"Avtal",x:616,y:12,fields:["id","propertyId","objectId","responsiblePersonId","businessResponsiblePersonId","tenantResponsiblePersonId"]},
  {id:"contractBusinesses",name:"AvtalVerksamhet",x:918,y:12,fields:["id","contractId","businessId","fromDate","toDate","usedArea"]},
  {id:"activities",name:"Aktiviteter",x:12,y:320,fields:["id","propertyId","contractId","responsiblePersonId","title","estimatedCost"]},
  {id:"orders",name:"Beställningar",x:314,y:320,fields:["id","activityId","orderedByPersonId","orderedAt","orderedCost","finalCost"]},
  {id:"people",name:"Personer",x:616,y:320,fields:["id","organizationId","name","role","email","phone"]},
- {id:"businesses",name:"Verksamheter",x:918,y:320,fields:["id","organizationId","sourceId","name","type","unitId"]}
+ {id:"businesses",name:"Verksamheter",x:918,y:320,fields:["id","organizationId","sourceId","name","type","unitId"]},
+ {id:"assignments",name:"Ansvarshistorik",x:314,y:625,fields:["id","personId","targetType","targetId","roleKey","fromDate"]}
 ];
 const links=[
  {a:"objects",af:"propertyId",b:"properties",bf:"id",rule:"Objektnummer och fastighet används för att hitta befintligt objekt; objektets propertyId pekar därefter på fastighetens interna id.",source:"source-service.js · mergePrimaryData"},
@@ -18,6 +19,16 @@ const links=[
  {a:"activities",af:"contractId",b:"contracts",bf:"id",rule:"Projekt 2027: entydig kombination av fastighet och verksamhetsnamn kan ge avtalskoppling.",source:"project-2027-adapter.js"},
  {a:"orders",af:"activityId",b:"activities",bf:"id",rule:"Beställningar kopplas till aktivitetens interna ID.",source:"source-service.js · Beställningar"},
  {a:"activities",af:"responsiblePersonId",b:"people",bf:"id",rule:"Projekt 2027 matchar ansvarig mot en unik person. Oklara namn mappas inte automatiskt.",source:"project-2027-adapter.js"},
+ {a:"properties",af:"responsiblePersonId",b:"people",bf:"id",rule:"Vår ansvarige för fastigheten. Aktuellt person-ID speglas från giltig ansvarshistorik.",source:"responsibility-model.js · normalize"},
+ {a:"properties",af:"ownerResponsiblePersonId",b:"people",bf:"id",rule:"Fastighetsägarens kontaktperson. Ansvarsroll owner i historiken.",source:"responsibility-model.js · normalize"},
+ {a:"contracts",af:"responsiblePersonId",b:"people",bf:"id",rule:"Vår ansvarige kopplad till avtalet. Fältet härleds från ansvarshistoriken när rollen är entydig.",source:"responsibility-model.js · normalize"},
+ {a:"contracts",af:"businessResponsiblePersonId",b:"people",bf:"id",rule:"Verksamhetsansvarig för avtalet, hämtad från ansvarskopplingar med verksamhetsroll.",source:"responsibility-model.js · normalize"},
+ {a:"contracts",af:"tenantResponsiblePersonId",b:"people",bf:"id",rule:"Hyresgästens kontaktperson för avtalet, hämtad från rollen tenant.",source:"responsibility-model.js · normalize"},
+ {a:"assignments",af:"personId",b:"people",bf:"id",rule:"Historiska och aktuella ansvarskopplingar pekar på Personer.id. Roll och giltighetsdatum avgör vilket ansvar som gäller.",source:"responsibility-model.js · history/current"},
+ {a:"assignments",af:"targetId",b:"properties",bf:"id",rule:"Endast när assignments.targetType = property. targetId är en polymorf referens, inte en generell främmande nyckel.",source:"responsibility-model.js · types"},
+ {a:"assignments",af:"targetId",b:"contracts",bf:"id",rule:"Endast när assignments.targetType = contract. targetId pekar då på Avtal.id.",source:"responsibility-model.js · types"},
+ {a:"assignments",af:"targetId",b:"activities",bf:"id",rule:"Endast när assignments.targetType = activity. targetId pekar då på Aktiviteter.id.",source:"responsibility-model.js · types"},
+
  {a:"contractBusinesses",af:"contractId",b:"contracts",bf:"id",rule:"AvtalVerksamhet binder ett avtal till en verksamhet via avtalets id.",source:"source-service.js · AvtalVerksamhet"},
  {a:"contractBusinesses",af:"businessId",b:"businesses",bf:"id",rule:"AvtalVerksamhet refererar verksamhetens interna id.",source:"source-service.js · AvtalVerksamhet"}
 ];
@@ -31,9 +42,9 @@ export function relationshipView(data){
  const nodes=tables.map(t=>`<div data-relationship-table="${t.id}" role="button" tabindex="0" aria-label="Öppna tabellen ${esc(t.name)}" style="cursor:pointer;position:absolute;left:${t.x}px;top:${t.y}px;width:240px;background:white;border:1px solid #b8cbd0;border-radius:9px;box-shadow:0 2px 7px #0001;overflow:hidden">
  <div style="background:#176655;color:white;font-weight:700;padding:12px">${esc(t.name)} <span style="float:right;font-size:11px">${(data[t.id]||[]).length} poster</span></div>
  ${t.fields.map(f=>`<div style="height:27px;line-height:27px;padding:0 10px;border-top:1px solid #e5e7eb;font:12px/27px ui-monospace,monospace">${f==="id"?"🔑 ":links.some(r=>r.a===t.id&&r.af===f)?"↗ ":""}${esc(f)}</div>`).join("")}</div>`).join("");
- return `<section aria-label="Datamodell" style="display:grid;gap:14px"><h2>Relationer mellan tabeller</h2><p>En Access-liknande översikt över dokumenterade ID-kopplingar. Tabellerna visar ett urval centrala kolumner. Klicka på en koppling nedan för matchningsregeln. Allt är skrivskyddat.</p>
- <div style="overflow-x:auto;border:1px solid #dae3e1;border-radius:10px;background:#f5f8f7"><div style="position:relative;width:1176px;height:565px">
- <svg viewBox="0 0 1176 565" width="1176" height="565" style="position:absolute;inset:0;pointer-events:none">${lines}</svg>${nodes}</div></div>
+ return `<section aria-label="Datamodell" style="display:grid;gap:14px"><h2>Relationer mellan tabeller</h2><p>En Access-liknande översikt över dokumenterade ID-kopplingar. Tabellerna visar ett urval centrala kolumner inklusive personkopplingar och ansvarshistorik. Klicka på en koppling nedan för matchningsregeln. Allt är skrivskyddat.</p>
+ <div style="overflow-x:auto;border:1px solid #dae3e1;border-radius:10px;background:#f5f8f7"><div style="position:relative;width:1176px;height:880px">
+ <svg viewBox="0 0 1176 880" width="1176" height="880" style="position:absolute;inset:0;pointer-events:none">${lines}</svg>${nodes}</div></div>
  <div id="relationship-table-detail" aria-live="polite" style="border:1px solid #b8cbd0;border-radius:10px;padding:14px;background:white"><strong>Välj en tabell i diagrammet</strong><p>Klicka på exempelvis Objekt för att visa samtliga tillgängliga kolumner och verkliga poster ur den aktuella datakällan.</p></div><h3>Kopplingar och matchningsregler</h3><input id="relationship-filter" type="search" aria-label="Sök relation" placeholder="Sök tabell, objektnummer eller kolumn" style="width:100%;max-width:520px;padding:10px;border:1px solid #bcc9cb;border-radius:8px"/>
  <div id="relationship-list" style="display:grid;gap:8px">${links.map((r,i)=>`<details class="relationship-rule" data-search="${esc((r.a+" "+r.af+" "+r.b+" "+r.bf+" "+r.rule).toLocaleLowerCase("sv"))}" style="border:1px solid #cad7d5;border-radius:9px;padding:12px">
  <summary style="cursor:pointer"><strong>${esc(r.a)}.${esc(r.af)} → ${esc(r.b)}.${esc(r.bf)}</strong></summary>
