@@ -51,6 +51,34 @@ export function relationshipView(data){
  <p>${esc(r.rule)}</p><small>Verifierad i: ${esc(r.source)}</small></details>`).join("")}</div>
  <small>Diagrammet beskriver kända relationer i aktuell V2-kod, inte automatiskt upptäckta SQL-främmande nycklar. Fält utan verifierad relation visas inte som en koppling.</small></section>`;
 }
+
+function personRelations(data,personId){
+ const types={property:"properties",contract:"contracts",activity:"activities",object:"objects",business:"businesses"};
+ const roleFields={properties:["responsiblePersonId","ownerResponsiblePersonId"],contracts:["responsiblePersonId","businessResponsiblePersonId","tenantResponsiblePersonId"],activities:["responsiblePersonId"],objects:["responsiblePersonId"],businesses:["businessResponsiblePersonId"]};
+ const matches=[];
+ for(const [collection,fields] of Object.entries(roleFields))for(const row of data[collection]||[])for(const field of fields){
+  if(String(row[field]||"")===String(personId))matches.push({collection,id:row.id,label:row.title||row.address||row.number||row.name||row.id,role:field,from:"",to:"",source:"Aktuellt fält"});
+ }
+ for(const a of data.assignments||[]){
+  if(String(a.personId)!==String(personId))continue;
+  const collection=types[a.targetType]||a.targetType;
+  const row=(data[collection]||[]).find(x=>String(x.id)===String(a.targetId));
+  matches.push({collection,id:a.targetId,label:row?.title||row?.address||row?.number||row?.name||a.targetId,role:a.role||a.roleKey||"Ansvar",from:a.fromDate||"",to:a.toDate||"",source:"Ansvarshistorik",cancelled:a.cancelled===true});
+ }
+ return matches;
+}
+function personDetailHtml(data,personId){
+ const person=(data.people||[]).find(p=>String(p.id)===String(personId));
+ if(!person)return "<p>Personen finns inte längre i registret.</p>";
+ const rel=personRelations(data,personId);
+ return `<div style="border:1px solid #a3bdb5;border-radius:10px;padding:12px;margin-top:12px">
+ <h4 style="margin:0 0 8px">${esc(person.name||person.id)} – kopplingar och historik</h4>
+ <p>${rel.length} registrerade kopplingar inklusive historiska poster. Samma koppling kan förekomma både som aktuellt fält och historik.</p>
+ <div style="overflow:auto"><table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr>${["Tabell","Post","Roll/fält","Från","Till","Källa"].map(f=>`<th style="padding:8px;border:1px solid #ddd;text-align:left">${f}</th>`).join("")}</tr></thead><tbody>
+ ${rel.map(x=>`<tr>${[x.collection,x.label,x.role,x.from,x.to,x.source].map(v=>`<td style="padding:8px;border:1px solid #ddd">${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+ ${!rel.length?"<p>Inga direkta personrelationer finns registrerade.</p>":""}</div>`;
+}
+
 export function bindRelationshipView(data){
  const detail=document.querySelector("#relationship-table-detail");
  function openTable(id){
@@ -58,7 +86,8 @@ export function bindRelationshipView(data){
    const rows=Array.isArray(data[id])?data[id]:[];
    const fields=id==="activities"?[...allFields(data,id),"resolvedPropertyId (beräknad)"]:allFields(data,id);
    const related=links.filter(x=>x.a===id||x.b===id);
-   detail.innerHTML=`<h3 style="margin:0 0 8px">${esc(t.name)} · ${rows.length} poster</h3><p>Verkliga fält i ansluten data. Tabellen är skrivskyddad. ${rows.length>100?"Visar de första 100 posterna.":""}</p><div style="overflow:auto;max-height:430px;border:1px solid #ddd"><table style="border-collapse:collapse;white-space:nowrap;font-size:12px"><thead><tr>${fields.map(f=>`<th style="position:sticky;top:0;background:#e3efeb;text-align:left;padding:9px;border:1px solid #d5dedb">${esc(f)}</th>`).join("")}</tr></thead><tbody>${rows.slice(0,100).map(row=>`<tr>${fields.map(f=>`<td style="padding:7px;border:1px solid #e5e7eb;max-width:250px;overflow:hidden;text-overflow:ellipsis" title="${esc(showValue(f==="resolvedPropertyId (beräknad)"?activityPropertyId(data,row):row[f]))}">${esc(showValue(f==="resolvedPropertyId (beräknad)"?activityPropertyId(data,row):row[f]))}</td>`).join("")}</tr>`).join("")}</tbody></table>${!rows.length?"<p style=\"padding:12px\">Inga poster i aktuell datakälla.</p>":""}</div><h4>Kopplade kolumner</h4>${related.map(x=>`<div style="padding:5px 0"><code>${esc(x.a+"."+x.af+" → "+x.b+"."+x.bf)}</code></div>`).join("")}`;
+   detail.innerHTML=`<h3 style="margin:0 0 8px">${esc(t.name)} · ${rows.length} poster</h3><p>Verkliga fält i ansluten data. Tabellen är skrivskyddad. ${rows.length>100?"Visar de första 100 posterna.":""}</p><div style="overflow:auto;max-height:430px;border:1px solid #ddd"><table style="border-collapse:collapse;white-space:nowrap;font-size:12px"><thead><tr>${id==="people"?"<th>Relationer</th>":""}${fields.map(f=>`<th style="position:sticky;top:0;background:#e3efeb;text-align:left;padding:9px;border:1px solid #d5dedb">${esc(f)}</th>`).join("")}</tr></thead><tbody>${rows.slice(0,100).map(row=>`<tr>${id==="people"?`<td style="padding:6px;border:1px solid #ddd"><button type="button" data-person-detail="${esc(row.id)}">Visa kopplingar</button></td>`:""}${fields.map(f=>`<td style="padding:7px;border:1px solid #e5e7eb;max-width:250px;overflow:hidden;text-overflow:ellipsis" title="${esc(showValue(f==="resolvedPropertyId (beräknad)"?activityPropertyId(data,row):row[f]))}">${esc(showValue(f==="resolvedPropertyId (beräknad)"?activityPropertyId(data,row):row[f]))}</td>`).join("")}</tr>`).join("")}</tbody></table>${!rows.length?"<p style=\"padding:12px\">Inga poster i aktuell datakälla.</p>":""}</div><h4>Kopplade kolumner</h4>${related.map(x=>`<div style="padding:5px 0"><code>${esc(x.a+"."+x.af+" → "+x.b+"."+x.bf)}</code></div>`).join("")}`;
+   detail.querySelectorAll("[data-person-detail]").forEach(btn=>btn.addEventListener("click",()=>{let box=detail.querySelector("#person-relations");if(!box){box=document.createElement("div");box.id="person-relations";detail.appendChild(box);}box.innerHTML=personDetailHtml(data,btn.dataset.personDetail);box.scrollIntoView({behavior:"smooth",block:"nearest"});}));
    document.querySelectorAll("[data-relationship-table]").forEach(el=>{el.style.outline=el.dataset.relationshipTable===id?"3px solid #0f766e":"none";});
    document.querySelectorAll("[data-relationship-line]").forEach((line,i)=>{const l=links[i],active=l.a===id||l.b===id;line.style.opacity=active?"1":".13";line.style.strokeWidth=active?"3":"2";});
    detail.scrollIntoView({behavior:"smooth",block:"nearest"});
