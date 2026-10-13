@@ -6,8 +6,11 @@
   const hash = value => { let h=2166136261; for(const c of String(value)) { h ^= c.charCodeAt(0); h=Math.imul(h,16777619); } return (h>>>0).toString(36).toUpperCase(); };
   const num = value => { if(value==null || clean(value)==="") return null; const n=Number(clean(value).replace(/\s/g,"").replace(",",".")); return Number.isFinite(n)?n:null; };
   const year=2027;
-  const sheetName="2027";
+  function projectSheetName(workbook) {
+    return (workbook?.SheetNames || []).find(name => /^(?:projekt\s*)?2027$/i.test(clean(name))) || "";
+  }
   function parse(workbook) {
+    const sheetName=projectSheetName(workbook);
     const sheet=workbook?.Sheets?.[sheetName];
     if(!sheet || !root.XLSX) return null;
     const rows=root.XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:true});
@@ -21,6 +24,7 @@
   function enrich(workbook,original,fileName) {
     const incoming=parse(workbook);
     if(!incoming) throw Error("Projekt 2027 har inte förväntade kolumner.");
+    const sheetName=projectSheetName(workbook);
     const data=JSON.parse(JSON.stringify(original||{}));
     for(const k of ["activities","properties","contracts","people","sourceRegistry","importReview"]) if(!Array.isArray(data[k])) data[k]=[];
     const source=clean(fileName)||"Projekt 2027.xlsx";
