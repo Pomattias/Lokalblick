@@ -84,9 +84,24 @@ export function bindRelationshipView(data){
  function openTable(id){
    const t=tables.find(x=>x.id===id);if(!t||!detail)return;
    const rows=Array.isArray(data[id])?data[id]:[];
-   const fields=id==="activities"?[...allFields(data,id),"resolvedPropertyId (beräknad)"]:allFields(data,id);
+   const fields=id==="activities"?[...allFields(data,id),"resolvedPropertyId (beräknad)","Journalnoteringar (beräknat)","Senaste journaldatum (beräknat)","Senaste kommentar (beräknad)"]:allFields(data,id);
+   const journal=new Map();
+   if(id==="activities")for(const h of data.auditLog||[]){
+     if(h.collection!=="activities"||h.action!=="Journalanteckning")continue;
+     const k=String(h.recordId),list=journal.get(k)||[];
+     list.push(h);journal.set(k,list);
+   }
+   for(const entries of journal.values())entries.sort((a,b)=>String(b.at||"").localeCompare(String(a.at||"")));
+   function displayField(row,field){
+     if(field==="resolvedPropertyId (beräknad)")return activityPropertyId(data,row);
+     const entries=journal.get(String(row.id))||[];
+     if(field==="Journalnoteringar (beräknat)")return entries.length;
+     if(field==="Senaste journaldatum (beräknat)")return entries[0]?.at||"";
+     if(field==="Senaste kommentar (beräknad)")return (entries[0]?.fields||[]).find(x=>x.field==="comment")?.to||"";
+     return row[field];
+   }
    const related=links.filter(x=>x.a===id||x.b===id);
-   detail.innerHTML=`<h3 style="margin:0 0 8px">${esc(t.name)} · ${rows.length} poster</h3><p>Verkliga fält i ansluten data. Tabellen är skrivskyddad. ${rows.length>100?"Visar de första 100 posterna.":""}</p><div style="overflow:auto;max-height:430px;border:1px solid #ddd"><table style="border-collapse:collapse;white-space:nowrap;font-size:12px"><thead><tr>${id==="people"?"<th>Relationer</th>":""}${fields.map(f=>`<th style="position:sticky;top:0;background:#e3efeb;text-align:left;padding:9px;border:1px solid #d5dedb">${esc(f)}</th>`).join("")}</tr></thead><tbody>${rows.slice(0,100).map(row=>`<tr>${id==="people"?`<td style="padding:6px;border:1px solid #ddd"><button type="button" data-person-detail="${esc(row.id)}">Visa kopplingar</button></td>`:""}${fields.map(f=>`<td style="padding:7px;border:1px solid #e5e7eb;max-width:250px;overflow:hidden;text-overflow:ellipsis" title="${esc(showValue(f==="resolvedPropertyId (beräknad)"?activityPropertyId(data,row):row[f]))}">${esc(showValue(f==="resolvedPropertyId (beräknad)"?activityPropertyId(data,row):row[f]))}</td>`).join("")}</tr>`).join("")}</tbody></table>${!rows.length?"<p style=\"padding:12px\">Inga poster i aktuell datakälla.</p>":""}</div><h4>Kopplade kolumner</h4>${related.map(x=>`<div style="padding:5px 0"><code>${esc(x.a+"."+x.af+" → "+x.b+"."+x.bf)}</code></div>`).join("")}`;
+   detail.innerHTML=`<h3 style="margin:0 0 8px">${esc(t.name)} · ${rows.length} poster</h3><p>Verkliga fält i ansluten data. Tabellen är skrivskyddad. ${rows.length>100?"Visar de första 100 posterna.":""}</p><div style="overflow:auto;max-height:430px;border:1px solid #ddd"><table style="border-collapse:collapse;white-space:nowrap;font-size:12px"><thead><tr>${id==="people"?"<th>Relationer</th>":""}${fields.map(f=>`<th style="position:sticky;top:0;background:#e3efeb;text-align:left;padding:9px;border:1px solid #d5dedb">${esc(f)}</th>`).join("")}</tr></thead><tbody>${rows.slice(0,100).map(row=>`<tr>${id==="people"?`<td style="padding:6px;border:1px solid #ddd"><button type="button" data-person-detail="${esc(row.id)}">Visa kopplingar</button></td>`:""}${fields.map(f=>`<td style="padding:7px;border:1px solid #e5e7eb;max-width:250px;overflow:hidden;text-overflow:ellipsis" title="${esc(showValue(displayField(row,f)))}">${esc(showValue(displayField(row,f)))}</td>`).join("")}</tr>`).join("")}</tbody></table>${!rows.length?"<p style=\"padding:12px\">Inga poster i aktuell datakälla.</p>":""}</div><h4>Kopplade kolumner</h4>${related.map(x=>`<div style="padding:5px 0"><code>${esc(x.a+"."+x.af+" → "+x.b+"."+x.bf)}</code></div>`).join("")}`;
    detail.querySelectorAll("[data-person-detail]").forEach(btn=>btn.addEventListener("click",()=>{let box=detail.querySelector("#person-relations");if(!box){box=document.createElement("div");box.id="person-relations";detail.appendChild(box);}box.innerHTML=personDetailHtml(data,btn.dataset.personDetail);box.scrollIntoView({behavior:"smooth",block:"nearest"});}));
    document.querySelectorAll("[data-relationship-table]").forEach(el=>{el.style.outline=el.dataset.relationshipTable===id?"3px solid #0f766e":"none";});
    document.querySelectorAll("[data-relationship-line]").forEach((line,i)=>{const l=links[i],active=l.a===id||l.b===id;line.style.opacity=active?"1":".13";line.style.strokeWidth=active?"3":"2";});
