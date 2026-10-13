@@ -515,9 +515,10 @@ export function planning(data, s, ui) {
     <div class="plan-mobile-activities">${items.filter(x=>x.collection==="activities").map(mobileCard).join("")||"<p>Inga ärenden i urvalet.</p>"}</div>
     ${items.some(x=>x.collection==="properties")?`<details class="plan-property-group"><summary>Fastighetsansvar (${items.filter(x=>x.collection==="properties").length})</summary>${items.filter(x=>x.collection==="properties").map(mobileCard).join("")}</details>`:""}
     </div>`;
-  const planHeader=`<div class="plan-topbar"><h2>Ärenden och ansvar</h2><button type="button" data-new-issue class="primary">+ Nytt ärende</button></div>
+  const planHeader=`<div class="plan-topbar"><h2>Ärenden och ansvar</h2></div>
     ${missing.length||ui.unassigned||withoutHome.length||ui.unassignedHome?`<div class="plan-exceptions">${missing.length||ui.unassigned?`<button data-unassigned class="${ui.unassigned?"active":""}">${missing.length} utan ansvarig</button>`:""}${withoutHome.length||ui.unassignedHome?`<button data-unassigned-home class="${ui.unassignedHome?"active":""}">${withoutHome.length} utan hemvist</button>`:""}</div>`:""}`;
-  return `${planHeader}${types}${timelineControls}${mobileList}${timelineBody||`<div class="plan-desktop-list">`+table(
+  const mobileActions=`<div class="plan-mobile-actions">${timelineControls}<button type="button" data-new-issue class="primary">+ Nytt ärende</button></div>`;
+  return `${planHeader}${types}${mobileActions}${mobileList}${timelineBody||`<div class="plan-desktop-list">`+table(
     ["Ärende / ansvar", "Fastighet", "Adress", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
