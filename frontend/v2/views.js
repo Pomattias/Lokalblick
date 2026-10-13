@@ -499,7 +499,25 @@ export function planning(data, s, ui) {
   const types = `<div class="issue-type-filters" aria-label="Filtrera ärenden">${typeChoices.map(type=>`<button type="button" data-issue-type="${esc(type)}" class="${issueType===type?"active":""}" aria-pressed="${issueType===type}">${esc(type)}</button>`).join("")}</div>`;
   const timelineControls = `<div class="actions"><button type="button" data-planning-mode="list" class="${ui.planningMode==="timeline"?"":"active"}">Lista</button><button type="button" data-planning-mode="timeline" class="${ui.planningMode==="timeline"?"active":""}">Tidslinje</button>${ui.planningMode==="timeline"?`<button type="button" data-timeline-span="1" class="${ui.timelineSpan===3?"":"active"}">1 år</button><button type="button" data-timeline-span="3" class="${ui.timelineSpan===3?"active":""}">3 år</button>`:""}</div>`;
   const timelineBody = ui.planningMode==="timeline" ? timelineView(data,items,ui) : null;
-  return `<div class="section-title"><h2>Ärenden och ansvar</h2><div class="actions"><button type="button" data-new-issue class="primary">+ Nytt ärende</button><button data-unassigned class="${ui.unassigned ? "active" : ""}">${missing.length} utan ansvarig</button><button data-unassigned-home class="${ui.unassignedHome ? "active" : ""}">${withoutHome.length} utan hemvist</button></div></div>${types}${timelineControls}${timelineBody||table(
+  const mobileCard=x=>{
+    const p=propertyById(data,x.propertyId);
+    const isActivity=x.collection==="activities";
+    const who=personLabel(data,responsible(data,x.collection,x.record));
+    const home=isActivity?(x.record.contractId?"Avtal":x.record.objectId?"Objekt":x.record.propertyId?"Fastighet":x.record.scopeType==="unit"?"Område":"Generellt"):"Fastighet";
+    return `<article class="plan-mobile-card">
+      <div class="plan-mobile-card-head"><div><span class="plan-mobile-kind">${esc(isActivity?x.record.type||"Ärende":"Fastighet")}</span><strong>${esc(isActivity?x.title:propertyDesignation(p)||x.title)}</strong><small>${esc(p?.address||"Ingen fastighetsadress")}</small></div>
+      <button type="button" data-edit="${esc(x.collection)}" data-id="${esc(x.record.id)}" aria-label="Öppna ${esc(x.title)}">${isActivity?"Öppna":"Visa"}</button></div>
+      <div class="plan-mobile-card-foot"><span>${esc(who||"Ej fördelat")} · ${esc(home)}</span>${isActivity?`<b>${money(x.cost)}</b>`:""}</div>
+      ${isActivity&&x.record.startDate?`<small class="plan-mobile-date">${esc(x.record.startDate)} → ${esc(x.record.endDate||"–")}</small>`:""}
+      </article>`;
+  };
+  const mobileList=timelineBody?"":`<div class="plan-mobile-list">
+    <div class="plan-mobile-activities">${items.filter(x=>x.collection==="activities").map(mobileCard).join("")||"<p>Inga ärenden i urvalet.</p>"}</div>
+    ${items.some(x=>x.collection==="properties")?`<details class="plan-property-group"><summary>Fastighetsansvar (${items.filter(x=>x.collection==="properties").length})</summary>${items.filter(x=>x.collection==="properties").map(mobileCard).join("")}</details>`:""}
+    </div>`;
+  const planHeader=`<div class="plan-topbar"><h2>Ärenden och ansvar</h2><button type="button" data-new-issue class="primary">+ Nytt ärende</button></div>
+    ${missing.length||ui.unassigned||withoutHome.length||ui.unassignedHome?`<div class="plan-exceptions">${missing.length||ui.unassigned?`<button data-unassigned class="${ui.unassigned?"active":""}">${missing.length} utan ansvarig</button>`:""}${withoutHome.length||ui.unassignedHome?`<button data-unassigned-home class="${ui.unassignedHome?"active":""}">${withoutHome.length} utan hemvist</button>`:""}</div>`:""}`;
+  return `${planHeader}${types}${timelineControls}${mobileList}${timelineBody||`<div class="plan-desktop-list">`+table(
     ["Ärende / ansvar", "Fastighet", "Adress", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
@@ -543,7 +561,7 @@ export function planning(data, s, ui) {
         `${edit(x.collection, x.record.id)}`,
       ]),
     ),
-  )}<details><summary>Ansvarsändringar (${history.length})</summary>${table(
+  )+`</div>`}<details><summary>Ansvarsändringar (${history.length})</summary>${table(
     ["Tid", "Post", "Från → till", "Av"],
     history.map((x) => {
       const change = (x.fields || []).find(
