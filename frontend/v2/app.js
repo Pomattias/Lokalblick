@@ -1404,7 +1404,7 @@ document.addEventListener("submit", (event) => {
         audit(d, col, id, before, next, actor());
       }
       if(col==='contracts'&&event.target.elements.namedItem('businessIds')){
-        const ids=new FormData(event.target).getAll('businessIds'),values={};
+        const ids=[...new Set(new FormData(event.target).getAll('businessIds').filter(Boolean))],values={};
         for(const bid of ids){const area=event.target.elements.namedItem('businessArea|'+bid)?.value,share=event.target.elements.namedItem('businessShare|'+bid)?.value;values[bid]={};if(area!==undefined)values[bid].usedArea=area===''?null:Number(area);if(share!==undefined)values[bid].costSharePercent=share===''?null:Number(share);}
         globalThis.LokalblickBusinessModel.applyLinks(d,next.id,ids,values,event.target.elements.namedItem('responsibilityChangeDate')?.value||globalThis.LokalblickResponsibility.today(),actor());
       }
