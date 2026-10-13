@@ -1,5 +1,6 @@
 import {businessList} from './business-editor.js';
 import {activityJournalHtml,appendActivityNote} from "./activity-journal.js";
+import {editorSnapshot,editorHasUnsavedChanges} from "./editor-safety.js";
 import {relationshipView,bindRelationshipView} from "./relationships.js";
 import {
   collections,
@@ -718,7 +719,26 @@ async function run(fn) {
     if (error.name !== "AbortError") notice(error.message, true);
   }
 }
-function closeEditor() {
+function editorForm(){return document.querySelector("#editor-root #edit-form");}
+function hasUnsavedEditorChanges(){
+  return !!editor && editorHasUnsavedChanges(editorForm(),editor.initialSnapshot);
+}
+function updateEditorActions(){
+  const form=editorForm();
+  if(!editor||!form)return;
+  const dirty=hasUnsavedEditorChanges();
+  const status=form.querySelector("[data-editor-save-status]");
+  if(status){
+    status.textContent=dirty?"Osparade ändringar":"Inga osparade ändringar";
+    status.dataset.dirty=dirty?"true":"false";
+  }
+  const undo=form.querySelector("[data-editor-undo]");
+  if(undo)undo.disabled=!dirty;
+  const save=form.querySelector('.editor-actions button[type="submit"]');
+  if(save)save.disabled=!dirty&&!!editor.id;
+}
+function closeEditor({force=false}={}){
+  if(editor&&!force&&hasUnsavedEditorChanges()&&!window.confirm("Du har osparade ändringar. Stäng utan att spara och kasta ändringarna?"))return false;
   if (propertyMapCleanup) {
     propertyMapCleanup();
     propertyMapCleanup = null;
@@ -726,6 +746,7 @@ function closeEditor() {
   document.querySelector("#editor-root").innerHTML = "";
   editor = null;
   document.body.classList.remove("editing");
+  return true;
 }
 
 function currentFormPlanning(form) {
@@ -757,6 +778,7 @@ function redrawFormPlanning(form) {
 }
 function openEditor(col, id, defaults = {}) {
   if (!canEdit()) return;
+  if(editor&&!closeEditor())return;
   pendingPlanSelection=null;
   const result = editorHtml(data, col, id, transport.company(), defaults);
   editor = { col, id, record: result.record };
@@ -769,7 +791,29 @@ function openEditor(col, id, defaults = {}) {
     root.querySelector('[data-assignment-target]').innerHTML='<option value="">Välj post</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.number||x.title||x.designation||x.id)}</option>`).join('');
   };
   root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,globalThis.LokalblickSourceService.schemas));
-
+  const form=root.querySelector("#edit-form");
+  const footer=form?.querySelector(".editor-actions");
+  if(footer){
+    const save=footer.querySelector('button[type="submit"]');
+    if(save){
+      const undo=document.createElement("button");
+      undo.type="button";
+      undo.dataset.editorUndo="";
+      undo.textContent="Ångra";
+      save.before(undo);
+    }
+    const status=document.createElement("span");
+    status.className="editor-save-status";
+    status.dataset.editorSaveStatus="";
+    status.setAttribute("role","status");
+    footer.prepend(status);
+  }
+  if(form){
+    editor.initialSnapshot=editorSnapshot(form);
+    root.addEventListener("input",updateEditorActions);
+    root.addEventListener("change",updateEditorActions);
+    updateEditorActions();
+  }
   document.body.classList.add("editing");
   if (col === "properties") {
     propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
@@ -930,6 +974,8 @@ document.addEventListener("click", (event) =>
       const note=noteField?.value||"";
       if(!String(note).trim())throw Error("Skriv en notering innan du sparar.");
       if(note.trim().length>5000)throw Error("Noteringen är för lång (max 5 000 tecken).");
+      if(editorSnapshot(editorForm())!==editor.initialSnapshot)
+        throw Error("Du har även osparade fältändringar. Välj Spara ärende för att spara både noteringen och ändringarna tillsammans.");
       await mutation(d=>{
         appendActivityNote(d,id,note,{
           name:actor(),
@@ -939,6 +985,7 @@ document.addEventListener("click", (event) =>
       });
       const panel=document.querySelector("#edit-form .activity-journal");
       if(panel)panel.outerHTML=activityJournalHtml(data,id);
+      updateEditorActions();
       return;
     }
     if (b.hasAttribute("data-open-activity-journal")) {
@@ -949,6 +996,13 @@ document.addEventListener("click", (event) =>
         journal.scrollIntoView({behavior:"smooth",block:"nearest"});
         journal.querySelector("[data-activity-journal-note]")?.focus({preventScroll:true});
       }
+      return;
+    }
+    if (b.hasAttribute("data-editor-undo")) {
+      if(!editor||!hasUnsavedEditorChanges())return;
+      const {col,id}=editor;
+      closeEditor({force:true});
+      openEditor(col,id);
       return;
     }
     if (b.hasAttribute("data-plan-month")) {
@@ -1003,6 +1057,7 @@ document.addEventListener("click", (event) =>
       form.querySelector('[name="planningYear"]').value=String(draft.planningYear);
       form.dataset.planChanged="true";
       redrawFormPlanning(form);
+      updateEditorActions();
       return;
     }
     if (b.dataset.tool) document.getElementById(b.dataset.tool)?.click();
@@ -1406,6 +1461,7 @@ document.addEventListener("submit", (event) => {
       next.geoConfirmedBy=actor();
     }
     if(col==='contracts'&&!next.objectId)throw Error('Välj vilket objekt avtalet tillhör');
+    const noteDraft=col==="activities"?String(event.target.querySelector("[data-activity-journal-note]")?.value||"").trim():"";
     await mutation((d) => {
       if (!id) {
         next.id = crypto.randomUUID();
@@ -1447,11 +1503,11 @@ document.addEventListener("submit", (event) => {
         });
       }
     }, { responsibilityDate:event.target.elements.namedItem('responsibilityChangeDate')?.value,manualPositionIds:manualPositionSelected && id ? [String(id)] : [] });
-    closeEditor();
+    closeEditor({force:true});
   });
 });
 window.addEventListener("beforeunload", (event) => {
-  if (!switchingView && (hasPending() || editor)) {
+  if (!switchingView && (hasPending() || hasUnsavedEditorChanges())) {
     event.preventDefault();
     event.returnValue = "";
   }
