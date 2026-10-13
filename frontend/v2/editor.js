@@ -236,7 +236,7 @@ export function readEditor(form, record) {
   const out = clone(record);
   const submitted = new Set();
   new FormData(form).forEach((value, key) => {
-    if(key==='responsibilityChangeDate'||key==='businessIds'||/^business(?:Area|Share)\|/.test(key))return;
+    if(key==='responsibilityChangeDate'||key==='businessIds'||key==='enhancingToggle'||/^business(?:Area|Share)\|/.test(key))return;
     submitted.add(key);
     out[key] = key!=='areaType'&&numeric.test(key) && value !== "" ? Number(value) : value;
     // Editor explicitly shows percentage points (80 means 80 %);
@@ -251,6 +251,11 @@ export function readEditor(form, record) {
       throw Error("Ärendet behöver en rubrik.");
     if (!String(out.type || "").trim())
       throw Error("Välj ärendetyp.");
+    const enhancing=form.querySelector('[name="enhancingToggle"]');
+    if(enhancing && String(enhancing.checked)!==enhancing.dataset.initialChecked){
+      out.actionKind=enhancing.checked?"value_enhancing":"like_for_like";
+      out.standardEnhancing=enhancing.checked;
+    }
     if (submitted.has("issueHome")) {
       applyIssueHome(out, out.issueHome);
       delete out.issueHome;
