@@ -1164,3 +1164,27 @@ details .table-wrap {
 .responsibility-section > small { display:block; margin:5px 0 8px; }
 .responsibility-section .mapping-table { max-width:100%; }
 .responsibility-section details { margin-top:8px; }
+
+
+/* Dated journal is part of each activity, not a separate legacy comments register. */
+.issue-editor .activity-journal { margin:10px 0; padding:12px; background:#f7faf9; border:1px solid var(--line,#dbe4e0); border-radius:9px; }
+.issue-editor .activity-journal-heading { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:3px 10px; }
+.issue-editor .activity-journal-heading h3 { margin:0 0 9px; }
+.issue-editor .activity-journal-heading span { font-size:11px; color:var(--muted,#65746d); }
+.issue-editor .activity-journal-compose { display:grid; gap:6px; font-size:12px; font-weight:600; }
+.issue-editor .activity-journal-compose textarea { box-sizing:border-box; display:block; width:100%; min-width:0; min-height:72px; font:inherit; font-weight:400; resize:vertical; border:1px solid var(--line,#cbd5d1); border-radius:7px; padding:10px; background:white; }
+.issue-editor .activity-journal-actions { display:flex; justify-content:space-between; align-items:center; gap:8px 15px; padding:8px 0; }
+.issue-editor .activity-journal-actions small { font-size:11px; color:var(--muted,#65746d); }
+.issue-editor .activity-journal-actions button { flex-shrink:0; }
+.issue-editor .activity-journal-entries { max-height:280px; overflow-y:auto; }
+.issue-editor .activity-journal-entry { border-left:3px solid #167360; border-radius:0 6px 6px 0; padding:8px 11px; margin:7px 0; background:#fff; overflow-wrap:anywhere; }
+.issue-editor .activity-journal-entry.is-change { border-left-color:#a87728; }
+.issue-editor .activity-journal-entry-meta { display:flex; flex-wrap:wrap; gap:4px; font-size:11px; color:var(--muted,#65746d); }
+.issue-editor .activity-journal-entry p { margin:4px 0 0; white-space:pre-wrap; font-size:12px; line-height:1.45; }
+.activity-note-link { color:var(--accent,#176655); font:inherit; font-weight:600; padding:1px 2px; margin:0; border:0; background:none; text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+@media(max-width:600px) {
+ .issue-editor .activity-journal { padding:10px; }
+ .issue-editor .activity-journal-actions { flex-wrap:wrap; }
+ .issue-editor .activity-journal-actions button { width:100%; }
+ .issue-editor .activity-journal-entries { max-height:220px; }
+}
