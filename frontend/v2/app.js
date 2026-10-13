@@ -852,7 +852,8 @@ function openEditor(col, id, defaults = {}) {
   if (col === "properties") {
     propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
   }
-  (id ? root.querySelector("[data-editor-activate]") : root.querySelector("input:not(:disabled),select:not(:disabled)"))?.focus();
+  // Do not open the iOS keyboard automatically when creating a case.
+  if(id)root.querySelector("[data-editor-activate]")?.focus({preventScroll:true});
 }
 function openPropertyPersonDialog(button) {
   if (!editor || editor.col !== "properties") return;
