@@ -1515,3 +1515,11 @@ details .table-wrap {
  .issue-editor #edit-form.editor-readonly .issue-main-section .issue-grid { gap:2px 8px; }
  .issue-editor #edit-form.editor-readonly .issue-property-reference > strong { max-width:100%; }
 }
+
+
+/* Single checkbox indicating an explicitly value-enhancing activity. */
+.issue-editor .issue-enhancing-toggle {display:flex;flex-direction:row;align-items:center;gap:9px;min-height:39px;padding:5px 8px;border:1px solid var(--line,#dbe4e0);border-radius:8px;box-sizing:border-box;background:var(--paper,#fff);font-size:13px;color:var(--ink,#183c2e);font-weight:600;}
+.issue-editor .issue-enhancing-toggle input[type="checkbox"] {width:18px;height:18px;min-width:18px;min-height:18px;margin:0;accent-color:var(--accent,#176655);}
+.issue-editor #edit-form.editor-readonly .issue-enhancing-toggle {border-color:transparent;background:transparent;padding-left:0;}
+.issue-editor #edit-form.editor-readonly .issue-enhancing-toggle input:disabled {opacity:1;}
+@media(max-width:700px){.issue-editor .issue-enhancing-toggle{min-height:37px;font-size:12px;}}
