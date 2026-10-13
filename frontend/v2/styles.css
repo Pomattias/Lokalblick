@@ -1483,3 +1483,35 @@ details .table-wrap {
  .summary > div:nth-child(even){border-right:1px solid var(--line);}
  .summary > div:last-child{border-right:0;}
 }
+
+
+/* A single information hierarchy in the case editor: name → location → description → metadata. */
+.issue-editor .issue-main-section > .issue-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px; }
+.issue-editor .issue-main-section .issue-title-field,
+.issue-editor .issue-main-section .issue-home-row,
+.issue-editor .issue-main-section .issue-description,
+.issue-editor .issue-main-section .issue-compact-meta { grid-column:1/-1; }
+.issue-editor .issue-main-section .issue-description { display:grid; margin:0;gap:3px; }
+.issue-editor .issue-main-section .issue-owner-row { grid-column:1/-1; }
+.issue-editor .issue-compact-meta { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px; }
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-title-field { display:none; }
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-home-row { margin:0; }
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-description:has(textarea:empty) { display:none; }
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-description:not(:has(textarea:empty)) { margin:0;padding:3px 0; }
+.issue-editor #edit-form.editor-readonly .issue-compact-meta { grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px; }
+.issue-editor #edit-form.editor-readonly .issue-compact-meta .issue-field,
+.issue-editor #edit-form.editor-readonly .issue-owner-row .issue-field {
+ display:flex;flex-direction:row;gap:5px;align-items:baseline;padding:2px 0;min-width:0;
+}
+.issue-editor #edit-form.editor-readonly .issue-compact-meta :is(input,select):disabled,
+.issue-editor #edit-form.editor-readonly .issue-owner-row :is(input,select):disabled {
+ flex:1;width:0;min-width:0;height:auto;min-height:0;padding:0;font-size:12px;font-weight:650;
+ white-space:nowrap;text-overflow:ellipsis;
+}
+.issue-editor #edit-form.editor-readonly .issue-owner-row {grid-column:1/-1;}
+@media(max-width:700px){
+ .issue-editor .issue-main-section > .issue-grid { gap:4px 8px; }
+ .issue-editor .issue-compact-meta { gap:4px 8px; }
+ .issue-editor #edit-form.editor-readonly .issue-main-section .issue-grid { gap:2px 8px; }
+ .issue-editor #edit-form.editor-readonly .issue-property-reference > strong { max-width:100%; }
+}
