@@ -718,12 +718,12 @@
     data.sourceRegistry = budgetRows("Källor",[["name","Fil"],["kind","Typ"],["rows","Rader"],["matched","Matchade"],["created","Skapade"],["review","Granska"],["importedAt","Importerad"],["sheets","Flikar"]])
       .filter(function(x){return x.name||x.kind;})
       .map(function(x){return {name:x.name||"",kind:x.kind||"",rows:Number(x.rows)||0,matched:Number(x.matched)||0,created:Number(x.created)||0,review:Number(x.review)||0,importedAt:x.importedAt||"",sheets:x.sheets||""};});
-    const auditRows=budgetRows("Ändringslogg",[["id","_id"],["at","Tid"],["by","Ändrad av"],["collection","Tabell"],["recordId","Post-ID"],["action","Ändring"],["field","Fält"],["from","Från"],["to","Till"]]);
+    const auditRows=budgetRows("Ändringslogg",[["id","_id"],["at","Tid"],["by","Ändrad av"],["byUserId","Användar-ID"],["actorVerified","Verifierad identitet"],["collection","Tabell"],["recordId","Post-ID"],["action","Ändring"],["field","Fält"],["from","Från"],["to","Till"]]);
     if(auditRows.length){
       const groupedAudit=new Map();
       auditRows.forEach(function(x){
         const id=x.id||("AUDIT|"+x.at+"|"+x.collection+"|"+x.recordId);
-        if(!groupedAudit.has(id))groupedAudit.set(id,{id:id,at:x.at||"",by:x.by||"",collection:x.collection||"",recordId:x.recordId||"",action:x.action||"",fields:[]});
+        if(!groupedAudit.has(id))groupedAudit.set(id,{id:id,at:x.at||"",by:x.by||"",byUserId:x.byUserId||"",actorVerified:x.actorVerified===true||String(x.actorVerified).toLowerCase()==="true",collection:x.collection||"",recordId:x.recordId||"",action:x.action||"",fields:[]});
         if(x.field)groupedAudit.get(id).fields.push({field:x.field,from:x.from??"",to:x.to??""});
       });
       data.auditLog=Array.from(groupedAudit.values());
@@ -849,9 +849,9 @@
     const auditRows=[];
     (canonical.auditLog||[]).forEach(function(entry){
       const fields=(entry.fields||[]).length?entry.fields:[{field:"",from:"",to:""}];
-      fields.forEach(function(field){auditRows.push({id:entry.id||"",at:entry.at||"",by:entry.by||"",collection:entry.collection||"",recordId:entry.recordId||"",action:entry.action||"",field:field.field||"",from:typeof field.from==="object"?JSON.stringify(field.from):(field.from??""),to:typeof field.to==="object"?JSON.stringify(field.to):(field.to??"")});});
+      fields.forEach(function(field){auditRows.push({id:entry.id||"",at:entry.at||"",by:entry.by||"",byUserId:entry.byUserId||"",actorVerified:entry.actorVerified===true,collection:entry.collection||"",recordId:entry.recordId||"",action:entry.action||"",field:field.field||"",from:typeof field.from==="object"?JSON.stringify(field.from):(field.from??""),to:typeof field.to==="object"?JSON.stringify(field.to):(field.to??"")});});
     });
-    XLSX.utils.book_append_sheet(workbook,simpleSheet(auditRows,[["id","_id",true],["at","Tid"],["by","Ändrad av"],["collection","Tabell"],["recordId","Post-ID"],["action","Ändring"],["field","Fält"],["from","Från"],["to","Till"]]),"Ändringslogg");
+    XLSX.utils.book_append_sheet(workbook,simpleSheet(auditRows,[["id","_id",true],["at","Tid"],["by","Ändrad av"],["byUserId","Användar-ID"],["actorVerified","Verifierad identitet"],["collection","Tabell"],["recordId","Post-ID"],["action","Ändring"],["field","Fält"],["from","Från"],["to","Till"]]),"Ändringslogg");
     XLSX.utils.book_append_sheet(workbook,simpleSheet(extraRows(canonical),[["collection","Collection"],["id","ID"],["part","Del"],["json","JSON"]]),"Tilläggsdata");
     workbook.Workbook=workbook.Workbook||{};
     // Only the active business registers and editable budget are visible.
