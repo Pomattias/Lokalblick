@@ -561,7 +561,17 @@ export function normalize(data) {
     c.end = c.end ?? c.currentValidTo ?? "";
     c.notice = c.notice ?? c.noticeBy ?? "";
   });
-  return globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickBusinessModel.normalize(globalThis.LokalblickObjectModel.normalize(canonicalRelations(migrateLegacy(out)))));
+  const canonical = globalThis.LokalblickResponsibility.normalize(
+    globalThis.LokalblickBusinessModel.normalize(
+      globalThis.LokalblickObjectModel.normalize(canonicalRelations(migrateLegacy(out)))
+    )
+  );
+  // Legacy collections are read only while migrating older workbooks.
+  // Do not expose them as parallel, empty business registers in the canonical model.
+  // Keep their import adapters intact so historical source files remain readable.
+  for (const key of legacyCollections) delete canonical[key];
+  delete canonical.legacyOrganizations;
+  return canonical;
 }
 export function activities(data) {
   return (data.activities || []).map((record) => ({
