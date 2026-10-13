@@ -315,7 +315,7 @@ function activityRows(data, items) {
     const latest=notes[0];
     const date=latest?.at&&!Number.isNaN(Date.parse(latest.at))?new Date(latest.at).toLocaleDateString("sv-SE"):null;
     return row([
-      `<strong>${esc(x.title)}</strong><small>${esc(x.label)}${latest?" · "+notes.length+" journalanteckningar · senaste "+date:""}</small>`,
+      `<strong><button type="button" class="text-button" data-edit="activities" data-id="${esc(x.record.id)}">${esc(x.title)}</button></strong><small>${esc(x.label)} · <button type="button" class="activity-note-link" data-open-activity-journal="${esc(x.record.id)}">Noteringar (${notes.length})${date?" · "+date:""}</button></small>`,
       esc(propertyDesignation(property) || "–"),
       propertyAddressCell(property),
       esc(personLabel(data, responsible(data, x.collection, x.record))),
