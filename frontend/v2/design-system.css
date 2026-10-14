@@ -912,12 +912,13 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 }
 .issue-editor #edit-form .issue-dates-edit {
   display:grid;
-  grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr) 62px;
+  grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr);
   align-items:center;
   align-self:center;
   gap:5px;
-  height:35px;
-  min-height:35px;
+  height:30px;
+  min-height:30px;
+  max-height:30px;
   width:100%;
   min-width:0;
   max-width:100%;
@@ -926,7 +927,9 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   display:block;
   min-width:0;
   width:100%;
-  height:35px;
+  height:30px;
+  min-height:30px;
+  max-height:30px;
   margin:0;
 }
 .issue-editor #edit-form .issue-dates-edit > span[aria-hidden] {
@@ -940,31 +943,16 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   width:100%;
   min-width:0;
   max-width:100%;
-  height:35px;
-  min-height:35px;
+  height:30px;
+  min-height:30px;
+  max-height:30px;
   margin:0;
-  padding:4px 3px;
+  padding:2px 5px;
   font-size:12px;
   font-weight:600;
-  line-height:1.2;
-}
-.issue-editor #edit-form .issue-year-edit {
-  display:block;
-  margin:0;
-  min-width:0;
-  width:100%;
-  height:35px;
-}
-.issue-editor #edit-form .issue-year-edit input[name="planningYear"] {
-  box-sizing:border-box;
-  width:100%;
-  min-width:0;
-  max-width:100%;
-  height:35px;
-  min-height:35px;
-  padding:4px 3px;
-  text-align:center;
-  font-size:12px;
+  line-height:1.15;
+  -webkit-appearance:none;
+  appearance:none;
 }
 @media(max-width:700px) {
   .issue-editor #edit-form .issue-history-card-row {
@@ -986,19 +974,20 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
     grid-column:1/-1;
     grid-row:2;
   }
-  .issue-editor #edit-form .issue-dates-edit input[type="date"],
-  .issue-editor #edit-form .issue-year-edit input[name="planningYear"] {
+  .issue-editor #edit-form .issue-dates-edit input[type="date"] {
+    height:30px;
+    min-height:30px;
+    max-height:30px;
     font-size:12px;
   }
   .issue-editor #edit-form .issue-dates-edit input[type="date"]:focus,
-  .issue-editor #edit-form .issue-year-edit input[name="planningYear"]:focus,
   .issue-editor #edit-form .issue-cost-edit input[name="estimatedCostTkr"]:focus {
     font-size:16px;
   }
 }
 @media(max-width:380px) {
   .issue-editor #edit-form .issue-dates-edit {
-    grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr) 58px;
+    grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr);
     gap:3px;
   }
   .issue-editor #edit-form .issue-dates-edit input[type="date"] {
