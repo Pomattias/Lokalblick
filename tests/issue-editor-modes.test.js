@@ -60,16 +60,17 @@ test("Kostnad and Tidplan stay compact and retain a single editable field each",
    assert.equal((html.match(new RegExp('name="'+field+'"',"g"))||[]).length,1,field);
  assert.match(html,/class="issue-history-edit issue-cost-edit"/);
  assert.match(html,/class="issue-history-edit issue-dates-edit"/);
- assert.match(html,/class="visually-hidden">Planeringsår<\/span>/);
+ assert.match(html,/<input type="hidden" name="planningYear" value="2027">/);
+ assert.doesNotMatch(html,/issue-year-edit/);
  assert.match(css,/Issue journal cards: same compact two-row geometry in View and Edit/);
  // Global label CSS is column-oriented; cost must explicitly override it.
  assert.match(css,/\.issue-editor #edit-form \.issue-cost-edit \{[\s\S]*?flex-direction:row;/);
  assert.match(css,/\.issue-editor #edit-form \.issue-cost-edit input\[name="estimatedCostTkr"\] \{[\s\S]*?flex:0 0 92px;/);
- assert.match(css,/\.issue-editor #edit-form \.issue-dates-edit \{[\s\S]*?height:35px;/);
- assert.match(css,/\.issue-editor #edit-form \.issue-year-edit \{[\s\S]*?height:35px;/);
+ assert.match(css,/\.issue-editor #edit-form \.issue-dates-edit \{[\s\S]*?height:30px;/);
+ assert.match(css,/\.issue-editor #edit-form \.issue-dates-edit input\[type="date"\] \{[\s\S]*?height:30px;/);
 
  assert.match(css,/\.issue-editor #edit-form \.issue-cost-edit \{[\s\S]*?white-space:nowrap;/);
- assert.match(css,/grid-template-columns:minmax\(0,1fr\) 14px minmax\(0,1fr\) 62px/);
+ assert.match(css,/grid-template-columns:minmax\(0,1fr\) 14px minmax\(0,1fr\);/);
 });
 
 test("Redigera unlocks the same existing controls without rebuilding or moving them",()=>{
