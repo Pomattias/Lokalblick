@@ -582,7 +582,7 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 .issue-editor #edit-form .issue-heading-text .issue-edit-title input {
   box-sizing:border-box;min-width:0;width:100%;max-width:100%;
   min-height:34px;padding:6px 8px;margin:0;
-  font-size:16px;font-weight:650;border-radius:var(--ui-radius-md);
+  font-size:17px;font-weight:650;border-radius:var(--ui-radius-md);
 }
 .issue-editor #edit-form:not(.editor-readonly) .issue-heading-text > h2 {display:none;}
 .issue-editor #edit-form.editor-readonly .issue-heading-text .issue-edit-title {display:none;}
@@ -635,10 +635,10 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 .issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea) {
   box-sizing:border-box;width:100%;min-width:0;max-width:100%;
   min-height:32px;height:auto;padding:5px 8px;border-radius:var(--ui-radius-md);
-  font-size:14px;font-weight:550;line-height:1.25;
+  font-size:13px;font-weight:600;line-height:1.3;
 }
 .issue-editor #edit-form .issue-mode-field .issue-field-control textarea {
-  min-height:42px;resize:vertical;font-size:14px;
+  min-height:44px;resize:vertical;font-size:13px;
 }
 .issue-editor #edit-form:not(.editor-readonly) .issue-mode-field .issue-field-value {display:none!important;}
 .issue-editor #edit-form.editor-readonly .issue-mode-field .issue-field-control {display:none!important;}
@@ -700,7 +700,7 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 @media(max-width:700px) {
   .issue-editor #edit-form .issue-heading-actions {gap:3px;}
   .issue-editor #edit-form .issue-heading-actions button {padding:5px 7px;font-size:11px;}
-  .issue-editor #edit-form .issue-home-row {gap:7px;grid-template-columns:1fr;}
+  .issue-editor #edit-form .issue-home-row {gap:7px;grid-template-columns:repeat(2,minmax(0,1fr));}
   .issue-editor #edit-form .issue-main-section .issue-mode-field {grid-template-columns:minmax(54px,30%) minmax(0,1fr);}
   .issue-editor #edit-form .issue-compact-meta,
   .issue-editor #edit-form.editor-readonly .issue-compact-meta {gap:3px 7px;}
@@ -717,9 +717,9 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   .issue-editor #edit-form .issue-history-card .activity-journal-history[open] {
     grid-column:1/-1;grid-row:3;
   }
-  .issue-editor #edit-form .issue-dates-edit :is(input[type="date"]) {max-width:135px;font-size:16px;}
-  .issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea) {font-size:16px;}
-  .issue-editor #edit-form .issue-history-edit input {font-size:16px;}
+  .issue-editor #edit-form .issue-dates-edit :is(input[type="date"]) {max-width:135px;font-size:13px;}
+  .issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea) {font-size:13px;}
+  .issue-editor #edit-form .issue-history-edit input {font-size:13px;}
   .issue-editor #edit-form .issue-year-edit input {width:64px;}
 }
 
@@ -777,5 +777,71 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
     min-height:36px;
     padding:6px 7px;
     font-size:13px;
+  }
+}
+
+
+/* Keep case typography and dimensions stable between view and edit.
+   iOS receives a 16px focused field to prevent viewport auto-zoom. */
+.issue-editor #edit-form .issue-mode-field .issue-field-value,
+.issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea) {
+  font-family:inherit;
+  font-size:13px;
+  font-weight:600;
+  line-height:1.3;
+}
+.issue-editor #edit-form .issue-heading-text .issue-title-heading,
+.issue-editor #edit-form .issue-heading-text .issue-edit-title input {
+  font-family:inherit;
+  font-size:17px;
+  font-weight:650;
+  line-height:1.2;
+  letter-spacing:inherit;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field {
+  min-height:36px;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-value,
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-control :is(input,select) {
+  min-height:36px;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-control select {
+  appearance:auto;
+  -webkit-appearance:menulist;
+}
+.issue-editor #edit-form .issue-home-row,
+.issue-editor #edit-form.editor-readonly .issue-home-row {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:center;
+}
+.issue-editor #edit-form .issue-home-row .issue-property-reference,
+.issue-editor #edit-form.editor-readonly .issue-home-row .issue-property-reference {
+  align-items:baseline;
+}
+.issue-editor #edit-form .issue-home-row .issue-property-reference strong,
+.issue-editor #edit-form.editor-readonly .issue-home-row .issue-property-reference strong {
+  min-height:0;
+  padding:0;
+  font-size:13px;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-control textarea {
+  font-size:13px;
+  line-height:1.3;
+  padding:5px 8px;
+  min-height:44px;
+  max-height:120px;
+  resize:vertical;
+}
+.issue-editor #edit-form .issue-history-edit :is(input,select) {font-size:13px;}
+@media(max-width:700px) {
+  .issue-editor #edit-form .issue-home-row,
+  .issue-editor #edit-form.editor-readonly .issue-home-row {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;
+  }
+  .issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea):focus,
+  .issue-editor #edit-form .issue-heading-text .issue-edit-title input:focus,
+  .issue-editor #edit-form .issue-history-edit input:focus {
+    font-size:16px;
   }
 }
