@@ -44,10 +44,13 @@ test("every issue uses the same compact activities form, without tabs",()=>{
    assert.doesNotMatch(html,new RegExp('name="'+removed+'"'));
  assert.doesNotMatch(html,/data-editor-tab|data-editor-section/);
  assert.match(html,/issue-heading-actions/);
- assert.match(html,/issue-time-now/);
+ assert.doesNotMatch(html,/issue-time-now|issue-current-cost/);
+ assert.ok(html.indexOf('class="issue-visual-planner"')<html.indexOf('class="issue-section issue-time-section"'));
+ assert.match(html,/class="issue-economic-details"/);
+ assert.doesNotMatch(html,/class="issue-assessment"><span>Beräknad ekonomisk bedömning/);
  assert.match(html,/name="estimatedCostTkr"[^>]*value="300"/);
  assert.match(html,/Firma AB/);
- assert.match(html,/Beräknad ekonomisk bedömning/);
+ assert.match(html,/Ekonomisk bedömning/);
  assert.match(html,/name="issueHome"/);
  assert.match(html,/value="property:p1" selected/);
  assert.match(renderIssueEditor(data,wish,"a2"),/value="contract:c1" selected/);
