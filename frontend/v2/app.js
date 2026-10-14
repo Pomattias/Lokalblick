@@ -769,8 +769,9 @@ function setEditorReadMode(readOnly){
   if(!form||!editor||!editor.id)return;
   editor.readOnly=Boolean(readOnly);
   form.classList.toggle("editor-readonly",editor.readOnly);
+  form.classList.toggle("editor-editing",!editor.readOnly);
   for(const field of form.querySelectorAll("input, select, textarea, button")){
-    if(field.closest(".activity-journal") || field.matches("[data-editor-close],[data-editor-activate],[data-editor-tab]"))continue;
+    if(field.matches("[data-activity-journal-note],[data-activity-journal-save],[data-editor-close],[data-editor-activate],[data-editor-tab]"))continue;
     if(field.dataset.editorOriginalDisabled===undefined)
       field.dataset.editorOriginalDisabled=field.disabled?"true":"false";
     field.disabled=editor.readOnly || field.dataset.editorOriginalDisabled==="true";
@@ -797,7 +798,7 @@ function updateEditorActions(){
   }
   const undo=form.querySelector("[data-editor-undo]");
   if(undo)undo.disabled=!dirty;
-  const save=form.querySelector('.editor-actions button[type="submit"]');
+  const save=form.querySelector('.issue-heading-actions button[type="submit"], .editor-actions button[type="submit"]');
   if(save)save.disabled=!dirty&&!!editor.id;
 }
 function closeEditor({force=false}={}){
@@ -880,7 +881,12 @@ function openEditor(col, id, defaults = {}) {
     status.className="editor-save-status";
     status.dataset.editorSaveStatus="";
     status.setAttribute("role","status");
-    footer.prepend(status);
+    if(col==="activities"&&form.querySelector(".issue-heading-actions")){
+      // The same header holds actions in both modes; move the original buttons.
+      const controls=form.querySelector(".issue-heading-actions");
+      controls.prepend(undo,save);
+      controls.appendChild(status);
+    } else footer.prepend(status);
   }
   if(form){
     editor.initialSnapshot=editorSnapshot(form);
@@ -1060,7 +1066,8 @@ document.addEventListener("click", (event) =>
         });
       });
       const panel=document.querySelector("#edit-form .activity-journal");
-      if(panel)panel.outerHTML=activityJournalHtml(data,id);
+      if(panel)panel.outerHTML=activityJournalHtml(data,id,{editable:true});
+      if(editor?.id)setEditorReadMode(editor.readOnly);
       updateEditorActions();
       return;
     }
