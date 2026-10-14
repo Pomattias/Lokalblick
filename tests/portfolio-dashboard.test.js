@@ -65,3 +65,19 @@ test("renders data without modifying source records and leaves ordinary dropdown
  assert.match(controls,/data-filter="unit"/);
  assert.match(controls,/data-filter="person"/);
 });
+
+test("main dashboard reports kronor, agreement counts, floor area and activity totals",()=>{
+ const html=summary(data,selection,2026,{view:"overview",dashboardMode:""}).replaceAll("\u00a0"," ");
+ for(const text of ["Årshyra 2026","Avtal","Avtalad yta","200 m²","Aktiviteter · kr","Aktiviteter · antal","Fastigheter","410 000 kr"])assert.ok(html.includes(text),text);
+ for(const lens of ["","person","unit","owner"]){
+   const result=buildPortfolioInsights(data,selection,2026,lens);
+   assert.equal(result.activityCost,410000);
+   assert.equal(result.groups.reduce((n,g)=>n+g.cost,0),410000);
+   assert.equal(result.groups.reduce((n,g)=>n+g.contracts,0),2);
+   assert.equal(result.groups.reduce((n,g)=>n+g.area,0),200);
+   const markup=portfolioDashboard(data,selection,2026,lens);
+   assert.match(markup,/kr och antal/);
+   assert.match(markup,/Visa avtal/);
+   assert.match(markup,/m²/);
+ }
+});

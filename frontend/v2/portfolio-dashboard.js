@@ -86,10 +86,15 @@ export function buildPortfolioInsights(data, selection, year, mode="") {
   const groups=rank(groupMap);
   const breakdown=selected?properties:groups;
   const kinds=["Projekt","Underhåll","Drift","Önskemål"];
-  const activityTypes=kinds.map(name=>({key:name,name,activities:view.items.filter(x=>x.record.type===name).length}));
-  const additional=view.items.length-activityTypes.reduce((n,x)=>n+x.activities,0);
-  if(additional)activityTypes.push({key:"Övriga",name:"Övriga",activities:additional});
-  return {view,lens,dimension,selected,groups,properties,breakdown,activityTypes,rent,area,review,
+  const activityTypes=kinds.map(name=>{
+    const rows=view.items.filter(x=>x.record.type===name);
+    return {key:name,name,activities:rows.length,cost:rows.reduce((n,x)=>n+(Number(x.cost)||0),0)};
+  });
+  const remaining=view.items.filter(x=>!kinds.includes(x.record.type));
+  if(remaining.length)activityTypes.push({key:"Övriga",name:"Övriga",activities:remaining.length,
+    cost:remaining.reduce((n,x)=>n+(Number(x.cost)||0),0)});
+  const activityCost=view.items.reduce((n,x)=>n+(Number(x.cost)||0),0);
+  return {view,lens,dimension,selected,groups,properties,breakdown,activityTypes,rent,area,review,activityCost,
     unassigned:view.items.filter(x=>!responsible(data,"activities",x.record)).length};
 }
 const groupAttrs=(dimension,key)=>key
@@ -114,10 +119,9 @@ function ring(data, rows, dimension, total) {
     offset+=dash;
     return isClickable?'<g class="portfolio-ring-target" role="button" tabindex="0" aria-label="'+title+'"'+attr+'><title>'+title+'</title>'+arc+'</g>':arc;
   }).join("");
-  const totalLabel=total>=1e6?(new Intl.NumberFormat("sv-SE",{maximumFractionDigits:2}).format(total/1e6)+" mkr"):money(total);
-  return '<svg class="portfolio-ring" viewBox="0 0 160 160" role="img" aria-label="Hyresfördelning">'+arcs+
-    '<text x="80" y="76" text-anchor="middle" class="portfolio-ring-total">'+esc(totalLabel)+'</text>'+
-    '<text x="80" y="94" text-anchor="middle" class="portfolio-ring-caption">årshyra</text></svg>';
+  return '<svg class="portfolio-ring" viewBox="0 0 160 160" role="img" aria-label="Hyresfördelning · '+esc(money(total))+'">'+arcs+
+    '<text x="80" y="76" text-anchor="middle" class="portfolio-ring-total">'+esc(fmt(total))+'</text>'+
+    '<text x="80" y="94" text-anchor="middle" class="portfolio-ring-caption">kr/år</text></svg>';
 }
 function legend(rows,dimension) {
   const visible=rows.filter(x=>x.rent>0).slice(0,7);
@@ -125,7 +129,10 @@ function legend(rows,dimension) {
   const entry=(item,index)=>'<button type="button" class="portfolio-legend-item"'+groupAttrs(dimension,item.key)+
     (!clickable(dimension,item.key)?' disabled title="Saknar koppling för fördjupning"':'')+'>'+
     '<span class="portfolio-legend-dot" style="background:'+COLORS[index%COLORS.length]+'"></span>'+
-    '<span class="portfolio-legend-title">'+esc(item.name)+'</span><strong>'+fmt(item.rent)+' kr</strong></button>';
+    '<span class="portfolio-legend-details"><span class="portfolio-legend-title">'+esc(item.name)+'</span>'+
+    '<small>'+fmt(item.contracts)+' avtal · '+fmt(item.area)+' m²</small>'+
+    '<small>'+fmt(item.activities)+' aktiviteter · '+money(item.cost)+'</small></span>'+
+    '<strong class="portfolio-legend-money">'+money(item.rent)+'</strong></button>';
   const base=visible.map(entry).join("");
   const more=tail.length?'<details class="portfolio-more"><summary>Visa alla ('+tail.length+' till)</summary>'+
     tail.map((x,i)=>entry(x,i+visible.length)).join("")+'</details>':"";
@@ -133,23 +140,27 @@ function legend(rows,dimension) {
   return '<div class="portfolio-legend">'+base+more+'</div>';
 }
 function bars(rows, dimension, property=false) {
-  const shown=rows.filter(x=>Number(x.activities)>0).slice(0,8);
-  const maximum=Math.max(1,...shown.map(x=>x.activities));
+  const shown=rows.filter(x=>Number(x.activities)>0).sort((a,b)=>b.cost-a.cost||b.activities-a.activities).slice(0,8);
+  const maximum=Math.max(1,...shown.map(x=>Math.max(0,Number(x.cost)||0)));
   if(!shown.length)return '<p class="portfolio-empty">Inga aktiviteter i urvalet.</p>';
   return shown.map(x=>{
     const attrs=property?groupAttrs("property",x.key):dimension?groupAttrs(dimension,x.key):"";
-    const content='<span>'+esc(x.name)+'</span><div class="dashboard-bar-track"><span style="width:'+Math.round(x.activities/maximum*100)+'%"></span></div><strong>'+fmt(x.activities)+'</strong>';
+    const content='<span class="portfolio-bar-name">'+esc(x.name)+'</span>'+
+      '<div class="dashboard-bar-track"><span style="width:'+Math.round(Math.max(0,Number(x.cost)||0)/maximum*100)+'%"></span></div>'+
+      '<span class="portfolio-bar-values"><strong>'+money(x.cost)+'</strong><small>'+fmt(x.activities)+' st</small></span>';
     return attrs?'<button type="button" class="dashboard-bar-row portfolio-bar-action"'+attrs+'>'+content+'</button>':
       '<div class="dashboard-bar-row">'+content+'</div>';
   }).join("");
 }
 function propertyCosts(rows,dimension="property") {
-  const shown=rows.filter(x=>x.rent>0).slice(0,5);
-  const max=Math.max(1,...shown.map(x=>x.rent));
-  if(!shown.length)return '<p class="portfolio-empty">Ingen hyra att jämföra.</p>';
-  return shown.map(x=>'<button type="button" class="portfolio-cost-row"'+(dimension==="property"?' data-property="'+esc(x.key)+'"':groupAttrs(dimension,x.key))+'>'+
-    '<span>'+esc(x.name)+'</span><span class="portfolio-cost-track"><span style="width:'+Math.round(x.rent/max*100)+'%"></span></span>'+
-    '<strong>'+money(x.rent)+'</strong></button>').join("");
+  const shown=rows.filter(x=>x.contracts>0).sort((a,b)=>b.area-a.area||b.contracts-a.contracts).slice(0,7);
+  const max=Math.max(1,...shown.map(x=>x.area));
+  if(!shown.length)return '<p class="portfolio-empty">Inga avtal i aktuellt urval.</p>';
+  return shown.map(x=>'<button type="button" class="portfolio-cost-row portfolio-area-row"'+
+    (dimension==="property"?' data-property="'+esc(x.key)+'"':groupAttrs(dimension,x.key))+'>'+
+    '<span class="portfolio-area-name">'+esc(x.name)+'<small>'+fmt(x.contracts)+' avtal · '+money(x.rent)+'/år</small></span>'+
+    '<span class="portfolio-cost-track"><span style="width:'+Math.round(x.area/max*100)+'%"></span></span>'+
+    '<strong>'+fmt(x.area)+' m²</strong></button>').join("");
 }
 export function portfolioDashboard(data,selection,year,mode=""){
   const a=buildPortfolioInsights(data,selection,year,mode);
@@ -157,7 +168,7 @@ export function portfolioDashboard(data,selection,year,mode=""){
   const title=a.lens?"Fördelning per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.lens]):"Hela lokalbeståndet";
   const ringTitle=a.selected?"Årshyra per fastighet":"Årshyra per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.dimension]);
   const chartDimension=a.selected?"property":a.dimension;
-  const barTitle=a.selected?"Aktiviteter per typ":a.lens?"Aktiviteter per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.lens]):"Aktiviteter per typ";
+  const barTitle=(a.selected?"Aktiviteter per typ":a.lens?"Aktiviteter per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.lens]):"Aktiviteter per typ")+" · kr och antal";
   const barRows=a.selected||!a.lens?a.activityTypes:a.groups;
   const shortcuts=[["properties","Fastigheter",a.view.properties.length],["contracts","Avtal",a.view.contracts.length],["activities","Aktiviteter",a.view.items.length],["plan","Planera","›"]]
     .map(([view,label,value])=>'<button type="button" class="portfolio-shortcut ui-button ui-button--compact" data-view="'+view+'">'+label+' <strong>'+(typeof value==="number"?fmt(value):value)+'</strong></button>').join("");
@@ -167,9 +178,11 @@ export function portfolioDashboard(data,selection,year,mode=""){
       '<section class="dashboard-panel ui-card portfolio-rent-panel"><h3>'+esc(ringTitle)+'</h3>'+
       '<div class="portfolio-rent-layout">'+ring(data,a.breakdown,chartDimension,a.rent)+legend(a.breakdown,chartDimension)+'</div></section>'+
       '<section class="dashboard-panel ui-card"><h3>'+esc(barTitle)+'</h3>'+
+      '<p class="portfolio-metric-note">Bedömd totalkostnad · samtliga år</p>'+
       '<div class="portfolio-bar-list">'+bars(barRows,a.selected||!a.lens?"":a.dimension)+'</div>'+
       '<button type="button" data-view="activities" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa aktiviteter ›</button></section>'+
-      '<section class="dashboard-panel ui-card"><h3>'+(a.lens&&!a.selected?'Hyreskostnader per '+({person:'medarbetare',unit:'verksamhet',owner:'fastighetsägare'}[a.lens]):'Största hyreskostnaderna')+'</h3><div class="portfolio-cost-list">'+propertyCosts(a.lens&&!a.selected?a.groups:a.properties,a.lens&&!a.selected?a.lens:'property')+'</div></section>'+
+      '<section class="dashboard-panel ui-card"><h3>'+(a.lens&&!a.selected?'Avtal och yta per '+({person:'medarbetare',unit:'verksamhet',owner:'fastighetsägare'}[a.lens]):'Avtal och ytor')+'</h3><div class="portfolio-cost-list">'+propertyCosts(a.lens&&!a.selected?a.groups:a.properties,a.lens&&!a.selected?a.lens:'property')+'</div>'+
+      '<button type="button" data-view="contracts" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa avtal ›</button></section>'+
       '<section class="dashboard-panel ui-card"><h3>Att bevaka</h3>'+
       '<div class="dashboard-fact"><span>Aktiviteter utan ansvarig</span><strong>'+fmt(a.unassigned)+'</strong></div>'+
       '<div class="dashboard-fact"><span>Avtal att kontrollera</span><strong>'+fmt(a.review)+'</strong></div>'+

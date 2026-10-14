@@ -166,13 +166,15 @@ export function summary(data, s, year, ui = {}) {
     : ui.view === "activities" ? "Ärenden"
     : ui.perspective || "Fastigheter";
   const rent = rentMetrics(data, view.contracts, year);
-  if (ui.view === "overview" && ui.dashboardMode) {
-    const insights=buildPortfolioInsights(data,s,year,ui.dashboardMode);
+  if (ui.view === "overview") {
+    const insights=buildPortfolioInsights(data,s,year,ui.dashboardMode||"");
     return summaryCards([
-      [({person:"Medarbetare",unit:"Verksamheter",owner:"Fastighetsägare"}[ui.dashboardMode]||"Grupper"),num(insights.groups.filter(x=>x.key).length)],
-      ["Fastigheter",num(view.properties.length)],
       ["Årshyra "+year,money(insights.rent)],
-      ["Hyra / kvm",rent.area>0?money(rent.rentPerSqm):"–"],
+      ["Avtal",num(view.contracts.length)+" st"],
+      ["Avtalad yta",num(insights.area)+" m²"],
+      ["Aktiviteter · kr",money(insights.activityCost),"Bedömd totalkostnad, samtliga år"],
+      ["Aktiviteter · antal",num(view.items.length)+" st"],
+      ["Fastigheter",num(view.properties.length)+" st"],
     ]);
   }
 
