@@ -797,7 +797,7 @@ function updateEditorActions(){
     status.dataset.dirty=dirty?"true":"false";
   }
   const undo=form.querySelector("[data-editor-undo]");
-  if(undo)undo.disabled=!dirty;
+  if(undo)undo.disabled=editor.col==="activities" ? false : !dirty;
   const save=form.querySelector('.issue-heading-actions button[type="submit"], .editor-actions button[type="submit"]');
   if(save)save.disabled=!dirty&&!!editor.id;
 }
@@ -856,7 +856,7 @@ function openEditor(col, id, defaults = {}) {
   };
   root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,globalThis.LokalblickSourceService.schemas));
   const form=root.querySelector("#edit-form");
-  if(form&&id){
+  if(form&&id&&!form.querySelector("[data-editor-activate]")){
     const closeButton=form.querySelector("[data-editor-close]");
     if(closeButton){
       const editButton=document.createElement("button");
@@ -900,7 +900,7 @@ function openEditor(col, id, defaults = {}) {
     propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
   }
   // Do not open the iOS keyboard automatically when creating a case.
-  if(id)root.querySelector("[data-editor-activate]")?.focus({preventScroll:true});
+  if(id&&col!=="activities")root.querySelector("[data-editor-activate]")?.focus({preventScroll:true});
 }
 function openPropertyPersonDialog(button) {
   if (!editor || editor.col !== "properties") return;
@@ -1083,12 +1083,19 @@ document.addEventListener("click", (event) =>
     }
     if (b.hasAttribute("data-editor-activate")) {
       if(!editor)return;
+      // For cases, unlocking fields must not move the page or open the iOS keyboard.
       setEditorReadMode(false);
-      editorForm()?.querySelector('input[name="title"],input[name="name"],input[name="number"],select[name="type"]')?.focus();
+      if(editor.col!=="activities")
+        editorForm()?.querySelector('input[name="title"],input[name="name"],input[name="number"],select[name="type"]')?.focus();
       return;
     }
     if (b.hasAttribute("data-editor-undo")) {
-      if(!editor||!hasUnsavedEditorChanges())return;
+      if(!editor)return;
+      if(editor.col==="activities"&&!hasUnsavedEditorChanges()){
+        setEditorReadMode(true);
+        return;
+      }
+      if(!hasUnsavedEditorChanges())return;
       const {col,id,defaults}=editor;
       closeEditor({force:true});
       openEditor(col,id,defaults);
