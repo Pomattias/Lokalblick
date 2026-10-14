@@ -22,6 +22,7 @@
   --ui-radius-pill: 999px;
   --ui-height-compact: 36px;
   --ui-height-control: 42px;
+  --ui-overview-tile-height: 48px;
   --ui-font-xs: 11px;
   --ui-font-sm: 12px;
   --ui-font-base: 14px;
@@ -124,7 +125,7 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
     margin:4px 0 8px;
   }
   body[data-view="overview"] .dashboard-link.ui-card{
-    min-height:48px;
+    min-height:var(--ui-overview-tile-height);
     padding:6px 8px;
     gap:var(--ui-space-2);
   }
@@ -136,4 +137,27 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
     padding:var(--ui-space-2) var(--ui-space-3);
     border-radius:var(--ui-radius-md);
   }
+}
+
+
+/* Overview refinements: KPI row matches shortcut tile height.
+   Scope to overview only; preserve the shared compact KPI rules elsewhere. */
+@media(max-width:700px){
+  body[data-view="overview"] #summary.summary {
+    min-height:var(--ui-overview-tile-height);
+  }
+  body[data-view="overview"] #summary.summary > div {
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+}
+/* The search input inherits bold label typography unless explicitly reset. */
+body[data-view="overview"] #filters .search input {
+  font-weight:400;
+}
+body[data-view="overview"] #filters .search input::placeholder {
+  font-weight:400;
+  color:var(--ui-color-muted);
+  opacity:.72;
 }
