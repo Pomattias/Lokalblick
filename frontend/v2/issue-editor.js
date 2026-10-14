@@ -12,8 +12,6 @@ const activityKindOptions = [
   {value:"value_enhancing",label:"Värdehöjande"},
   {value:"like_for_like",label:"Utbyte 1:1"},
 ];
-const budgetTypes=["Ja","Nej"];
-const PROJECT_PHASES=["Behov / idé","Förstudie","Utredning","Program","Projektering","Upphandling","Genomförande","Besiktning","Avslut / överlämning"];
 // Begränsad kodlista: påverkar enbart formulärets alternativ, inte lagrad data.
 export const ISSUE_CATEGORIES=[
   "Ytskikt","Inredning","Installationer","Ventilation","Ombyggnad",
@@ -30,6 +28,8 @@ const field=(label,html,help="")=>'<label class="issue-field">'+esc(fieldCaption
 const input=(item,key,type="text",attrs="")=>'<input name="'+key+'" type="'+type+'" value="'+esc(item[key]??"")+'" '+attrs+'>';
 const choice=(name,list,selected,placeholder="Välj")=>'<select name="'+name+'">'+options(list,x=>x.value,x=>x.label,selected,placeholder)+'</select>';
 const currency=n=>money(Number(n)||0);
+const tkr=n=>new Intl.NumberFormat("sv-SE",{maximumFractionDigits:1}).format((Number(n)||0)/1000)+" tkr";
+const tkrInput=n=>Number.isFinite(Number(n))?String(Math.round(Number(n)/100)/10):"0";
 function issueHome(activity) {
   if(activity.contractId) return "contract:"+activity.contractId;
   if(activity.objectId)return "object:"+activity.objectId;
@@ -40,11 +40,11 @@ function issueHome(activity) {
 }
 function homeChoices(data,current) {
   const list=[
-    ...(data.properties||[]).map(p=>({value:"property:"+p.id,label:"Fastighet · "+propertyReference(p)})),
+    ...(data.properties||[]).map(p=>({value:"property:"+p.id,label:"Fastighet · "+(p.designation||p.address||p.id)})),
     ...(data.objects||[]).map(o=>({value:"object:"+o.id,label:"Objekt · "+(o.number||o.name||o.id)})),
     ...(data.contracts||[]).map(c=>{
       const p=(data.properties||[]).find(p=>p.id===c.propertyId);
-      return {value:"contract:"+c.id,label:"Avtal · "+(c.number||c.id)+" · "+propertyReference(p)};
+      return {value:"contract:"+c.id,label:"Avtal · "+(c.number||c.id)};
     }),
     ...Object.entries(units).map(([id,label])=>({value:"unit:"+id,label:"Verksamhet · "+label})),
     {value:"general",label:"Generellt ärende"}
@@ -120,27 +120,28 @@ export function renderIssueEditor(data,issue,id,company=false) {
 
   return '<div class="editor-backdrop"></div>'+
     '<aside class="editor issue-editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="activities" data-record-id="'+esc(id||"")+'">'+
-    '<div class="section-title"><div><small>'+(id?"ÄNDRA ÄRENDE":"NYTT ÄRENDE")+'</small>'+
+    '<div class="section-title issue-heading"><div class="issue-heading-text">'+
     '<h2 id="editor-title" class="issue-title-heading">'+esc(issue.title||"Nytt ärende")+'</h2><small>'+esc(issue.type||"Projekt · Underhåll · Drift · Önskemål")+'</small>'+
-    '</div><button type="button" data-editor-close>Stäng</button></div>'+
+    '</div><div class="issue-heading-actions"><button type="button" data-editor-close>Stäng</button></div></div>'+
     '<section class="issue-section issue-main-section"><div class="issue-grid">'+
       '<div class="issue-title-field">'+field("Ärendenamn",input(issue,"title","text",'required maxlength="250"'))+'</div>'+
       '<div class="issue-home-row"><div class="issue-property-reference"><span>Fastighet</span><strong title="'+esc(propertyName)+'">'+esc(propertyName)+'</strong></div>'+field("Objekt",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"))+'</div>'+
-      '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="2">'+esc(issue.description||"")+'</textarea></label>'+
+      '<div class="issue-owner-row">'+field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"))+'</div>'+
       '<div class="issue-compact-meta">'+
       field("Typ",typeSelect)+
       field("Status",choice("status",statuses.map(value=>({value,label:value})),issue.status,"Välj status"))+
       field("Kategori",choice("category",issueCategoryChoices(issue.category),issue.category,"Välj kategori"))+
       field("Prioritet",choice("priority",priorities.map(value=>({value,label:value})),issue.priority,"Ej prioriterad"))+
       '</div>'+
-      '<div class="issue-owner-row">'+field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"))+'</div>'+
+      '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="2">'+esc(issue.description||"")+'</textarea></label>'+
     '</div></section>'+
     (id?activityJournalHtml(data,id):'<section class="issue-section activity-journal"><h3>Noteringar och historik</h3><p class="issue-note">Spara ärendet först för att börja föra en daterad journal.</p></section>')+
-    '<section class="issue-section"><h3>Tid och planering</h3><div class="issue-grid">'+
+    '<section class="issue-section issue-time-section"><h3>Tid och planering</h3>'+
+      '<div class="issue-time-now"><span>Tidplan</span><strong>'+esc(issue.startDate||"–")+' → '+esc(issue.endDate||"–")+'</strong></div>'+
+      '<div class="issue-grid issue-time-fields">'+
       field("Fr.o.m.",input(issue,"startDate","date"))+
       field("T.o.m.",input(issue,"endDate","date"))+
       field("Planeringsår",input(issue,"planningYear","number",'min="2000" max="2200" step="1"'))+
-      field("Fas",choice("phase",[...new Set([...PROJECT_PHASES,issue.phase].filter(Boolean))].map(value=>({value,label:value})),issue.phase,"Välj fas"))+
     '</div>'+
     '<details class="issue-visual-planner" data-issue-planner data-plan-span="1">'+
       '<summary>Grafisk tidplan – visa / dölj</summary>'+
@@ -153,11 +154,10 @@ export function renderIssueEditor(data,issue,id,company=false) {
       '<div class="timeline-track timeline-plan-months">'+planningMonthButtons(issue,year,1,"form")+'</div>'+
       '</div></div></details>'+
     allocations+'</section>'+
-    '<section class="issue-section"><h3>Kostnad och budget</h3><div class="issue-grid">'+
-      field("Bedömd kostnad, kr",input(issue,"estimatedCost","number",'min="0" step="any"'))+
+    '<section class="issue-section issue-cost-section"><h3>Kostnad</h3><div class="issue-grid">'+
+      '<div class="issue-current-cost"><span>Bedömd kostnad</span><strong>'+esc(tkr(issue.estimatedCost))+'</strong></div>'+
+      field("Bedömd kostnad, tkr",'<input name="estimatedCostTkr" type="number" min="0" step="0.1" value="'+esc(tkrInput(issue.estimatedCost))+'">')+
       '<label class="issue-enhancing-toggle"><input type="checkbox" name="enhancingToggle" value="Ja" data-initial-checked="'+((issue.actionKind|| (issue.standardEnhancing===true?"value_enhancing":""))==="value_enhancing"?"true":"false")+'" '+((issue.actionKind|| (issue.standardEnhancing===true?"value_enhancing":""))==="value_enhancing"?"checked":"")+'><span>Värdehöjande</span></label>'+
-      field("Ta med i budget",choice("includeInBudget",budgetTypes.map(value=>({value,label:value})),issue.includeInBudget||(issue.budgetIncluded===false?"Nej":"Ja"),"Välj"))+
-      field("Hyrespåslag från",input(issue,"rentSurchargeStartDate","date"),"Endast aktuellt vid hyresfinansierad investering")+
     '</div>'+
     '<div class="issue-assessment"><span>Beräknad ekonomisk bedömning '+esc(year)+'</span><strong>'+esc(humanAssessment(assessment))+'</strong>'+
       '<small>Gräns: '+esc(assessment.threshold==null?"saknas":currency(assessment.threshold))+
