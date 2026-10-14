@@ -593,8 +593,7 @@ window.LokalblickDemoData = {
       "estimatedCost": 3200000,
       "startDate": "2026-09-01",
       "endDate": "2027-05-31",
-      "description": "Modernisering av ventilationssystemet i äldreboendet.",
-      "phase": "Genomförande"
+      "description": "Modernisering av ventilationssystemet i äldreboendet."
     },
     {
       "id": "ACT-DEMO-TAK",
