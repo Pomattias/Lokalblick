@@ -571,3 +571,6 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
    margin-left:auto;
  }
 }
+
+/* The read-only indicator in the journal must not duplicate the editable checkbox. */
+.issue-editor #edit-form:not(.editor-readonly) .journal-cost-enhancing {display:none;}
