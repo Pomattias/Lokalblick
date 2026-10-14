@@ -108,10 +108,13 @@ export function renderIssueEditor(data,issue,id,company=false) {
     : '<p class="issue-note">Ingen beställning registrerad.</p>';
 
   return '<div class="editor-backdrop"></div>'+
-    '<aside class="editor issue-editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="activities" data-record-id="'+esc(id||"")+'">'+
+    '<aside class="editor issue-editor" aria-labelledby="editor-title"><form id="edit-form" class="'+(id?"editor-readonly":"editor-editing")+'" data-collection="activities" data-record-id="'+esc(id||"")+'">'+
     '<div class="section-title issue-heading"><div class="issue-heading-text">'+
     '<h2 id="editor-title" class="issue-title-heading">'+esc(issue.title||"Nytt ärende")+'</h2><label class="issue-edit-title"><span class="visually-hidden">Ärendenamn</span>'+input(issue,"title","text",'required maxlength="250"')+'</label><small>'+esc(issue.type||"Projekt · Underhåll · Drift · Önskemål")+'</small>'+
-    '</div><div class="issue-heading-actions"><button type="button" data-editor-close>Stäng</button></div></div>'+
+    '</div><div class="issue-heading-actions">'+
+    (id?'<button type="button" data-editor-activate class="editor-activate">Redigera</button><button type="button" data-editor-undo>Ångra</button>':"")+
+    '<button type="submit" class="primary" data-issue-save>Spara</button><button type="button" data-editor-close>Stäng</button>'+
+    '<span class="editor-save-status" role="status" data-editor-save-status></span></div></div>'+
     '<section class="issue-section issue-main-section"><div class="issue-grid">'+
       '<div class="issue-home-row"><div class="issue-property-reference"><span>Fastighet</span><strong title="'+esc(propertyName)+'">'+esc(propertyName)+'</strong></div>'+field("Objekt",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"),homeChoices(data,issueHome(issue)).find(x=>x.value===issueHome(issue))?.label||"Ej kopplat")+'</div>'+
       '<div class="issue-owner-row">'+field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"),internal.find(p=>p.id===issue.responsiblePersonId)?.name||"Ej fördelad")+'</div>'+
@@ -143,6 +146,5 @@ export function renderIssueEditor(data,issue,id,company=false) {
     '<section class="issue-section"><h3>Beställning och utfall</h3>'+orderSummary+
     '</section>'+
     (company?'<p class="computed">Importerade grunduppgifter och kompletteringar följer befintlig backendkoppling.</p>':"")+
-    responsibilityHtml(data,'activity',issue.id)+'<div class="actions editor-actions"><span>Ändringar uppdaterar samma ärende i Planera, Ärenden och Budget.</span>'+
-    '<button type="submit" class="primary">Spara ärende</button></div></form></aside>';
+    responsibilityHtml(data,'activity',issue.id)+'</form></aside>';
 }
