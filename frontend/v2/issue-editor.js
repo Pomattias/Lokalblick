@@ -132,13 +132,6 @@ export function renderIssueEditor(data,issue,id,company=false) {
       '<label class="issue-field issue-description">Beskrivning<textarea name="description" rows="2">'+esc(issue.description||"")+'</textarea></label>'+
     '</div></section>'+
     (id?activityJournalHtml(data,id):'<section class="issue-section activity-journal"><h3>Noteringar och historik</h3><p class="issue-note">Spara ärendet först för att börja föra en daterad journal.</p></section>')+
-    '<section class="issue-section issue-time-section"><h3>Tid och planering</h3>'+
-      '<div class="issue-time-now"><span>Tidplan</span><strong>'+esc(issue.startDate||"–")+' → '+esc(issue.endDate||"–")+'</strong><small>Planeringsår '+esc(year)+'</small></div>'+
-      '<div class="issue-grid issue-time-fields">'+
-      field("Fr.o.m.",input(issue,"startDate","date"))+
-      field("T.o.m.",input(issue,"endDate","date"))+
-      field("Planeringsår",input(issue,"planningYear","number",'min="2000" max="2200" step="1"'))+
-    '</div>'+
     '<details class="issue-visual-planner" data-issue-planner data-plan-span="1">'+
       '<summary>Grafisk tidplan – visa / dölj</summary>'+
       '<div class="issue-visual-heading"><strong>Grafisk planering</strong>'+
@@ -148,18 +141,25 @@ export function renderIssueEditor(data,issue,id,company=false) {
       '<div class="issue-planner-scroll"><div class="issue-plan-content" style="--timeline-columns:12">'+
       '<div class="timeline-track timeline-plan-header">'+planningMonthHeader(year,1)+'</div>'+
       '<div class="timeline-track timeline-plan-months">'+planningMonthButtons(issue,year,1,"form")+'</div>'+
-      '</div></div></details>'+
+      '</div></div></details>'+    '<section class="issue-section issue-time-section"><h3>Tid och planering</h3>'+
+
+      '<div class="issue-grid issue-time-fields">'+
+      field("Fr.o.m.",input(issue,"startDate","date"))+
+      field("T.o.m.",input(issue,"endDate","date"))+
+      field("Planeringsår",input(issue,"planningYear","number",'min="2000" max="2200" step="1"'))+
+    '</div>'+
+
     '</section>'+
     '<section class="issue-section issue-cost-section"><h3>Kostnad</h3><div class="issue-grid">'+
-      '<div class="issue-current-cost"><span>Bedömd kostnad</span><strong>'+esc(tkr(issue.estimatedCost))+'</strong></div>'+
+
       field("Bedömd kostnad, tkr",'<input name="estimatedCostTkr" type="number" min="0" step="0.1" value="'+esc(tkrInput(issue.estimatedCost))+'">')+
       '<label class="issue-enhancing-toggle"><input type="checkbox" name="enhancingToggle" value="Ja" data-initial-checked="'+((issue.actionKind|| (issue.standardEnhancing===true?"value_enhancing":""))==="value_enhancing"?"true":"false")+'" '+((issue.actionKind|| (issue.standardEnhancing===true?"value_enhancing":""))==="value_enhancing"?"checked":"")+'><span>Värdehöjande</span></label>'+
     '</div>'+
-    '<div class="issue-assessment"><span>Beräknad ekonomisk bedömning '+esc(year)+'</span><strong>'+esc(humanAssessment(assessment))+'</strong>'+
-      '<small>Gräns: '+esc(assessment.threshold==null?"saknas":currency(assessment.threshold))+
+    '<details class="issue-economic-details"><summary>Ekonomisk bedömning '+esc(year)+' · '+esc(humanAssessment(assessment))+'</summary>'+
+      '<div class="issue-assessment"><small>Gräns: '+esc(assessment.threshold==null?"saknas":currency(assessment.threshold))+
       (assessment.special?" · Stadsfastigheters regel":"")+
       (assessment.rentFinanced?" · Hyresfinansiering med beräknat påslag "+currency(assessment.annualRentAddition)+"/år":"")+
-      ' · Beräknat från senast sparade uppgifter</small></div>'+
+      ' · Beräknat från senast sparade uppgifter</small></div></details>'+
     '</section>'+
     '<section class="issue-section"><h3>Beställning och utfall</h3>'+orderSummary+
     '</section>'+
