@@ -100,7 +100,6 @@ function legacyActivities(out) {
       estimatedCost:
         execution + furnishing || Number(item.preliminaryCost) || 0,
       investigationCost: Number(item.budgetInvestigation) || 0,
-      phase: item.phase || "",
       startDate: item.start || "",
       endDate: item.end || "",
       ...orderFields(item),
@@ -125,7 +124,6 @@ function legacyActivities(out) {
       budgetCategory: "Underhåll",
       estimatedCost: Number(item.cost) || 0,
       investigationCost: 0,
-      phase: "",
       startDate: "",
       endDate: "",
       ...orderFields(item),
@@ -150,7 +148,6 @@ function legacyActivities(out) {
       budgetCategory: "Driftkostnader",
       estimatedCost: Number(item.estimatedCost) || 0,
       investigationCost: 0,
-      phase: "",
       startDate: item.createdDate || "",
       endDate: item.targetDate || "",
       ...orderFields(item),
@@ -175,7 +172,6 @@ function legacyActivities(out) {
       budgetCategory: item.budgetCategory || "Ej budget",
       estimatedCost: Number(item.estimatedCost) || 0,
       investigationCost: 0,
-      phase: "",
       startDate: item.createdDate || "",
       endDate: item.targetDate || "",
       ...orderFields(item),
@@ -200,7 +196,6 @@ function legacyActivities(out) {
       budgetCategory: "Utredningar",
       estimatedCost: Number(item.cost) || 0,
       investigationCost: 0,
-      phase: "",
       startDate: "",
       endDate: "",
       ...orderFields(item),
@@ -281,7 +276,6 @@ function migrateLegacy(out) {
       includeInBudget: status.includeInBudget || "Ja",
       estimatedCost: Number(status.estimatedCost) || 0,
       investigationCost: 0,
-      phase: "",
       startDate: status.assessedDate || "",
       endDate: "",
       sourceId: status.id,
@@ -437,6 +431,8 @@ function canonicalRelations(out) {
   (out.contacts||[]).filter((x)=>!x.toDate).forEach((c)=>{if(isOur(c.personId))return;const t=c.targetType==="object"?"contract":c.targetType;if(t==="property"){const p=out.properties.find((x)=>x.id===c.targetId);if(p&&!p.ownerResponsiblePersonId&&validOwnerManager(c.personId,p))p.ownerResponsiblePersonId=c.personId;}else if(t==="contract"){const a=out.contracts.find((x)=>x.id===c.targetId);if(a&&!a.businessResponsiblePersonId)a.businessResponsiblePersonId=c.personId;}});
   const migratedInvestigations=[];
   out.activities.forEach((a)=>{
+    // One process field: status. Retired phase is not part of canonical activities.
+    delete a.phase;
     const investigationCost=Number(a.investigationCost)||0;
     if(investigationCost>0){
       const id="MIG-UTR|"+a.id;
@@ -444,7 +440,7 @@ function canonicalRelations(out) {
         id,type:"Utredning",propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
         title:(a.title||"Aktivitet")+" · utredning",description:"Migrerad separat utredningsbudget",category:a.category||"",status:a.status||"Planerad",
         priority:a.priority||"",planningYear:a.planningYear||"",planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||"",
-        budgetCategory:"Utredningar",includeInBudget:a.includeInBudget||"Ja",estimatedCost:investigationCost,phase:"Utredning",
+        budgetCategory:"Utredningar",includeInBudget:a.includeInBudget||"Ja",estimatedCost:investigationCost,
         startDate:a.startDate||"",endDate:a.endDate||"",sourceId:a.sourceId||a.id,sourceSheet:a.sourceSheet||"",sourceRow:a.sourceRow||""
       });
     }
