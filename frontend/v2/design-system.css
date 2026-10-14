@@ -586,7 +586,7 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 }
 .issue-editor #edit-form:not(.editor-readonly) .issue-heading-text > h2 {display:none;}
 .issue-editor #edit-form.editor-readonly .issue-heading-text .issue-edit-title {display:none;}
-.issue-editor #edit-form .issue-heading-actions {display:flex;justify-content:flex-end;align-items:center;gap:5px;}
+.issue-editor #edit-form .issue-heading-actions {display:flex;flex:none;justify-content:flex-end;align-items:center;gap:5px;}
 .issue-editor #edit-form .issue-heading-actions [data-editor-save-status] {
   position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;
 }
@@ -717,6 +717,8 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   .issue-editor #edit-form .issue-history-card .activity-journal-history[open] {
     grid-column:1/-1;grid-row:3;
   }
-  .issue-editor #edit-form .issue-dates-edit :is(input[type="date"]) {max-width:126px;font-size:12px;}
+  .issue-editor #edit-form .issue-dates-edit :is(input[type="date"]) {max-width:135px;font-size:16px;}
+  .issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea) {font-size:16px;}
+  .issue-editor #edit-form .issue-history-edit input {font-size:16px;}
   .issue-editor #edit-form .issue-year-edit input {width:64px;}
 }
