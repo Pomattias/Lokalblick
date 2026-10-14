@@ -518,6 +518,16 @@ export function planning(data, s, ui) {
   const planHeader=`<div class="plan-topbar"><h2>Ärenden och ansvar</h2></div>
     ${missing.length||ui.unassigned||withoutHome.length||ui.unassignedHome?`<div class="plan-exceptions">${missing.length||ui.unassigned?`<button data-unassigned class="${ui.unassigned?"active":""}">${missing.length} utan ansvarig</button>`:""}${withoutHome.length||ui.unassignedHome?`<button data-unassigned-home class="${ui.unassignedHome?"active":""}">${withoutHome.length} utan hemvist</button>`:""}</div>`:""}`;
   const mobileActions=`<div class="plan-mobile-actions">${timelineControls}<button type="button" data-new-issue class="primary">+ Nytt ärende</button></div>`;
+  const budgetSettings=`<details class="plan-budget-settings"><summary>Budgetstyrning och hyrespåverkan (${visibleIssues.length} ärenden)</summary>
+    <p class="plan-budget-help">Ange om ärendet ska ingå i budgetförslaget. Låsta budgetar ändras inte av detta val. Hyrespåslag visas bara för ärenden som enligt ägarreglerna är hyresfinansierade.</p>
+    <div class="plan-budget-rows">${visibleIssues.map(x=>{
+      const a=x.record,eco=calc().activityEconomics(data,a,ui.year);
+      const included=a.includeInBudget || (a.budgetIncluded===false?"Nej":"Ja");
+      return `<div class="plan-budget-row"><strong>${esc(x.title)}</strong><label>Ingår i budgetförslag
+        <select data-plan-budget-include="${esc(a.id)}" aria-label="Budgetval för ${esc(x.title)}"><option value="Ja" ${included==="Ja"?"selected":""}>Ja</option><option value="Nej" ${included==="Nej"?"selected":""}>Nej</option></select></label>
+        ${eco.rentFinanced?`<label>Hyrespåslag från<input type="date" data-plan-rent-start="${esc(a.id)}" value="${esc(a.rentSurchargeStartDate||"")}" aria-label="Hyrespåslag från för ${esc(x.title)}"></label><small>Hyresfinansierad investering – redovisas inte som direkt budgetkostnad.</small>`:""}
+      </div>`;
+    }).join("")||"<p>Inga ärenden att budgetstyra i urvalet.</p>"}</div></details>`;
   return `${planHeader}${types}${mobileActions}${mobileList}${timelineBody||`<div class="plan-desktop-list">`+table(
     ["Ärende / ansvar", "Fastighet", "Adress", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
     items.map((x) =>
@@ -577,7 +587,7 @@ export function planning(data, s, ui) {
         esc(x.by),
       ]);
     }),
-  )}</details>`;
+  )}</details>${budgetSettings}`;
 }
 export const categories = [
   "Hyra + drift",
