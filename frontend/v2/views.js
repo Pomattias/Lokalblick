@@ -66,7 +66,7 @@ export function filters(data, s) {
     const selectedName=name?label(name):selected;
     return `<label class="filter-chip${selected?' is-selected':''}"><span class="filter-caption">${esc(caption)}</span><span class="filter-value" aria-hidden="true">${esc(selected?selectedName:caption)}</span><select aria-label="${esc(caption)}" data-filter="${key}">${options(items,value,label,selected,caption)}</select></label>`;
   };
-  return `<div class="filters">${chip('person','Ansvarig',internalPeople(data),x=>x.id,x=>x.name,s.person)}${chip('unit','Verksamhet',Object.entries(units),x=>x[0],x=>x[1],s.unit)}${chip('owner','Fastighetsägare',[...owners],x=>x[0],x=>x[1],s.owner)}<label class="search">Sök<input data-filter="q" type="search" value="${esc(s.q)}" placeholder="Adress, avtal eller verksamhet"></label></div>`;
+  return `<div class="filters">${chip('person','Ansvarig',internalPeople(data),x=>x.id,x=>x.name,s.person)}${chip('unit','Verksamhet',Object.entries(units),x=>x[0],x=>x[1],s.unit)}${chip('owner','Fastighetsägare',[...owners],x=>x[0],x=>x[1],s.owner)}<label class="search ui-search"><span class="visually-hidden">Sök</span><svg class="ui-search-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.6"></circle><path d="m16 16 5 5"></path></svg><input data-filter="q" type="search" value="${esc(s.q)}" placeholder="Adress, avtal eller verksamhet"></label></div>`;
 }
 // Treat the cadastral designation and street address as independent values.
 export const propertyDesignation = property => String(property?.designation || "").trim();
