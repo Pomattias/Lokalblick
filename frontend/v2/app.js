@@ -18,6 +18,7 @@ import {
 import { createTransport } from "./transport.js";
 import { retainImportedData } from "./import-workspace.js";
 import { shouldRestoreViewSnapshot } from "./restore-policy.js";
+import { filterPresentation } from "./filter-presentation.js";
 import {
   esc,
   money,
@@ -60,6 +61,7 @@ const ui = {
   year: new Date().getFullYear() + 1,
   settingsYear: new Date().getFullYear(),
   contractId: "",
+  showScopedFilters: false,
   unassigned: false,
   unassignedHome: false,
   planningMode: "list",
@@ -489,7 +491,9 @@ async function switchToDemo() {
 }
 function render() {
   document.body.dataset.view=ui.view;
-  document.querySelector("#context").classList.toggle("has-selection",Boolean(selection.propertyId));
+  const filterState=filterPresentation(ui.view,selection,ui.contractId,ui.showScopedFilters);
+  const contextElement=document.querySelector("#context");
+  contextElement.classList.toggle("has-selection",filterState.scopedDetail);
   document.querySelector("#history").onclick=()=>showHistory();
   const demoButton=document.querySelector("#demo");
   if (demoButton) {
@@ -507,7 +511,8 @@ function render() {
       active ? "page" : "false",
     );
   });
-  filterArea.innerHTML = filters(data, selection);
+  filterArea.innerHTML = filterState.show ? filters(data, selection) : "";
+  filterArea.hidden = !filterState.show;
   document.querySelector("#summary").innerHTML = ["sources", "people", "businesses", "settings", "more", "datamodel"].includes(
     ui.view,
   )
@@ -528,10 +533,12 @@ function render() {
   document.querySelector("#save").hidden = transport.company() || (!st.dirty && !st.staged);
   document.querySelector("#save").textContent = needsNewWorkbook
     ? "Spara som Lokalblick-data" : `Spara till Excel (${st.pendingChanges?.length || 0})`;
-  document.querySelector("#context").innerHTML = selection.propertyId
-    ? `<button data-clear-property>Hela urvalet</button><span>${esc(data.properties.find((p) => p.id === selection.propertyId)?.address || selection.propertyId)}</span>`
-    : "<span>Portfölj</span>";
-  filterArea.hidden = ["sources", "people", "businesses", "settings", "more", "datamodel"].includes(ui.view);
+  const scopeLabel = selection.propertyId
+    ? esc(data.properties.find((p) => p.id === selection.propertyId)?.address || selection.propertyId)
+    : "Avtalsdetalj";
+  contextElement.innerHTML = filterState.scopedDetail
+    ? `${selection.propertyId ? '<button type="button" data-clear-property>Hela urvalet</button>' : ""}<span>${scopeLabel}</span><button type="button" data-toggle-global-filters aria-expanded="${filterState.show}">${filterState.show ? "Dölj filter" : "Visa filter"}</button>`
+    : "";
   if (ui.view === "overview")
     content.innerHTML = dashboard(data, selection, new Date().getFullYear());
   if (["properties","contracts","activities"].includes(ui.view)) {
@@ -573,6 +580,7 @@ function render() {
         points,
         onPointClick: (p) => {
           selection.propertyId = p.id;
+          ui.showScopedFilters = false;
           ui.view = "properties";
           ui.perspective = "Fastigheter";
           render();
@@ -1105,6 +1113,7 @@ document.addEventListener("click", (event) =>
     if (b.dataset.view) {
       pendingPlanSelection=null;
       ui.view = b.dataset.view;
+      ui.showScopedFilters = false;
       if (ui.view==="properties")ui.perspective="Fastigheter";
       if (ui.view==="contracts")ui.perspective="Avtal";
       if (ui.view==="activities")ui.perspective="Ärenden";
@@ -1116,12 +1125,19 @@ document.addEventListener("click", (event) =>
     }
     if (b.dataset.property) {
       selection.propertyId = b.dataset.property;
+      ui.showScopedFilters = false;
       ui.perspective = "Avtal";
       ui.view = "contracts";
       render();
     }
+    if (b.hasAttribute("data-toggle-global-filters")) {
+      ui.showScopedFilters = !ui.showScopedFilters;
+      render();
+      return;
+    }
     if (b.hasAttribute("data-clear-property")) {
       selection.propertyId = "";
+      ui.showScopedFilters = false;
       ui.contractId = "";
       render();
     }
@@ -1150,6 +1166,7 @@ document.addEventListener("click", (event) =>
       return;
     }
     if (b.dataset.openContract) {
+      ui.showScopedFilters = false;
       ui.contractId =
         ui.contractId === b.dataset.openContract ? "" : b.dataset.openContract;
       render();
