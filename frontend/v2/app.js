@@ -57,6 +57,7 @@ const selection = { unit: "", owner: "", person: "", q: "", propertyId: "" };
 const ui = {
   view: "overview",
   perspective: "Fastigheter",
+  dashboardMode: "",
   issueType: "Alla",
   year: new Date().getFullYear() + 1,
   settingsYear: new Date().getFullYear(),
@@ -540,7 +541,7 @@ function render() {
       active ? "page" : "false",
     );
   });
-  filterArea.innerHTML = filterState.show ? filters(data, selection) : "";
+  filterArea.innerHTML = filterState.show ? filters(data, selection, ui.view === "overview" ? ui.dashboardMode : undefined) : "";
   filterArea.hidden = !filterState.show;
   document.querySelector("#summary").innerHTML = ["sources", "people", "businesses", "settings", "more", "datamodel"].includes(
     ui.view,
@@ -569,7 +570,7 @@ function render() {
     ? `${selection.propertyId ? '<button type="button" data-clear-property>Hela urvalet</button>' : ""}<span>${scopeLabel}</span><button type="button" data-toggle-global-filters aria-expanded="${filterState.show}">${filterState.show ? "Dölj filter" : "Visa filter"}</button>`
     : "";
   if (ui.view === "overview")
-    content.innerHTML = dashboard(data, selection, new Date().getFullYear());
+    content.innerHTML = dashboard(data, selection, new Date().getFullYear(), ui.dashboardMode);
   if (["properties","contracts","activities"].includes(ui.view)) {
     const perspective={properties:"Fastigheter",contracts:"Avtal",activities:"Ärenden"}[ui.view];
     content.innerHTML = overview(data, selection, {
@@ -1069,10 +1070,43 @@ async function sourceAction(action) {
   ui.contractId = "";
   render();
 }
+document.addEventListener("keydown", event => {
+  if (event.key!=="Enter" && event.key!==" ")return;
+  const target=event.target.closest("svg [data-dashboard-group],svg [data-dashboard-property]");
+  if(!target)return;
+  event.preventDefault();
+  target.dispatchEvent(new MouseEvent("click",{bubbles:true}));
+});
 document.addEventListener("click", (event) =>
   run(async () => {
+    const group=event.target.closest("[data-dashboard-group]");
+    const property=event.target.closest("[data-dashboard-property]");
+    if (ui.view==="overview" && property?.dataset.dashboardProperty) {
+      selection.propertyId=property.dataset.dashboardProperty;
+      ui.view="contracts"; ui.perspective="Avtal"; ui.contractId="";
+      render(); return;
+    }
+    if (ui.view==="overview" && group?.dataset.dashboardGroup) {
+      const mode=group.dataset.dashboardGroupMode;
+      if(["person","unit","owner"].includes(mode)) {
+        ui.dashboardMode=mode;
+        for(const key of ["person","unit","owner"])selection[key]=key===mode?group.dataset.dashboardGroup:"";
+        render(); return;
+      }
+    }
     const b = event.target.closest("button");
     if (!b || b.disabled) return;
+    if (b.hasAttribute("data-dashboard-mode")) {
+      const next=b.dataset.dashboardMode;
+      if(!["person","unit","owner"].includes(next))return;
+      ui.dashboardMode=ui.dashboardMode===next?"":next;
+      for(const key of ["person","unit","owner"])selection[key]="";
+      render(); return;
+    }
+    if (b.hasAttribute("data-dashboard-clear")) {
+      for(const key of ["person","unit","owner"])selection[key]="";
+      render(); return;
+    }
     if (b.hasAttribute("data-activity-journal-save")) {
       const id=b.dataset.activityId;
       if(!editor||editor.col!=="activities"||String(editor.id)!==String(id))throw Error("Öppna ärendet på nytt.");

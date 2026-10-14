@@ -1,4 +1,5 @@
 import {fieldCaption} from "./field-labels.js";
+import {portfolioDashboard, buildPortfolioInsights} from "./portfolio-dashboard.js";
 import { scope, responsible, kinds, bulkEligible } from "./model.js";
 import { planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
 export const esc = (x) =>
@@ -50,7 +51,7 @@ const organizationLabel = (data, id) =>
   data.organizations.find((x) => x.id === id)?.name || id || "";
 const propertyOwnerLabel = (data, property) =>
   organizationLabel(data, property?.ownerPartyId);
-export function filters(data, s) {
+export function filters(data, s, dashboardMode) {
   const owners = new Map();
   data.contracts.forEach((c) => {
     const p = data.properties.find((x) => x.id === c.propertyId) || {};
@@ -66,7 +67,8 @@ export function filters(data, s) {
     const selectedName=name?label(name):selected;
     return `<label class="filter-chip${selected?' is-selected':''}"><span class="filter-caption">${esc(caption)}</span><span class="filter-value" aria-hidden="true">${esc(selected?selectedName:caption)}</span><select aria-label="${esc(caption)}" data-filter="${key}">${options(items,value,label,selected,caption)}</select></label>`;
   };
-  return `<div class="filters">${chip('person','Ansvarig',internalPeople(data),x=>x.id,x=>x.name,s.person)}${chip('unit','Verksamhet',Object.entries(units),x=>x[0],x=>x[1],s.unit)}${chip('owner','Fastighetsägare',[...owners],x=>x[0],x=>x[1],s.owner)}<div class="ui-search-action-row"><label class="search ui-search"><span class="visually-hidden">Sök</span><svg class="ui-search-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.6"></circle><path d="m16 16 5 5"></path></svg><input data-filter="q" type="search" value="${esc(s.q)}" placeholder="Adress, avtal eller verksamhet"></label><div class="ui-filter-actions-slot"></div></div></div>`;
+  const modeButtons = dashboardMode !== undefined ? [["person","Medarbetare"],["unit","Verksamhet"],["owner","Fastighetsägare"]].map(([key,label]) => `<button type="button" class="filter-chip dashboard-mode-button${dashboardMode===key?" active":""}" data-dashboard-mode="${key}" aria-pressed="${dashboardMode===key}">${label}</button>`).join("") : null;
+  return `<div class="filters${modeButtons!==null?" dashboard-mode-filters":""}">${modeButtons!==null?modeButtons:chip('person','Ansvarig',internalPeople(data),x=>x.id,x=>x.name,s.person)+chip('unit','Verksamhet',Object.entries(units),x=>x[0],x=>x[1],s.unit)+chip('owner','Fastighetsägare',[...owners],x=>x[0],x=>x[1],s.owner)}<div class="ui-search-action-row"><label class="search ui-search"><span class="visually-hidden">Sök</span><svg class="ui-search-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.6"></circle><path d="m16 16 5 5"></path></svg><input data-filter="q" type="search" value="${esc(s.q)}" placeholder="Adress, avtal eller verksamhet"></label><div class="ui-filter-actions-slot"></div></div></div>`;
 }
 // Treat the cadastral designation and street address as independent values.
 export const propertyDesignation = property => String(property?.designation || "").trim();
@@ -164,6 +166,15 @@ export function summary(data, s, year, ui = {}) {
     : ui.view === "activities" ? "Ärenden"
     : ui.perspective || "Fastigheter";
   const rent = rentMetrics(data, view.contracts, year);
+  if (ui.view === "overview" && ui.dashboardMode) {
+    const insights=buildPortfolioInsights(data,s,year,ui.dashboardMode);
+    return summaryCards([
+      [({person:"Medarbetare",unit:"Verksamheter",owner:"Fastighetsägare"}[ui.dashboardMode]||"Grupper"),num(insights.groups.filter(x=>x.key).length)],
+      ["Fastigheter",num(view.properties.length)],
+      ["Årshyra "+year,money(insights.rent)],
+      ["Hyra / kvm",rent.area>0?money(rent.rentPerSqm):"–"],
+    ]);
+  }
 
   if (ui.view === "map") {
     const mapped = view.properties.filter(
@@ -265,48 +276,8 @@ function contractRows(data, contracts, year) {
     ]);
   });
 }
-export function dashboard(data, selection, year) {
-  const v=scope(data, selection);
-  const types=["Projekt","Underhåll","Drift","Önskemål"];
-  const counts=types.map(type=>({
-    type,
-    count:v.items.filter(item=>item.record.type===type).length,
-  }));
-  const remaining=v.items.length-counts.reduce((sum,item)=>sum+item.count,0);
-  if(remaining)counts.push({type:"Övriga",count:remaining});
-  const maximum=Math.max(1,...counts.map(x=>x.count));
-  const rent=rentMetrics(data,v.contracts,year);
-  const links=[
-    {view:"properties",title:"Fastighet",detail:num(v.properties.length)+" fastigheter",icon:"⌂"},
-    {view:"contracts",title:"Avtal",detail:num(v.contracts.length)+" avtal",icon:"▤"},
-    {view:"activities",title:"Aktiviteter",detail:num(v.items.length)+" ärenden",icon:"▥"},
-    {view:"plan",title:"Planera",detail:"Tidsplan och ansvar",icon:"▦"},
-  ];
-  const shortcuts=links.map(item=>
-    '<button type="button" class="dashboard-link ui-card ui-card--compact" data-view="'+item.view+'">'+
-    '<span class="dashboard-link-icon" aria-hidden="true">'+item.icon+'</span>'+
-    '<span><strong>'+esc(item.title)+'</strong><small>'+esc(item.detail)+'</small></span>'+
-    '<span aria-hidden="true">›</span></button>'
-  ).join("");
-  const bars=counts.map(item=>{
-    const width=Math.max(item.count?3:0,Math.round(item.count/maximum*100));
-    return '<div class="dashboard-bar-row"><span>'+esc(item.type)+'</span>'+
-      '<div class="dashboard-bar-track"><span style="width:'+width+'%"></span></div>'+
-      '<strong>'+num(item.count)+'</strong></div>';
-  }).join("");
-  const unassigned=v.items.filter(item=>!responsible(data,item.collection,item.record)).length;
-  return '<div class="dashboard-intro"><div><h2>Portföljöversikt</h2>'+
-    '<p>En samlad bild av fastigheter, avtal och aktiviteter i aktuellt urval. Välj ett område för att gå till detaljerna.</p></div>'+
-    '<span class="dashboard-year ui-label">År '+esc(year)+'</span></div>'+
-    '<div class="dashboard-quicklinks ui-overview-shortcuts">'+shortcuts+'</div>'+
-    '<div class="dashboard-panels"><section class="dashboard-panel ui-card ui-overview-panel"><h3>Aktiviteter per typ</h3>'+
-      (v.items.length?bars:'<p>Inga ärenden i aktuellt urval.</p>')+
-      '<button type="button" data-view="activities" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa alla aktiviteter ›</button></section>'+
-    '<section class="dashboard-panel"><h3>Att bevaka</h3>'+
-      '<div class="dashboard-fact"><span>Ärenden utan ansvarig</span><strong>'+num(unassigned)+'</strong></div>'+
-      '<div class="dashboard-fact"><span>Årlig beräknad hyra</span><strong>'+money(rent.rent)+'</strong></div>'+
-      '<div class="dashboard-fact"><span>Avtal att kontrollera</span><strong>'+num(rent.needsReview)+'</strong></div>'+
-      '<button type="button" data-view="plan" class="dashboard-text-link">Öppna Planera ›</button></section></div>';
+export function dashboard(data, selection, year, mode = "") {
+  return portfolioDashboard(data, selection, year, mode);
 }
 function activityRows(data, items) {
   return items.map(x => {
