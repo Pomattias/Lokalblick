@@ -431,7 +431,12 @@ function canonicalRelations(out) {
   (out.contacts||[]).filter((x)=>!x.toDate).forEach((c)=>{if(isOur(c.personId))return;const t=c.targetType==="object"?"contract":c.targetType;if(t==="property"){const p=out.properties.find((x)=>x.id===c.targetId);if(p&&!p.ownerResponsiblePersonId&&validOwnerManager(c.personId,p))p.ownerResponsiblePersonId=c.personId;}else if(t==="contract"){const a=out.contracts.find((x)=>x.id===c.targetId);if(a&&!a.businessResponsiblePersonId)a.businessResponsiblePersonId=c.personId;}});
   const migratedInvestigations=[];
   out.activities.forEach((a)=>{
-    // One process field: status. Retired phase is not part of canonical activities.
+    // Merge a meaningful legacy phase into a generic status before retiring phase.
+    // Specific statuses (Klar, Avslaget, etc.) are never overwritten.
+    const formerPhase=String(a.phase||"").trim();
+    if(formerPhase && ["","Nytt","Planerad","Pågår","Utreds"].includes(String(a.status||"").trim())
+        && ["Förstudie","Utredning","Projektering","Upphandling","Genomförande","Besiktning"].includes(formerPhase))
+      a.status=formerPhase;
     delete a.phase;
     const investigationCost=Number(a.investigationCost)||0;
     if(investigationCost>0){
