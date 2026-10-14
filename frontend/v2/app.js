@@ -625,6 +625,9 @@ function render() {
         "[data-edit],[data-new-object],[data-new-issue],[data-plan-month],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-adjust],[data-budget-reopen],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => (x.disabled = true));
+  // New budget controls share the same edit permission as the existing planning controls.
+  if(!canEdit()) content.querySelectorAll("[data-plan-budget-include],[data-plan-rent-start]")
+    .forEach(x=>x.disabled=true);
   document.querySelector("#add").hidden =
     !canEdit() || !["properties","contracts","activities"].includes(ui.view);
   document.querySelector("#add").textContent =
