@@ -170,3 +170,27 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
      Temporarily use 16px while typing; the resting search field stays 14px. */
   #filters .search input:focus { font-size:16px; }
 }
+
+
+/* A single accessible magnifier search field across the app.
+   The visible label is replaced with an icon; the "Sök" label stays available to screen readers. */
+#filters .search.ui-search {
+  position:relative;
+  display:block;
+  min-width:0;
+  gap:0;
+}
+#filters .search.ui-search .ui-search-icon {
+  position:absolute;
+  left:11px;
+  top:50%;
+  transform:translateY(-50%);
+  width:18px;
+  height:18px;
+  color:var(--ui-color-muted);
+  pointer-events:none;
+  z-index:1;
+}
+#filters .search.ui-search input {
+  padding-left:37px;
+}
