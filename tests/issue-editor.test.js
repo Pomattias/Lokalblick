@@ -44,8 +44,12 @@ test("every issue uses the same compact activities form, without tabs",()=>{
    assert.doesNotMatch(html,new RegExp('name="'+removed+'"'));
  assert.doesNotMatch(html,/data-editor-tab|data-editor-section/);
  assert.match(html,/issue-heading-actions/);
- assert.doesNotMatch(html,/issue-time-now|issue-current-cost/);
- assert.ok(html.indexOf('class="issue-visual-planner"')<html.indexOf('class="issue-section issue-time-section"'));
+ assert.match(html,/class="issue-edit-title"/);
+ assert.match(html,/class="issue-field issue-mode-field"/);
+ assert.match(html,/class="issue-history-card"/);
+ assert.equal((html.match(/name="estimatedCostTkr"/g)||[]).length,1);
+ assert.ok(html.indexOf('id="activity-journal"')<html.indexOf('class="issue-visual-planner"'));
+ assert.doesNotMatch(html,/issue-time-section|issue-current-cost/);
  assert.match(html,/class="issue-economic-details"/);
  assert.doesNotMatch(html,/class="issue-assessment"><span>Beräknad ekonomisk bedömning/);
  assert.match(html,/name="estimatedCostTkr"[^>]*value="300"/);
@@ -54,6 +58,22 @@ test("every issue uses the same compact activities form, without tabs",()=>{
  assert.match(html,/name="issueHome"/);
  assert.match(html,/value="property:p1" selected/);
  assert.match(renderIssueEditor(data,wish,"a2"),/value="contract:c1" selected/);
+});
+
+test("view and edit share one structure for case header, fields, cost and dates",()=>{
+ const html=renderIssueEditor(data,project,"a1");
+ for(const field of ["type","title","description","issueHome","responsiblePersonId",
+   "status","category","priority","estimatedCostTkr","startDate","endDate","planningYear"])
+   assert.equal((html.match(new RegExp('name="'+field+'"',"g"))||[]).length,1,field);
+ assert.match(html,/class="issue-field-value"/);
+ assert.match(html,/class="issue-field-control"/);
+ assert.match(html,/class="issue-history-card-row"/);
+ assert.match(html,/class="issue-history-edit issue-dates-edit"/);
+ assert.match(html,/data-activity-journal-save/);
+ const newForm=renderIssueEditor(data,{...project,id:""},"");
+ assert.match(newForm,/name="estimatedCostTkr"/);
+ assert.match(newForm,/name="startDate"/);
+ assert.match(newForm,/Spara ärendet först/);
 });
 
 test("editorHtml routes any activity to the exact same form",()=>{
