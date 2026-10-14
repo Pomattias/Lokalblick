@@ -7,11 +7,6 @@ import { fieldCaption } from "./field-labels.js";
 // Exactly one editor for every activity type. Source columns and data semantics
 // remain in the canonical activities model; they do not dictate UI fields.
 export const ISSUE_TYPES=["Projekt","Underhåll","Drift","Önskemål"];
-const activityKindOptions = [
-  {value:"",label:"Ej bedömd"},
-  {value:"value_enhancing",label:"Värdehöjande"},
-  {value:"like_for_like",label:"Utbyte 1:1"},
-];
 // Begränsad kodlista: påverkar enbart formulärets alternativ, inte lagrad data.
 export const ISSUE_CATEGORIES=[
   "Ytskikt","Inredning","Installationer","Ventilation","Ombyggnad",
@@ -28,8 +23,6 @@ const field=(label,html,display="")=>'<label class="issue-field issue-mode-field
 const input=(item,key,type="text",attrs="")=>'<input name="'+key+'" type="'+type+'" value="'+esc(item[key]??"")+'" '+attrs+'>';
 const choice=(name,list,selected,placeholder="Välj")=>'<select name="'+name+'">'+options(list,x=>x.value,x=>x.label,selected,placeholder)+'</select>';
 const currency=n=>money(Number(n)||0);
-const tkr=n=>new Intl.NumberFormat("sv-SE",{maximumFractionDigits:1}).format((Number(n)||0)/1000)+" tkr";
-const tkrInput=n=>Number.isFinite(Number(n))?String(Math.round(Number(n)/100)/10):"0";
 function issueHome(activity) {
   if(activity.contractId) return "contract:"+activity.contractId;
   if(activity.objectId)return "object:"+activity.objectId;
