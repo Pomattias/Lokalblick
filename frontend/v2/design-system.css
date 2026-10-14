@@ -275,3 +275,71 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
     padding:5px 8px;
   }
 }
+
+/* Global action row adjacent to the shared search.
+   Uses the same DOM action nodes on every view: click handlers stay intact. */
+#filters .ui-search-action-row {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:var(--ui-space-2);
+  min-width:0;
+  grid-column:auto;
+}
+#filters .ui-search-action-row .search.ui-search {
+  flex:1 1 170px;
+  width:auto;
+  min-width:0;
+  margin:0;
+}
+#filters .ui-filter-actions-slot { display:flex;flex:0 1 auto;min-width:0; }
+.ui-global-actions {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:var(--ui-space-1);
+  min-width:0;
+}
+.ui-global-actions[hidden],.view-actions-fallback[hidden] {display:none!important;}
+.ui-global-actions > button {
+  box-sizing:border-box;
+  min-height:var(--ui-height-compact);
+  max-width:100%;
+  border-radius:var(--ui-radius-md);
+  padding:6px 10px;
+  font-size:var(--ui-font-sm);
+  line-height:1.2;
+  font-weight:600;
+  white-space:nowrap;
+}
+.ui-global-actions > :is(#add,[data-new-object],[data-new-issue],[data-edit][data-id=""]) {
+  border-color:var(--ui-color-primary);
+  color:var(--ui-color-primary);
+  background:var(--ui-color-primary-soft);
+}
+.ui-global-actions > #save {
+  color:#fff;
+  background:var(--ui-color-primary);
+  border-color:var(--ui-color-primary);
+}
+.view-actions-fallback {
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  min-height:var(--ui-height-compact);
+  margin:4px 0 7px;
+}
+@media(max-width:1000px) {
+  #filters .ui-search-action-row { grid-column:1/-1; }
+}
+@media(max-width:700px) {
+  #filters .ui-search-action-row {gap:var(--ui-space-1);}
+  #filters .ui-search-action-row .search.ui-search {flex:1 1 165px;}
+  #filters .ui-filter-actions-slot {flex:0 0 auto;max-width:100%;}
+  .ui-global-actions > button {
+    min-height:var(--ui-height-compact);
+    padding:6px 9px;
+    font-size:var(--ui-font-xs);
+  }
+  .view-actions-fallback {margin:2px 0 6px;}
+}
