@@ -152,12 +152,21 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
     justify-content:center;
   }
 }
-/* The search input inherits bold label typography unless explicitly reset. */
-body[data-view="overview"] #filters .search input {
+/* Shared search field: identical across Overview, Map, Plan, Budget, More.
+   Use smaller, lighter copy than the filter chips without changing search behavior. */
+#filters .search input {
+  font-size:14px;
   font-weight:400;
+  line-height:1.35;
 }
-body[data-view="overview"] #filters .search input::placeholder {
+#filters .search input::placeholder {
+  font-size:inherit;
   font-weight:400;
   color:var(--ui-color-muted);
   opacity:.72;
+}
+@media(max-width:700px) {
+  /* iOS Safari zooms the page when focusing an input with text below 16px.
+     Temporarily use 16px while typing; the resting search field stays 14px. */
+  #filters .search input:focus { font-size:16px; }
 }
