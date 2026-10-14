@@ -855,10 +855,14 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 }
 .issue-editor #edit-form .issue-cost-edit {
   display:inline-flex;
+  flex-direction:row;
   align-items:center;
   justify-content:flex-start;
+  align-self:center;
   flex-wrap:nowrap;
   gap:6px;
+  height:35px;
+  min-height:35px;
   width:max-content;
   max-width:100%;
   min-width:0;
@@ -866,7 +870,7 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 }
 .issue-editor #edit-form .issue-cost-edit input[name="estimatedCostTkr"] {
   box-sizing:border-box;
-  flex:0 1 92px;
+  flex:0 0 92px;
   width:92px;
   min-width:0;
   max-width:92px;
@@ -877,8 +881,9 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   font-size:13px;
 }
 .issue-editor #edit-form .issue-cost-edit > span:last-child {
-  display:inline;
+  display:inline-block;
   flex:none;
+  align-self:center;
   white-space:nowrap;
   color:var(--ui-color-muted);
   font-size:12px;
@@ -909,7 +914,10 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   display:grid;
   grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr) 62px;
   align-items:center;
+  align-self:center;
   gap:5px;
+  height:35px;
+  min-height:35px;
   width:100%;
   min-width:0;
   max-width:100%;
@@ -918,6 +926,7 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   display:block;
   min-width:0;
   width:100%;
+  height:35px;
   margin:0;
 }
 .issue-editor #edit-form .issue-dates-edit > span[aria-hidden] {
@@ -944,6 +953,7 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   margin:0;
   min-width:0;
   width:100%;
+  height:35px;
 }
 .issue-editor #edit-form .issue-year-edit input[name="planningYear"] {
   box-sizing:border-box;
