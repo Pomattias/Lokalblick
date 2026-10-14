@@ -81,3 +81,59 @@
   /* Prevent iOS Safari zoom on text-entry fields when these primitives are used. */
   .ui-field:is(input,select,textarea) {font-size:16px;}
 }
+
+
+/* Overview migration: scoped appearance only. Retain existing data-view actions. */
+body[data-view="overview"] .ui-overview-shortcuts{
+  gap:var(--ui-space-2);
+}
+body[data-view="overview"] .dashboard-link.ui-card{
+  padding:var(--ui-space-2) var(--ui-space-3);
+  border-radius:var(--ui-radius-md);
+  min-height:52px;
+  text-decoration:none;
+  color:var(--ui-color-text);
+}
+body[data-view="overview"] .dashboard-link.ui-card:focus-visible{
+  outline:3px solid var(--ui-color-focus);
+  outline-offset:2px;
+}
+body[data-view="overview"] .ui-overview-panel{
+  padding:var(--ui-space-3);
+  border-radius:var(--ui-radius-lg);
+}
+body[data-view="overview"] .ui-overview-panel h3{
+  margin-bottom:var(--ui-space-2);
+}
+body[data-view="overview"] .dashboard-text-link.ui-button{
+  min-height:var(--ui-height-compact);
+  padding:6px 4px;
+  justify-content:flex-start;
+  font-weight:600;
+  text-align:left;
+  border-color:transparent;
+  color:var(--ui-color-primary);
+}
+body[data-view="overview"] .dashboard-text-link.ui-button:hover{
+  background:var(--ui-color-primary-soft);
+}
+@media(max-width:700px){
+  body[data-view="overview"] .dashboard-intro{margin:4px 0 6px;}
+  body[data-view="overview"] .dashboard-quicklinks.ui-overview-shortcuts{
+    gap:var(--ui-space-1);
+    margin:4px 0 8px;
+  }
+  body[data-view="overview"] .dashboard-link.ui-card{
+    min-height:48px;
+    padding:6px 8px;
+    gap:var(--ui-space-2);
+  }
+  body[data-view="overview"] .dashboard-link.ui-card .dashboard-link-icon{
+    width:25px;height:25px;
+    font-size:15px;
+  }
+  body[data-view="overview"] .ui-overview-panel{
+    padding:var(--ui-space-2) var(--ui-space-3);
+    border-radius:var(--ui-radius-md);
+  }
+}
