@@ -39,6 +39,19 @@ test("new cases start editable in the same structure",()=>{
  assert.equal((html.match(/class="issue-history-card"/g)||[]).length,2);
 });
 
+
+test("mobile read and edit use the same compact typography and two-column home row",()=>{
+ const sheet=css;
+ assert.match(sheet,/Keep case typography and dimensions stable between view and edit/);
+ assert.match(sheet,/\.issue-editor #edit-form \.issue-mode-field \.issue-field-value,[\s\S]*?\.issue-field-control :is\(input,select,textarea\) \{[\s\S]*?font-size:13px;/);
+ assert.match(sheet,/@media\(max-width:700px\) \{[\s\S]*?\.issue-editor #edit-form \.issue-home-row,[\s\S]*?\.issue-editor #edit-form\.editor-readonly \.issue-home-row \{[\s\S]*?grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+ assert.match(sheet,/\.issue-field-control :is\(input,select,textarea\):focus,[\s\S]*?font-size:16px;/);
+ const view=renderIssueEditor({properties:[],objects:[],contracts:[],people:[],organizations:[],orders:[],activities:[],auditLog:[],
+   priceBaseAmounts:[],indexSeries:[],budgetPlans:[]},{id:"a1",title:"Rubrik",type:"Projekt"},"a1");
+ assert.equal((view.match(/class="issue-home-row"/g)||[]).length,1);
+ assert.equal((view.match(/class="issue-mode-field"/g)||[]).length,7);
+});
+
 test("Redigera unlocks the same existing controls without rebuilding or moving them",()=>{
  const a=app.indexOf("function setEditorReadMode(readOnly){");
  const b=app.indexOf("function updateEditorActions(){",a);
