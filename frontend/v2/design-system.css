@@ -385,3 +385,139 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
     flex:none;
   }
 }
+
+
+/* Harmonized case workspace: one concise hierarchy on desktop and mobile. */
+.issue-editor .section-title.issue-heading {
+  display:flex;align-items:center;gap:12px;padding:0 0 10px;margin:0;
+  border-bottom:1px solid var(--ui-color-border);
+}
+.issue-editor .issue-heading-text {flex:1;min-width:0;}
+.issue-editor .issue-heading-text h2 {margin:0 0 3px;line-height:1.15;font-size:clamp(17px,2vw,22px);}
+.issue-editor .issue-heading-text > small {font-size:11px;}
+.issue-editor .issue-heading-actions {
+  display:flex;align-items:center;justify-content:flex-end;flex:none;gap:6px;
+}
+.issue-editor .issue-heading-actions button {
+  flex:none;min-height:34px;padding:6px 10px;border-radius:var(--ui-radius-md);
+  font-size:12px;white-space:nowrap;
+}
+.issue-editor .issue-section {padding:9px 0;}
+.issue-editor .issue-section h3 {margin:0 0 7px;}
+.issue-editor .issue-main-section > .issue-grid {gap:5px 10px;}
+.issue-editor .issue-main-section .issue-home-row,
+.issue-editor .issue-main-section .issue-owner-row,
+.issue-editor .issue-main-section .issue-compact-meta,
+.issue-editor .issue-main-section .issue-description {margin:0;padding:0;}
+.issue-editor .issue-main-section .issue-owner-row {grid-column:1/-1;}
+.issue-editor .issue-main-section .issue-owner-row .issue-field {min-width:0;}
+.issue-editor .issue-main-section .issue-description textarea {max-width:100%;box-sizing:border-box;}
+.issue-editor .issue-time-now {
+  display:none;align-items:baseline;flex-wrap:wrap;gap:5px 10px;
+  padding:5px 0;font-size:12px;
+}
+.issue-editor .issue-time-now strong {font-size:13px;font-weight:650;}
+.issue-editor .issue-time-now small {font-size:11px;margin-left:auto;}
+.issue-editor .issue-time-fields {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.issue-editor .issue-cost-section .issue-grid {gap:7px 12px;align-items:center;}
+.issue-editor .issue-current-cost {display:none;align-items:baseline;gap:9px;font-size:12px;}
+.issue-editor .issue-current-cost strong {font-size:15px;font-weight:700;}
+.issue-editor #edit-form.editor-readonly .issue-time-now,
+.issue-editor #edit-form.editor-readonly .issue-current-cost {display:flex;}
+.issue-editor #edit-form.editor-readonly .issue-time-fields,
+.issue-editor #edit-form.editor-readonly .issue-cost-section .issue-field:has([name="estimatedCostTkr"]) {display:none;}
+.issue-editor #edit-form.editor-readonly .issue-main-section {padding-top:6px;}
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-owner-row .issue-field,
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-compact-meta .issue-field {
+  display:flex;flex-direction:row;gap:7px;align-items:baseline;padding:3px 0;
+}
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-description {padding:4px 0;}
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-description textarea {
+  min-height:22px;max-height:100px;resize:none;
+}
+.issue-editor .activity-journal {
+  box-sizing:border-box;padding:12px!important;margin:6px 0!important;
+  border-radius:var(--ui-radius-md);
+}
+.issue-editor .activity-journal .activity-journal-compose-row {
+  display:flex;align-items:stretch;gap:9px;margin:9px 0;
+}
+.issue-editor .activity-journal .activity-journal-compose {
+  display:block;flex:1;min-width:0;margin:0;
+}
+.issue-editor .activity-journal .activity-journal-compose textarea {
+  width:100%;box-sizing:border-box;min-height:44px;padding:9px 10px;
+  font-size:12px;font-weight:400;border-radius:var(--ui-radius-md);
+}
+.issue-editor .activity-journal .activity-journal-compose-row button {
+  min-height:44px;padding:7px 13px;border-radius:var(--ui-radius-md);
+}
+.issue-editor .activity-journal-groups {
+  display:grid;grid-template-columns:minmax(0,1fr);gap:10px;
+}
+.issue-editor .activity-journal-group {
+  min-width:0;padding:4px 2px;
+}
+.issue-editor .activity-journal-group h4 {
+  margin:0 0 7px;font-size:12px;
+}
+.issue-editor .activity-journal-entry {
+  box-sizing:border-box;max-width:100%;padding:9px 11px;margin:5px 0;
+}
+.issue-editor .activity-journal-history-group {
+  display:grid;grid-template-columns:minmax(0,1fr);gap:6px;
+}
+.issue-editor .activity-journal-history {
+  margin:0;padding:0;border:1px solid var(--ui-color-border);
+  border-radius:var(--ui-radius-md);background:var(--ui-color-surface);
+}
+.issue-editor .activity-journal-history summary {
+  list-style:none;display:flex;justify-content:space-between;align-items:center;
+  gap:8px;padding:10px;cursor:pointer;font-size:12px;
+}
+.issue-editor .activity-journal-history summary::-webkit-details-marker {display:none;}
+.issue-editor .activity-journal-history summary::before {
+  content:"▸";color:var(--ui-color-primary);flex:none;
+}
+.issue-editor .activity-journal-history[open] summary::before {content:"▾";}
+.issue-editor .activity-journal-history summary > span:first-child {
+  min-width:0;flex:1;overflow-wrap:anywhere;
+}
+.issue-editor .activity-journal-history-count {color:var(--ui-color-muted);white-space:nowrap;font-size:11px;}
+.issue-editor .activity-journal-history .activity-journal-entries {
+  padding:0 9px 7px;
+}
+.issue-editor .issue-assessment {padding:8px 10px;margin-top:7px;}
+.issue-editor .issue-order-rows>div {padding:7px 10px;}
+/* Budget inclusion and rent impact are planning decisions, not case input fields. */
+.plan-budget-settings {
+  margin:10px 0;padding:9px 11px;border:1px solid var(--ui-color-border);
+  border-radius:var(--ui-radius-md);background:var(--ui-color-surface);
+}
+.plan-budget-settings>summary {
+  cursor:pointer;font-weight:650;font-size:13px;padding:2px;
+}
+.plan-budget-help {margin:7px 0;font-size:12px;}
+.plan-budget-rows {display:grid;gap:7px;}
+.plan-budget-row {
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,180px);
+  gap:7px 12px;align-items:center;padding:9px;
+  border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-md);
+}
+.plan-budget-row > strong {font-size:12px;overflow-wrap:anywhere;}
+.plan-budget-row label {font-size:11px;min-width:0;}
+.plan-budget-row :is(select,input) {min-height:36px;max-width:100%;font-size:13px;}
+.plan-budget-row small {grid-column:1/-1;}
+@media(max-width:700px) {
+  .issue-editor .issue-heading-actions {gap:5px;}
+  .issue-editor .issue-heading-actions button {padding:6px 9px;min-height:34px;}
+  .issue-editor .issue-heading-text h2 {font-size:17px;}
+  .issue-editor .issue-section {padding:7px 0;}
+  .issue-editor .issue-time-fields {grid-template-columns:repeat(2,minmax(0,1fr));}
+  .issue-editor .issue-time-fields > .issue-field:last-child {grid-column:1/-1;}
+  .issue-editor .activity-journal {padding:10px!important;}
+  .issue-editor .activity-journal .activity-journal-compose-row {gap:6px;}
+  .issue-editor .activity-journal .activity-journal-compose textarea {min-height:43px;}
+  .plan-budget-row {grid-template-columns:1fr;}
+  .plan-budget-row small {grid-column:auto;}
+}
