@@ -45,3 +45,14 @@ Färgerna pekar på Lokalblicks existerande teman (`--ink`, `--muted`, `--line`,
 - Bevara `main` och `utveckling` oförändrade tills ändringarna kan mergas kontrollerat.
 
 Steg 1 är **inte en färdig UI-harmonisering** utan ett stabilt komponentkontrakt för fortsättningen.
+
+
+## Gemensam filterplacering – implementerad i arbetsgrenen
+- Funktion och visning beslutas centralt i `frontend/v2/filter-presentation.js`; `app.js` använder samma policy på varje render.
+- Gemensamma snabbfilter och sök visas på **Översikt, Karta, Planera, Budget, Fastighet, Objekt, Avtal och Aktiviteter** när man är i en list-/portföljvy.
+- Om en fastighet är vald eller ett avtal öppnats som detalj visas i stället en kort kontextrad. `Visa filter` expanderar samma urval utan att nollställa det, `Dölj filter` fäller ihop igen. `Hela urvalet` återställer en vald fastighet.
+- Import/Datakällor, Organisation, Verksamheter, Inställningar, Mer och Datamodell visar inte portföljfilter: respektive vy använder i dag inte dessa urval och det skulle vara missledande att visa inaktiva kontroller.
+- De befintliga sök- och filterattributen (`data-filter`) och alla navigerings- och sparfunktioner är oförändrade.
+- Mobilens filterfält förblir sticky utom i kartans särskilda helskärmslayout.
+- Regressionstester för policyn: `tests/filter-presentation.test.js`. På iPhone ska även faktisk scroll, filterexpansion och kontextraden kontrolleras.
+
