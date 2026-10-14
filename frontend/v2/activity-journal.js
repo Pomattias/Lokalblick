@@ -9,7 +9,7 @@ const dateLabel=value=>{
 };
 const formatValue=(field,value)=>{
  if(value==null||value==="")return "Ej angivet";
- if(field==="estimatedCost"&&Number.isFinite(Number(value)))return cost.format(Number(value))+" kr";
+ if(field==="estimatedCost"&&Number.isFinite(Number(value)))return cost.format(Number(value)/1000)+" tkr";
  return String(value);
 };
 export function activityJournalEntries(data,id){
