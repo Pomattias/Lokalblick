@@ -80,12 +80,17 @@
         </div>
         <div class="actions">
           <button id="demo" type="button" hidden>Visa demo</button><button id="history">Historik</button><a href="../index.html?legacy=1" data-ui-version="v1">Visa V1</a><span id="source-label" class="badge">Läser data…</span
-          ><button id="save" class="primary" hidden>Spara till Excel</button
-          ><button id="add" hidden>Lägg till</button>
+
         </div>
       </header>
       <div id="context" class="context"></div>
       <section id="filters" aria-label="Gemensamt urval"></section>
+      <div id="view-actions-fallback" class="view-actions-fallback">
+        <div id="view-global-actions" class="ui-global-actions">
+          <button id="save" type="button" class="primary" hidden>Spara till Excel</button>
+          <button id="add" type="button" hidden>Lägg till</button>
+        </div>
+      </div>
       <div id="notice" role="status" class="notice"></div>
       <section id="summary" aria-label="Summering"></section>
       <section id="content"></section>
