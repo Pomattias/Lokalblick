@@ -489,7 +489,36 @@ async function switchToDemo() {
   render();
   notice("Syntetisk demodata återställd. Inga Excel-filer har ändrats.");
 }
+// Keep the original action nodes (and their delegated click handlers) when
+// the filtered view is rebuilt. Only record-level controls remain inside cards.
+function resetViewActionPlacement() {
+  const actions=document.querySelector("#view-global-actions");
+  const fallback=document.querySelector("#view-actions-fallback");
+  fallback.appendChild(actions);
+  [...actions.children].forEach(node=>{
+    if(node.id!=="add" && node.id!=="save")node.remove();
+  });
+}
+function placeViewActions() {
+  const actions=document.querySelector("#view-global-actions");
+  const fallback=document.querySelector("#view-actions-fallback");
+  const actionSelectors={
+    plan:".plan-mobile-actions [data-new-issue]",
+    objects:".section-title > [data-new-object]",
+    businesses:".section-title > [data-edit='businesses'][data-id='']",
+    people:".section-title > div > [data-edit][data-id='']"
+  };
+  if(actionSelectors[ui.view]){
+    content.querySelectorAll(actionSelectors[ui.view]).forEach(button=>actions.appendChild(button));
+  }
+  const slot=filterArea.querySelector(".ui-filter-actions-slot");
+  (slot||fallback).appendChild(actions);
+  const visible=[...actions.querySelectorAll("button")].some(button=>!button.hidden);
+  actions.hidden=!visible;
+  fallback.hidden=Boolean(slot)||!visible;
+}
 function render() {
+  resetViewActionPlacement();
   document.body.dataset.view=ui.view;
   const filterState=filterPresentation(ui.view,selection,ui.contractId,ui.showScopedFilters);
   const contextElement=document.querySelector("#context");
@@ -597,9 +626,10 @@ function render() {
       )
       .forEach((x) => (x.disabled = true));
   document.querySelector("#add").hidden =
-    !canEdit() || !["properties","objects","contracts","businesses","activities"].includes(ui.view);
+    !canEdit() || !["properties","contracts","activities"].includes(ui.view);
   document.querySelector("#add").textContent =
     ui.view==="activities" ? "Nytt ärende" : "Lägg till";
+  placeViewActions();
 }
 async function mutation(change, { automatic = false, manualPositionIds = [], responsibilityDate } = {}) {
   if (busy) throw Error("En ändring sparas redan");
