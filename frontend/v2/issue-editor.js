@@ -89,7 +89,6 @@ export function applyIssueHome(activity,home) {
 export function renderIssueEditor(data,issue,id,company=false) {
   const kinds=ISSUE_TYPES.includes(issue.type)||!issue.type
     ? ISSUE_TYPES : [...ISSUE_TYPES,issue.type];
-  const years=Array.isArray(issue.yearAllocations)?issue.yearAllocations.filter(x=>Number.isFinite(Number(x.year))):[];
   const orderList=(data.orders||[]).filter(x=>x.activityId===issue.id);
   const linkedContract=(data.contracts||[]).find(x=>x.id===issue.contractId);
   const linkedObject=(data.objects||[]).find(x=>x.id===(issue.objectId||linkedContract?.objectId));
@@ -100,7 +99,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
   const year=Number(issue.planningYear)||new Date().getFullYear();
   const assessment=calc().activityEconomics(data,issue,year);
   const typeSelect=choice("type",kinds.map(value=>({value,label:value})),issue.type,"Välj ärendetyp");
-  const statuses=[...new Set(["Nytt","Utreds","Planerad","Pågår","Beställd","Utförd","Klar","Avslutad","Avslaget",...
+  const statuses=[...new Set(["Nytt","Planerad","Förstudie","Utredning","Projektering","Upphandling","Genomförande","Besiktning","Pågår","Beställd","Utförd","Klar","Avslutad","Avslaget",...
     (data.activities||[]).map(a=>a.status).filter(Boolean),issue.status].filter(Boolean))];
   const priorities=[...new Set(["Låg","Normal","Hög","Akut",...
     (data.activities||[]).map(a=>a.priority).filter(Boolean),issue.priority].filter(Boolean))];
@@ -114,9 +113,6 @@ export function renderIssueEditor(data,issue,id,company=false) {
     ? '<div class="issue-order-rows">'+orderList.map(o=>'<div><span>'+esc(o.supplier||o.orderReference||"Beställning")+
       ' · '+esc(o.paymentStatus||o.status||"Registrerad")+'</span><strong>'+currency(o.finalCost||o.orderedCost)+'</strong></div>').join("")+'</div>'
     : '<p class="issue-note">Ingen beställning registrerad.</p>';
-  const allocations=years.length
-    ? '<p class="issue-note">Årsfördelning: '+years.map(x=>esc(x.year)+" · "+esc(currency(x.amount))).join(" / ")+'</p>'
-    : '<p class="issue-note">Ingen årsvis kostnadsfördelning registrerad. Fördela i Planera.</p>';
 
   return '<div class="editor-backdrop"></div>'+
     '<aside class="editor issue-editor" aria-labelledby="editor-title"><form id="edit-form" data-collection="activities" data-record-id="'+esc(id||"")+'">'+
@@ -137,7 +133,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
     '</div></section>'+
     (id?activityJournalHtml(data,id):'<section class="issue-section activity-journal"><h3>Noteringar och historik</h3><p class="issue-note">Spara ärendet först för att börja föra en daterad journal.</p></section>')+
     '<section class="issue-section issue-time-section"><h3>Tid och planering</h3>'+
-      '<div class="issue-time-now"><span>Tidplan</span><strong>'+esc(issue.startDate||"–")+' → '+esc(issue.endDate||"–")+'</strong></div>'+
+      '<div class="issue-time-now"><span>Tidplan</span><strong>'+esc(issue.startDate||"–")+' → '+esc(issue.endDate||"–")+'</strong><small>Planeringsår '+esc(year)+'</small></div>'+
       '<div class="issue-grid issue-time-fields">'+
       field("Fr.o.m.",input(issue,"startDate","date"))+
       field("T.o.m.",input(issue,"endDate","date"))+
@@ -153,7 +149,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
       '<div class="timeline-track timeline-plan-header">'+planningMonthHeader(year,1)+'</div>'+
       '<div class="timeline-track timeline-plan-months">'+planningMonthButtons(issue,year,1,"form")+'</div>'+
       '</div></div></details>'+
-    allocations+'</section>'+
+    '</section>'+
     '<section class="issue-section issue-cost-section"><h3>Kostnad</h3><div class="issue-grid">'+
       '<div class="issue-current-cost"><span>Bedömd kostnad</span><strong>'+esc(tkr(issue.estimatedCost))+'</strong></div>'+
       field("Bedömd kostnad, tkr",'<input name="estimatedCostTkr" type="number" min="0" step="0.1" value="'+esc(tkrInput(issue.estimatedCost))+'">')+
@@ -166,7 +162,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
       ' · Beräknat från senast sparade uppgifter</small></div>'+
     '</section>'+
     '<section class="issue-section"><h3>Beställning och utfall</h3>'+orderSummary+
-    '<p class="issue-note">Beställningar och utfall hör till samma ärende. Hanteras fortsatt i befintligt beställningsflöde.</p></section>'+
+    '</section>'+
     (company?'<p class="computed">Importerade grunduppgifter och kompletteringar följer befintlig backendkoppling.</p>':"")+
     responsibilityHtml(data,'activity',issue.id)+'<div class="actions editor-actions"><span>Ändringar uppdaterar samma ärende i Planera, Ärenden och Budget.</span>'+
     '<button type="submit" class="primary">Spara ärende</button></div></form></aside>';
