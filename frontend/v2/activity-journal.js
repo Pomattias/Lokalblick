@@ -39,21 +39,30 @@ export function appendActivityNote(data,id,text,actor){
  return entry;
 }
 export function activityJournalHtml(data,id){
+ const activity=(data.activities||[]).find(x=>String(x.id)===String(id))||{};
  const entries=activityJournalEntries(data,id);
  const notes=entries.filter(e=>e.action==="Journalanteckning");
- const changes=entries.filter(e=>e.action!=="Journalanteckning");
- const renderEntry=(e,note)=>{
-   const body=note?(e.fields||[]).filter(f=>["comment","note","journal"].includes(f.field)).map(f=>f.to).filter(Boolean).join(" · "):
-     (e.fields||[]).filter(f=>Object.hasOwn(labels,f.field)).map(f=>labels[f.field]+": "+formatValue(f.field,f.from)+" → "+formatValue(f.field,f.to)).join("; ");
+ const costs=entries.filter(e=>e.action!=="Journalanteckning" && (e.fields||[]).some(f=>f.field==="estimatedCost"));
+ const dates=entries.filter(e=>e.action!=="Journalanteckning" && (e.fields||[]).some(f=>["startDate","endDate"].includes(f.field)));
+ const toTkr=value=>new Intl.NumberFormat("sv-SE",{maximumFractionDigits:1}).format((Number(value)||0)/1000)+" tkr";
+ const currentCost=activity.estimatedCost==null||activity.estimatedCost===""?"Ej angiven":toTkr(activity.estimatedCost);
+ const currentDates=[activity.startDate||"–",activity.endDate||"–"].join(" → ");
+ const renderNote=e=>{
+   const body=(e.fields||[]).filter(f=>["comment","note","journal"].includes(f.field)).map(f=>f.to).filter(Boolean).join(" · ");
    if(!body)return "";
-   return `<article class="activity-journal-entry ${note?"is-note":"is-change"}"><div class="activity-journal-entry-meta"><time datetime="${esc(e.at||"")}">${esc(dateLabel(e.at))}</time><span>· ${esc(e.by||"Okänd avsändare")}</span></div><p>${esc(body)}</p></article>`;
+   return `<article class="activity-journal-entry is-note"><div class="activity-journal-entry-meta"><time datetime="${esc(e.at||"")}">${esc(dateLabel(e.at))}</time><span>· ${esc(e.by||"Okänd avsändare")}</span></div><p>${esc(body)}</p></article>`;
  };
+ const renderChange=(e,allowed)=>{
+   const body=(e.fields||[]).filter(f=>allowed.includes(f.field)).map(f=>labels[f.field]+": "+formatValue(f.field,f.from)+" → "+formatValue(f.field,f.to)).join("; ");
+   if(!body)return "";
+   return `<article class="activity-journal-entry is-change"><div class="activity-journal-entry-meta"><time datetime="${esc(e.at||"")}">${esc(dateLabel(e.at))}</time><span>· ${esc(e.by||"Okänd avsändare")}</span></div><p>${esc(body)}</p></article>`;
+ };
+ const history=(title,value,items,allowed)=>`<details class="activity-journal-history"><summary><span>${esc(title)}: <strong>${esc(value)}</strong></span><span class="activity-journal-history-count">Historik (${items.length})</span></summary><div class="activity-journal-entries">${items.map(e=>renderChange(e,allowed)).join("")||"<small>Ingen tidigare ändring registrerad</small>"}</div></details>`;
  return `<section class="issue-section activity-journal" id="activity-journal" aria-label="Noteringar och ärendehistorik">
- <div class="activity-journal-heading"><h3>Journal</h3><span>${notes.length} noteringar · ${changes.length} ändringar</span></div>
+ <div class="activity-journal-heading"><h3>Journal</h3><span>${notes.length} noteringar</span></div>
  <div class="activity-journal-compose-row"><label class="activity-journal-compose"><span class="visually-hidden">Ny notering</span><textarea data-activity-journal-note rows="2" maxlength="5000" placeholder="Skriv en notering …"></textarea></label><button type="button" data-activity-journal-save data-activity-id="${esc(id)}">Spara</button></div>
  <div class="activity-journal-groups">
- <div class="activity-journal-group"><h4>Noteringar</h4><div class="activity-journal-entries" role="log" aria-label="Noteringar">${notes.slice(0,2).map(e=>renderEntry(e,true)).join("")||"<small>Inga noteringar ännu</small>"}</div>${notes.length>2?`<details><summary>Visa ${notes.length-2} äldre noteringar</summary>${notes.slice(2).map(e=>renderEntry(e,true)).join("")}</details>`:""}</div>
- <div class="activity-journal-group"><h4>Ändringar av kostnad och tidplan</h4><div class="activity-journal-entries">${changes.slice(0,2).map(e=>renderEntry(e,false)).join("")||"<small>Inga ändringar registrerade</small>"}</div>${changes.length>2?`<details><summary>Visa ${changes.length-2} äldre ändringar</summary>${changes.slice(2).map(e=>renderEntry(e,false)).join("")}</details>`:""}</div>
- </div>
- </section>`;
+ <div class="activity-journal-group"><h4>Noteringar</h4><div class="activity-journal-entries" role="log" aria-label="Noteringar">${notes.slice(0,2).map(renderNote).join("")||"<small>Inga noteringar ännu</small>"}</div>${notes.length>2?`<details><summary>Visa ${notes.length-2} äldre noteringar</summary>${notes.slice(2).map(renderNote).join("")}</details>`:""}</div>
+ <div class="activity-journal-group activity-journal-history-group">${history("Kostnad",currentCost,costs,["estimatedCost"])}${history("Tidplan",currentDates,dates,["startDate","endDate"])}</div>
+ </div></section>`;
 }
