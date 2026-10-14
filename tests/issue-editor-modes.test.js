@@ -49,7 +49,7 @@ test("mobile read and edit use the same compact typography and two-column home r
  const view=renderIssueEditor({properties:[],objects:[],contracts:[],people:[],organizations:[],orders:[],activities:[],auditLog:[],
    priceBaseAmounts:[],indexSeries:[],budgetPlans:[]},{id:"a1",title:"Rubrik",type:"Projekt"},"a1");
  assert.equal((view.match(/class="issue-home-row"/g)||[]).length,1);
- assert.equal((view.match(/class="issue-mode-field"/g)||[]).length,7);
+ assert.equal((view.match(/class="issue-field issue-mode-field"/g)||[]).length,7);
 });
 
 test("Redigera unlocks the same existing controls without rebuilding or moving them",()=>{
