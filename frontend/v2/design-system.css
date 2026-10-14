@@ -574,3 +574,149 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 
 /* The read-only indicator in the journal must not duplicate the editable checkbox. */
 .issue-editor #edit-form:not(.editor-readonly) .journal-cost-enhancing {display:none;}
+
+
+/* Unified activity editor: view and edit keep identical DOM, grid and cards.
+   Only field presentation changes. This supersedes older mode-specific layouts. */
+.issue-editor #edit-form .issue-heading-text .issue-edit-title {display:block;margin:0;}
+.issue-editor #edit-form .issue-heading-text .issue-edit-title input {
+  box-sizing:border-box;min-width:0;width:100%;max-width:100%;
+  min-height:34px;padding:6px 8px;margin:0;
+  font-size:16px;font-weight:650;border-radius:var(--ui-radius-md);
+}
+.issue-editor #edit-form:not(.editor-readonly) .issue-heading-text > h2 {display:none;}
+.issue-editor #edit-form.editor-readonly .issue-heading-text .issue-edit-title {display:none;}
+.issue-editor #edit-form .issue-heading-actions {display:flex;justify-content:flex-end;align-items:center;gap:5px;}
+.issue-editor #edit-form .issue-heading-actions [data-editor-save-status] {
+  position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;
+}
+.issue-editor #edit-form .issue-heading-actions button {
+  border-radius:var(--ui-radius-md);min-height:34px;padding:5px 9px;font-size:12px;line-height:1.1;
+}
+.issue-editor #edit-form.editor-readonly .issue-heading-actions button[type="submit"],
+.issue-editor #edit-form.editor-readonly .issue-heading-actions [data-editor-undo] {display:none!important;}
+.issue-editor #edit-form .editor-actions {display:none!important;}
+.issue-editor #edit-form .issue-main-section > .issue-grid,
+.issue-editor #edit-form.editor-readonly .issue-main-section > .issue-grid {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 10px;
+}
+.issue-editor #edit-form .issue-main-section .issue-home-row,
+.issue-editor #edit-form .issue-main-section .issue-owner-row,
+.issue-editor #edit-form .issue-main-section .issue-compact-meta,
+.issue-editor #edit-form .issue-main-section .issue-description-row {
+  grid-column:1/-1;min-width:0;margin:0;
+}
+.issue-editor #edit-form .issue-home-row {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:center;}
+.issue-editor #edit-form .issue-home-row .issue-property-reference {
+  display:flex;align-items:baseline;gap:6px;min-width:0;margin:0;
+}
+.issue-editor #edit-form .issue-home-row .issue-property-reference strong {
+  min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.issue-editor #edit-form .issue-compact-meta,
+.issue-editor #edit-form.editor-readonly .issue-compact-meta {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field,
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-mode-field {
+  display:grid!important;
+  grid-template-columns:minmax(58px,32%) minmax(0,1fr);
+  gap:5px;align-items:center;margin:0;padding:4px 0;
+  min-height:32px;box-sizing:border-box;min-width:0;
+  font-size:12px;line-height:1.3;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-label {font-weight:500;color:var(--ui-color-muted);min-width:0;}
+.issue-editor #edit-form .issue-mode-field .issue-field-value {
+  display:block;min-width:0;font-weight:650;color:var(--ui-color-text);overflow-wrap:anywhere;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-control {
+  display:block;min-width:0;max-width:100%;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea) {
+  box-sizing:border-box;width:100%;min-width:0;max-width:100%;
+  min-height:32px;height:auto;padding:5px 8px;border-radius:var(--ui-radius-md);
+  font-size:14px;font-weight:550;line-height:1.25;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-control textarea {
+  min-height:42px;resize:vertical;font-size:14px;
+}
+.issue-editor #edit-form:not(.editor-readonly) .issue-mode-field .issue-field-value {display:none!important;}
+.issue-editor #edit-form.editor-readonly .issue-mode-field .issue-field-control {display:none!important;}
+.issue-editor #edit-form .issue-description-row .issue-mode-field {
+  grid-template-columns:minmax(74px,16%) minmax(0,1fr);
+}
+.issue-editor #edit-form .issue-main-section {padding:7px 0 9px;}
+.issue-editor #edit-form .issue-main-section .issue-owner-row .issue-mode-field {
+  grid-template-columns:minmax(58px,16%) minmax(0,1fr);
+}
+.issue-editor #edit-form .activity-journal-groups {grid-template-columns:1fr;gap:8px;}
+.issue-editor #edit-form .activity-journal-history-group {
+  display:grid;grid-template-columns:1fr;gap:6px;
+}
+.issue-editor #edit-form .issue-history-card {
+  border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-md);
+  background:var(--ui-color-surface);padding:0;
+}
+.issue-editor #edit-form .issue-history-card-row {
+  display:grid;grid-template-columns:65px minmax(0,1fr) auto auto;
+  gap:8px;align-items:center;min-height:40px;padding:7px 10px;
+}
+.issue-editor #edit-form .issue-history-label {font-size:12px;color:var(--ui-color-muted);}
+.issue-editor #edit-form .issue-history-value {font-size:13px;min-width:0;overflow-wrap:anywhere;}
+.issue-editor #edit-form .issue-history-edit {
+  min-width:0;display:flex;gap:6px;align-items:center;box-sizing:border-box;
+  font-size:12px;font-weight:600;
+}
+.issue-editor #edit-form .issue-cost-edit {justify-self:start;}
+.issue-editor #edit-form .issue-cost-edit input {width:100px;}
+.issue-editor #edit-form .issue-enhancing-edit {white-space:nowrap;}
+.issue-editor #edit-form .issue-enhancing-edit input,
+.issue-editor #edit-form .journal-cost-enhancing input {accent-color:var(--ui-color-primary);width:16px;height:16px;margin:0;}
+.issue-editor #edit-form .issue-dates-edit {gap:5px;flex-wrap:wrap;}
+.issue-editor #edit-form .issue-dates-edit :is(input[type="date"]) {width:133px;max-width:100%;}
+.issue-editor #edit-form .issue-year-edit {display:flex;align-items:center;gap:4px;}
+.issue-editor #edit-form .issue-year-edit input {width:74px;max-width:100%;}
+.issue-editor #edit-form .issue-history-edit input {
+  box-sizing:border-box;min-height:33px;padding:4px 6px;font-size:13px;
+  border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-md);
+}
+.issue-editor #edit-form .issue-history-card .activity-journal-history {
+  margin:0;border:none;background:transparent;min-width:0;
+}
+.issue-editor #edit-form .issue-history-card .activity-journal-history > summary {
+  padding:6px;display:flex;gap:4px;align-items:center;
+  font-size:11px;color:var(--ui-color-muted);white-space:nowrap;cursor:pointer;
+}
+.issue-editor #edit-form .issue-history-card .activity-journal-history[open] {
+  grid-column:1/-1;border-top:1px solid var(--ui-color-border);
+  padding-top:4px;
+}
+.issue-editor #edit-form.editor-readonly .issue-history-edit {display:none!important;}
+.issue-editor #edit-form:not(.editor-readonly) .issue-history-value,
+.issue-editor #edit-form:not(.editor-readonly) .journal-cost-enhancing {display:none!important;}
+.issue-editor #edit-form .issue-history-card .journal-cost-enhancing {
+  display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:11px;
+}
+@media(max-width:700px) {
+  .issue-editor #edit-form .issue-heading-actions {gap:3px;}
+  .issue-editor #edit-form .issue-heading-actions button {padding:5px 7px;font-size:11px;}
+  .issue-editor #edit-form .issue-home-row {gap:7px;grid-template-columns:1fr;}
+  .issue-editor #edit-form .issue-main-section .issue-mode-field {grid-template-columns:minmax(54px,30%) minmax(0,1fr);}
+  .issue-editor #edit-form .issue-compact-meta,
+  .issue-editor #edit-form.editor-readonly .issue-compact-meta {gap:3px 7px;}
+  .issue-editor #edit-form .issue-history-card-row {
+    grid-template-columns:minmax(0,1fr) auto;row-gap:5px;padding:8px;
+  }
+  .issue-editor #edit-form .issue-history-label {grid-column:1;grid-row:1;}
+  .issue-editor #edit-form .issue-history-card .activity-journal-history {grid-column:2;grid-row:1;}
+  .issue-editor #edit-form .issue-history-value {grid-column:1;grid-row:2;}
+  .issue-editor #edit-form .issue-cost-edit {grid-column:1;grid-row:2;}
+  .issue-editor #edit-form .issue-enhancing-edit,
+  .issue-editor #edit-form .journal-cost-enhancing {grid-column:2;grid-row:2;}
+  .issue-editor #edit-form .issue-dates-edit {grid-column:1/-1;grid-row:2;}
+  .issue-editor #edit-form .issue-history-card .activity-journal-history[open] {
+    grid-column:1/-1;grid-row:3;
+  }
+  .issue-editor #edit-form .issue-dates-edit :is(input[type="date"]) {max-width:126px;font-size:12px;}
+  .issue-editor #edit-form .issue-year-edit input {width:64px;}
+}
