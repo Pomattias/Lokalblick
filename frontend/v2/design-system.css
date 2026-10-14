@@ -947,12 +947,39 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   min-height:30px;
   max-height:30px;
   margin:0;
-  padding:2px 5px;
+  padding:0 5px;
   font-size:12px;
   font-weight:600;
-  line-height:1.15;
+  line-height:30px;
+  text-align:center;
+  vertical-align:middle;
   -webkit-appearance:none;
   appearance:none;
+}
+/* Safari renders date content inside WebKit shadow elements; align the
+   visible date inside the existing 30px input without changing native picker. */
+.issue-editor #edit-form .issue-dates-edit input[type="date"]::-webkit-date-and-time-value {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  min-height:100%;
+  width:100%;
+}
+.issue-editor #edit-form .issue-dates-edit input[type="date"]::-webkit-datetime-edit {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:100%;
+  padding:0;
+  line-height:normal;
+}
+.issue-editor #edit-form .issue-dates-edit input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
 }
 @media(max-width:700px) {
   .issue-editor #edit-form .issue-history-card-row {
