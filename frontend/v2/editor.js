@@ -237,6 +237,12 @@ export function readEditor(form, record) {
   const submitted = new Set();
   new FormData(form).forEach((value, key) => {
     if(key==='responsibilityChangeDate'||key==='businessIds'||key==='enhancingToggle'||/^business(?:Area|Share)\|/.test(key))return;
+    if(key==='estimatedCostTkr' && form.dataset?.collection==='activities'){
+      const tkr=Number(String(value).replace(",","."));
+      if(!Number.isFinite(tkr)||tkr<0)throw Error("Ange en giltig kostnad i tkr.");
+      out.estimatedCost=Math.round(tkr*1000);
+      return;
+    }
     submitted.add(key);
     out[key] = key!=='areaType'&&numeric.test(key) && value !== "" ? Number(value) : value;
     // Editor explicitly shows percentage points (80 means 80 %);
