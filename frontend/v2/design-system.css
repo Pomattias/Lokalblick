@@ -412,20 +412,11 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 .issue-editor .issue-main-section .issue-owner-row {grid-column:1/-1;}
 .issue-editor .issue-main-section .issue-owner-row .issue-field {min-width:0;}
 .issue-editor .issue-main-section .issue-description textarea {max-width:100%;box-sizing:border-box;}
-.issue-editor .issue-time-now {
-  display:none;align-items:baseline;flex-wrap:wrap;gap:5px 10px;
-  padding:5px 0;font-size:12px;
-}
-.issue-editor .issue-time-now strong {font-size:13px;font-weight:650;}
-.issue-editor .issue-time-now small {font-size:11px;margin-left:auto;}
 .issue-editor .issue-time-fields {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
 .issue-editor .issue-cost-section .issue-grid {gap:7px 12px;align-items:center;}
-.issue-editor .issue-current-cost {display:none;align-items:baseline;gap:9px;font-size:12px;}
-.issue-editor .issue-current-cost strong {font-size:15px;font-weight:700;}
-.issue-editor #edit-form.editor-readonly .issue-time-now,
-.issue-editor #edit-form.editor-readonly .issue-current-cost {display:flex;}
-.issue-editor #edit-form.editor-readonly .issue-time-fields,
-.issue-editor #edit-form.editor-readonly .issue-cost-section .issue-field:has([name="estimatedCostTkr"]) {display:none;}
+.issue-editor #edit-form.editor-readonly .issue-time-section,
+.issue-editor #edit-form.editor-readonly .issue-cost-section > h3,
+.issue-editor #edit-form.editor-readonly .issue-cost-section > .issue-grid {display:none;}
 .issue-editor #edit-form.editor-readonly .issue-main-section {padding-top:6px;}
 .issue-editor #edit-form.editor-readonly .issue-main-section .issue-owner-row .issue-field,
 .issue-editor #edit-form.editor-readonly .issue-main-section .issue-compact-meta .issue-field {
@@ -520,4 +511,63 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   .issue-editor .activity-journal .activity-journal-compose textarea {min-height:43px;}
   .plan-budget-row {grid-template-columns:1fr;}
   .plan-budget-row small {grid-column:auto;}
+}
+
+
+/* The journal's existing cost card is the sole read-only cost summary.
+   Its checkbox indicates classification but does not mutate records. */
+.issue-editor .activity-journal-history summary .journal-cost-enhancing {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+  flex:none;
+  font-size:11px;
+  font-weight:500;
+  color:var(--ui-color-text);
+}
+.issue-editor .journal-cost-enhancing input[type="checkbox"] {
+  accent-color:var(--ui-color-primary);
+  width:15px;
+  height:15px;
+  margin:0;
+  opacity:1;
+  pointer-events:none;
+}
+.issue-editor .issue-visual-planner {
+  margin:6px 0 8px;
+}
+.issue-editor .issue-economic-details {
+  border:1px solid var(--ui-color-border);
+  border-radius:var(--ui-radius-md);
+  margin:5px 0 0;
+  background:var(--ui-color-surface);
+}
+.issue-editor .issue-economic-details > summary {
+  cursor:pointer;
+  padding:9px 10px;
+  font-size:12px;
+  color:var(--ui-color-text);
+  font-weight:600;
+}
+.issue-editor .issue-economic-details .issue-assessment {
+  margin:0 8px 8px;
+  border-radius:var(--ui-radius-sm);
+  padding:7px 9px;
+}
+.issue-editor .issue-economic-details .issue-assessment small {
+  display:block;
+  font-size:11px;
+}
+@media(max-width:700px){
+ .issue-editor .activity-journal-history summary {
+   flex-wrap:wrap;
+   row-gap:5px;
+ }
+ .issue-editor .activity-journal-history summary .journal-cost-enhancing {
+   margin-left:auto;
+ }
+ .issue-editor .activity-journal-history-count {
+   margin-left:auto;
+ }
 }
