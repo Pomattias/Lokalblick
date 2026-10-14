@@ -845,3 +845,158 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
     font-size:16px;
   }
 }
+
+
+/* Issue journal cards: same compact two-row geometry in View and Edit.
+   Preserve the date picker, cost input and historical data; only their layout changes. */
+.issue-editor #edit-form .issue-history-card-row {
+  gap:6px 9px;
+  align-items:center;
+}
+.issue-editor #edit-form .issue-cost-edit {
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  flex-wrap:nowrap;
+  gap:6px;
+  width:max-content;
+  max-width:100%;
+  min-width:0;
+  white-space:nowrap;
+}
+.issue-editor #edit-form .issue-cost-edit input[name="estimatedCostTkr"] {
+  box-sizing:border-box;
+  flex:0 1 92px;
+  width:92px;
+  min-width:0;
+  max-width:92px;
+  height:35px;
+  min-height:35px;
+  padding:5px 8px;
+  text-align:left;
+  font-size:13px;
+}
+.issue-editor #edit-form .issue-cost-edit > span:last-child {
+  display:inline;
+  flex:none;
+  white-space:nowrap;
+  color:var(--ui-color-muted);
+  font-size:12px;
+  line-height:1;
+}
+.issue-editor #edit-form .issue-enhancing-edit,
+.issue-editor #edit-form .journal-cost-enhancing {
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-direction:row;
+  gap:6px;
+  min-width:max-content;
+  white-space:nowrap;
+  margin:0;
+  line-height:1.2;
+  font-size:12px;
+  font-weight:500;
+}
+.issue-editor #edit-form .issue-enhancing-edit input[type="checkbox"],
+.issue-editor #edit-form .journal-cost-enhancing input[type="checkbox"] {
+  flex:none;
+  width:16px;
+  height:16px;
+  margin:0;
+}
+.issue-editor #edit-form .issue-dates-edit {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr) 62px;
+  align-items:center;
+  gap:5px;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+}
+.issue-editor #edit-form .issue-dates-edit > label:not(.issue-year-edit) {
+  display:block;
+  min-width:0;
+  width:100%;
+  margin:0;
+}
+.issue-editor #edit-form .issue-dates-edit > span[aria-hidden] {
+  text-align:center;
+  white-space:nowrap;
+  color:var(--ui-color-muted);
+}
+.issue-editor #edit-form .issue-dates-edit input[type="date"] {
+  box-sizing:border-box;
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:35px;
+  min-height:35px;
+  margin:0;
+  padding:4px 3px;
+  font-size:12px;
+  font-weight:600;
+  line-height:1.2;
+}
+.issue-editor #edit-form .issue-year-edit {
+  display:block;
+  margin:0;
+  min-width:0;
+  width:100%;
+}
+.issue-editor #edit-form .issue-year-edit input[name="planningYear"] {
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:35px;
+  min-height:35px;
+  padding:4px 3px;
+  text-align:center;
+  font-size:12px;
+}
+@media(max-width:700px) {
+  .issue-editor #edit-form .issue-history-card-row {
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:5px 7px;
+    padding:8px 10px;
+  }
+  .issue-editor #edit-form .issue-cost-edit {
+    grid-column:1;
+    grid-row:2;
+  }
+  .issue-editor #edit-form .issue-enhancing-edit,
+  .issue-editor #edit-form .journal-cost-enhancing {
+    grid-column:2;
+    grid-row:2;
+    align-self:center;
+  }
+  .issue-editor #edit-form .issue-dates-edit {
+    grid-column:1/-1;
+    grid-row:2;
+  }
+  .issue-editor #edit-form .issue-dates-edit input[type="date"],
+  .issue-editor #edit-form .issue-year-edit input[name="planningYear"] {
+    font-size:12px;
+  }
+  .issue-editor #edit-form .issue-dates-edit input[type="date"]:focus,
+  .issue-editor #edit-form .issue-year-edit input[name="planningYear"]:focus,
+  .issue-editor #edit-form .issue-cost-edit input[name="estimatedCostTkr"]:focus {
+    font-size:16px;
+  }
+}
+@media(max-width:380px) {
+  .issue-editor #edit-form .issue-dates-edit {
+    grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr) 58px;
+    gap:3px;
+  }
+  .issue-editor #edit-form .issue-dates-edit input[type="date"] {
+    padding-inline:1px;
+    font-size:11px;
+  }
+  .issue-editor #edit-form .issue-cost-edit input[name="estimatedCostTkr"] {
+    width:78px;
+    flex-basis:78px;
+  }
+}
