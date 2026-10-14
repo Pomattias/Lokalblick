@@ -56,3 +56,16 @@ Steg 1 är **inte en färdig UI-harmonisering** utan ett stabilt komponentkontra
 - Mobilens filterfält förblir sticky utom i kartans särskilda helskärmslayout.
 - Regressionstester för policyn: `tests/filter-presentation.test.js`. På iPhone ska även faktisk scroll, filterexpansion och kontextraden kontrolleras.
 
+
+
+## Gemensam åtgärdsrad under snabbfiltren
+
+Implementerad 2026-10-14 på arbetsgrenen.
+
+- Sidövergripande åtgärder följer sökfältet i den gemensamma `ui-search-action-row`: `#add`, `#save`, `Nytt ärende` i Planera, `Nytt objekt`, `Lägg till verksamhet` samt person-/part-/ansvarsåtgärder i Organisation.
+- Sökruta och åtgärder ligger på **samma rad** när de ryms. Om flera åtgärder, exempelvis lång Excel-sparknapp, inte får plats bryts raden utan att knappar eller sökfält blir oläsbara.
+- När snabbfiltren är dolda (vald fastighet/avtalsdetalj eller verktygsvy) ligger tillgängliga sidåtgärder i en kompakt reservrad.
+- **Postspecifika** knappar som `Ändra` och `Öppna` ligger kvar vid sin fastighet, sitt avtal eller sitt ärende. De får inte flyttas till en global rad eftersom det då blir oklart vilket objekt handlingen gäller.
+- En och samma DOM-knapp flyttas, inte en kopia. Därför bevaras `id`, `data-*`, behörighetskontroll och händelsehantering.
+- Vid omrendering flyttas den beständiga åtgärdscontainern först ut ur filterområdet så att inga knappar förloras när filtret ritas om.
+- Gemensamma mått finns i `design-system.css`. Funktionstest: `tests/view-toolbar.test.js`.
