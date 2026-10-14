@@ -345,27 +345,32 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
 }
 
 
-/* Mobile wordmark floats in the existing strip above quick filters.
-   Absolute positioning deliberately contributes zero layout height. */
+/* Mobile wordmark: keep it IN the page's flow, above the filters.
+   Never position the brand outside main: iOS Safari can clip it beneath
+   the browser chrome. Remove excess top padding to reuse that space. */
 .mobile-wordmark {display:none;}
 @media(max-width:700px){
-  main {position:relative;}
+  main {padding-top:0;}
   main > .mobile-wordmark {
-    display:inline-flex;
+    display:flex;
+    position:relative;
+    inset:auto;
     align-items:center;
     gap:6px;
-    position:absolute;
-    top:-25px;
-    left:10px;
-    min-height:20px;
-    line-height:20px;
+    height:21px;
+    min-height:21px;
+    max-height:21px;
+    margin:0;
+    padding:0;
     white-space:nowrap;
     color:var(--ui-color-text);
     font-size:13px;
+    line-height:21px;
     font-weight:700;
     letter-spacing:-.2px;
-    z-index:2;
+    z-index:3;
   }
+  main > .mobile-wordmark strong {font-size:inherit;line-height:inherit;}
   .mobile-wordmark-mark {
     display:inline-grid;
     place-items:center;
@@ -377,5 +382,6 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
     font-size:13px;
     font-weight:750;
     line-height:1;
+    flex:none;
   }
 }
