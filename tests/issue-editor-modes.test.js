@@ -73,6 +73,12 @@ test("Kostnad and Tidplan stay compact and retain a single editable field each",
  assert.match(css,/grid-template-columns:minmax\(0,1fr\) 14px minmax\(0,1fr\);/);
 });
 
+test("iPhone date values are centered without changing field height or picker type",()=>{
+ assert.match(css,/\.issue-editor #edit-form \.issue-dates-edit input\[type="date"\]::-webkit-date-and-time-value \{[\s\S]*?align-items:center;/);
+ assert.match(css,/\.issue-editor #edit-form \.issue-dates-edit input\[type="date"\]::-webkit-datetime-edit \{[\s\S]*?justify-content:center;/);
+ assert.match(css,/\.issue-editor #edit-form \.issue-dates-edit input\[type="date"\] \{[\s\S]*?height:30px;/);
+});
+
 test("Redigera unlocks the same existing controls without rebuilding or moving them",()=>{
  const a=app.indexOf("function setEditorReadMode(readOnly){");
  const b=app.indexOf("function updateEditorActions(){",a);
