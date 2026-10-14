@@ -52,6 +52,20 @@ test("mobile read and edit use the same compact typography and two-column home r
  assert.equal((view.match(/class="issue-field issue-mode-field"/g)||[]).length,7);
 });
 
+test("Kostnad and Tidplan stay compact and retain a single editable field each",()=>{
+ const data={properties:[],objects:[],contracts:[],people:[],organizations:[],orders:[],activities:[],auditLog:[],priceBaseAmounts:[],indexSeries:[],budgetPlans:[]};
+ const item={id:"a1",title:"Test",type:"Projekt",estimatedCost:3200000,startDate:"2026-09-01",endDate:"2027-05-31",planningYear:2027};
+ const html=renderIssueEditor(data,item,"a1");
+ for(const field of ["estimatedCostTkr","enhancingToggle","startDate","endDate","planningYear"])
+   assert.equal((html.match(new RegExp('name="'+field+'"',"g"))||[]).length,1,field);
+ assert.match(html,/class="issue-history-edit issue-cost-edit"/);
+ assert.match(html,/class="issue-history-edit issue-dates-edit"/);
+ assert.match(html,/class="visually-hidden">Planeringsår<\/span>/);
+ assert.match(css,/Issue journal cards: same compact two-row geometry in View and Edit/);
+ assert.match(css,/\.issue-editor #edit-form \.issue-cost-edit \{[\s\S]*?white-space:nowrap;/);
+ assert.match(css,/grid-template-columns:minmax\(0,1fr\) 14px minmax\(0,1fr\) 62px/);
+});
+
 test("Redigera unlocks the same existing controls without rebuilding or moving them",()=>{
  const a=app.indexOf("function setEditorReadMode(readOnly){");
  const b=app.indexOf("function updateEditorActions(){",a);
