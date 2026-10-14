@@ -343,3 +343,39 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   }
   .view-actions-fallback {margin:2px 0 6px;}
 }
+
+
+/* Mobile wordmark floats in the existing strip above quick filters.
+   Absolute positioning deliberately contributes zero layout height. */
+.mobile-wordmark {display:none;}
+@media(max-width:700px){
+  main {position:relative;}
+  main > .mobile-wordmark {
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    position:absolute;
+    top:-25px;
+    left:10px;
+    min-height:20px;
+    line-height:20px;
+    white-space:nowrap;
+    color:var(--ui-color-text);
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:-.2px;
+    z-index:2;
+  }
+  .mobile-wordmark-mark {
+    display:inline-grid;
+    place-items:center;
+    width:19px;
+    height:19px;
+    border-radius:5px;
+    background:var(--ui-color-primary);
+    color:#fff;
+    font-size:13px;
+    font-weight:750;
+    line-height:1;
+  }
+}
