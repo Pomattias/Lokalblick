@@ -283,7 +283,7 @@ export function dashboard(data, selection, year) {
     {view:"plan",title:"Planera",detail:"Tidsplan och ansvar",icon:"▦"},
   ];
   const shortcuts=links.map(item=>
-    '<button type="button" class="dashboard-link" data-view="'+item.view+'">'+
+    '<button type="button" class="dashboard-link ui-card ui-card--compact" data-view="'+item.view+'">'+
     '<span class="dashboard-link-icon" aria-hidden="true">'+item.icon+'</span>'+
     '<span><strong>'+esc(item.title)+'</strong><small>'+esc(item.detail)+'</small></span>'+
     '<span aria-hidden="true">›</span></button>'
@@ -297,11 +297,11 @@ export function dashboard(data, selection, year) {
   const unassigned=v.items.filter(item=>!responsible(data,item.collection,item.record)).length;
   return '<div class="dashboard-intro"><div><h2>Portföljöversikt</h2>'+
     '<p>En samlad bild av fastigheter, avtal och aktiviteter i aktuellt urval. Välj ett område för att gå till detaljerna.</p></div>'+
-    '<span class="dashboard-year">År '+esc(year)+'</span></div>'+
-    '<div class="dashboard-quicklinks">'+shortcuts+'</div>'+
-    '<div class="dashboard-panels"><section class="dashboard-panel"><h3>Aktiviteter per typ</h3>'+
+    '<span class="dashboard-year ui-label">År '+esc(year)+'</span></div>'+
+    '<div class="dashboard-quicklinks ui-overview-shortcuts">'+shortcuts+'</div>'+
+    '<div class="dashboard-panels"><section class="dashboard-panel ui-card ui-overview-panel"><h3>Aktiviteter per typ</h3>'+
       (v.items.length?bars:'<p>Inga ärenden i aktuellt urval.</p>')+
-      '<button type="button" data-view="activities" class="dashboard-text-link">Visa alla aktiviteter ›</button></section>'+
+      '<button type="button" data-view="activities" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa alla aktiviteter ›</button></section>'+
     '<section class="dashboard-panel"><h3>Att bevaka</h3>'+
       '<div class="dashboard-fact"><span>Ärenden utan ansvarig</span><strong>'+num(unassigned)+'</strong></div>'+
       '<div class="dashboard-fact"><span>Årlig beräknad hyra</span><strong>'+money(rent.rent)+'</strong></div>'+
