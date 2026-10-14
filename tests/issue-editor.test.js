@@ -37,11 +37,15 @@ test("every issue uses the same compact activities form, without tabs",()=>{
  assert.match(html,/id="edit-form" data-collection="activities"/);
  assert.match(html,/Ärende/);
  for(const field of ["type","title","description","status","priority","issueHome",
-   "responsiblePersonId","startDate","endDate","estimatedCost",
-   "actionKind","includeInBudget"])
+   "responsiblePersonId","startDate","endDate","estimatedCostTkr",
+   "enhancingToggle"])
    assert.match(html,new RegExp('name="'+field+'"'));
+ for(const removed of ["phase","estimatedCost","includeInBudget","rentSurchargeStartDate"])
+   assert.doesNotMatch(html,new RegExp('name="'+removed+'"'));
  assert.doesNotMatch(html,/data-editor-tab|data-editor-section/);
- assert.match(html,/Årsfördelning/);
+ assert.match(html,/issue-heading-actions/);
+ assert.match(html,/issue-time-now/);
+ assert.match(html,/name="estimatedCostTkr"[^>]*value="300"/);
  assert.match(html,/Firma AB/);
  assert.match(html,/Beräknad ekonomisk bedömning/);
  assert.match(html,/name="issueHome"/);
@@ -61,14 +65,13 @@ test("editorHtml routes any activity to the exact same form",()=>{
 });
 
 test("renaming a wish to underhåll keeps id, source and annual allocations",()=>{
- const form={dataset:{collection:"activities"}};
+ const form={dataset:{collection:"activities"},querySelector:()=>null};
  const old=globalThis.FormData;
  globalThis.FormData=class {
    forEach(cb){
      for(const [k,v] of [
        ["type","Underhåll"],["title","Ny belysning"],["status","Planerad"],
-       ["issueHome","property:p1"],["estimatedCost","23000"],
-       ["actionKind","like_for_like"],["includeInBudget","Ja"]
+       ["issueHome","property:p1"],["estimatedCostTkr","23"]
      ])cb(v,k);
    }
  };
@@ -77,7 +80,7 @@ test("renaming a wish to underhåll keeps id, source and annual allocations",()=
    assert.equal(next.id,"a2");
    assert.equal(next.type,"Underhåll");
    assert.equal(next.budgetCategory,"Underhåll");
-   assert.equal(next.includeInBudget,"Ja");
+   assert.equal(next.includeInBudget,"Nej");
    assert.equal(next.propertyId,"p1");
    assert.equal(next.contractId,"");
    assert.equal(next.scopeType,"property");
@@ -85,6 +88,7 @@ test("renaming a wish to underhåll keeps id, source and annual allocations",()=
    assert.equal(next.sourceId,"OLD-IMPORT");
    assert.deepEqual(next.yearAllocations,[{year:2027,amount:3000}]);
    assert.equal(next.estimatedCost,23000);
+   assert.equal("estimatedCostTkr" in next,false);
  } finally {globalThis.FormData=old;}
 });
 
@@ -109,7 +113,7 @@ test("missing title and reversed dates reject edits",()=>{
  const original=globalThis.FormData;
  try {
    globalThis.FormData=class {forEach(cb){cb("","title");cb("Projekt","type");}};
-   assert.throws(()=>readEditor({dataset:{collection:"activities"}},base),/rubrik/);
+   assert.throws(()=>readEditor({dataset:{collection:"activities"},querySelector:()=>null},base),/rubrik/);
    globalThis.FormData=class {forEach(cb){
      cb("Planerat","title");cb("Projekt","type");
      cb("2028-01-01","startDate");cb("2027-01-01","endDate");
@@ -132,4 +136,6 @@ test("overview groups all types under Ärenden and Planera is another route",()=
  assert.match(plan,/data-new-issue/);
  assert.match(plan,/data-edit="activities" data-id="a1"/);
  assert.match(plan,/Ärenden och ansvar/);
+ assert.match(plan,/data-plan-budget-include="a1"/);
+ assert.match(plan,/data-plan-rent-start="a1"/);
 });
