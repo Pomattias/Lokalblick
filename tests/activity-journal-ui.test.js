@@ -20,6 +20,8 @@ test("journal shows notes first and cost/date history collapsed by default",()=>
  const html=activityJournalHtml(data,"a1");
  assert.match(html,/Tidsplan avstämd/);
  assert.match(html,/3 200 tkr/);
+ assert.match(html,/class="journal-cost-enhancing"/);
+ assert.match(html,/type="checkbox" disabled tabindex="-1" aria-label="Värdehöjande"/);
  assert.match(html,/2026-09-01 → 2027-05-31/);
  assert.equal((html.match(/class="activity-journal-history"/g)||[]).length,2);
  assert.doesNotMatch(html,/<details class="activity-journal-history" open/);
@@ -27,6 +29,12 @@ test("journal shows notes first and cost/date history collapsed by default",()=>
  assert.match(html,/Historik \(1\)/);
  assert.match(html,/2 800 tkr/);
  assert.match(html,/Startdatum|Slutdatum/);
+});
+
+test("read-only cost badge mirrors the saved value-enhancing classification",()=>{
+ const checked=activityJournalHtml({...data,activities:[{...data.activities[0],actionKind:"value_enhancing"}]},"a1");
+ assert.match(checked,/aria-label="Värdehöjande" checked/);
+ assert.equal((checked.match(/aria-label="Värdehöjande"/g)||[]).length,1);
 });
 
 test("journal history is append-only and only matches its activity",()=>{
