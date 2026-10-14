@@ -1436,6 +1436,21 @@ document.addEventListener("change", (event) =>
       if (edit) edit.disabled=!x.value;
       return;
     }
+    if (x.hasAttribute("data-plan-budget-include") || x.hasAttribute("data-plan-rent-start")) {
+      const isBudget=x.hasAttribute("data-plan-budget-include");
+      const id=isBudget?x.dataset.planBudgetInclude:x.dataset.planRentStart;
+      if(isBudget && !["Ja","Nej"].includes(x.value))throw Error("Ogiltigt budgetval.");
+      if(!isBudget && x.value && !/^\d{4}-\d{2}-\d{2}$/.test(x.value))throw Error("Ange ett giltigt startdatum.");
+      await mutation(d=>{
+        const activity=(d.activities||[]).find(a=>String(a.id)===String(id));
+        if(!activity)throw Error("Ärendet finns inte längre.");
+        if(isBudget)activity.includeInBudget=x.value;
+        else activity.rentSurchargeStartDate=x.value;
+      });
+      const panel=document.querySelector(".plan-budget-settings");
+      if(panel)panel.open=true;
+      return;
+    }
     if (x.dataset.filter) {
       selection[x.dataset.filter] = x.value;
       render();
