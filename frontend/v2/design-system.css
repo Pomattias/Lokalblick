@@ -722,3 +722,60 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   .issue-editor #edit-form .issue-history-edit input {font-size:16px;}
   .issue-editor #edit-form .issue-year-edit input {width:64px;}
 }
+
+
+/* A read-only case contains no visible native fields.
+   The edit action only unlocks controls in the identical existing grid slots. */
+.issue-editor #edit-form [hidden] { display:none!important; }
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-value {
+  display:flex;
+  align-items:center;
+  min-height:34px;
+  box-sizing:border-box;
+  padding:5px 8px;
+  border:1px solid transparent;
+  border-radius:var(--ui-radius-md);
+  font-size:13px;
+  font-weight:600;
+  line-height:1.3;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-control :is(input,select,textarea) {
+  font-weight:600;
+}
+.issue-editor #edit-form .issue-heading-text .issue-title-heading,
+.issue-editor #edit-form .issue-heading-text .issue-edit-title input {
+  box-sizing:border-box;
+  min-height:36px;
+  display:flex;
+  align-items:center;
+  margin:0;
+  line-height:1.2;
+}
+.issue-editor #edit-form .issue-heading-text .issue-edit-title input {
+  display:block;
+  height:36px;
+}
+.issue-editor #edit-form.editor-readonly .issue-heading-actions [data-editor-activate] {
+  display:inline-flex;
+}
+.issue-editor #edit-form:not(.editor-readonly) .issue-heading-actions [data-editor-activate] {
+  display:none!important;
+}
+.issue-editor #edit-form.editor-readonly .issue-history-card .issue-history-edit,
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-field-control {
+  display:none!important;
+}
+.issue-editor #edit-form:not(.editor-readonly) .issue-history-card .issue-history-value,
+.issue-editor #edit-form:not(.editor-readonly) .issue-main-section .issue-field-value {
+  display:none!important;
+}
+@media(max-width:700px) {
+  .issue-editor #edit-form .issue-main-section .issue-mode-field {
+    min-height:38px;
+  }
+  .issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-value {
+    min-height:36px;
+    padding:6px 7px;
+    font-size:13px;
+  }
+}
