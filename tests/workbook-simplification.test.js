@@ -15,7 +15,7 @@ test("new workbook exposes business sheets and hides technical sheets",()=>{
  const wb=adapter.dataToWorkbook({properties:[{id:"p1",address:"Testgatan 1"}],contracts:[{id:"c1",propertyId:"p1",number:"1"}],
    activities:[{id:"a1",title:"Test",planningYear:2027,planningQuarter:2,planningMonth:4,budgetCategory:"Underhåll",estimatedCost:5000}],
    budgetPlans:[{year:2027,status:"Låst",lines:[{sourceId:"a1",amount:5000}],versions:[{snapshot:{lines:[{sourceId:"a1",amount:5000}]}}]}],
-   recurringCosts:[{id:"o1",name:"El",propertyId:"p1",contractId:"",annualAmount:200,actuals:[{year:2027,amount:100}]}],maintenanceStatus:[{id:"m1",status:"Bra"}],
+   recurringCosts:[{id:"o1",name:"El",propertyId:"p1",contractId:"",annualAmount:200,actuals:[{year:2027,amount:100}]}],
    organizations:[],people:[],orders:[],sourceRegistry:[],auditLog:[],importReview:[]});
  const state=Object.fromEntries(wb.Workbook.Sheets.map(x=>[x.name,x.Hidden]));
  for(const sheet of ["Fastigheter","Avtal","Parter","Personer","Beställningar","Aktiviteter","Löpande kostnader","Budget"])
@@ -31,7 +31,8 @@ test("new workbook exposes business sheets and hides technical sheets",()=>{
  assert.equal(restored.activities[0].budgetCategory,"Underhåll");
  assert.equal(restored.recurringCosts[0].annualAmount,200);
  assert.equal(restored.recurringCosts[0].actuals[0].amount,100);
- assert.equal(restored.maintenanceStatus[0].status,"Bra");
+ assert.equal(wb.Sheets.Status,undefined);
+ assert.equal(Object.hasOwn(restored,"maintenanceStatus"),false);
  assert.equal(restored.budgetPlans[0].status,"Låst");
  assert.ok(restored.budgetPlans[0].versions.length);
 });
