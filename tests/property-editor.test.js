@@ -28,7 +28,9 @@ const data={
 
 test("Fastighet is a single editor, no tabs or geocode administration fields",()=>{
   const html=renderPropertyEditor(data,data.properties[0],"p1");
-  assert.match(html,/<h2 id="editor-title">Fastighet<\/h2>/);
+  assert.match(html,/<h2 id="editor-title">Hamnen 4<\/h2>/);
+  assert.match(html,/<small class="property-heading-address">Hamnvägen 12<\/small>/);
+  assert.doesNotMatch(html,/ÄNDRA FASTIGHET|<h2 id="editor-title">Fastighet<\/h2>/);
   assert.match(html,/name="designation"/);
   assert.match(html,/name="ownerPartyId"/);
   assert.match(html,/name="ownerResponsiblePersonId"/);
@@ -37,6 +39,11 @@ test("Fastighet is a single editor, no tabs or geocode administration fields",()
   assert.match(html,/Vår kontakt/);
   assert.match(html,/Verksamhetschef/);
   assert.match(html,/Vårdbo · A-100/);
+  assert.match(html,/class="property-person-field property-business-contact"/);
+  assert.equal((html.match(/class="property-contact-row"/g)||[]).length,0);
+  assert.equal((html.match(/class="property-person-field/g)||[]).length,3);
+  assert.match(html,/data-property-contract-contact="a1"/);
+  assert.match(html,/data-contract-id="a1"/);
   assert.match(html,/id="property-editor-map"/);
   assert.doesNotMatch(html,/data-editor-tab|data-editor-section|>Tidplan<|>Relationer</);
   assert.doesNotMatch(html,/name="(?:type|geoSource|geoConfirmedAt|geoConfirmedBy)"/);
