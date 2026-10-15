@@ -139,7 +139,7 @@
     let c=data.contracts.find(function(x){return x.number===contractNo && contractNo && x.propertyId===(property?property.id:"") && x.sourceSheet===(extra||{}).sourceSheet && x.sourceRow===(extra||{}).sourceRow;});
     if(!c){
       const fallback=[property&&property.id,(extra||{}).sourceSheet,(extra||{}).sourceRow,(extra||{}).use,(extra||{}).area].filter(Boolean).join("|") || "contract";
-      c={id:"AVT|"+(contractNo ? contractNo+(data.contracts.some(function(x){return x.number===contractNo;})?"|"+hash((property&&property.id)+"|"+(extra||{}).sourceSheet+"|"+(extra||{}).sourceRow):"") : hash(fallback)),sourceId:contractNo,propertyId:property?property.id:"",number:contractNo,source:"",area:0,category:"",use:"",start:"",end:"",moveInDate:"",moveOutDate:"",notice:"",annualRent:0,annualContractDrift:0,unitId:"",tenantOrgId:"",ownerOrgId:"",employees:0,users:0,rooms:0,commonArea:0,apartmentArea:0,sourceSheet:"",sourceRow:""};
+      c={id:"AVT|"+(contractNo ? contractNo+(data.contracts.some(function(x){return x.number===contractNo;})?"|"+hash((property&&property.id)+"|"+(extra||{}).sourceSheet+"|"+(extra||{}).sourceRow):"") : hash(fallback)),sourceId:contractNo,propertyId:property?property.id:"",number:contractNo,source:"",area:0,category:"",use:"",start:"",end:"",moveInDate:"",moveOutDate:"",notice:"",annualRent:0,unitId:"",tenantOrgId:"",ownerOrgId:"",employees:0,users:0,rooms:0,commonArea:0,apartmentArea:0,sourceSheet:"",sourceRow:""};
       data.contracts.push(c);
     }
     Object.keys(extra||{}).forEach(function(k){ if(extra[k]!=="" && extra[k]!=null) c[k]=extra[k]; });
