@@ -118,7 +118,7 @@ export function renderContractEditor(data, c, id, company=false) {
       '</div><p class="contract-note">'+lastNotice+'</p>'+
       '<small class="contract-help">Beräknat från senast sparade villkor. Faktisk uppsägning behöver registreras innan förlängning påverkar budget.</small></section>'+
       '<section class="contract-section"><h3>Hyra och avtalad justering</h3>'+
-      '<p class="contract-note">Villkoren gäller per avtal. Basår är KPI-basår; bashyran avser följande hyresår. Min/max tillämpas vid varje årsjustering enligt avtal.</p><div class="contract-grid">'+
+      '<details class="contract-help"><summary>Om beräkningen</summary><p>Basår är KPI-basår; bashyran avser följande hyresår. Min/max tillämpas enligt avtal.</p></details><div class="contract-grid">'+
         field("Bashyra, kr/år",input(c,"baseRent","number",false,'min="0" step="any"'))+
         field("Basår",input(c,"rentBaseYear","number",false,'min="1900" step="1"'))+
         adjustmentControls(c,"rent")+
@@ -141,6 +141,6 @@ export function renderContractEditor(data, c, id, company=false) {
         documentLink+
       '</section>'+
       (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+
-      responsibilityHtml(data,'contract',c.id)+'<div class="actions editor-actions"><span>Ändringar sparas via aktiv datakoppling.</span>'+
+      responsibilityHtml(data,'contract',c.id)+'<div class="actions editor-actions">'+
       '<button type="submit" class="primary">Spara ändring</button></div></form></aside>';
 }
