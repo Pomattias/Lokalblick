@@ -36,8 +36,6 @@
    if(placeholder){placeholder.businessId=business.id;placeholder.provenance=copy(c.provenance?.businessName||placeholder.provenance);}
    else data.contractBusinesses.push({id:'CB|'+c.id+'|'+business.id,contractId:c.id,businessId:business.id,fromDate:'',toDate:'',usedArea:null,costSharePercent:null,provenance:copy(c.provenance?.businessName||c.provenance?.unitId||{source:'contract-field',contractId:c.id})});
   }
-  // Former unit-level assignments keep IDs and dates, on a stable register entry.
-  for(const a of data.assignments||[]){if(a.targetType!=='business'||data.businesses.some(b=>b.id===a.targetId))continue;const unit=a.targetId;if(!data.contracts.some(c=>c.unitId===unit))continue;const id='BUS|'+encodeURIComponent('unit|'+unit);if(!data.businesses.some(b=>b.id===id))data.businesses.push({id,name:groups[unit]||unit,unitId:unit,type:'',organizationId:a.organizationId||'',status:'Aktiv',sourceId:unit});a.targetId=id;}
   return data;
  }
  function date(value){if(!value)return;if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value)throw TypeError('Ogiltigt datum för avtalsverksamhet');}
