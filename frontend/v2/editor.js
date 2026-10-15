@@ -202,7 +202,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
           : [];
     if (!data.isDemo && id && master.includes(key))
       control = control.replace(/<(input|select) /, "<$1 disabled ");
-    groups.get(g).push(`<label>${esc(label)}${control}</label>`);
+    groups.get(g).push(`<label><span class="field-name">${esc(label)}</span>${control}</label>`);
   });
   const result =
     col === "contracts"
