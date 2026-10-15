@@ -2,7 +2,6 @@
 (function(root){
   const copy=x=>JSON.parse(JSON.stringify(x)),today=()=>new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
   const types={property:'properties',object:'objects',contract:'contracts',activity:'activities',organization:'organizations',business:'businesses'};
-  const legacyTypes={project:'activity',maintenance:'activity',driftIssue:'activity',wish:'activity',investigation:'activity'};
   const roles={our:'Vår ansvarige',owner:'Fastighetsägarens kontaktperson',business:'Verksamhetsansvarig',tenant:'Hyresgästens kontaktperson'};
   const fields={responsiblePersonId:'our',ownerResponsiblePersonId:'owner',businessResponsiblePersonId:'business',tenantResponsiblePersonId:'tenant'};
   const uid=()=>root.crypto?.randomUUID?.()||'A|'+Date.now()+'|'+Math.random().toString(36).slice(2);
@@ -25,25 +24,16 @@
   }
   function normalize(data){
     data.assignments ||= [];data.people ||= [];data.organizations ||= [];
-    // Preserve IDs, original roles and unknown dates. Remap only established legacy activity homes.
+    // Responsibility links now target one canonical collection directly.
     for(const a of data.assignments){
-      if(a.targetType==='maintenanceStatus'){a.targetType='activity';a.targetId='STATUS-ACT|'+a.targetId;}
-      else if(legacyTypes[a.targetType])a.targetType=legacyTypes[a.targetType];
       if(a.targetType==='object'&&!(data.objects||[]).some(o=>o.id===a.targetId)&&(data.contracts||[]).some(c=>c.id===a.targetId))a.targetType='contract';
       a.roleKey=legacyRole(data,a);a.organizationId ??= (data.people||[]).find(p=>p.id===a.personId)?.organizationId||'';
       a.fromDate ??= '';a.toDate ??= '';a.shared=a.shared===true||a.shared==='Ja'||a.shared==='true';
     }
-    // Migrate old contacts into the same table instead of losing them on conversion.
-    for(const c of data.contacts||[]){
-      if(!c.personId||!c.targetId)continue;
-      const a={...copy(c),id:c.id||'CONTACT|'+c.targetType+'|'+c.targetId+'|'+c.personId,roleKey:legacyRole(data,c),fromDate:c.fromDate||'',toDate:c.toDate||''};
-      a.organizationId ??= data.people.find(p=>p.id===a.personId)?.organizationId||'';a.shared=Boolean(a.shared);
-      if(!data.assignments.some(x=>x.id===a.id||slot(x)===slot(a)&&x.personId===a.personId&&x.fromDate===a.fromDate&&x.toDate===a.toDate))data.assignments.push(a);
-    }
     for(const [type,collection] of Object.entries(types))for(const row of data[collection]||[])for(const [field,role] of Object.entries(fields)){
       const existing=history(data,type,row.id,role),personId=row[field];
       if(!existing.length&&personId){
-        data.assignments.push({id:'MIG|'+type+'|'+row.id+'|'+role+'|'+personId,personId,organizationId:organizationFor(data,row,type,role,personId),targetType:type,targetId:row.id,role:roles[role],roleKey:role,fromDate:'',toDate:'',shared:false,provenance:copy(row.provenance?.[field]||{source:'legacy-field',field})});
+        data.assignments.push({id:'FIELD|'+type+'|'+row.id+'|'+role+'|'+personId,personId,organizationId:organizationFor(data,row,type,role,personId),targetType:type,targetId:row.id,role:roles[role],roleKey:role,fromDate:'',toDate:'',shared:false,provenance:copy(row.provenance?.[field]||{source:'field-input',field})});
       }
     }
     // Existing relation history has precedence even when the role is now unassigned.
