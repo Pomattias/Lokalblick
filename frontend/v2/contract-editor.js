@@ -74,13 +74,6 @@ export function renderContractEditor(data, c, id, company=false) {
   if (c.unitId && !Object.hasOwn(units,c.unitId))
     verksamhetChoices.push([c.unitId,c.unitId+" (tidigare värde – kontrollera)"]);
   const totals=calc().annualValues(c,new Date().getFullYear(),0,data.indexSeries);
-  // Media was the legacy name for Tillägg, not an additional cost. Existing
-  // source values can be edited as Tillägg without showing a second field.
-  const legacyAddition=Number(c.annualContractDrift)||0;
-  const needsLegacyAddition=!(Number(c.baseAdditions)>0)&&legacyAddition>0;
-  const additionForm=needsLegacyAddition
-    ? {...c,baseAdditions:legacyAddition,additionIndexPercent:c.additionIndexPercent==null || c.additionIndexPercent==="" ? 0 : c.additionIndexPercent}
-    : c;
   const annualTotal=totals.total;
   const term=calc().projectedContractTerm(c);
   const missing=[totals.rent,totals.addition].filter(x=>x.status==="Behöver kontroll").map(x=>x.reason||"Indexunderlag saknas");
@@ -133,9 +126,9 @@ export function renderContractEditor(data, c, id, company=false) {
       '</div>'+
       '<details class="contract-additions"'+((Number(c.baseAdditions)>0||needsLegacyAddition)?' open':'')+'>'+
         '<summary>Tillägg <span>'+money(totals.addition.amount)+'/år</span></summary><div class="contract-grid">'+
-          field("Tillägg, kr/år",input(additionForm,"baseAdditions","number",false,'min="0" step="any"'))+
+          field("Tillägg, kr/år",input(c,"baseAdditions","number",false,'min="0" step="any"'))+
           field("Tillägg basår",input(c,"additionBaseYear","number",false,'min="1900" step="1"'))+
-          adjustmentControls(additionForm,"addition")+
+          adjustmentControls(c,"addition")+
           field("Bastal KPI tillägg",input(c,"additionBaseIndex","number",false,'min="0" step="any"'),"Lämna tomt för KPI för tilläggets basår")+
         '</div></details>'+
       '<div class="contract-grid contract-tax-field">'+
