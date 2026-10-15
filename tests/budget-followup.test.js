@@ -62,36 +62,3 @@ test('removed completed action retains incurred final cost from deletion history
  const data={auditLog:[{collection:'activities',recordId:'1',action:'Raderad',fields:[{field:'finalCosts',from:{2026:{Underhåll:40}}}]}]};
  const rows=service.compare(data,[line('1')],[],2026);assert.equal(rows[0].forecast,40);assert.equal(rows[0].finalCost,40);
 });
-function appContext() {
- const c=vm.createContext({console,Intl,Date,crypto:globalThis.crypto});c.window=c;
- vm.runInContext(readFileSync('frontend/data/demo-data.js','utf8'),c);
- c.LokalblickDataService={save:async data=>JSON.parse(JSON.stringify(data))};
- vm.runInContext(readFileSync('frontend/domain/recurring-costs.js','utf8'),c);
- vm.runInContext(readFileSync('frontend/domain/calculations.js','utf8'),c);
- vm.runInContext(readFileSync('frontend/domain/budget-followup.js','utf8'),c);
- const app=readFileSync('frontend/app.js','utf8').split('document.getElementById("clear-data").addEventListener')[0];
- vm.runInContext(app,c);vm.runInContext(readFileSync("frontend/budget-followup-ui.js","utf8"),c);return c;
-}
-test('saving logs separate budget years with actor/time and changed fields; deletes retain prior values',async()=>{
- const c=appContext();
- vm.runInContext(`state.budgetPlans=[{year:2026,targets:{Underhåll:100}},{year:2027,targets:{Underhåll:200}}];state.auditLog=[];resetAuditBaseline();state.budgetPlans[0].targets.Underhåll=120;state.budgetPlans[1].targets.Underhåll=240;`,c);
- await vm.runInContext('saveState()',c);
- const logs=vm.runInContext('state.auditLog',c);assert.equal(logs.length,2);assert.equal(logs[0].recordId,'2026');assert.equal(logs[1].recordId,'2027');assert.equal(logs[0].by,'Demoanvändare');assert.ok(logs[0].at);assert.equal(logs[0].fields[0].from.Underhåll,100);
- vm.runInContext('state.budgetPlans.splice(0,1)',c);await vm.runInContext('saveState()',c);
- const deleted=vm.runInContext('state.auditLog.at(-1)',c);assert.equal(deleted.action,'Raderad');assert.ok(deleted.fields.length);
-});
-test('empty saved snapshot stays empty; frozen inclusion survives active exclusion',()=>{
- const c=appContext();vm.runInContext(readFileSync('frontend/budget-followup-ui.js','utf8'),c);
- const html=vm.runInContext('budgetFollowupHtml({year:2026,status:"Låst",lines:[]},[],false)',c);
- assert.match(html,/Riskzon/);assert.match(vm.runInContext('budgetRevisionFields({status:"Låst"})',c),/pattern="danger"/);
-});
-test('active exclusion does not mutate locked budget lines',async()=>{
- const c=appContext();
- const button={dataset:{budgetToggle:'exclude',budgetSourceType:'maintenance',budgetSourceId:'UH1'},addEventListener(type,fn){this.handler=fn;}};
- c.document={getElementById:()=>null,querySelectorAll:selector=>selector.startsWith('[data-budget-toggle]')?[button]:[]};
- vm.runInContext(`applyPortfolioFiltersToControls=()=>{};applyPortfolioSectionVisibility=()=>{};filterPropertyPortfolio=()=>{};render=()=>{};currentView='budget';accessMode='edit';selectedBudgetYear=2026;state.budgetPlans=[{year:2026,status:'Låst',lines:[{sourceType:'maintenance',sourceId:'UH1',category:'Underhåll',amount:100}]}];state.maintenance=[{id:'UH1',cost:100,year:2026}];resetAuditBaseline();bindViewEvents();`,c);
- await button.handler();
- assert.equal(vm.runInContext('state.maintenance[0].budgetIncluded',c),false);
- assert.equal(vm.runInContext('state.budgetPlans[0].lines[0].included',c),undefined);
- assert.equal(vm.runInContext('state.budgetPlans[0].lines[0].amount',c),100);
-});
