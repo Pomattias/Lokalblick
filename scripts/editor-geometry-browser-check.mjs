@@ -46,6 +46,23 @@ try{
     await form.waitFor();
     assert.ok(await form.evaluate(el=>el.classList.contains("editor-readonly")));
     assert.equal(await page.locator("body.editor-frame-active").count(),0,"Visa får inte visa grön kant");
+    // Names and data occupy the same physical row; the editor must not
+    // expand a two-line label+value cell when switching modes.
+    const inlineProperty=async()=>page.locator("#edit-form .property-field").first().evaluate(el=>{
+      const name=el.querySelector(".field-name");
+      const value=el.querySelector(".editor-mode-value");
+      const native=el.querySelector("input,select");
+      const active=[value,native].find(n=>n&&getComputedStyle(n).display!=="none");
+      const a=name.getBoundingClientRect(),b=active.getBoundingClientRect();
+      return {labelMid:a.top+a.height/2,valueMid:b.top+b.height/2,
+        labelRight:a.right,valueLeft:b.left,fieldHeight:el.getBoundingClientRect().height,
+        labelText:name.textContent};
+    });
+    const inlineBefore=await inlineProperty();
+    assert.ok(inlineBefore.valueLeft>=inlineBefore.labelRight-1,
+      "Fastighetsuppgifter visar etikett till vänster om värdet");
+    assert.ok(Math.abs(inlineBefore.labelMid-inlineBefore.valueMid)<12,
+      "Fastighetsuppgifter visar etikett och värde på samma rad");
     const field=page.locator('#edit-form input[name="city"]');
     const before=await state(page,'#edit-form input[name="city"]');
     await page.locator('[data-editor-activate]').first().click();
@@ -60,6 +77,12 @@ try{
     assert.ok(activeFrame.width>width-15);
     assert.equal(activeFrame.border,"rgb(23, 123, 93)");
     const after=await state(page,'#edit-form input[name="city"]');
+    const inlineAfter=await inlineProperty();
+    near(inlineBefore.fieldHeight,inlineAfter.fieldHeight,"fastighet kompakt etikettrad",1);
+    assert.ok(inlineAfter.valueLeft>=inlineAfter.labelRight-1,
+      "Redigera behåller etikett till vänster om kontrollen");
+    assert.ok(Math.abs(inlineAfter.labelMid-inlineAfter.valueMid)<12,
+      "Redigera behåller etikett och kontroll på samma rad");
     near(before.rowWidth,after.rowWidth,"fastighet radbredd");
     near(before.rowHeight,after.rowHeight,"fastighet radhöjd");
     await field.focus();
