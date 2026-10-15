@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import "../frontend/domain/calculations.js";
 import {renderIssueEditor} from "../frontend/v2/issue-editor.js";
 
 const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
