@@ -123,6 +123,37 @@ function showBudgetHistory(year,row) {
   dialog.innerHTML=`<h2>Budgethistorik ${year}</h2><p>${esc(row.source||row.sub||row.category)}</p>${entries.length?entries.map(entry=>`<article><strong>${esc(entry.action)}</strong><p>${esc(entry.by||'Ej angivet')} · ${esc(entry.at?new Date(entry.at).toLocaleString('sv-SE'):'Datum saknas')}</p>${entry.reason?`<p>${esc(entry.reason)}</p>`:''}<ul>${(entry.fields||[]).map(field=>`<li>${esc(captions[field.field]||field.label||field.field)}: ${esc(format(field.field,field.from))} → ${esc(format(field.field,field.to))}</li>`).join('')}</ul></article>`).join(''):'<p>Ingen sparad ändringshistorik för denna budgetpost.</p>'}<form method="dialog"><button>Stäng</button></form>`;
   document.body.append(dialog);dialog.onclose=()=>dialog.remove();dialog.showModal();
 }
+/* Read-only immediate budget projection. Preserve input focus and do not save per keystroke. */
+function previewBudgetIndex(field) {
+  if (ui.view!=="budget" || !field?.isConnected) return;
+  const status=content.querySelector("[data-budget-index-live]");
+  if (!status) return;
+  const raw=field.value.trim(),value=raw===""?0:Number(raw);
+  if(!Number.isFinite(value)||value<0||(raw!==""&&value===0)){
+    field.setAttribute("aria-invalid","true");
+    const original=document.createElement("template");
+    original.innerHTML=budget(data,selection,ui);
+    for(const selector of ["[data-budget-totals]",".budget-category-cards"]) {
+      const live=content.querySelector(selector),unchanged=original.content.querySelector(selector);
+      if(live&&unchanged)live.replaceWith(unchanged);
+    }
+    status.textContent="Ange ett positivt indextal eller lämna tomt för senast kända KPI.";
+    return;
+  }
+  field.removeAttribute("aria-invalid");
+  const plan=data.budgetPlans.find(p=>Number(p.year)===ui.year);
+  if(plan?.status==="Låst")return;
+  const draft={...data,budgetPlans:[...data.budgetPlans.filter(p=>Number(p.year)!==ui.year),
+    {...(plan||{}),year:ui.year,status:"Arbetsbudget",preliminaryIndex:value}]};
+  const temporary=document.createElement("template");
+  temporary.innerHTML=budget(draft,selection,ui);
+  for(const selector of ["[data-budget-totals]",".budget-category-cards"]) {
+    const live=content.querySelector(selector),updated=temporary.content.querySelector(selector);
+    if(live&&updated)live.replaceWith(updated);
+  }
+  const rent=content.querySelector(".budget-category-card .budget-card-total dd")?.textContent||"–";
+  status.textContent="Hyra med aktuellt antagande: "+rent+" · Förhandsvisning, sparas när fältet lämnas.";
+}
 function bindBudget(){
   const before=clone(data),hasScope=()=>Boolean(Object.values(selection).some(Boolean));
   globalThis.LokalblickBudgetUI.bind({state:data,esc,money,clone,selectedBudgetYear:ui.year,budgetPlan:y=>data.budgetPlans.find(p=>Number(p.year)===Number(y)),hasPortfolioScope:hasScope,portfolioScopeContracts:()=>scope(data,selection).contracts,budgetRowsForContracts:(rows,contracts)=>rows.filter(r=>r.contractId?contracts.some(c=>c.id===r.contractId):scope(data,selection).properties.some(p=>p.id===r.propertyId)),budgetProposal:y=>calc().budgetProposal(data,y),budgetRows:y=>calc().budgetRows(data,y,hasScope()?scope(data,selection).contracts:undefined,hasScope()?scope(data,selection).properties:undefined),canEdit,currentActorLabel:actor,requireActorIdentity,render,showHistory,showBudgetHistory,budgetCategories:()=>categories,saveState:async()=>{
@@ -1406,7 +1437,22 @@ document.addEventListener("click", (event) =>
       });
       await loadBudgetIndex(ui.year);
     }
-    if (b.hasAttribute("data-budget-index")) await loadBudgetIndex(ui.year,true);
+    if (b.hasAttribute("data-budget-index")) { await loadBudgetIndex(ui.year,true); return; }
+    if (b.hasAttribute("data-budget-index-reset")) {
+      const plan=data.budgetPlans.find(p=>Number(p.year)===ui.year);
+      if (plan?.status==="Låst")throw Error("Skapa en ny budgetversion först");
+      if (Number(plan?.preliminaryIndex)>0) {
+        await mutation(d=>{
+          const target=d.budgetPlans.find(p=>Number(p.year)===ui.year);
+          if(!target||target.status==="Låst")throw Error("Budgeten är låst");
+          target.preliminaryIndex=0;
+          target.preliminaryIndexUpdatedAt=new Date().toISOString();
+          target.preliminaryIndexUpdatedBy=actor();
+          target.targets=calc().summarize(calc().budgetProposal(d,ui.year));
+        });
+      } else render();
+      return;
+    }
     if (b.hasAttribute("data-budget-create"))
       await mutation((d) => {
         const live = calc().budgetRows(d, ui.year);
@@ -1593,7 +1639,8 @@ document.addEventListener("change", (event) =>
         record.planningMonth = null;
         audit(d, x.dataset.quarter, record.id, before, record, actor());
       });
-    if (x.hasAttribute("data-preliminary"))
+    if (x.hasAttribute("data-preliminary")) {
+      if(x.dataset.skipResetChange==="1"){delete x.dataset.skipResetChange;return;}
       await mutation(d=>{
         let plan=d.budgetPlans.find(p=>Number(p.year)===ui.year);
         if(plan?.status==='Låst')throw Error('Skapa en ny budgetversion först');
@@ -1604,6 +1651,8 @@ document.addEventListener("change", (event) =>
         plan.preliminaryIndexUpdatedAt=new Date().toISOString();plan.preliminaryIndexUpdatedBy=actor();
         plan.targets=calc().summarize(calc().budgetProposal(d,ui.year));
       });
+      return;
+    }
     if (x.dataset.adjust)
       await mutation((d) => {
         const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
@@ -1614,6 +1663,21 @@ document.addEventListener("change", (event) =>
       });
   }),
 );
+// Tapping reset must not first persist the unfinished input on blur.
+document.addEventListener("pointerdown",event=>{
+  if(!event.target.closest?.("[data-budget-index-reset]"))return;
+  const field=content.querySelector("[data-preliminary]");
+  if(field)field.dataset.skipResetChange="1";
+},true);
+document.addEventListener("input",event=>{
+  const field=event.target.closest?.("[data-preliminary]");
+  if(!field||ui.view!=="budget")return;
+  try{previewBudgetIndex(field);}
+  catch(error){
+    const label=content.querySelector("[data-budget-index-live]");
+    if(label)label.textContent="Förhandsberäkningen kunde inte visas: "+error.message;
+  }
+});
 document.addEventListener("submit", (event) => {
   if (event.target.id !== "edit-form") return;
   event.preventDefault();

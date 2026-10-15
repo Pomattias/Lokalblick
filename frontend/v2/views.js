@@ -585,11 +585,34 @@ export function budget(data,s,ui) {
 
   const idx=calc().budgetIndex(data,ui.year,plan?.preliminaryIndex);
   const published=calc().budgetIndex(data,ui.year,0);
-  const monthNames=['','januari','februari','mars','april','maj','juni','juli','augusti','september','oktober'];
-  const publishedText=published.value?`${monthNames[published.month]} ${ui.year-1}: ${indexFormat(published.value)}`:'saknas';
-  const indexControl=`<div class="budget-index-panel"><strong>Senaste publicerade KPI · ${esc(publishedText)}</strong><small>${published.status==='Fastställd'?'Fastställt oktoberindex':'Preliminärt underlag för oktoberindex'} · ${esc(published.source)}</small><button data-budget-index>Hämta index</button>${locked?`<p><strong>Låst budgetindex: ${plan.lockedIndexValue?indexFormat(plan.lockedIndexValue):'saknas'}</strong><small>${esc(plan.lockedIndexStatus||'Sparat index')} · låst ${esc(new Date(plan.lockedAt).toLocaleString('sv-SE'))} · ${esc(plan.lockedBy)}</small></p>`:`<p>Index i budgetförslaget: <strong>${idx.value?indexFormat(idx.value):'saknas'}</strong> · ${esc(idx.source)}</p>`}${published.status!=='Fastställd'?locked?'<small>Skapa ny budgetversion för att ange eget preliminärt index. Tidigare låst budget behålls.</small>':`<label>Eget preliminärt oktoberindex ${ui.year-1}<input data-preliminary type="number" min="0.01" step="0.01" placeholder="${published.value||'Ange index'}" value="${Number(plan?.preliminaryIndex)>0?Number(plan.preliminaryIndex):''}"></label><small>Lämna tomt för att använda senaste publicerade månad.</small>`:''}</div>`;
+  const monthNames=['','januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
+  const publishedText=published.value?(monthNames[published.month]||'')+' '+(ui.year-1)+': '+indexFormat(published.value):'Indextal saknas';
+  const mayAssume=!locked&&published.status!=='Fastställd';
+  const info='<details class="budget-about ui-card ui-card--compact"><summary>Om budgeten <span aria-hidden="true">ⓘ</span></summary>'+
+    '<div class="budget-about-body"><p>Budgeten beräknar hyror från registrerade avtal och tar med planerade aktiviteter och åtgärder när de belastar valt budgetår. Fleråriga åtgärder belastar respektive år med planerat årsbelopp.</p>'+
+    '<p>Hyror och indexerade tillägg räknas enligt varje avtals villkor. För ett kommande oktoberindex kan du använda senast kända KPI från SCB eller ange ett eget antaget indextal. Antagandet är inte ett fastställt KPI.</p>'+
+    '<p>När du ändrar ett antagande visas hyresberäkningen direkt som en förhandsvisning. Antagandet sparas när du lämnar fältet. Låsta budgetar behåller sin baslinje och kan bara ändras genom en ny version.</p></div></details>';
+  const indexControl='<div class="budget-index-panel budget-index-compact">'+
+    '<div class="budget-index-head"><strong>Hyresindex '+ui.year+'</strong><span class="budget-index-published">'+
+    esc(publishedText)+' · '+esc(published.status)+' · '+esc(published.source||'Källa saknas')+'</span>'+
+    '<button type="button" data-budget-index class="ui-button ui-button--compact">Uppdatera SCB</button></div>'+
+    (locked?'<div class="budget-index-locked"><strong>Låst indextal: '+
+      (plan.lockedIndexValue?indexFormat(plan.lockedIndexValue):'saknas')+'</strong><small>'+
+      esc(plan.lockedIndexStatus||'Sparat')+' · '+esc(plan.lockedBy||'Ansvarig saknas')+
+      '. Skapa ny budgetversion för att ändra.</small></div>':
+      '<div class="budget-index-current">Används: <strong>'+
+      (idx.value?indexFormat(idx.value):'saknas')+'</strong> · '+esc(idx.source||'Saknar index')+'</div>')+
+    (mayAssume?'<div class="budget-index-edit"><label class="budget-index-manual">Eget antaget oktoberindex '+(ui.year-1)+
+      '<input data-preliminary type="number" inputmode="decimal" min="0.01" step="any" placeholder="'+
+      (published.value?indexFormat(published.value):'Ange indextal')+'" value="'+
+      (Number(plan?.preliminaryIndex)>0?Number(plan.preliminaryIndex):'')+'"></label>'+
+      '<button type="button" data-budget-index-reset class="ui-button ui-button--compact">Använd senast kända KPI</button></div>'+
+      '<small>Tomt fält använder SCB-värdet. Eget antagande är preliminärt.</small>'+
+      '<small class="budget-index-live" data-budget-index-live aria-live="polite"></small>':
+      locked?'':'<small>Oktoberindex är fastställt och används enligt avtalens indexvillkor.</small>')+
+    '</div>';
 
-  return `<div class="section-title"><h2>Budget ${ui.year} ${badge(locked?'Låst baslinje':plan?'Arbetsbudget':'Ej skapad')}</h2><label>År<input data-year type="number" min="2000" max="2200" value="${ui.year}"></label></div><div class="budget-controls">${indexControl}${!plan?'<button data-budget-create>Skapa budget</button>':!scoped?(locked?'<button class="primary-action" data-budget-reopen>Skapa ny budgetversion</button>':'<button class="primary-action" data-budget-lock>Lås budget</button>'):''}</div><p>Årsbudget <strong>${money(total)}</strong> · prognos <strong>${money(comparison.reduce((sum,r)=>sum+r.forecast,0))}</strong></p><div class="budget-category-cards">${['Hyra','Investering','Drift'].map(k=>{
+  return `<div class="section-title"><h2>Budget ${ui.year} ${badge(locked?'Låst baslinje':plan?'Arbetsbudget':'Ej skapad')}</h2><label>År<input data-year type="number" min="2000" max="2200" value="${ui.year}"></label></div>${info}<div class="budget-controls budget-controls-compact">${indexControl}${!plan?'<button data-budget-create>Skapa budget</button>':!scoped?(locked?'<button class="primary-action" data-budget-reopen>Skapa ny budgetversion</button>':'<button class="primary-action" data-budget-lock>Lås budget</button>'):''}</div><p data-budget-totals class="budget-overview-total">Årsbudget <strong>${money(total)}</strong> · prognos <strong>${money(comparison.reduce((sum,r)=>sum+r.forecast,0))}</strong></p><div class="budget-category-cards">${['Hyra','Investering','Drift'].map(k=>{
     const groupRows=included.filter(r=>(r.budgetGroup||calc().budgetGroup(r))===k),base=groupRows.reduce((n,r)=>n+Number(r.baseAmount??r.amount),0),target=groupRows.reduce((n,r)=>n+r.amount,0);
     const groupForecast=comparison.filter(r=>calc().budgetGroup(r)===k).reduce((n,r)=>n+r.forecast,0),groupActual=comparison.filter(r=>calc().budgetGroup(r)===k).reduce((n,r)=>n+(r.finalCost||0),0);
     return `<article class="budget-category-card"><div class="section-title"><h3>${esc(k)}</h3>${!scoped?`<button data-budget-adjust="${k}">Justera i kr</button>`:''}</div><dl><div><dt>Underlag</dt><dd>${money(base)}</dd></div><div><dt>Justering</dt><dd>${money(target-base)}</dd></div><div class="budget-card-total"><dt>${locked?'Låst budget':'Budgetförslag'}</dt><dd>${money(target)}</dd></div><div><dt>Prognos</dt><dd>${money(groupForecast)}</dd></div><div><dt>Slutkostnad</dt><dd>${money(groupActual)}</dd></div></dl></article>`;
