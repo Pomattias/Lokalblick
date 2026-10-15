@@ -86,11 +86,30 @@ try{
     await page.locator('[data-edit=activities]').first().click();
     await page.locator("#edit-form.editor-readonly").waitFor();
     const issueRoot=page.locator("#edit-form .issue-home-row").first();
+    const issueMetrics=async()=>issueRoot.evaluate(root=>{
+      const info=(el)=>{if(!el)return null;const cs=getComputedStyle(el),r=el.getBoundingClientRect();return {
+        className:el.className,display:cs.display,height:r.height,width:r.width,
+        font:cs.fontSize,line:cs.lineHeight,padding:cs.padding,grid:cs.gridTemplateColumns
+      };};
+      return {
+        row:info(root),
+        home:info(root.querySelector(".issue-property-reference")),
+        field:info(root.querySelector(".issue-mode-field")),
+        label:info(root.querySelector(".issue-field-label")),
+        value:info(root.querySelector(".issue-field-value")),
+        control:info(root.querySelector(".issue-field-control")),
+        select:info(root.querySelector("select"))
+      };
+    });
     const issueBefore=await issueRoot.boundingBox();
+    const beforeLayout=await issueMetrics();
     await page.locator("[data-editor-activate]").first().click();
     await page.locator("#edit-form.editor-editing").waitFor();
     assert.equal(await page.locator("#editor-edit-frame").count(),1,"Ärenden använder samma ram");
     const issueAfter=await issueRoot.boundingBox();
+    const afterLayout=await issueMetrics();
+    if(Math.abs(issueBefore.height-issueAfter.height)>2)
+      console.log("Issue edit geometry diagnostic",JSON.stringify({width,before:beforeLayout,after:afterLayout}));
     near(issueBefore.width,issueAfter.width,"ärende radbredd");
     near(issueBefore.height,issueAfter.height,"ärende radhöjd",2);
     await page.locator('[data-editor-close]').first().click();
