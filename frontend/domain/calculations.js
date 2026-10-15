@@ -67,7 +67,7 @@
     const p=kind==="addition"?"addition":"rent",method=String(c[p+"AdjustmentMethod"]||"kpi");
     if(method==="kpi")return null;
     const base=number(c[kind==="addition"?"baseAdditions":"baseRent"]);
-    const sourceAmount=number(kind==="addition"?(c.annualAdditions||c.annualContractDrift):c.annualRent);
+    const sourceAmount=number(kind==="addition"?c.annualAdditions:c.annualRent);
     const baseYear=number(c[p+"BaseYear"]),target=Number(year);
     const basis=seriesBase(c[p+"SeriesBase"])||"1980";
     const bastal=number(c[p+"BaseIndex"])||number(october(series,baseYear,basis)?.value);
@@ -138,12 +138,9 @@
     if(agreed)return agreed;
     const prefix = kind === "addition" ? "addition" : "rent";
     const base = number(kind === "addition" ? c.baseAdditions : c.baseRent);
-    // Older imports called the same contract addition "Media". Never add
-    // that legacy source amount on top of the canonical indexed addition.
-    const legacyAddition = number(c.annualContractDrift);
-    const sourceAmount = number(kind === "addition"
-      ? (number(c.annualAdditions) || legacyAddition)
-      : c.annualRent);
+    // Indexed supplements are contractual additions. Utility/operating expenses
+    // are separate recurringCosts and never flow into this amount.
+    const sourceAmount = number(kind === "addition" ? c.annualAdditions : c.annualRent);
     const baseYear=number(c[prefix+"BaseYear"]);
     const explicitBaseIndex=number(c[prefix+"BaseIndex"]);
     const requestedSeriesBase=seriesBase(c[prefix+"SeriesBase"]) || "1980";
