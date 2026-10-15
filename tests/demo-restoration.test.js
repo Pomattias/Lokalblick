@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { normalize } from "../frontend/v2/model.js";
 import { shouldRestoreViewSnapshot, hasWorkspaceRecords } from "../frontend/v2/restore-policy.js";
-test("demo file exists with three properties and leases and is normalizable",()=>{
+test("demo file exists with three properties and four indexed leases and is normalizable",()=>{
  const file=fs.readFileSync(new URL("../frontend/data/demo-data.js",import.meta.url),"utf8");
  const window={};
  new Function("window",file)(window);
  const data=normalize(window.LokalblickDemoData);
  assert.equal(data.isDemo,true);
  assert.equal(data.properties.length,3);
- assert.equal(data.contracts.length,3);
+ assert.equal(data.contracts.length,4);
  assert.ok(data.activities.length>0);
 });
 test("stale empty browser workspace cannot hide built-in demo",()=>{

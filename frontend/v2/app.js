@@ -18,6 +18,7 @@ import {
 import { createTransport } from "./transport.js";
 import { retainImportedData } from "./import-workspace.js";
 import { shouldRestoreViewSnapshot } from "./restore-policy.js";
+import { updateLegacyDemoIndexTerms } from "./demo-index-migration.js";
 import { filterPresentation } from "./filter-presentation.js";
 import {
   esc,
@@ -1800,6 +1801,8 @@ async function init() {
     }
     await restoreSharedViewState();
     data = await transport.load();
+    // Existing cached demo fixtures may have old zero-index lease defaults.
+    if (data.isDemo) updateLegacyDemoIndexTerms(data,globalThis.LokalblickDemoData);
     if (data.isDemo && (!data.properties.length || !data.contracts.length)) {
       // Repair a corrupt/empty demo cache without touching imported workspaces.
       const demo=globalThis.LokalblickDemoDataService;
