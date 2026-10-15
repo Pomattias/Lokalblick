@@ -137,6 +137,15 @@ try{
     near(issueBefore.width,issueAfter.width,"ärende radbredd");
     near(issueBefore.height,issueAfter.height,"ärende radhöjd",2);
     const afterIssue=await issueSnapshot();
+    if(Math.abs(beforeIssue.title.width-afterIssue.title.width)>2) {
+      const buttons=await page.locator("#edit-form .issue-heading-actions").evaluate(group=>{
+        const measure=el=>{const rect=el.getBoundingClientRect(),style=getComputedStyle(el);
+          return {label:(el.textContent||"").trim(),width:rect.width,height:rect.height,
+            display:style.display,visibility:style.visibility,gridArea:style.gridArea,hidden:el.hidden};};
+        return {group:measure(group),children:[...group.children].map(measure)};
+      });
+      console.log("Issue heading button layout",JSON.stringify({width,beforeIssue,afterIssue,buttons}));
+    }
     for(const kind of ["compact","cost","dates","description","title"]){
       if(!beforeIssue[kind]||!afterIssue[kind])continue;
       near(beforeIssue[kind].width,afterIssue[kind].width,
