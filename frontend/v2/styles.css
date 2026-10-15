@@ -920,11 +920,11 @@ details .table-wrap {
 .property-editor .property-field { min-width: 0; display: grid; gap: 4px; font-size: 12px; }
 .property-editor .property-field input, .property-editor .property-field select { width: 100%; min-width: 0; }
 .property-editor .property-help { font-size: 11px; }
-.property-editor .property-contact-list { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.property-editor .property-contact-list > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; font-size: 12px; }
-.property-editor .property-contact-list > div + div { border-top: 1px solid var(--line); }
-.property-editor .property-contact-list span { color: var(--muted); }
-.property-editor .property-contact-list strong { text-align: right; }
+
+
+
+
+
 .property-editor .property-empty, .property-editor .property-map-hint { margin: 0 0 7px; font-size: 12px; }
 .property-editor .property-map { height: 260px; min-height: 220px; border: 1px solid var(--line); border-radius: 9px; background: var(--soft); z-index: 0; }
 .property-editor .property-map-footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 7px 0 0; font-size: 11px; color: var(--muted); }
@@ -943,14 +943,14 @@ details .table-wrap {
 .property-editor .property-person-actions button,
 .property-editor .property-person-inline button { font-size:11px; padding:6px 8px; white-space:nowrap; flex:none; }
 .property-editor .property-person-inline select { min-width:0; flex:1; max-width:none; }
-.property-editor .property-contact-list .property-contact-row { display:grid; grid-template-columns:minmax(150px,1fr) minmax(230px,1.35fr); gap:8px; align-items:center; }
+
 .property-person-dialog { border:1px solid var(--line); border-radius:12px; padding:20px; width:min(430px,calc(100vw - 30px)); max-height:90vh; box-shadow:0 22px 60px #18392f40; }
 .property-person-dialog::backdrop { background:#19372f66; }
 .property-person-dialog .property-person-form { display:grid; gap:13px; }
 .property-person-dialog .property-person-form p { font-size:12px; margin:0; }
 .property-person-dialog .property-person-form .actions { justify-content:flex-end; margin-top:5px; }
 @media(max-width:560px) {
-  .property-editor .property-contact-list .property-contact-row { grid-template-columns:1fr; }
+  
   .property-editor .property-person-inline { flex-wrap:wrap; }
   .property-editor .property-person-inline select { flex-basis:100%; }
 }
@@ -3354,19 +3354,8 @@ main .settings-inline-actions button {min-height:31px;padding:5px 9px;font-size:
 .property-editor #edit-form .property-grid {
   gap:2px;
 }
-.property-editor #edit-form .property-contact-list {
-  display:grid;
-  gap:2px;
-  margin:2px 0 0;
-  padding:0;
-  border:0;
-  border-radius:0;
-  overflow:visible;
-}
-.property-editor #edit-form .property-contact-list > .property-person-field {
-  border:0;
-  padding:0;
-}
+
+
 .property-editor #edit-form .property-person-field {
   position:relative;
   display:block;
@@ -3449,5 +3438,66 @@ main .settings-inline-actions button {min-height:31px;padding:5px 9px;font-size:
   }
   .property-editor #edit-form.editor-editing .property-person-field > label > select {
     width:calc(100% - 91px);
+  }
+}
+
+/* Property details: the same one-line grid for every contact, regardless of
+   whether the person is linked to the property or an individual contract. */
+.property-editor #edit-form .property-heading {
+  margin:0 0 3px;
+  padding:0 0 4px;
+  min-height:0;
+}
+.property-editor #edit-form .property-heading h2 {
+  font-size:20px;
+  line-height:1.1;
+}
+.property-editor #edit-form .property-heading-address {
+  font-size:12px;
+  line-height:1.15;
+}
+.property-editor #edit-form .property-section {
+  padding:4px 0 3px;
+}
+.property-editor #edit-form .property-section > h3 {
+  margin:0 0 2px;
+}
+.property-editor #edit-form .property-grid {
+  grid-template-columns:minmax(0,1fr);
+  gap:0;
+}
+.property-editor #edit-form .property-grid > :is(.property-field,.property-person-field) {
+  min-width:0;
+  margin:0;
+}
+.property-editor #edit-form .property-grid > .property-person-field > label {
+  grid-template-columns:minmax(0,39%) minmax(0,1fr);
+  min-height:34px;
+  gap:6px;
+}
+.property-editor #edit-form .property-contact-context {
+  margin-top:1px;
+  font-size:10px;
+  line-height:1.1;
+}
+.property-editor #edit-form .property-help {
+  margin:1px 0;
+}
+.property-editor #edit-form .responsibility-section {
+  padding:3px 0;
+}
+.property-editor #edit-form .responsibility-section > label {
+  grid-template-columns:minmax(0,39%) minmax(0,1fr);
+  min-height:34px;
+}
+.property-editor #edit-form .responsibility-section details {
+  margin:1px 0;
+}
+@media(max-width:700px) {
+  .property-editor #edit-form .property-grid {gap:0;}
+  .property-editor #edit-form .property-heading {margin-bottom:2px;}
+  .property-editor #edit-form .property-grid > .property-person-field > label,
+  .property-editor #edit-form .responsibility-section > label {
+    grid-template-columns:minmax(0,41%) minmax(0,1fr);
   }
 }
