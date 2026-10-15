@@ -4,11 +4,21 @@ Modellversion 6 inför `objects` som egen tabell och Excel-flik `Objekt`. Objekt
 
 Avtal har `objectId`. Avtalets datum beskriver avtalsperioden, inte objektets livslängd. Flera avtal över tid kan referera till samma objekt. Avtalets `area` är den avtalade ytan; objektets `area` beskriver objektets egen yta. Hyra, index, tillägg, hyresgäst, avtalskontakt och dokument ligger kvar på avtalet. Objekt kan sakna avtal. Aktiviteter kan ligga på fastighet, objekt eller avtal; varje aktivitet finns en gång. `propertyId` på avtal och objektanknutna aktiviteter är en härledd kompatibilitetsprojektion, inte en alternativ hemvist.
 
-## Migration
+## Automatisk objekthärledning vid extern import
 
-Befintliga objekt bevaras. Tidigare avtal utan objekt får en stabil `OBJ|<avtals-ID>`-post när fastighetskopplingen är giltig. Om källan uttryckligen har `objectNumber` återanvänds entydigt objekt på samma fastighet. Utan sådan identitet slås olika avtal aldrig automatiskt samman till ett objekt. Det provisoriska objektet har `objektets deterministiska ID (`OBJ|avtals-ID`)`, kopierad relevant fältproveniens och tomma objektdatum. Avtalsdatum används aldrig som objektdatum. Migrerade objekt kan senare kopplas ihop med rätt verkligt objekt genom redigering av avtalets objektkoppling; äldre objektsinformation finns kvar.
+Lokalblick konverterar **inte** gammal Lokalblick-data. När ett nytt externt
+avtalsunderlag saknar en separat objektlista kan en avtalsrad få ett deterministiskt
+objekt med ID `OBJ|<avtals-ID>`, förutsatt att fastigheten är känd.
 
-Migrationen är idempotent i webbläsaren, Excel och lokal backend. Backend lagrar objekten i det lokala användarlagret; de försvinner inte vid källuppdatering eller omstart. Inga skarpa källfiler ändras under utvecklingsarbetet.
+Om källan har ett objektnummer kan ett entydigt objekt på samma fastighet
+återanvändas. Två avtal slås aldrig ihop till samma objekt enbart för att de
+tillhör samma fastighet eller har samma adress. Objektdatum lämnas tomma vid
+automatisk härledning; avtalsdatum kopieras inte till objektets livscykel.
+
+Ingen migreringsmarkör lagras på objektet. Identiteten och kopplingen
+`contract.objectId` räcker för återläsning, upprepade importer och redigering.
+Objekt sparas bakom backendens företagsgräns; externa källfiler är fortsatt
+separata och skrivs inte automatiskt om.
 
 ## Delning och sammanslagning
 
