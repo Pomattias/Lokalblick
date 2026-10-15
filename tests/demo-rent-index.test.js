@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import "../frontend/domain/recurring-costs.js";
 import "../frontend/domain/calculations.js";
 import {normalize} from "../frontend/v2/model.js";
 import {updateLegacyDemoIndexTerms} from "../frontend/v2/demo-index-migration.js";
