@@ -30,7 +30,6 @@ const API_ENTITIES = {
   people: "people",
   orders: "orders",
   activities: "activities",
-  "maintenance-status": "maintenanceStatus",
   "recurring-costs": "recurringCosts",
   "budget-data": "budgetData",
   coordinates: "coordinates",
