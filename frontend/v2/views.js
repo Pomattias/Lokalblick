@@ -154,7 +154,7 @@ function summaryCards(cards) {
   return `<div class="summary">${cards
     .map(
       ([label, value, foot]) =>
-        `<div><span>${label}</span><strong>${value}</strong>${foot ? `<small>${foot}</small>` : ""}</div>`,
+        `<div${foot ? ` title="${esc(foot)}"` : ""}><span>${label}</span><strong>${value}</strong>${foot ? `<span class="visually-hidden">${esc(foot)}</span>` : ""}</div>`,
     )
     .join("")}</div>`;
 }
@@ -438,12 +438,10 @@ export function economicSettings(data, ui) {
   const owners=(data.organizations||[]).filter(o=>o.type==="owner");
   const ownerRows=owners.map(o=>`<tr><td>${esc(o.name)}</td><td>${esc(o.investmentRule==="stadsfastigheter"?"Stadsfastigheter":"Normalregel")}</td><td>${o.investmentRule==="stadsfastigheter" ? money(Number(o.investmentThreshold)||200000) : normal}</td><td>${o.investmentRule==="stadsfastigheter"?esc(String(o.rentSurchargeRate??7.5))+" %":"–"}</td><td><button data-edit="organizations" data-id="${esc(o.id)}">Ändra</button></td></tr>`).join("");
   return `<div class="section-title"><h2>Ekonomiska regler</h2></div>
-    <p>Gemensamma grundvärden gäller vid beräkning av drift och investering. Regler för en viss fastighetsägare ändras på ägaren.</p>
-    <section class="detail"><h3>Prisbasbelopp</h3><label>År <input type="number" min="2000" max="2200" data-settings-year="${year}" value="${year}"></label>
-    <label>Fastställt prisbasbelopp (kr) <input type="number" min="1" step="1" data-price-base-year="${year}" value="${entry?.amount??""}" placeholder="Saknas"></label>
-    <p>Normal investeringsgräns: <strong>${normal}</strong> (½ prisbasbelopp).</p>
-    <small>Källa: ${esc(entry?.source||"Ej registrerad")}. ${entry ? "Värdet är sparat för "+year+"." : year===new Date().getFullYear() ? "Årets prisbasbelopp hämtas automatiskt från SCB." : "Hämta officiellt belopp för året."}</small>
-    <p><button type="button" data-price-base-official="${year}">${entry?"Uppdatera från SCB":"Hämta officiellt belopp"}</button></p></section>
+    <section class="detail compact-settings"><h3>Prisbasbelopp</h3><label class="settings-inline-field"><span class="field-name">År</span><input type="number" min="2000" max="2200" data-settings-year="${year}" value="${year}"></label>
+    <label class="settings-inline-field"><span class="field-name">Prisbasbelopp</span><input type="number" min="1" step="1" data-price-base-year="${year}" value="${entry?.amount??""}" placeholder="Saknas"></label>
+    <div class="settings-inline-field"><span class="field-name">Investeringsgräns (½ PBB)</span><strong>${normal}</strong></div>
+    <div class="settings-inline-actions"><small>Källa: ${esc(entry?.source||"Ej registrerad")}</small><button type="button" data-price-base-official="${year}">${entry?"Uppdatera SCB":"Hämta från SCB"}</button></div></section>
     <section class="detail"><h3>Fastighetsägarnas regler</h3><table><thead><tr><th>Ägare</th><th>Regel</th><th>Gräns</th><th>Årligt hyrespåslag</th><th></th></tr></thead><tbody>${ownerRows||'<tr><td colspan="5">Inga fastighetsägare registrerade.</td></tr>'}</tbody></table></section>`;
 }
 export function planning(data, s, ui) {
