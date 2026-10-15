@@ -44,6 +44,8 @@ function canonicalRelations(out) {
     // A contract belongs to one existing object/property. Never duplicate its home.
     if(contract.objectId && out.objects.some(o=>o.id===contract.objectId))
       delete contract.propertyId;
+    // Media/drift is now a separate recurring cost, not another rent addition.
+    delete contract.annualContractDrift;
   }
   for(const activity of out.activities) {
     if(activity.contractId&&out.contracts.some(c=>c.id===activity.contractId))
