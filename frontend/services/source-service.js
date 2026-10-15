@@ -67,13 +67,6 @@
   SCHEMAS.find(s=>s.key==='contracts').display.push('Hyresgäst','Hyresgästens kontaktperson');
   // Compatibility-only data: preserved for older imports and calculations,
   // but not written as parallel visible business sheets in model v5.
-  const AUXILIARY_SCHEMAS = [
-    { sheet:"Status", key:"maintenanceStatus", prefix:"MS", columns:[
-      ["id","_id",true],["contractId","_contractId",true],["propertyId","_propertyId",true],["category","Kategori"],["assessedDate","Bedömd"],["status","Status"],["priority","Prioritet"],["comment","Kommentar"],["actionNeed","Åtgärdsbehov"],["budgetYear","Budgetår"],["estimatedCost","Bedömd kostnad"],["includeInBudget","Ta med i budget"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
-    ], display:["Fastighet","Avtal"] }
-  ];
-  AUXILIARY_SCHEMAS.forEach(function(schema) { schema.fields = schema.columns.map(function(column){ return column[0]; }); });
-
   const ACTIVITY_SCHEMA = {
     sheet:"Aktiviteter", key:"activities", prefix:"ACT",
     columns:[
@@ -362,7 +355,7 @@
   }
 
   function ensureStableIds(data) {
-    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).forEach(function(schema) {
+    SCHEMAS.concat([ACTIVITY_SCHEMA]).forEach(function(schema) {
       const rows = data[schema.key] || [];
       rows.forEach(function(row) {
         if (!row.id) row.id = nextStableId(schema.prefix || "ID", rows);
@@ -449,7 +442,7 @@
       const d=row["__display_Ansvarig hos oss"] || row.__display_Ansvarig;
       if (!row.responsiblePersonId && d) { const m=byDisplay(people,d,personDisplay); if(m) row.responsiblePersonId=m.id; }
     }
-    ["activities","recurringCosts","maintenanceStatus","projects","maintenance","investigations","driftIssues","wishes"].forEach(function(key) { (data[key]||[]).forEach(resolveCommon); });
+    ["activities","recurringCosts"].forEach(function(key) { (data[key]||[]).forEach(resolveCommon); });
     (data.orders||[]).forEach(function(row){
       if(!row.activityId && row.__display_Aktivitet){ const m=byDisplay(activities,row.__display_Aktivitet,function(x){return x.title||x.id;}); if(m) row.activityId=m.id; }
       if(!row.orderedByPersonId && row["__display_Beställd av"]){ const m=byDisplay(people,row["__display_Beställd av"],personDisplay); if(m) row.orderedByPersonId=m.id; }
@@ -466,13 +459,13 @@
     }
     (data.contractBusinesses||[]).forEach(function(row){if(!row.contractId&&row.__display_Avtal){const m=byDisplay(contracts,row.__display_Avtal,contractDisplay);if(m)row.contractId=m.id;}if(!row.businessId&&row.__display_Verksamhet){const hits=(data.businesses||[]).filter(b=>String(b.name).trim()===String(row.__display_Verksamhet).trim());if(hits.length===1)row.businessId=hits[0].id;}});
     (data.contacts||[]).forEach(resolveRelation); (data.assignments||[]).forEach(resolveRelation);
-    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).forEach(function(schema) { (data[schema.key]||[]).forEach(function(row) { Object.keys(row).filter(function(key){return key.indexOf("__display_")===0;}).forEach(function(key){delete row[key];}); }); });
+    SCHEMAS.concat([ACTIVITY_SCHEMA]).forEach(function(schema) { (data[schema.key]||[]).forEach(function(row) { Object.keys(row).filter(function(key){return key.indexOf("__display_")===0;}).forEach(function(key){delete row[key];}); }); });
   }
 
   function canonicalizeModel(data) {
     data=data||{};
     ["properties","objects","contracts","organizations","people","assignments","orders",
-     "activities","recurringCosts","maintenanceStatus","auditLog","sourceRegistry",
+     "activities","recurringCosts","auditLog","sourceRegistry",
      "importReview","documents"].forEach(key=>{
        if(!Array.isArray(data[key])) data[key]=[];
      });
@@ -504,8 +497,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
-  const RESTORE_EXTRA_KEYS = ["maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
+  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
+  const RESTORE_EXTRA_KEYS = ["indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
@@ -537,9 +530,6 @@
     const data = { isDemo:false, sourceName:source.fileName || "Excel-källa" };
     SCHEMAS.forEach(function(schema) {
       data[schema.key] = schemaRowsFromSheet(workbook, schema);
-    });
-    AUXILIARY_SCHEMAS.forEach(function(schema) {
-      data[schema.key] = workbook.Sheets[schema.sheet] ? schemaRowsFromSheet(workbook, schema) : [];
     });
     data.activities = workbook.Sheets[ACTIVITY_SCHEMA.sheet]
       ? schemaRowsFromSheet(workbook, ACTIVITY_SCHEMA)
@@ -638,7 +628,7 @@
     if(label==="Person")return personDisplay(people.find(function(x){return x.id===row.personId;}));
     if(label==="Från person")return personDisplay(people.find(function(x){return x.id===row.fromPersonId;}));
     if(label==="Till person")return personDisplay(people.find(function(x){return x.id===row.toPersonId;}));
-    if(label==="Måltyp"){if(row.targetType==="property")return"Fastighet";if(row.targetType==="object")return"Objekt";if(row.targetType==="contract")return"Avtal";if(row.targetType==="organization")return"Part";if(row.targetType==="business")return"Verksamhet";if(["activity","project","maintenance","driftIssue","wish","maintenanceStatus","investigation"].includes(row.targetType))return"Aktivitet";return row.targetType||"";}
+    if(label==="Måltyp"){if(row.targetType==="property")return"Fastighet";if(row.targetType==="object")return"Objekt";if(row.targetType==="contract")return"Avtal";if(row.targetType==="organization")return"Part";if(row.targetType==="business")return"Verksamhet";if(["activity"].includes(row.targetType))return"Aktivitet";return row.targetType||"";}
     if(label==="Mål"){if(row.targetType==='object'){const o=(data.objects||[]).find(o=>o.id===row.targetId);return o?o.number||o.name||o.id:row.targetId;}if(row.targetType==='organization')return orgDisplay(organizations.find(o=>o.id===row.targetId));if(row.targetType==='business')return unitDisplay(row.targetId);const lookups=[[properties,propertyDisplay],[contracts,contractDisplay],[data.activities||[],function(x){return x.title||x.id;}],[data.projects||[],function(x){return x.name||x.id;}],[data.maintenance||[],function(x){return x.title||x.id;}],[data.driftIssues||[],function(x){return x.title||x.id;}],[data.wishes||[],function(x){return x.title||x.id;}]];for(const lookup of lookups){const found=(lookup[0]||[]).find(function(x){return x.id===row.targetId;});if(found)return lookup[1](found);}return row.targetId||"";}
     return "";
   }
@@ -813,7 +803,7 @@
     const base = blank ? {
       isDemo:false, sourceName:handle.name || "Lokalblick-data.xlsx",
       properties:[], contracts:[], organizations:[], people:[], orders:[], activities:[],
-      recurringCosts:[], maintenanceStatus:[], budgetPlans:[], auditLog:[], sourceRegistry:[], importReview:[], documents:[], indexSeries:[]
+      recurringCosts:[],  budgetPlans:[], auditLog:[], sourceRegistry:[], importReview:[], documents:[], indexSeries:[]
     } : clone(data || {});
     base.isDemo = false;
     base.sourceName = handle.name || "Lokalblick-data.xlsx";
@@ -1453,7 +1443,7 @@
     const adapters=[window.LokalblickOperationalEnrichmentAdapter,window.LokalblickProject2027Adapter,window.LokalblickContractEnrichmentAdapter];
     const unknown=sources.filter(({workbook})=>!window.LokalblickMigrationAdapter?.detect(workbook)&&!adapters.some(a=>a?.detect(workbook))&&!(window.LokalblickContractEnrichmentAdapter?.parseIndexWorkbook(workbook,'')||[]).length);
     if(unknown.length){
-      const combined=await engine.combineImportSources(unknown.map(s=>s.file),selectedSheets,XLSX),schemas=SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS);
+      const combined=await engine.combineImportSources(unknown.map(s=>s.file),selectedSheets,XLSX),schemas=SCHEMAS.concat([ACTIVITY_SCHEMA]);
       const profiles=engine.profileWorkbook(combined.workbook,schemas,XLSX,output.importMappings||[]);
       const result=engine.prepareMappedImport(combined.workbook,profiles,output,{schemas,fileName:unknown.map(s=>s.file.fileName).join(', '),fingerprint:combined.fingerprint,actor:'Excelimport'},XLSX);output=result.data;stages.push(result.report);canonicalizeModel(output);
     }
@@ -1598,7 +1588,7 @@
 
   window.LokalblickSourceService = {
     fieldLabel:fieldLabel,
-    schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS),
+    schemas:SCHEMAS.concat([ACTIVITY_SCHEMA]),
     workbookToData:workbookToData,
     dataToWorkbook:dataToWorkbook,
     isCanonicalDataWorkbook:isCanonicalDataWorkbook,
@@ -1633,8 +1623,8 @@
     enrichOperational:enrichOperational,
     importIndexSeries:importIndexSeries,
     async importSupplement(data,key){
-      const schema=SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).find(function(s){return s.key===key;});
-      if(!schema||!["activities","recurringCosts","maintenanceStatus"].includes(key))throw new Error("Denna kompletterande källa stöds inte.");
+      const schema=SCHEMAS.concat([ACTIVITY_SCHEMA]).find(function(s){return s.key===key;});
+      if(!schema||!["activities","recurringCosts"].includes(key))throw new Error("Denna kompletterande källa stöds inte.");
       const picked=await readSecondaryWorkbook(schema.sheet);
       return window.LokalblickSupplementalAdapter.analyze(picked.workbook,data,schema,picked.file.name);
     },
