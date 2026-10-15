@@ -152,3 +152,18 @@ test('one sheet enriches property and contract tables independently by column',(
  assert.equal(result.data.properties[0].provenance.address.cell,'C2');
  assert.equal(result.data.contracts[0].provenance.end.cell,'E2');
 });
+
+test('recurring cost import attaches to property and stays idempotent',()=>{
+ const sheet=fixture([
+  ['Fastighetsbeteckning','Ort','Kostnad','Årskostnad, kr','Från år'],
+  ['Ek 1','Malmö','El',12000,2027]
+ ],'Löpande kostnader');
+ const first=run(sheet);
+ assert.equal(first.data.properties.length,1);
+ assert.equal(first.data.recurringCosts.length,1);
+ assert.equal(first.data.recurringCosts[0].propertyId,first.data.properties[0].id);
+ assert.equal(first.data.recurringCosts[0].annualAmount,12000);
+ const second=run(sheet,first.data);
+ assert.equal(second.data.recurringCosts.length,1);
+ assert.equal(second.data.recurringCosts[0].id,first.data.recurringCosts[0].id);
+});
