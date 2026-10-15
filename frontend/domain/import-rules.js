@@ -5,7 +5,7 @@
   const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   const key=x=>String(x??'').trim().toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'');
   const exactKey=x=>String(x??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('sv');
-  const entities=['organizations','people','properties','objects','contracts','activities','orders','businesses','contractBusinesses','assignments','recurringCosts','maintenanceStatus'];
+  const entities=['organizations','people','properties','objects','contracts','activities','orders','businesses','contractBusinesses','assignments','recurringCosts'];
   const protectedField=field=>['id','sourceId','objectId','propertyId','contractId','activityId'].includes(field);
   // A fresh index belongs to one import run. Buckets retain all candidates so
   // duplicate identities are still reviewed rather than arbitrarily selected.
