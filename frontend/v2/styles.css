@@ -2952,29 +2952,12 @@ body[data-view="budget"] .budget-rent-delta strong{color:var(--ui-color-text);fo
 /* The fixed edit perimeter is defined once in CANONICAL EDIT MODE below. */
 #editor-edit-frame { display:none; }
 
-/* The values are REGULAR text in both Visa and Redigera, not bold labels.
-   Existing read-only and issue rules used weights 600/650; override only
-   data values, preserving headings and action buttons. */
-#editor-root .editor #edit-form :is(
-  .editor-mode-value,
-  input.editor-mode-control:not([type="checkbox"]):not([type="radio"]),
-  select.editor-mode-control,
-  textarea.editor-mode-control,
-  .issue-main-section .issue-mode-field .issue-field-value,
-  .issue-main-section .issue-mode-field .issue-field-control input,
-  .issue-main-section .issue-mode-field .issue-field-control select,
-  .issue-main-section .issue-mode-field .issue-field-control textarea,
-  .issue-property-reference strong,
-  .issue-history-value,
-  .issue-history-edit input,
-  .issue-history-edit select,
-  .issue-history-edit textarea
-) {
+/* The property reference uses strong markup for semantic grouping, but the
+   value (like all other editor data) is regular weight in both modes. */
+#editor-root .editor #edit-form .issue-property-reference strong {
   font-family:inherit!important;
   font-weight:400!important;
 }
-
-
 
 /* Compact central registers under Mer > Inställningar */
 .activity-option-settings{margin:0 0 18px;max-width:1100px}
