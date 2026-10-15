@@ -1,3 +1,14 @@
+> **2026-10-15: Clean model decision.** Only `frontend/v2/` is the active app.
+> The V1 app and migration of previous Lokalblick tables were retired.
+> `activities` stores all cases (project, maintenance, operation, wish,
+> investigation); `recurringCosts` stores annual expenses associated with
+> property or contract; `orders` and `assignments` are separate canonical
+> relations. External Excel/LEB import remains supported. Local file, internal
+> database and approved external database must share one authenticated API;
+> database connectors remain an architectural target, not a completed feature.
+> Published CPI determines ordinary rent; manual KPI belongs exclusively
+> to the budget scenario. Locked budget versions stay immutable.
+
 # Lokalblick architecture
 
 ## Separation
@@ -29,7 +40,7 @@ Authenticated with Microsoft Entra ID. The same frontend is hosted inside the
 company environment and points to the authenticated backend. The backend reads
 and writes the approved Microsoft 365 data sources.
 
-## Migration rule
+## Provider substitution (not data migration)
 
 UI and business logic stay reusable. Only these adapters change:
 
@@ -105,7 +116,7 @@ The frontend must not:
 
 Every saved create/update/delete action goes through the Lokalblick API and is persisted by the backend.
 
-Source/master data such as LEB may remain read-only in its source system. Lokalblick-created data and overlays — including projects, people, assignments, maintenance, drift issues, wishes, investigations, budgets, coordinates and object complements — are persisted in backend-controlled storage.
+Source/master data such as LEB may remain read-only in its source system. Lokalblick-created data and overlays — including activities, people, assignments, recurring costs, orders, budgets, coordinates and object complements — are persisted in backend-controlled storage.
 
 The public GitHub Pages demo is the only exception: synthetic demo state may use browser storage because it contains no real customer data.
 
@@ -120,7 +131,7 @@ For each year:
 2. The user may add explicit positive or negative adjustment amounts at the relevant budget category.
 3. The annual budget is the frozen detail snapshot plus those explicit adjustment amounts.
 4. When the budget is locked, its detail snapshot, adjustments, targets and lock metadata are immutable baseline data.
-5. Later changes to maintenance, projects, operations, wishes and other source details feed the current forecast, not the locked budget.
+5. Later changes to activities and recurring costs feed the current forecast, not the locked budget.
 6. Actual cost is tracked separately from both budget and forecast.
 7. Every budget/forecast/actual amount must remain traceable to where the cost belongs and when it is expected or incurred.
 
@@ -143,7 +154,7 @@ The backend is the persistence authority for locked annual budget snapshots in p
 
 ## Maintenance planning invariant
 
-Maintenance planning is kept on the same maintenance record; the planner does not create duplicate planning objects.
+Maintenance planning is kept on an activity record of type Underhåll; the planner does not create duplicate planning objects.
 
 Optional planning fields:
 
@@ -159,7 +170,7 @@ Rules:
 - selecting a quarter clears a previously selected month
 - clearing planning removes both fields
 - changing timing changes the current plan/forecast, not an already locked annual budget snapshot
-- the UI may show quarterly and monthly views of the same record, but there is only one maintenance item in persistence
+- the UI may show quarterly and monthly views of the same record, but there is only one activity in persistence
 
 
 ## Planning roll-up invariant
@@ -173,9 +184,9 @@ detail item -> property -> organizational area -> portfolio
 ```
 
 The unified annual plan includes:
-- maintenance needs and maintenance-status actions
-- projects with a planned budget/cost
-- costed drift issues
+- activities of type Underhåll
+- activities of type Projekt, Utredning and Drift with a planned cost
+- separate recurring costs on properties or agreements
 
 Quarterly planning is the default overview. Monthly planning is an optional refinement of the same item.
 
@@ -183,7 +194,7 @@ Changing a period in any planning view changes the same underlying item. Portfol
 
 Roll-ups must support at least:
 - cost and item count per Q1-Q4 or month 1-12
-- cost by maintenance / project / drift
+- cost by activity type, and separately recurring expenses
 - cost and unplaced item count by property
 - filtering by organizational area and current portfolio scope
 - traceability from aggregate cost to the exact source item
@@ -210,10 +221,7 @@ Selection answers **what the user is looking at**:
 Perspective answers **what the user wants to see**:
 - Alla
 - Fastigheter
-- Underhåll
-- Projekt
-- Drift
-- Önskemål
+- Ärenden (with type filters for Underhåll, Projekt, Drift, Önskemål, Utredning)
 - Avtal
 
 Every perspective follows the same visual rule:
@@ -233,7 +241,7 @@ Solgården + Underhåll
 
 are the same Underhåll perspective at three different zoom levels.
 
-"Alla" is a state, not a module. Organizational area/property is selection. Underhåll/Projekt/Drift/Önskemål/Avtal are perspectives.
+"Alla" is a state, not a module. Organizational area/property is selection. Underhåll/Projekt/Drift/Önskemål are filters of the same Ärenden perspective; Avtal remains part of Bestånd.
 
 
 ## Shared selection invariant
