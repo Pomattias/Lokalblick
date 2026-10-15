@@ -830,8 +830,10 @@ function refreshEditorFrame() {
   syncEditorFrame(activeEditableForm());
 }
 // Observe only dialog entry/exit and editor nodes; the frame itself is idempotent.
-const editFrameObserver=new MutationObserver(refreshEditorFrame);
-editFrameObserver.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["open"]});
+if (typeof MutationObserver !== "undefined" && document.body) {
+  const editFrameObserver=new MutationObserver(refreshEditorFrame);
+  editFrameObserver.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["open"]});
+}
 
 function setEditorReadMode(readOnly){
   const form=editorForm();
