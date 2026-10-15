@@ -217,7 +217,7 @@ test("budget snapshot resolves the exact October index used", () => {
       year: 2026,
       month:10,
       value: 425,
-      source: "Manuellt preliminärt index",
+      source: "Budgetscenario · eget KPI",
       status: "Preliminär",
     },
   );
