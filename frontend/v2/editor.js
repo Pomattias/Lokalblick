@@ -271,18 +271,6 @@ export function readEditor(form, record) {
         out.budgetCategory = defaults[out.type] || record.budgetCategory || "Ej budget";
     }
   }
-  // On the first edit of an old contract, migrate its legacy Media amount
-  // into the visible Tillägg field and explicitly zero the duplicate alias.
-  // Do not alter imported contracts that the user has not edited.
-  if (form.dataset?.collection === "contracts" && submitted.has("baseAdditions") &&
-      Number(record.annualContractDrift) > 0 && !(Number(record.baseAdditions) > 0)) {
-    if (out.additionIndexPercent === "" || out.additionIndexPercent == null)
-      out.additionIndexPercent = 0;
-    // A 0% non-indexed annual addition is safe to migrate immediately.
-    // Keep the old source as fallback if a new indexed base needs verification.
-    if (Number(out.additionIndexPercent) === 0)
-      out.annualContractDrift = 0;
-  }
   if (Number(out.planningMonth)) {
     if (out.planningMonth < 1 || out.planningMonth > 12)
       throw Error("Månad måste vara 1–12");
