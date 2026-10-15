@@ -55,10 +55,6 @@
   // Compatibility-only data: preserved for older imports and calculations,
   // but not written as parallel visible business sheets in model v5.
   const AUXILIARY_SCHEMAS = [
-    { sheet:"Kostnader", key:"operations", prefix:"KOST", columns:[
-      ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],
-      ["period","År"],["category","Kategori"],["budget","Budget"],["actual","Utfall"]
-    ], display:["Fastighet","Avtal"] },
     { sheet:"Status", key:"maintenanceStatus", prefix:"MS", columns:[
       ["id","_id",true],["contractId","_contractId",true],["propertyId","_propertyId",true],["category","Kategori"],["assessedDate","Bedömd"],["status","Status"],["priority","Prioritet"],["comment","Kommentar"],["actionNeed","Åtgärdsbehov"],["budgetYear","Budgetår"],["estimatedCost","Bedömd kostnad"],["includeInBudget","Ta med i budget"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
     ], display:["Fastighet","Avtal"] }
@@ -470,7 +466,7 @@
       const d=row["__display_Ansvarig hos oss"] || row.__display_Ansvarig;
       if (!row.responsiblePersonId && d) { const m=byDisplay(people,d,personDisplay); if(m) row.responsiblePersonId=m.id; }
     }
-    ["activities","operations","maintenanceStatus","projects","maintenance","investigations","driftIssues","wishes"].forEach(function(key) { (data[key]||[]).forEach(resolveCommon); });
+    ["activities","recurringCosts","maintenanceStatus","projects","maintenance","investigations","driftIssues","wishes"].forEach(function(key) { (data[key]||[]).forEach(resolveCommon); });
     (data.orders||[]).forEach(function(row){
       if(!row.activityId && row.__display_Aktivitet){ const m=byDisplay(activities,row.__display_Aktivitet,function(x){return x.title||x.id;}); if(m) row.activityId=m.id; }
       if(!row.orderedByPersonId && row["__display_Beställd av"]){ const m=byDisplay(people,row["__display_Beställd av"],personDisplay); if(m) row.orderedByPersonId=m.id; }
@@ -571,7 +567,7 @@
     data=data||{};
     ["properties","objects","contracts","organizations","people","contacts","orders","activities","operations","maintenanceStatus","auditLog","sourceRegistry","importReview","documents"].forEach(function(key){ if(!Array.isArray(data[key])) data[key]=[]; });
     if (!data.organizations.length && Array.isArray(data.legacyOrganizations)) data.organizations=data.legacyOrganizations.map(function(x){return clone(x);});
-    if (!data.operations.length && Array.isArray(data.legacyOperations)) data.operations=data.legacyOperations.map(function(x){return clone(x);});
+
     function ensureParty(name,type){ const label=String(name||"").trim();if(!label)return "";let p=data.organizations.find(function(x){return (!type||x.type===type)&&String(x.name||"").trim().toLowerCase()===label.toLowerCase();});if(!p){p={id:nextStableId("PART",data.organizations),name:label,type:type||"business",ownerClass:type==="owner"?"Extern":""};data.organizations.push(p);}return p.id; }
     function validOwnerManager(personId, property){ const person=data.people.find(function(x){return x.id===personId;});const owner=data.organizations.find(function(x){return x.id===property?.ownerPartyId;});if(person && /\bJULDAM\b/i.test([person.name,person.sourceId,person.id].join(" ")) && !/stadsfastigheter/i.test(owner?.name||""))return false;return Boolean(person && property && property.ownerPartyId && person.organizationId === property.ownerPartyId); }
     function isOurPerson(id){const p=data.people.find(function(x){return x.id===id;});if(!p)return false;if(!p.organizationId)return true;return data.organizations.find(function(x){return x.id===p.organizationId;})?.type==="our";}
@@ -939,7 +935,7 @@
     const base = blank ? {
       isDemo:false, sourceName:handle.name || "Lokalblick-data.xlsx",
       properties:[], contracts:[], organizations:[], people:[], orders:[], activities:[],
-      operations:[], maintenanceStatus:[], budgetPlans:[], auditLog:[], sourceRegistry:[], importReview:[], documents:[], indexSeries:[]
+      recurringCosts:[], maintenanceStatus:[], budgetPlans:[], auditLog:[], sourceRegistry:[], importReview:[], documents:[], indexSeries:[]
     } : clone(data || {});
     base.isDemo = false;
     base.sourceName = handle.name || "Lokalblick-data.xlsx";
@@ -1760,7 +1756,7 @@
     importIndexSeries:importIndexSeries,
     async importSupplement(data,key){
       const schema=SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).find(function(s){return s.key===key;});
-      if(!schema||!["activities","operations","maintenanceStatus"].includes(key))throw new Error("Denna kompletterande källa stöds inte.");
+      if(!schema||!["activities","recurringCosts","maintenanceStatus"].includes(key))throw new Error("Denna kompletterande källa stöds inte.");
       const picked=await readSecondaryWorkbook(schema.sheet);
       return window.LokalblickSupplementalAdapter.analyze(picked.workbook,data,schema,picked.file.name);
     },
