@@ -1,15 +1,14 @@
+import {isoDateTime,isoDate} from "./date-format.js";
 // Case journal: an append-only timeline stored in the existing auditLog.
 // Entries remain distinct from editable descriptions, cost estimates and dates.
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const cost=new Intl.NumberFormat("sv-SE",{maximumFractionDigits:0});
 const labels={estimatedCost:"Bedömd kostnad",startDate:"Startdatum",endDate:"Slutdatum"};
-const dateLabel=value=>{
- const d=new Date(value);
- return Number.isNaN(d.getTime())?"Datum saknas":d.toLocaleString("sv-SE",{dateStyle:"short",timeStyle:"short"});
-};
+const dateLabel=value=>value?isoDateTime(value):"Datum saknas";
 const formatValue=(field,value)=>{
  if(value==null||value==="")return "Ej angivet";
  if(field==="estimatedCost"&&Number.isFinite(Number(value)))return cost.format(Number(value)/1000)+" tkr";
+ if(field==="startDate"||field==="endDate")return isoDate(value);
  return String(value);
 };
 export function activityJournalEntries(data,id){
