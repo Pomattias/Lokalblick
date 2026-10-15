@@ -11,6 +11,7 @@
     "company:api": "node backend/company/server.js",
     "setup:company": "node scripts/setup-company.mjs",
     "test:browser": "node scripts/browser-check.mjs",
+    "test:editor-browser": "node scripts/editor-geometry-browser-check.mjs",
     "test:budget-browser": "node scripts/integration-browser-check.mjs",
     "test:integration-browser": "node scripts/integration-browser-check.mjs",
     "test:map-browser": "node scripts/integration-browser-check.mjs"
