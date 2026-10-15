@@ -11,7 +11,7 @@
 - När man trycker Ångra, sparar eller lämnar redigeraren gäller befintlig återställning, validering och historik.
 - Hjälptexter, knappar för ytterligare åtgärder och kartor påverkas inte av värdeomkopplingen. Åtgärdsknappar kan vara visuellt reserverade för att inte ändra layouten när redigering aktiveras.
 
-- På mobil visas en tunn grön ram runt hela skärmen enbart i aktivt Redigera-läge. Den skapas som ett eget fixerat DOM-element direkt på `body`, utan att ändra layout, skroll, fältstorlekar eller typografi; den tas bort när Redigera avslutas.
+- På mobil visas en skarp grön ram med en subtil, Siri-inspirerad flerfärgad fade **utanför** linjen enbart i aktivt Redigera-läge. Ramen har ca 13 px marginal för att glöden ska synas. Effekten utgörs av utåtriktade CSS-skuggor (aldrig `inset`), ligger på ett eget fixerat DOM-element direkt på `body` och påverkar inte innehåll, layout, skroll, fältstorlekar eller typografi. Den tas bort när Redigera avslutas.
 
 ## Testa vid fortsatta ändringar
 

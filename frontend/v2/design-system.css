@@ -1429,14 +1429,25 @@ body[data-view="budget"] .budget-rent-delta strong{color:var(--ui-color-text);fo
   body.editor-frame-active > #editor-edit-frame {
     display:block!important;
     position:fixed!important;
-    top:max(4px,env(safe-area-inset-top,0px));
-    right:4px;
-    bottom:max(4px,env(safe-area-inset-bottom,0px));
-    left:4px;
+    /* Reserve a narrow visible strip OUTSIDE the sharp green perimeter.
+       Outer (non-inset) colored shadows fade into the screen edge; never
+       paint over the form or capture touches, including on iPhone Safari. */
+    top:max(13px,env(safe-area-inset-top,0px));
+    right:13px;
+    bottom:max(13px,env(safe-area-inset-bottom,0px));
+    left:13px;
     box-sizing:border-box;
     border:3px solid #177b5d;
-    border-radius:15px;
-    box-shadow:0 0 0 1px rgba(255,255,255,.7),inset 0 0 0 1px rgba(255,255,255,.8);
+    border-radius:17px;
+    box-shadow:
+      0 0 0 1px rgba(245,255,252,.82),
+      -10px -5px 15px -5px rgba(81,148,247,.48),
+      10px -5px 16px -5px rgba(255,144,177,.43),
+      -10px 7px 18px -5px rgba(144,110,229,.34),
+      10px 7px 18px -5px rgba(65,204,164,.43),
+      0 -8px 19px -4px rgba(255,180,120,.32),
+      0 9px 20px -4px rgba(70,176,221,.37),
+      0 0 12px 0 rgba(33,165,125,.22);
     z-index:2147483000!important;
     pointer-events:none!important;
     opacity:1;

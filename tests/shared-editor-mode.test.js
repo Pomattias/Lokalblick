@@ -170,3 +170,24 @@ test("editing frame lifecycle creates one real element and cleans up on exit",()
     assert.ok(!classes.has("editor-frame-active"));
   }finally{globalThis.document=oldDocument;}
 });
+
+test("Siri-inspired fade stays outside the green mobile editing outline",()=>{
+  const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+  const start=css.indexOf("body.editor-frame-active > #editor-edit-frame {");
+  const end=css.indexOf("}",start);
+  assert.ok(start>=0&&end>start,"editing outline must exist");
+  const frame=css.slice(start,end);
+  assert.match(frame,/right:13px;/);
+  assert.match(frame,/left:13px;/);
+  assert.match(frame,/border:3px solid #177b5d;/);
+  assert.match(frame,/box-shadow:/);
+  assert.match(frame,/rgba\(81,148,247,/,"soft blue outside glow");
+  assert.match(frame,/rgba\(255,144,177,/,"soft pink outside glow");
+  assert.match(frame,/rgba\(65,204,164,/,"soft green outside glow");
+  assert.doesNotMatch(frame,/\binset\s+\d+px|\bbackground:|\bfilter:blur/,"no inner-facing glow");
+  assert.match(frame,/pointer-events:none!important/);
+  assert.match(frame,/z-index:2147483000!important/);
+  assert.doesNotMatch(frame,/\b(?:font-size|font-weight|transform|zoom|margin|padding)\s*:/);
+  assert.ok(css.includes("#editor-edit-frame { display:none; }"),
+    "hidden in view mode");
+});
