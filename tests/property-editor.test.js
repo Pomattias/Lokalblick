@@ -32,6 +32,15 @@ test("Fastighet is a single editor, no tabs or geocode administration fields",()
   assert.match(html,/<small class="property-heading-address">Hamnvägen 12<\/small>/);
   assert.doesNotMatch(html,/ÄNDRA FASTIGHET|<h2 id="editor-title">Fastighet<\/h2>/);
   assert.match(html,/name="designation"/);
+  assert.match(html,/name="address"/);
+  assert.match(html,/class="property-heading-edit property-heading-edit-title"/);
+  assert.match(html,/class="property-heading-edit property-heading-edit-address"/);
+  assert.match(html,/data-editor-mode-exclude/);
+  assert.equal((html.match(/name="designation"/g)||[]).length,1,
+    "Fastighetsbeteckningen är ett enda redigerbart rubrikfält");
+  assert.equal((html.match(/name="address"/g)||[]).length,1,
+    "Adressen är ett enda redigerbart underrubriksfält");
+  assert.doesNotMatch(html,/<label class="property-field"><span class="field-name">(?:Fastighetsbeteckning|Adress)<\/span>/);
   assert.match(html,/name="ownerPartyId"/);
   assert.match(html,/name="ownerResponsiblePersonId"/);
   assert.match(html,/name="responsiblePersonId"/);
