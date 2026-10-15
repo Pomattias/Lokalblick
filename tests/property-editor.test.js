@@ -39,9 +39,12 @@ test("Fastighet is a single editor, no tabs or geocode administration fields",()
   assert.match(html,/Vår kontakt/);
   assert.match(html,/Verksamhetschef/);
   assert.match(html,/Vårdbo · A-100/);
-  assert.match(html,/class="property-person-field property-business-contact"/);
+  assert.match(html,/class="property-person-field"/);
+  assert.doesNotMatch(html,/property-contact-list|property-business-contact/);
   assert.equal((html.match(/class="property-contact-row"/g)||[]).length,0);
-  assert.equal((html.match(/class="property-person-field/g)||[]).length,3);
+  assert.equal((html.match(/class="property-person-field"/g)||[]).length,3);
+  assert.ok(html.indexOf('name="responsiblePersonId"')<html.indexOf('data-property-contract-contact="a1"'),
+    "All contacts share one ordered grid");
   assert.match(html,/data-property-contract-contact="a1"/);
   assert.match(html,/data-contract-id="a1"/);
   assert.match(html,/id="property-editor-map"/);
