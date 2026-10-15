@@ -67,15 +67,17 @@ export function renderPropertyEditor(data, p, id, company=false) {
   const geo=hasGeo(p);
   return '<div class="editor-backdrop"></div><aside class="editor property-editor" aria-labelledby="editor-title">'+
     '<form id="edit-form" data-collection="properties" data-record-id="'+esc(id||"")+'">'+
-      '<div class="section-title property-heading"><div class="property-heading-text"><h2 id="editor-title">'+
-      esc(p.designation||p.address||"Ny fastighet")+'</h2>'+
-      '<small class="property-heading-address">'+esc(p.address||"")+'</small></div>'+
+      '<div class="section-title property-heading"><div class="property-heading-text" data-editor-mode-exclude>'+
+      '<h2 id="editor-title">'+esc(p.designation||p.address||"Ny fastighet")+'</h2>'+
+      '<label class="property-heading-edit property-heading-edit-title">'+
+        '<span class="visually-hidden">Fastighetsbeteckning</span>'+textInput(p,"designation",locked)+'</label>'+
+      '<small class="property-heading-address">'+esc(p.address||"")+'</small>'+
+      '<label class="property-heading-edit property-heading-edit-address">'+
+        '<span class="visually-hidden">Adress</span>'+textInput(p,"address",locked)+'</label></div>'+
       '<button type="button" data-editor-close>Stäng</button></div>'+
       '<section class="property-section"><h3>Fastighetsinfo</h3><div class="property-grid">'+
-        control("Fastighetsbeteckning",textInput(p,"designation",locked))+
         control("Fastighetsägare",'<select name="ownerPartyId" data-owner-select>'+
           options(ownerList,x=>x.id,x=>x.name,p.ownerPartyId,"Välj fastighetsägare")+'</select>')+
-        control("Adress",textInput(p,"address",locked))+
         control("Ort",textInput(p,"city"))+
       '</div></section>'+
       '<section class="property-section"><h3>Kontaktpersoner</h3><div class="property-grid">'+
