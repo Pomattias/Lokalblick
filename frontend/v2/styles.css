@@ -3501,3 +3501,82 @@ main .settings-inline-actions button {min-height:31px;padding:5px 9px;font-size:
     grid-template-columns:minmax(0,41%) minmax(0,1fr);
   }
 }
+
+/* The property title/address are the editable fields themselves. No repeated
+   designation/address rows, and no change of header footprint between modes. */
+.property-editor #edit-form .property-heading-text {
+  display:grid;
+  grid-template-rows:32px 26px;
+  gap:0;
+  align-content:center;
+  flex:1 1 auto;
+  min-width:0;
+}
+.property-editor #edit-form .property-heading-text > :is(h2,.property-heading-edit-title) {
+  grid-row:1;grid-column:1;
+  min-width:0;
+  width:100%;
+  min-height:32px;
+  max-height:32px;
+  height:32px;
+  margin:0;
+}
+.property-editor #edit-form .property-heading-text > :is(.property-heading-address,.property-heading-edit-address) {
+  grid-row:2;grid-column:1;
+  min-width:0;
+  width:100%;
+  height:26px;
+  min-height:26px;
+  max-height:26px;
+  margin:0;
+}
+.property-editor #edit-form .property-heading-edit {
+  display:none;
+}
+.property-editor #edit-form .property-heading-edit :is(input) {
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  max-width:100%;
+  height:100%;
+  min-height:0;
+  max-height:100%;
+  margin:0;
+  padding:2px 6px;
+  line-height:1.15;
+  font-family:inherit;
+  font-weight:inherit;
+}
+.property-editor #edit-form .property-heading-edit-title input,
+.property-editor #edit-form #editor-title {
+  font-size:20px!important;
+  font-weight:600!important;
+  line-height:1.15;
+}
+.property-editor #edit-form .property-heading-edit-address input,
+.property-editor #edit-form .property-heading-address {
+  font-size:16px!important;
+  font-weight:400!important;
+  line-height:1.15;
+  color:var(--muted);
+}
+.property-editor #edit-form.editor-editing .property-heading-text > :is(#editor-title,.property-heading-address) {
+  display:none;
+}
+.property-editor #edit-form.editor-editing .property-heading-edit {
+  display:block;
+}
+.property-editor #edit-form .property-heading {padding:0 0 3px;margin:0 0 2px;min-height:0;}
+.property-editor #edit-form .property-section {padding:3px 0 2px;}
+.property-editor #edit-form .property-section > h3 {margin:0 0 1px;}
+.property-editor #edit-form .property-grid {gap:0;}
+.property-editor #edit-form .property-grid > :is(.property-field,.property-person-field) {margin:0;}
+.property-editor #edit-form .property-person-field > label {min-height:34px;}
+.property-editor #edit-form .property-contact-context {font-size:10px;line-height:1.1;margin:0;}
+.property-editor #edit-form .responsibility-section {padding:2px 0;}
+.property-editor #edit-form .responsibility-section details {margin:0;}
+@media(max-width:700px) {
+  .property-editor #edit-form .property-heading {margin:0 0 2px;}
+  .property-editor #edit-form .property-heading-text {grid-template-rows:32px 26px;}
+  .property-editor #edit-form .property-heading-edit-address input {font-size:16px!important;}
+}
