@@ -150,6 +150,12 @@ export function normalize(data) {
     }
   }
   markCrossObjectReviews(canonical);
+  // A source's open-review count is derived, never a separately persisted fact.
+  for(const source of canonical.sourceRegistry) {
+    source.review=canonical.importReview.filter(item=>
+      item.status==="pending" && (!source.name || item.source===source.name)
+    ).length;
+  }
   canonical.activityOptions = normalizeActivityOptions(
     canonical.activityOptions, canonical.activities,
   );
