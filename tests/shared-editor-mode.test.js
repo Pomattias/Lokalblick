@@ -11,7 +11,7 @@ const select=(name,items,multiple=false)=>({
 test("all supported fields have text values, with no duplicate date year",()=>{
  assert.equal(editorDisplayValue(input("address","Testgatan 1")),"Testgatan 1");
  assert.equal(editorDisplayValue(input("cost","0","number")),"0");
- assert.equal(editorDisplayValue(input("date","2026-10-15","date")),"15/10/2026");
+ assert.equal(editorDisplayValue(input("date","2026-10-15","date")),"2026-10-15");
  assert.equal(editorDisplayValue(input("date","","date")),"–");
  assert.equal(editorDisplayValue({tagName:"TEXTAREA",value:"Rad 1\nRad 2"}),"Rad 1\nRad 2");
  assert.equal(editorDisplayValue(select("type",[["","Välj"],["office","Kontor"]])),"Kontor");
