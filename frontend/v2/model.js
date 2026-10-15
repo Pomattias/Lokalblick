@@ -128,50 +128,42 @@ function normalizeOwnerRelations(out) {
 export function normalize(data) {
   const out = clone(data || {});
   const metadata = (out.budgetData || []).find(
-    (x) => x.id === "lokalblick-v2-workspace",
+    (row) => row.id === "lokalblick-v2-workspace",
   );
   if (metadata) Object.assign(out, metadata.workspace);
-  out.activityOptions=normalizeActivityOptions(out.activityOptions);
-  collections.forEach((k) => {
-    if (!Array.isArray(out[k])) out[k] = [];
+
+  collections.forEach((key) => {
+    if (!Array.isArray(out[key])) out[key] = [];
   });
-  globalThis.LokalblickBusinessModel.normalize(out);
-  globalThis.LokalblickResponsibility.normalize(out);
-  // Validate the new canonical cost model before any persistence path uses it.
-  // Old `operations` rows are deliberately not migrated into the new product.
-  globalThis.LokalblickRecurringCosts?.validateCosts(out);
+  // Normalize each relation once, in dependency order. Input aliases are
+  // handled only at the boundary; no old Lokalblick tables are migrated.
   normalizeOwnerRelations(out);
-  // An activity without a home is a planning task, not an import conflict.
-  // Preserve the historical review record while removing it from the open queue.
-  for (const review of out.importReview) {
-    if (review.status === "pending" && review.kind === "activity-property") {
-      review.status = "planning";
-      review.resolutionReason = "Hemvist tilldelas under Planera.";
-    }
-  }
-  markCrossObjectReviews(out);
-  for (const source of out.sourceRegistry) {
-    source.review = out.importReview.filter(item =>
-      item.status === "pending" && (!source.name || item.source === source.name)
-    ).length;
-  }
-  out.contracts.forEach((c) => {
-    c.start = c.start ?? c.originalValidFrom ?? "";
-    c.end = c.end ?? c.currentValidTo ?? "";
-    c.notice = c.notice ?? c.noticeBy ?? "";
+  out.contracts.forEach((contract) => {
+    contract.start ??= contract.originalValidFrom ?? "";
+    contract.end ??= contract.currentValidTo ?? "";
+    contract.notice ??= contract.noticeBy ?? "";
   });
   const canonical = globalThis.LokalblickResponsibility.normalize(
     globalThis.LokalblickBusinessModel.normalize(
       globalThis.LokalblickObjectModel.normalize(canonicalRelations(out))
     )
   );
-  // Include unknown imported categories/statuses in administration as inactive
-  // options without altering their original values in activities or budgets.
-  canonical.activityOptions=normalizeActivityOptions(canonical.activityOptions,canonical.activities);
-  // Retired collections are not imported, persisted or converted in the new app.
-  for(const key of ["contacts","projects","maintenance","investigations",
-    "driftIssues","wishes","assignmentChanges","operations","driftCosts",
-    "maintenanceStatus","legacyOrganizations"]) delete canonical[key];
+  globalThis.LokalblickRecurringCosts?.validateCosts(canonical);
+  markCrossObjectReviews(canonical);
+  for (const review of canonical.importReview) {
+    if (review.status === "pending" && review.kind === "activity-property") {
+      review.status = "planning";
+      review.resolutionReason = "Hemvist tilldelas under Planera.";
+    }
+  }
+  canonical.activityOptions = normalizeActivityOptions(
+    canonical.activityOptions, canonical.activities,
+  );
+  for (const key of [
+    "contacts", "projects", "maintenance", "investigations",
+    "driftIssues", "wishes", "assignmentChanges", "operations", "driftCosts",
+    "maintenanceStatus", "legacyOrganizations",
+  ]) delete canonical[key];
   return canonical;
 }
 export function activityPropertyId(data, record) {
