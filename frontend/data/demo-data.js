@@ -948,15 +948,17 @@ window.LokalblickDemoData = {
       ]
     }
   ],
-  "operations": [
+  "recurringCosts": [
     {
       "id": "KOST-DEMO-101",
-      "propertyId": "DEMO-101",
+      "name": "Energi",
+      "propertyId": "",
       "contractId": "AVT-DEMO-101",
-      "period": 2027,
       "category": "Energi",
-      "budget": 640000,
-      "actual": 0
+      "annualAmount": 640000,
+      "startYear": 2027,
+      "endYear": null,
+      "actuals": []
     }
   ],
   "maintenanceStatus": [
