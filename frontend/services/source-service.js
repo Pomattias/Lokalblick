@@ -565,7 +565,7 @@
   }
   function canonicalizeModel(data) {
     data=data||{};
-    ["properties","objects","contracts","organizations","people","contacts","orders","activities","operations","maintenanceStatus","auditLog","sourceRegistry","importReview","documents"].forEach(function(key){ if(!Array.isArray(data[key])) data[key]=[]; });
+    ["properties","objects","contracts","organizations","people","contacts","orders","activities","recurringCosts","maintenanceStatus","auditLog","sourceRegistry","importReview","documents"].forEach(function(key){ if(!Array.isArray(data[key])) data[key]=[]; });
     if (!data.organizations.length && Array.isArray(data.legacyOrganizations)) data.organizations=data.legacyOrganizations.map(function(x){return clone(x);});
 
     function ensureParty(name,type){ const label=String(name||"").trim();if(!label)return "";let p=data.organizations.find(function(x){return (!type||x.type===type)&&String(x.name||"").trim().toLowerCase()===label.toLowerCase();});if(!p){p={id:nextStableId("PART",data.organizations),name:label,type:type||"business",ownerClass:type==="owner"?"Extern":""};data.organizations.push(p);}return p.id; }
@@ -616,8 +616,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
-  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
+  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","recurringCosts","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
+  const RESTORE_EXTRA_KEYS = ["recurringCosts","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
