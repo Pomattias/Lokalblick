@@ -1,3 +1,4 @@
+import {isoDateTime} from "./date-format.js";
 import {businessList} from './business-editor.js';
 import {recurringCostPanel,openRecurringCostDialog} from "./recurring-costs-ui.js";
 import {activityJournalHtml,appendActivityNote} from "./activity-journal.js";
@@ -115,7 +116,7 @@ function showHistory(type='',id=''){
   const collection={contract:'contracts',activity:'activities',order:'orders',recurringCost:'recurringCosts'}[type]||type;
   const entries=data.auditLog.slice().reverse().filter(h=>!collection||(h.collection===collection&&String(h.recordId)===String(id)));
   const d=document.createElement('dialog');d.className='followup-dialog';
-  d.innerHTML='<h2>Ändringshistorik</h2>'+(entries.length?'':'<p>Ingen sparad ändringshistorik för detta objekt.</p>')+entries.map(h=>'<article><strong>'+esc(h.action)+' · '+esc(h.collection)+' · '+esc(h.recordId)+'</strong><p>'+esc(h.by)+' · '+esc(new Date(h.at).toLocaleString('sv-SE'))+'</p><ul>'+(h.fields||[]).map(f=>'<li>'+esc(f.label||f.field)+': '+esc(typeof f.from==='object'?JSON.stringify(f.from):f.from)+' → '+esc(typeof f.to==='object'?JSON.stringify(f.to):f.to)+'</li>').join('')+'</ul></article>').join('')+'<form method="dialog"><button>Stäng</button></form>';
+  d.innerHTML='<h2>Ändringshistorik</h2>'+(entries.length?'':'<p>Ingen sparad ändringshistorik för detta objekt.</p>')+entries.map(h=>'<article><strong>'+esc(h.action)+' · '+esc(h.collection)+' · '+esc(h.recordId)+'</strong><p>'+esc(h.by)+' · '+esc(isoDateTime(h.at))+'</p><ul>'+(h.fields||[]).map(f=>'<li>'+esc(f.label||f.field)+': '+esc(typeof f.from==='object'?JSON.stringify(f.from):f.from)+' → '+esc(typeof f.to==='object'?JSON.stringify(f.to):f.to)+'</li>').join('')+'</ul></article>').join('')+'<form method="dialog"><button>Stäng</button></form>';
   document.body.append(d);d.onclose=()=>d.remove();d.showModal();
 }
 function showBudgetHistory(year,row) {
@@ -124,7 +125,7 @@ function showBudgetHistory(year,row) {
   const captions={amount:'Budgetbelopp',included:'Ingår i budget',category:'Kategori',source:'Benämning',timing:'Tidplan'};
   const format=(field,value)=>value==null?'—':field==='amount'?money(value):field==='included'?(value===false?'Nej':'Ja'):typeof value==='object'?JSON.stringify(value):String(value);
   const dialog=document.createElement('dialog');dialog.className='followup-dialog';
-  dialog.innerHTML=`<h2>Budgethistorik ${year}</h2><p>${esc(row.source||row.sub||row.category)}</p>${entries.length?entries.map(entry=>`<article><strong>${esc(entry.action)}</strong><p>${esc(entry.by||'Ej angivet')} · ${esc(entry.at?new Date(entry.at).toLocaleString('sv-SE'):'Datum saknas')}</p>${entry.reason?`<p>${esc(entry.reason)}</p>`:''}<ul>${(entry.fields||[]).map(field=>`<li>${esc(captions[field.field]||field.label||field.field)}: ${esc(format(field.field,field.from))} → ${esc(format(field.field,field.to))}</li>`).join('')}</ul></article>`).join(''):'<p>Ingen sparad ändringshistorik för denna budgetpost.</p>'}<form method="dialog"><button>Stäng</button></form>`;
+  dialog.innerHTML=`<h2>Budgethistorik ${year}</h2><p>${esc(row.source||row.sub||row.category)}</p>${entries.length?entries.map(entry=>`<article><strong>${esc(entry.action)}</strong><p>${esc(entry.by||'Ej angivet')} · ${esc(entry.at?isoDateTime(entry.at):'Datum saknas')}</p>${entry.reason?`<p>${esc(entry.reason)}</p>`:''}<ul>${(entry.fields||[]).map(field=>`<li>${esc(captions[field.field]||field.label||field.field)}: ${esc(format(field.field,field.from))} → ${esc(format(field.field,field.to))}</li>`).join('')}</ul></article>`).join(''):'<p>Ingen sparad ändringshistorik för denna budgetpost.</p>'}<form method="dialog"><button>Stäng</button></form>`;
   document.body.append(dialog);dialog.onclose=()=>dialog.remove();dialog.showModal();
 }
 /* Read-only immediate budget projection. Preserve input focus and do not save per keystroke. */
