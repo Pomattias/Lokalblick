@@ -130,7 +130,11 @@
       minPercent:min,maxPercent:max,limitBasis};
   }
   function component(c, kind, year, preliminaryIndex, series, options={}) {
-    const agreed=contractualComponent(c,kind,year,preliminaryIndex,series,options);
+    // Manual CPI is ONLY an explicit budget scenario input.
+    // Ordinary lease calculations never consume scenario assumptions.
+    const scenario=options.scenario===true;
+    const scenarioIndex=scenario?number(preliminaryIndex):0;
+    const agreed=contractualComponent(c,kind,year,scenarioIndex,series,options);
     if(agreed)return agreed;
     const prefix = kind === "addition" ? "addition" : "rent";
     const base = number(kind === "addition" ? c.baseAdditions : c.baseRent);
@@ -151,9 +155,9 @@
       row && !row.preliminary && !/prelim|prognos/i.test(row.source || "")
         ? number(row.value)
         : 0;
-    const ownIndex=number(preliminaryIndex);
-    // Published October takes priority. A preliminary assumption must never
-    // overwrite a confirmed contractual CPI reference in the normal forecast.
+    const ownIndex=scenarioIndex;
+    // Only a budget scenario may override an already confirmed October figure.
+    // Outside the scenario, the contractual rent always uses published CPI.
     const recentMonths=(series||[]).filter(x=>Number(x.year)===indexYear &&
       Number(x.month)>=1 && Number(x.month)<10 && number(x.value)>0 &&
       (!x.seriesBase || seriesBase(x.seriesBase)===basisSeries))
@@ -162,8 +166,10 @@
     const contradictoryMonth=latestMonth && new Set(recentMonths.filter(x=>Number(x.month)===Number(latestMonth.month))
       .map(x=>number(x.value))).size>1;
     const latestMonthlyIndex=contradictoryMonth?0:number(latestMonth?.value);
-    const budgetFallback=options.allowLatestKpi ? budgetIndex({indexSeries:series},year,0,basisSeries).value : 0;
-    const usedIndex=knownIndex||ownIndex||number(row?.value)||latestMonthlyIndex||budgetFallback;
+    const mayForecast=scenario||options.allowLatestKpi===true;
+    const budgetFallback=mayForecast ? budgetIndex({indexSeries:series},year,0,basisSeries).value : 0;
+    const usedIndex=ownIndex||knownIndex||number(row?.value)||
+      (mayForecast?latestMonthlyIndex||budgetFallback:0);
     const bastal = explicitBaseIndex || number(basisRow?.value);
     const rawShare = c[prefix + "IndexPercent"];
     const share = normalizedShare(rawShare);
@@ -192,7 +198,7 @@
     const amount = unindexed ? base : calculated
       ? indexedAmount(base, bastal, share, usedIndex, c[prefix + "Floor"] !== false)
       : sourceAmount;
-    const preliminary = calculated && !unindexed && !knownIndex;
+    const preliminary = calculated && !unindexed && (ownIndex>0 || !knownIndex);
     const missingRentInput = kind !== "addition" && base <= 0 && sourceAmount <= 0;
     const needsReview = missingRentInput ||
       (share > 0 && (incompatible || conflicting || contradictoryMonth)) ||
@@ -268,12 +274,11 @@
   }
   // Derived display value, not a property field.
   function propertyAnnualCost(data, propertyId, year) {
-    const plan=(data.budgetPlans||[]).find(p=>Number(p.year)===Number(year));
     const result={rent:0,addition:0,tax:0,annualCost:0,activeContracts:0,needsReview:0,preliminary:0};
     (data.contracts||[]).filter(c=>c.propertyId===propertyId).forEach(c=>{
       const period=budgetPeriod(c,year);
       if (!period.days) return;
-      const v=annualValues(c,year,plan?.preliminaryIndex,data.indexSeries);
+      const v=annualValues(c,year,0,data.indexSeries);
       result.rent+=v.rent.amount*period.factor;
       result.addition+=v.addition.amount*period.factor;
        result.tax+=v.tax*period.factor;
@@ -512,7 +517,7 @@
     return {value:number(latest.value),year:Number(latest.year),month:Number(latest.month),
       source:latest.source||"SCB KPI",status:"Fastställd"};
   }
-  function budgetIndex(data, year, preliminaryIndex, preferredBase="1980") {
+  function budgetIndex(data, year, preliminaryIndex, preferredBase="1980", options={}) {
     const indexYear=number(year)-1;
     preferredBase=seriesBase(preferredBase)||"1980";
     const entries=((data&&data.indexSeries)||[]).filter(x=>Number(x.year)===indexYear&&number(x.value)>0&&
@@ -523,15 +528,19 @@
     const row=october((data&&data.indexSeries)||[],indexYear,preferredBase);
     if(row?.seriesBase&&seriesBase(row.seriesBase)!==preferredBase)
       return {year:indexYear,month:10,value:0,source:"KPI-seriernas bas skiljer sig",status:"Behöver kontroll"};
+    const own=options.scenario===true?number(preliminaryIndex):0;
+    if(own>0)return {year:indexYear,month:10,value:own,source:"Budgetscenario · eget KPI",status:"Preliminär"};
     const known=row&&!row.preliminary&&!/prelim|prognos/i.test(row.source||"")?number(row.value):0;
     if(known)return {year:indexYear,month:10,value:known,source:row.source||"SCB KPI",status:"Fastställd"};
-    const own=number(preliminaryIndex);
-    if(own>0)return {year:indexYear,month:10,value:own,source:"Manuellt preliminärt index",status:"Preliminär"};
     const latest=latestKnownKpi(data,year,preferredBase);
     if(latest.status==="Behöver kontroll")return {year:indexYear,month:latest.month,value:0,source:latest.source,status:"Behöver kontroll"};
     return {year:indexYear,month:latest.month,value:latest.value,
       source:latest.value?"Senast kända KPI ("+latest.year+"-"+String(latest.month).padStart(2,"0")+")":"",
       status:latest.value?"Preliminär":"Saknas"};
+  }
+
+  function budgetScenarioIndex(data,year,preliminaryIndex,preferredBase="1980"){
+    return budgetIndex(data,year,preliminaryIndex,preferredBase,{scenario:true});
   }
 
   function budgetGroup(row) { return row.category==='Hyra + drift'?'Hyra':row.category==='Projekt'?'Investering':'Drift'; }
@@ -541,7 +550,7 @@
       if((data.contracts||[]).some(c=>budgetPeriod(c,year).invalid))throw Error('Budgeten innehåller ett avtal med ogiltiga datum');
       if((data.activities||[]).some(a=>budgetIncluded(a)&&((a.startDate&&!validDate(a.startDate))||(a.endDate&&!validDate(a.endDate))||(a.startDate&&a.endDate&&a.endDate<a.startDate))))throw Error('Budgeten innehåller en aktivitet med ogiltiga datum');
     }
-    const rows=budgetRows(data,year).map(row=>({...row,baseAmount:row.amount,adjustmentAmount:0,budgetGroup:budgetGroup(row)}));
+    const rows=budgetScenarioRows(data,year).map(row=>({...row,baseAmount:row.amount,adjustmentAmount:0,budgetGroup:budgetGroup(row)}));
     const plan=(data.budgetPlans||[]).find(p=>Number(p.year)===Number(year));
     for(const row of rows){const override=plan?.rowAdjustments?.[budgetRowKey(row)];if(override)row.included=override.included!==false;}
     for(const group of ['Hyra','Investering','Drift']) {
@@ -562,7 +571,7 @@
     for(const line of (plan?.lines||[]).filter(line=>line.sourceType==='manual'))rows.push({...line,baseAmount:line.baseAmount??line.amount,budgetGroup:budgetGroup(line)});
     return rows;
   }
-  function budgetRows(data, year, contracts, properties) {
+  function budgetRows(data, year, contracts, properties, options={}) {
     const rows = [],
       plan = (data.budgetPlans || []).find(
         (p) => Number(p.year) === Number(year),
@@ -588,7 +597,7 @@
     (data.contracts || []).forEach((c) => {
       const period = budgetPeriod(c, year);
       if (!period.days) return;
-      const v = annualValues(c, year, plan?.preliminaryIndex, data.indexSeries, {allowLatestKpi:true});
+      const v = annualValues(c, year, options.scenario===true?plan?.preliminaryIndex:0, data.indexSeries, {scenario:options.scenario===true});
       const status = [v.rent, v.addition].some((x) => x.status === "Behöver kontroll")
         ? "Behöver kontroll"
         : [v.rent, v.addition].some((x) => x.preliminary)
@@ -667,6 +676,11 @@
       x.contractId ? ids.has(x.contractId) : pids.has(x.propertyId),
     );
   }
+  // Budget proposals and live what-if views use this explicit projection.
+  // Operational listings and contract summaries must call budgetRows instead.
+  function budgetScenarioRows(data,year,contracts,properties){
+    return budgetRows(data,year,contracts,properties,{scenario:true});
+  }
   function summarize(rows) {
     return rows.reduce((out, x) => {
       out[x.category] = (out[x.category] || 0) + number(x.amount);
@@ -725,6 +739,8 @@
     budgetGroup,
     budgetProposal,
     budgetIndex,
+    budgetScenarioIndex,
+    budgetScenarioRows,
     latestKnownKpi,
     budgetRows,
     actualRows,
