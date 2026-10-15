@@ -192,62 +192,14 @@
     let common=0; aa.forEach(function(x){if(bb.has(x)) common++;});
     return common/Math.max(aa.size,bb.size);
   }
-  function applyActivityCompatibility(data){
-    data.projects=[]; data.maintenance=[]; data.driftIssues=[]; data.wishes=[]; data.investigations=[];
-    (data.activities||[]).forEach(function(a){
-      const commonOrder={
-        orderedAt:a.orderedAt||"",orderedBy:a.orderedBy||"",supplier:a.supplier||"",orderReference:a.orderReference||"",
-        orderedCost:Number(a.orderedCost)||0,deliveryText:a.deliveryText||"",completedAt:a.completedAt||"",
-        finalCost:Number(a.finalCost)||0,paymentStatus:a.paymentStatus||"",paidAt:a.paidAt||"",invoiceComment:a.invoiceComment||"",
-        sourceId:a.sourceId||"",sourceSheet:a.sourceSheet||"",sourceRow:a.sourceRow||""
-      };
-      if(a.type==="Projekt"){
-        data.projects.push(Object.assign({
-          id:a.id,propertyId:a.propertyId||"",contractId:a.contractId||"",name:a.title||"",description:a.description||"",
-          status:a.status||"Planerad",phase:a.phase||"Förstudie",start:a.startDate||"",end:a.endDate||"",moveIn:"",
-          budgetYear:a.planningYear||"",budgetInvestigation:0,budgetExecution:Number(a.estimatedCost)||0,budgetFurnishing:0,
-          preliminaryCost:Number(a.estimatedCost)||0,planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||""
-        },commonOrder));
-      } else if(a.type==="Underhåll"){
-        data.maintenance.push(Object.assign({
-          id:a.id,propertyId:a.propertyId||"",contractId:a.contractId||"",title:a.title||"",year:a.planningYear||"",
-          cost:Number(a.estimatedCost)||0,priority:a.priority||"",status:a.status||"Identifierad",
-          planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||""
-        },commonOrder));
-      } else if(a.type==="Drift"){
-        data.driftIssues.push(Object.assign({
-          id:a.id,contractId:a.contractId||"",propertyId:a.propertyId||"",category:a.category||"Övrigt",title:a.title||"",
-          description:a.description||"",createdDate:a.createdDate||"",targetDate:a.targetDate||"",decisionDate:"",
-          completedDate:a.completedAt||"",status:a.status||"Nytt",priority:a.priority||"",responsiblePersonId:a.responsiblePersonId||"",
-          budgetYear:a.planningYear||"",estimatedCost:Number(a.estimatedCost)||0,finalCost:Number(a.finalCost)||0,
-          includeInBudget:"Ja",planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||""
-        },commonOrder));
-      } else if(a.type==="Önskemål"){
-        data.wishes.push(Object.assign({
-          id:a.id,contractId:a.contractId||"",propertyId:a.propertyId||"",category:a.category||"Övrigt",title:a.title||"",
-          description:a.description||"",createdDate:a.createdDate||"",targetDate:a.targetDate||"",decisionDate:"",
-          completedDate:a.completedAt||"",status:a.status||"Nytt",responsiblePersonId:a.responsiblePersonId||"",
-          budgetYear:a.planningYear||"",budgetCategory:a.budgetCategory||"Ej budget",estimatedCost:Number(a.estimatedCost)||0,
-          finalCost:Number(a.finalCost)||0,includeInBudget:"Ja"
-        },commonOrder));
-      } else if(a.type==="Utredning"){
-        data.investigations.push(Object.assign({
-          id:a.id,propertyId:a.propertyId||"",contractId:a.contractId||"",title:a.title||"",year:a.planningYear||"",
-          cost:Number(a.estimatedCost)||0,status:a.status||"Planerad"
-        },commonOrder));
-      }
-    });
-  }
-
   function migrate(workbook,fileName){
     const data={
-      isDemo:false,sourceName:fileName||"Migrerad Excel",
+      isDemo:false,sourceName:fileName||"Extern Excel-källa",
       properties:[],contracts:[],organizations:[],people:[],assignments:[],
-      activities:[],projects:[],maintenance:[],operations:[],investigations:[],maintenanceStatus:[],driftIssues:[],wishes:[],
-      budgetPlans:[],assignmentChanges:[]
+      activities:[],orders:[],recurringCosts:[],budgetPlans:[]
     };
     ensureOrg(data,"Vår organisation","our","");
-    const report={profile:"HVOF v1",sourceKind:"migration",warnings:[],unmatchedOrders:[],provisionalProperties:[],counts:{}};
+    const report={profile:"HVOF v1",sourceKind:"external-import",warnings:[],unmatchedOrders:[],provisionalProperties:[],counts:{}};
 
     // Primary identity: INT/SF + EXT. Lokallista is only a legacy fallback.
     let localRows=rows(workbook,"INT",0).concat(rows(workbook,"SF",0)).concat(rows(workbook,"EXT",0));
@@ -404,15 +356,13 @@
       best.orderMatchScore=Math.round(bestScore*100);
     });
 
-    applyActivityCompatibility(data);
     report.counts={
       properties:data.properties.length,contracts:data.contracts.length,activities:data.activities.length,
-      projects:data.projects.length,maintenance:data.maintenance.length,drift:data.driftIssues.length,wishes:data.wishes.length,
       people:data.people.length,unmatchedOrders:report.unmatchedOrders.length,provisionalProperties:report.provisionalProperties.length
     };
     if(report.unmatchedOrders.length) report.warnings.push(report.unmatchedOrders.length+" beställningar kunde inte kopplas säkert till en aktivitet.");
     if(report.provisionalProperties.length) report.warnings.push(report.provisionalProperties.length+" fastigheter behöver kontrolleras efter migrering.");
-    data.migrationReport=clone(report);
+    data.importReport=clone(report);
     return {data:data,report:report};
   }
 
