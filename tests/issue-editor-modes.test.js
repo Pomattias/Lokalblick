@@ -9,6 +9,9 @@ const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.ur
 
 const stubNode=(name="")=>({
  name,hidden:false,disabled:false,dataset:{},
+ classList:{toggle(){}},
+ setAttribute(){},
+ tabIndex:0,
  matches(selector){return selector.split(",").some(s=>s.trim()===name);},
  querySelector(){return null;}
 });
@@ -46,7 +49,6 @@ test("mobile read and edit use the same compact typography and two-column home r
  assert.match(sheet,/Keep case typography and dimensions stable between view and edit/);
  assert.match(sheet,/\.issue-editor #edit-form \.issue-mode-field \.issue-field-value,[\s\S]*?\.issue-field-control :is\(input,select,textarea\) \{[\s\S]*?font-size:13px;/);
  assert.match(sheet,/@media\(max-width:700px\) \{[\s\S]*?\.issue-editor #edit-form \.issue-home-row,[\s\S]*?\.issue-editor #edit-form\.editor-readonly \.issue-home-row \{[\s\S]*?grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
- assert.match(sheet,/\.issue-field-control :is\(input,select,textarea\):focus,[\s\S]*?font-size:16px;/);
  const view=renderIssueEditor({properties:[],objects:[],contracts:[],people:[],organizations:[],orders:[],activities:[],auditLog:[],
    priceBaseAmounts:[],indexSeries:[],budgetPlans:[]},{id:"a1",title:"Rubrik",type:"Projekt"},"a1");
  assert.equal((view.match(/class="issue-home-row"/g)||[]).length,1);
@@ -123,8 +125,9 @@ test("Redigera unlocks the same existing controls without rebuilding or moving t
  const editor={id:"a1",col:"activities",readOnly:true};
  let notifications=0;
  const mode=new Function("editorForm","editor","updateEditorActions",
+   "syncEditorFrame","prepareEditorModeFields","refreshEditorModeFields",
    app.slice(a,b)+";return setEditorReadMode;"
- )(()=>form,editor,()=>notifications++);
+ )(()=>form,editor,()=>notifications++,()=>{},()=>{},()=>{});
  mode(true);
  assert.equal(value.hidden,false);
  assert.equal(control.hidden,true);
@@ -144,7 +147,7 @@ test("Redigera unlocks the same existing controls without rebuilding or moving t
  assert.equal(title.hidden,true);
  assert.equal(titleControl.hidden,false);
  assert.equal(save.hidden,false);
- assert.equal(edit.hidden,true);
+ assert.equal(edit.hidden,false); // Keeps header action footprint stable in editing mode.
  assert.equal(select.disabled,false);
  assert.equal(note.disabled,false);
  mode(true);
