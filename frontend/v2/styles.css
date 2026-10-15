@@ -3287,3 +3287,33 @@ body[data-view="budget"] .budget-overview-total {margin:5px 0}
   .editor:not(.issue-editor) #edit-form .contract-additions summary {padding:7px 8px}
   .editor:not(.issue-editor) #edit-form .contract-additions[open] .contract-grid {padding:0 8px 8px}
 }
+
+/* Mer > Ekonomiska regler follows the same one-row field pattern. */
+main .compact-settings {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:center;gap:5px 14px;
+}
+main .compact-settings > h3,
+main .compact-settings > .settings-inline-actions {grid-column:1/-1}
+main .settings-inline-field {
+  display:grid;grid-template-columns:minmax(0,44%) minmax(0,1fr);
+  align-items:center;gap:7px;min-height:34px;margin:0;
+}
+main .settings-inline-field .field-name {
+  font-size:12px;color:var(--muted);line-height:1.25;
+}
+main .settings-inline-field > :is(input,strong) {
+  width:100%;max-width:100%;min-width:0;margin:0;
+  font-size:13px;font-weight:500;
+}
+main .settings-inline-actions {
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:6px;font-size:11px;
+}
+main .settings-inline-actions small {font-size:11px;color:var(--muted)}
+main .settings-inline-actions button {min-height:31px;padding:5px 9px;font-size:12px}
+@media(max-width:700px) {
+  main .compact-settings {grid-template-columns:minmax(0,1fr)}
+  main .settings-inline-field {grid-template-columns:minmax(0,42%) minmax(0,1fr)}
+  main .settings-inline-field > input {font-size:16px}
+}
