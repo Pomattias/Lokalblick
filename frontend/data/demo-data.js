@@ -115,7 +115,7 @@ window.LokalblickDemoData = {
       "rentIndexPercent": 1,
       "rentSeriesBase": "1980",
       "additionIndexPercent": 0,
-      "annualContractDrift": 294000,
+
       "unitId": "VARDBO",
       "businessName": "Solgläntan",
       "sourceId": "101-2024",
@@ -145,7 +145,7 @@ window.LokalblickDemoData = {
       "rentIndexPercent": 0.8,
       "rentSeriesBase": "1980",
       "additionIndexPercent": 0,
-      "annualContractDrift": 114000,
+
       "unitId": "ORDBO",
       "businessName": "Hemtjänst Centrum / Hemsjukvård Centrum",
       "sourceId": "201-2025",
@@ -175,7 +175,7 @@ window.LokalblickDemoData = {
       "rentIndexPercent": 0.6,
       "rentSeriesBase": "1980",
       "additionIndexPercent": 0,
-      "annualContractDrift": 72000,
+
       "unitId": "ORDBO",
       "businessName": "Hemtjänst Centrum",
       "sourceId": "202-2025",
@@ -205,7 +205,7 @@ window.LokalblickDemoData = {
       "rentIndexPercent": 1,
       "rentSeriesBase": "1980",
       "additionIndexPercent": 0,
-      "annualContractDrift": 318000,
+
       "unitId": "HOF",
       "businessName": "Daglig verksamhet Västan",
       "sourceId": "301-2026",
@@ -949,6 +949,10 @@ window.LokalblickDemoData = {
     }
   ],
   "recurringCosts": [
+    {"id":"MEDIA-DEMO-101","name":"Media och drift","contractId":"AVT-DEMO-101","propertyId":"","category":"Media","annualAmount":294000,"startYear":2024,"endYear":null,"actuals":[]},
+    {"id":"MEDIA-DEMO-201","name":"Media och drift","contractId":"AVT-DEMO-201","propertyId":"","category":"Media","annualAmount":114000,"startYear":2025,"endYear":null,"actuals":[]},
+    {"id":"MEDIA-DEMO-202","name":"Media och drift","contractId":"AVT-DEMO-202","propertyId":"","category":"Media","annualAmount":72000,"startYear":2025,"endYear":null,"actuals":[]},
+    {"id":"MEDIA-DEMO-301","name":"Media och drift","contractId":"AVT-DEMO-301","propertyId":"","category":"Media","annualAmount":318000,"startYear":2026,"endYear":null,"actuals":[]},
     {
       "id": "KOST-DEMO-101",
       "name": "Energi",
