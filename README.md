@@ -1,6 +1,6 @@
 # Lokalblick
 
-Lokalblick är en styrningsapp för LEB-baserad fastighets- och avtalsdata med årsbudget, projekt, underhåll, drift, önskemål, personer och ansvar.
+Lokalblick är en fastighetsapp med **en** datamodell: fastigheter, objekt, avtal, parter, personer, ansvar, ärenden, beställningar, löpande kostnader och årsbudget. Projekt, underhåll, driftärenden, önskemål och utredningar är ärendetyper – inte separata tabeller.
 
 ## Arkitektur
 
@@ -44,16 +44,17 @@ Den publika Vercel/GitHub-versionen använder endast syntetisk demodata som stan
 
 ## Nuvarande funktioner
 
-- Fastighet och Objekt/Avtal
-- VÅRDBO, ORDBO, Myndighet/Stab och Hälsa & Förebyggande
-- tre personnivåer: vår organisation, hyresgästen och fastighetsägaren
-- ansvar på fastighet, objekt, projekt, driftärende, önskemål och UH-status
-- årsbudget för hyra + drift, projekt, underhåll, driftkostnader och utredningar
-- projekt med tidplan, inflyttning och budgetdelar
-- underhållsstatus
-- driftärenden
-- önskemålslista
-- budgetkoppling från tidsatta behov
+- Fastighet → objekt → avtal med en riktig part som ägare/hyresgäst och separata verksamhetsrelationer
+- Gemensamma **Ärenden** för projekt, underhåll, drift, önskemål och utredningar; tidplan, journal, ansvar och kostnad
+- **Löpande kostnader** direkt på fastighet eller avtal, årsbudget och årsvis utfall
+- Beställningar kopplade till ärenden, inte duplicerade på varje ärendetyp
+- KPI-regler för ordinarie avtalshyra separat från manuella **budgetscenarier**
+- Låsta årsbudgetar, prognos, uppföljning, källspårbarhet och ansvarshistorik
+- Import av externa Excel-/LEB-källor utan att skapa gamla Lokalblick-tabeller
+
+## En enda aktiv app
+
+`frontend/index.html` leder alltid till `frontend/v2/index.html`. V1:s separata gränssnitt, CSS och tabellmigreringar är borttagna på `utveckling`. Ingen konvertering av tidigare Lokalblick-datamodeller görs. Import från externa system är däremot en aktiv funktion.
 
 ## Miljöer
 
@@ -73,21 +74,12 @@ Appens **Om**-flik visar användaren vad som kan vara publikt och vad som ska st
 
 LEB/Excel är master för källdata. Backend äger Lokalblicks kompletteringar och overlays, inklusive geokoordinater. Excel skrivs aldrig automatiskt om.
 
-## Lokalblick V2 (separat migreringsversion)
+## Körning och tester
 
-Se `docs/LOKALBLICK_V2.md` för inventering, bevarandegräns, målarkitektur och wireframes.
+- Starta lokal företagsmiljö med `npm run setup:company` och `npm run company:api`, enligt `backend/README.md`.
+- Lokal privat Excelarbetsfil stöds. Källfiler och originalavtal förblir i godkänd företagsmiljö.
+- Arkitekturen kan på sikt använda intern eller extern databas genom samma autentiserade API; M365- och externa API-adaptrar är ännu inte kompletta.
+- `npm ci && npm test` kör domän-, relations-, import-, Excel-roundtrip- och API-tester samt preflight.
+- `npx playwright install chromium` och `npm run test:integration-browser` är separat webbläsarregression.
 
-- Publik/local demo: `npm run company`, öppna `http://127.0.0.1:8787/v2/index.html`.
-- Befintlig frontend finns kvar på `/index.html`, med länk till V2.
-- Lokal API-version: `npm run setup:company`, sedan `npm run company:api` och samma `/v2/index.html`. Den fungerande backendimplementationen från `copilot-backend` ligger isolerad i `backend/company/`. Den skriver kompletteringar till backendstore; INT/SF och EXT är read-only.
-- Kanonisk Excel: anslut arbetsfilen under Datakällor. Ändringar hålls pending tills **Spara till Excel** lyckas. Projekt-, underhålls-, drift- och önskemålslistor går via granskningskö.
-- `npm test` kör domän-, import-, binära Excel-roundtrip-, skrivfels- och API-persistenstester.
-- `npx playwright install chromium`, sedan `npm run test:browser` för desktop/mobil. En befintlig Chromium kan anges med `CHROMIUM_EXECUTABLE_PATH`.
-
-Verkliga arbetsfiler, dokument och företagsdata ska fortsatt ligga utanför repo. V2 är en stegvis migrering; den tidigare frontend behålls tills återstående specialflöden och verklig företagsanslutning verifierats.
-
-## Aktuell frontend i utveckling
-
-Startadressen öppnar Lokalblick V2. Budgetens låsbekräftelse (`danger`), versionshistorik och slutkostnad använder samma service i V2 och den tidigare vyn. Mobil och desktop använder samma färgvariabler. Den tidigare vyn finns på `index.html?legacy=1` och via länken **Tidigare vy**.
-
-Verifiering: `npm ci`, `npm test`, `npx playwright install chromium --only-shell`, därefter `npm run test:browser`, `npm run test:integration-browser`, `npm run test:budget-browser` och `npm run test:map-browser`. Verklig företagsfil och Windows/OneDrive-filhandtag återstår att verifiera lokalt.
+All företagsdata, filer och hemligheter ska ligga utanför GitHub och Vercels publika demomiljö. Den gamla V1-vyn kan inte längre väljas.
