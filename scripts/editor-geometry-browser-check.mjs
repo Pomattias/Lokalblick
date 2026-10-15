@@ -82,7 +82,7 @@ try{
       "Även avtalskontakter har etikett vänster och värde höger");
     const responsibilityDate=page.locator('#edit-form input[name="responsibilityChangeDate"] + .editor-mode-value');
     if(await responsibilityDate.count())assert.match(
-      await responsibilityDate.innerText(),/^\\d{4}-\\d{2}-\\d{2}$/,
+      await responsibilityDate.innerText(),/^\d{4}-\d{2}-\d{2}$/,
       "Datum i Visa använder alltid YYYY-MM-DD"
     );
     // Names and data occupy the same physical row; the editor must not
