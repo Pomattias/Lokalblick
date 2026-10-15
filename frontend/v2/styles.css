@@ -3547,8 +3547,8 @@ main .settings-inline-actions button {min-height:31px;padding:5px 9px;font-size:
   font-family:inherit;
   font-weight:inherit;
 }
-.property-editor #edit-form .property-heading-edit-title input,
-.property-editor #edit-form #editor-title {
+#editor-root .property-editor #edit-form .property-heading-edit-title input,
+#editor-root .property-editor #edit-form #editor-title {
   font-size:20px!important;
   font-weight:600!important;
   line-height:1.15;
