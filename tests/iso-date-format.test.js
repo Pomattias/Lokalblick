@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {isoDate,isoDateTime} from "../frontend/v2/date-format.js";
 import {editorDisplayValue} from "../frontend/v2/editor-mode-fields.js";
 import {activityJournalHtml} from "../frontend/v2/activity-journal.js";
@@ -18,3 +19,14 @@ test("journal timestamp retains ISO date with 24-hour Swedish local time",()=>{
   assert.match(html,/2026-10-15 20:11/);
   assert.doesNotMatch(html,/15\/10\/2026/);
 });
+
+test("all audit views use the shared ISO formatter rather than locale dates",()=>{
+  const fs=requireSource();
+  assert.match(fs,/import \{isoDateTime\} from "\.\/date-format\.js";/);
+  assert.match(fs,/isoDateTime\(h\.at\)/);
+  assert.match(fs,/isoDateTime\(entry\.at\)/);
+  assert.doesNotMatch(fs,/new Date\((?:h|entry)\.at\)\.toLocaleString/);
+});
+function requireSource(){
+  return readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
+}
