@@ -113,6 +113,17 @@ test("custom index series retains its identity and September is preliminary", ()
       0,
       [{ year: 2025, month: 9, value: 400, seriesBase: "custom" }],
     ).status,
+    "Behöver kontroll",
+  );
+  assert.equal(
+    C.component(
+      { ...contract, rentBaseIndex: 300, rentSeriesBase: "custom" },
+      "rent",
+      2026,
+      0,
+      [{ year: 2025, month: 9, value: 400, seriesBase: "custom" }],
+      {scenario:true},
+    ).status,
     "Preliminär",
   );
 });
@@ -199,7 +210,7 @@ test("budget snapshot resolves the exact October index used", () => {
     plain(fixed),
     { year: 2025, month:10, value: 400, source: "known", status: "Fastställd" },
   );
-  const preliminary = C.budgetIndex({ indexSeries: series }, 2027, 425);
+  const preliminary = C.budgetScenarioIndex({ indexSeries: series }, 2027, 425);
   assert.deepEqual(
     plain(preliminary),
     {
@@ -225,11 +236,11 @@ test("known index takes precedence; preliminary index is used before October exi
 
   data.budgetPlans = [{ year: 2027, preliminaryIndex: 425 }];
   data.indexSeries = series;
-  const future = C.budgetRows(data, 2027)[0];
+  const future = C.budgetScenarioRows(data, 2027)[0];
   assert.equal(future.status, "Preliminär");
   assert.equal(
     future.amount,
-    C.annualValues(contract, 2027, 425, data.indexSeries).total,
+    C.annualValues(contract, 2027, 425, data.indexSeries, {scenario:true}).total,
   );
 });
 test("different KPI series require review; duplicate indices cannot silently win", () => {
