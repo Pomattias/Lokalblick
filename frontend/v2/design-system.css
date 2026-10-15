@@ -1432,10 +1432,12 @@ body[data-view="budget"] .budget-rent-delta strong{color:var(--ui-color-text);fo
     /* Reserve a narrow visible strip OUTSIDE the sharp green perimeter.
        Outer (non-inset) colored shadows fade into the screen edge; never
        paint over the form or capture touches, including on iPhone Safari. */
-    top:max(13px,env(safe-area-inset-top,0px));
-    right:13px;
-    bottom:max(13px,env(safe-area-inset-bottom,0px));
-    left:13px;
+    /* Closer to the viewport edge, leaving edit labels and titles unobstructed.
+       No padding, font changes or layout reflow. */
+    top:max(5px,env(safe-area-inset-top,0px));
+    right:5px;
+    bottom:max(5px,env(safe-area-inset-bottom,0px));
+    left:5px;
     box-sizing:border-box;
     border:3px solid #177b5d;
     border-radius:17px;

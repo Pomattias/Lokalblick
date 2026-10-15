@@ -177,8 +177,8 @@ test("Siri-inspired fade stays outside the green mobile editing outline",()=>{
   const end=css.indexOf("}",start);
   assert.ok(start>=0&&end>start,"editing outline must exist");
   const frame=css.slice(start,end);
-  assert.match(frame,/right:13px;/);
-  assert.match(frame,/left:13px;/);
+  assert.match(frame,/right:5px;/);
+  assert.match(frame,/left:5px;/);
   assert.match(frame,/border:3px solid #177b5d;/);
   assert.match(frame,/box-shadow:/);
   assert.match(frame,/rgba\(81,148,247,/,"soft blue outside glow");
