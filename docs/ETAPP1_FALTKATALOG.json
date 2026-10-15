@@ -1,0 +1,2661 @@
+{
+  "description": "Granskningskatalog, inte runtime-schema eller migrationsbeslut",
+  "source": "frontend/services/source-service.js",
+  "sourceRef": "utveckling",
+  "generatedDate": "2026-10-15",
+  "statusDefinitions": {
+    "grundfalt": "Primär standardvy, endast nödvändiga",
+    "vid_behov": "Visa i kontext/avancerat, ej borttagning",
+    "tekniskt": "Dolt tekniskt fält",
+    "migreringsgranskning": "Behåll tills alla beroenden har migrerats",
+    "overgangsmodell": "Ännu aktiv teknisk kompatibilitet, utred migrering",
+    "legacy_import": "Endast äldre import/historik; avveckla efter verifiering"
+  },
+  "counts": {
+    "tekniskt": 27,
+    "grundfalt": 50,
+    "vid_behov": 94,
+    "migreringsgranskning": 14,
+    "overgangsmodell": 21,
+    "legacy_import": 87
+  },
+  "entries": [
+    {
+      "collection": "properties",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "sourceId",
+      "excelLabel": "_sourceId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "properties",
+      "field": "sourceSheet",
+      "excelLabel": "_sourceSheet",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "sourceRow",
+      "excelLabel": "_sourceRow",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "responsiblePersonId",
+      "excelLabel": "_responsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "properties",
+      "field": "ownerPartyId",
+      "excelLabel": "_ownerPartyId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "properties",
+      "field": "ownerResponsiblePersonId",
+      "excelLabel": "_ownerResponsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "properties",
+      "field": "type",
+      "excelLabel": "Typ",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "address",
+      "excelLabel": "Adress",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "city",
+      "excelLabel": "Ort",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "designation",
+      "excelLabel": "Fastighetsbeteckning",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "latitude",
+      "excelLabel": "Latitud",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "longitude",
+      "excelLabel": "Longitud",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "geoSource",
+      "excelLabel": "Geokälla",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "geoConfirmedAt",
+      "excelLabel": "Geobekräftad",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "properties",
+      "field": "geoConfirmedBy",
+      "excelLabel": "Geobekräftad av",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "objects",
+      "field": "sourceId",
+      "excelLabel": "_sourceId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "objects",
+      "field": "number",
+      "excelLabel": "Objektnummer",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "name",
+      "excelLabel": "Objektnamn",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "area",
+      "excelLabel": "Objektarea, m²",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Objektarea; skiljs från avtalad area."
+    },
+    {
+      "collection": "objects",
+      "field": "category",
+      "excelLabel": "Objektkategori",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "use",
+      "excelLabel": "Verksamhetstyp",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "businessName",
+      "excelLabel": "Namn på verksamheten",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "unitId",
+      "excelLabel": "Verksamhet",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "objects",
+      "field": "employees",
+      "excelLabel": "Anställda",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "users",
+      "excelLabel": "Brukare",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "rooms",
+      "excelLabel": "Rum",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "commonArea",
+      "excelLabel": "Gemensam yta",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "apartmentArea",
+      "excelLabel": "Lägenhetsyta",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "start",
+      "excelLabel": "Giltigt fr.o.m.",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "end",
+      "excelLabel": "Giltigt t.o.m.",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "predecessorIds",
+      "excelLabel": "_predecessorIds",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "objects",
+      "field": "comment",
+      "excelLabel": "Kommentar",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "objects",
+      "field": "areaType",
+      "excelLabel": "Areatyp",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "sourceId",
+      "excelLabel": "_sourceId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contracts",
+      "field": "sourceSheet",
+      "excelLabel": "_sourceSheet",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "sourceRow",
+      "excelLabel": "_sourceRow",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "objectId",
+      "excelLabel": "_objectId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contracts",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contracts",
+      "field": "businessPartyId",
+      "excelLabel": "_businessPartyId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": "Äldre tvetydigt fält; får ej tolkas som juridisk hyresgäst. Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contracts",
+      "field": "businessResponsiblePersonId",
+      "excelLabel": "_businessResponsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contracts",
+      "field": "responsiblePersonId",
+      "excelLabel": "_responsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contracts",
+      "field": "number",
+      "excelLabel": "Avtalsnummer",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "source",
+      "excelLabel": "Källa",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "area",
+      "excelLabel": "Area",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "category",
+      "excelLabel": "Lokalkategori",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "tenantName",
+      "excelLabel": "Hyresgäst enligt källa",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "use",
+      "excelLabel": "Verksamhetstyp",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "businessName",
+      "excelLabel": "Namn på verksamheten",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "start",
+      "excelLabel": "Start",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "end",
+      "excelLabel": "Slut",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "moveInDate",
+      "excelLabel": "Inflyttning",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": "Beroende i budgetPeriod; får ej tas bort före migrerat periodunderlag."
+    },
+    {
+      "collection": "contracts",
+      "field": "moveOutDate",
+      "excelLabel": "Utflyttning",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": "Beroende i budgetPeriod; får ej tas bort före migrerat periodunderlag."
+    },
+    {
+      "collection": "contracts",
+      "field": "comment",
+      "excelLabel": "Kommentar",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "noticePeriodMonths",
+      "excelLabel": "Uppsägningstid månader",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "renewalPeriodMonths",
+      "excelLabel": "Förlängningstid månader",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "originalTerm",
+      "excelLabel": "Ursprunglig avtalstid",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "baseRent",
+      "excelLabel": "Bashyra",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "baseAdditions",
+      "excelLabel": "Bastillägg",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Nu aggregat; mål är flera separata indexerade tillägg med historik."
+    },
+    {
+      "collection": "contracts",
+      "field": "rentBaseYear",
+      "excelLabel": "Hyra basår",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "rentBaseIndex",
+      "excelLabel": "Hyra bastal (KPI)",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "rentIndexPercent",
+      "excelLabel": "Hyra uppräkning %",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "additionBaseYear",
+      "excelLabel": "Tillägg basår",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "additionBaseIndex",
+      "excelLabel": "Tillägg bastal (KPI)",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "additionIndexPercent",
+      "excelLabel": "Tillägg uppräkning %",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "rentAdjustmentMethod",
+      "excelLabel": "Hyra justeringsregel",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "rentAnnualPercent",
+      "excelLabel": "Hyra fast årlig uppräkning %",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "rentMinPercent",
+      "excelLabel": "Hyra minsta uppräkning %",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "rentMaxPercent",
+      "excelLabel": "Hyra högsta uppräkning %",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "rentLimitBasis",
+      "excelLabel": "Hyra min/max gäller",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "additionAdjustmentMethod",
+      "excelLabel": "Tillägg justeringsregel",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "additionAnnualPercent",
+      "excelLabel": "Tillägg fast årlig uppräkning %",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "additionMinPercent",
+      "excelLabel": "Tillägg minsta uppräkning %",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "additionMaxPercent",
+      "excelLabel": "Tillägg högsta uppräkning %",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "additionLimitBasis",
+      "excelLabel": "Tillägg min/max gäller",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "annualContractDrift",
+      "excelLabel": "Media per år",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": "Äldre Media per år; samma tillägg, risk för dubbelräkning."
+    },
+    {
+      "collection": "contracts",
+      "field": "annualPropertyTax",
+      "excelLabel": "F-skatt per år",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Behåll separat fastighetsskatt i beräknad årskostnad."
+    },
+    {
+      "collection": "contracts",
+      "field": "costCenterOperations",
+      "excelLabel": "Kstl drift",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "costCenterPremises",
+      "excelLabel": "Kstl lokaler",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "ekotObject",
+      "excelLabel": "Objekt i Ekot",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "contractDocumentUrl",
+      "excelLabel": "Avtals-PDF",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "contractDocumentName",
+      "excelLabel": "Avtalsdokument",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "contractDocumentKind",
+      "excelLabel": "Dokumenttyp",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "mediaWaste",
+      "excelLabel": "Sopor",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "mediaElectricity",
+      "excelLabel": "El",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "mediaWater",
+      "excelLabel": "VA",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "mediaHeating",
+      "excelLabel": "Värme",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "mediaHotWater",
+      "excelLabel": "VV",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "mediaVentilation",
+      "excelLabel": "Vent",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "mediaOutdoor",
+      "excelLabel": "Utem.",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "mediaPropertyTax",
+      "excelLabel": "F-skatt ingår",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "unitId",
+      "excelLabel": "_unitId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contracts",
+      "field": "employees",
+      "excelLabel": "Anställda",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "users",
+      "excelLabel": "Brukare",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "rooms",
+      "excelLabel": "Rum",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "commonArea",
+      "excelLabel": "Gemensam yta",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "apartmentArea",
+      "excelLabel": "Lägenhetsyta",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "enrichmentSource",
+      "excelLabel": "_enrichmentSource",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "enrichmentSourceRow",
+      "excelLabel": "_enrichmentSourceRow",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "enrichmentTargetYear",
+      "excelLabel": "_enrichmentTargetYear",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contracts",
+      "field": "tenantPartyId",
+      "excelLabel": "_tenantPartyId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Stabil referens till hyresgäst när identiteten är säker; tenantName behålls för osäkra importkällor. Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contracts",
+      "field": "tenantResponsiblePersonId",
+      "excelLabel": "_tenantResponsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "organizations",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "organizations",
+      "field": "name",
+      "excelLabel": "Part",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "organizations",
+      "field": "type",
+      "excelLabel": "Typ",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "organizations",
+      "field": "ownerClass",
+      "excelLabel": "Ägarklass",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "organizations",
+      "field": "investmentRule",
+      "excelLabel": "Investeringsregel",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "organizations",
+      "field": "investmentThreshold",
+      "excelLabel": "Investeringsgräns kr",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "organizations",
+      "field": "rentSurchargeRate",
+      "excelLabel": "Hyrespåslag %",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "people",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "people",
+      "field": "name",
+      "excelLabel": "Namn",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "people",
+      "field": "organizationId",
+      "excelLabel": "_organizationId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "people",
+      "field": "unitId",
+      "excelLabel": "_unitId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "people",
+      "field": "role",
+      "excelLabel": "Befattning",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "people",
+      "field": "phone",
+      "excelLabel": "Telefonnummer",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "people",
+      "field": "email",
+      "excelLabel": "E-post",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "sourceId",
+      "excelLabel": "_sourceId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "activities",
+      "field": "sourceSheet",
+      "excelLabel": "_sourceSheet",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "sourceRow",
+      "excelLabel": "_sourceRow",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "objectId",
+      "excelLabel": "_objectId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Fyll normalt automatiskt från ärendets kontext; användaren väljer bara vid behov. Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "activities",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Fyll normalt automatiskt från ärendets kontext; användaren väljer bara vid behov. Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "activities",
+      "field": "contractId",
+      "excelLabel": "_contractId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Fyll normalt automatiskt från ärendets kontext; användaren väljer bara vid behov. Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "activities",
+      "field": "responsiblePersonId",
+      "excelLabel": "_responsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "activities",
+      "field": "scopeType",
+      "excelLabel": "Hemvisttyp",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Fyll normalt automatiskt från ärendets kontext; användaren väljer bara vid behov."
+    },
+    {
+      "collection": "activities",
+      "field": "unitId",
+      "excelLabel": "Område",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "activities",
+      "field": "type",
+      "excelLabel": "Typ",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "actionKind",
+      "excelLabel": "Åtgärdens karaktär",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "rentSurchargeStartDate",
+      "excelLabel": "Hyrespåslag från",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "title",
+      "excelLabel": "Aktivitet",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "description",
+      "excelLabel": "Beskrivning",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "category",
+      "excelLabel": "Kategori",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "status",
+      "excelLabel": "Status",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "priority",
+      "excelLabel": "Prioritet",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "planningYear",
+      "excelLabel": "Planår",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "planningQuarter",
+      "excelLabel": "Kvartal",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "planningMonth",
+      "excelLabel": "Månad",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "budgetCategory",
+      "excelLabel": "Budgetkategori",
+      "hiddenInExcel": true,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "includeInBudget",
+      "excelLabel": "Ta med i budget",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "estimatedCost",
+      "excelLabel": "Bedömd kostnad",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "phase",
+      "excelLabel": "Fas",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "migreringsgranskning",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "startDate",
+      "excelLabel": "Start",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "activities",
+      "field": "endDate",
+      "excelLabel": "Slut",
+      "hiddenInExcel": false,
+      "modelRole": "core",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "businesses",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "businesses",
+      "field": "sourceId",
+      "excelLabel": "Källans verksamhets-ID",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "tekniskt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "businesses",
+      "field": "name",
+      "excelLabel": "Verksamhetsnamn",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "businesses",
+      "field": "type",
+      "excelLabel": "Verksamhetstyp",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "businesses",
+      "field": "unitId",
+      "excelLabel": "Organisatorisk tillhörighet",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "businesses",
+      "field": "organizationId",
+      "excelLabel": "_organizationId",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "businesses",
+      "field": "status",
+      "excelLabel": "Status",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "businesses",
+      "field": "businessResponsiblePersonId",
+      "excelLabel": "_businessResponsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contractBusinesses",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contractBusinesses",
+      "field": "contractId",
+      "excelLabel": "_contractId",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contractBusinesses",
+      "field": "businessId",
+      "excelLabel": "_businessId",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contractBusinesses",
+      "field": "fromDate",
+      "excelLabel": "Giltigt fr.o.m.",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contractBusinesses",
+      "field": "toDate",
+      "excelLabel": "Giltigt t.o.m.",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contractBusinesses",
+      "field": "usedArea",
+      "excelLabel": "Nyttjad area, m²",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contractBusinesses",
+      "field": "costSharePercent",
+      "excelLabel": "Kostnadsandel, %",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contractBusinesses",
+      "field": "cancelled",
+      "excelLabel": "_cancelled",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignments",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignments",
+      "field": "personId",
+      "excelLabel": "_personId",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "assignments",
+      "field": "targetType",
+      "excelLabel": "_targetType",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignments",
+      "field": "targetId",
+      "excelLabel": "_targetId",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "assignments",
+      "field": "role",
+      "excelLabel": "Roll",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignments",
+      "field": "fromDate",
+      "excelLabel": "Från",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignments",
+      "field": "toDate",
+      "excelLabel": "Till",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignments",
+      "field": "allocation",
+      "excelLabel": "Omfattning %",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "tekniskt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "activityId",
+      "excelLabel": "_activityId",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "orders",
+      "field": "orderedByPersonId",
+      "excelLabel": "_orderedByPersonId",
+      "hiddenInExcel": true,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "orders",
+      "field": "orderedAt",
+      "excelLabel": "Beställningsdatum",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "status",
+      "excelLabel": "Beställningsstatus",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "supplier",
+      "excelLabel": "Leverantör",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "orderReference",
+      "excelLabel": "Beställningsreferens",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "orderedCost",
+      "excelLabel": "Beställt belopp",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "deliveryText",
+      "excelLabel": "Leverans",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "completedAt",
+      "excelLabel": "Utförd",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "finalCost",
+      "excelLabel": "Utfall",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "grundfalt",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "paymentStatus",
+      "excelLabel": "Betalstatus",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "paidAt",
+      "excelLabel": "Betald",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "invoiceComment",
+      "excelLabel": "Kommentar",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "orders",
+      "field": "ownerPays",
+      "excelLabel": "Betalas av fastighetsägaren",
+      "hiddenInExcel": false,
+      "modelRole": "relational",
+      "proposedExposure": "vid_behov",
+      "reviewNote": ""
+    },
+    {
+      "collection": "operations",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "operations",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "operations",
+      "field": "contractId",
+      "excelLabel": "_contractId",
+      "hiddenInExcel": true,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "operations",
+      "field": "period",
+      "excelLabel": "År",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "operations",
+      "field": "category",
+      "excelLabel": "Kategori",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "operations",
+      "field": "budget",
+      "excelLabel": "Budget",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "operations",
+      "field": "actual",
+      "excelLabel": "Utfall",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "contractId",
+      "excelLabel": "_contractId",
+      "hiddenInExcel": true,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "category",
+      "excelLabel": "Kategori",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "assessedDate",
+      "excelLabel": "Bedömd",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "status",
+      "excelLabel": "Status",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "priority",
+      "excelLabel": "Prioritet",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "comment",
+      "excelLabel": "Kommentar",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "actionNeed",
+      "excelLabel": "Åtgärdsbehov",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "budgetYear",
+      "excelLabel": "Budgetår",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "estimatedCost",
+      "excelLabel": "Bedömd kostnad",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "includeInBudget",
+      "excelLabel": "Ta med i budget",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "planningQuarter",
+      "excelLabel": "Kvartal",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenanceStatus",
+      "field": "planningMonth",
+      "excelLabel": "Månad",
+      "hiddenInExcel": false,
+      "modelRole": "transitional",
+      "proposedExposure": "overgangsmodell",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contacts",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contacts",
+      "field": "personId",
+      "excelLabel": "_personId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contacts",
+      "field": "targetType",
+      "excelLabel": "_targetType",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contacts",
+      "field": "targetId",
+      "excelLabel": "_targetId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "contacts",
+      "field": "role",
+      "excelLabel": "Roll",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contacts",
+      "field": "fromDate",
+      "excelLabel": "Från",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "contacts",
+      "field": "toDate",
+      "excelLabel": "Till",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "projects",
+      "field": "contractId",
+      "excelLabel": "_contractId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "projects",
+      "field": "responsiblePersonId",
+      "excelLabel": "_responsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "projects",
+      "field": "name",
+      "excelLabel": "Projekt",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "description",
+      "excelLabel": "Beskrivning",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "status",
+      "excelLabel": "Status",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "phase",
+      "excelLabel": "Fas",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "start",
+      "excelLabel": "Start",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "end",
+      "excelLabel": "Slut",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "moveIn",
+      "excelLabel": "Inflytt",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "budgetYear",
+      "excelLabel": "Budgetår",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "budgetInvestigation",
+      "excelLabel": "Utredning budget",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "budgetExecution",
+      "excelLabel": "Genomförande budget",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "budgetFurnishing",
+      "excelLabel": "Inredning budget",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "preliminaryCost",
+      "excelLabel": "Prognos",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "planningQuarter",
+      "excelLabel": "Kvartal",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "projects",
+      "field": "planningMonth",
+      "excelLabel": "Månad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenance",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenance",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "maintenance",
+      "field": "contractId",
+      "excelLabel": "_contractId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "maintenance",
+      "field": "responsiblePersonId",
+      "excelLabel": "_responsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "maintenance",
+      "field": "title",
+      "excelLabel": "Åtgärd",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenance",
+      "field": "year",
+      "excelLabel": "Planår",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenance",
+      "field": "cost",
+      "excelLabel": "Kostnad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenance",
+      "field": "priority",
+      "excelLabel": "Prioritet",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenance",
+      "field": "status",
+      "excelLabel": "Status",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenance",
+      "field": "planningQuarter",
+      "excelLabel": "Kvartal",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "maintenance",
+      "field": "planningMonth",
+      "excelLabel": "Månad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "investigations",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "investigations",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "investigations",
+      "field": "contractId",
+      "excelLabel": "_contractId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "investigations",
+      "field": "responsiblePersonId",
+      "excelLabel": "_responsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "investigations",
+      "field": "title",
+      "excelLabel": "Utredning",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "investigations",
+      "field": "year",
+      "excelLabel": "År",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "investigations",
+      "field": "cost",
+      "excelLabel": "Kostnad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "investigations",
+      "field": "status",
+      "excelLabel": "Status",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "contractId",
+      "excelLabel": "_contractId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "driftIssues",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "driftIssues",
+      "field": "category",
+      "excelLabel": "Kategori",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "title",
+      "excelLabel": "Ärende",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "description",
+      "excelLabel": "Beskrivning",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "createdDate",
+      "excelLabel": "Skapad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "targetDate",
+      "excelLabel": "Måldatum",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "decisionDate",
+      "excelLabel": "Beslutsdatum",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "completedDate",
+      "excelLabel": "Klardatum",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "status",
+      "excelLabel": "Status",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "priority",
+      "excelLabel": "Prioritet",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "responsiblePersonId",
+      "excelLabel": "_responsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "driftIssues",
+      "field": "budgetYear",
+      "excelLabel": "Budgetår",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "estimatedCost",
+      "excelLabel": "Bedömd kostnad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "finalCost",
+      "excelLabel": "Slutkostnad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "includeInBudget",
+      "excelLabel": "Ta med i budget",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "planningQuarter",
+      "excelLabel": "Kvartal",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "driftIssues",
+      "field": "planningMonth",
+      "excelLabel": "Månad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "contractId",
+      "excelLabel": "_contractId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "wishes",
+      "field": "propertyId",
+      "excelLabel": "_propertyId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "wishes",
+      "field": "category",
+      "excelLabel": "Kategori",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "title",
+      "excelLabel": "Önskemål",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "description",
+      "excelLabel": "Beskrivning",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "createdDate",
+      "excelLabel": "Skapad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "targetDate",
+      "excelLabel": "Måldatum",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "decisionDate",
+      "excelLabel": "Beslutsdatum",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "completedDate",
+      "excelLabel": "Klardatum",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "status",
+      "excelLabel": "Status",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "responsiblePersonId",
+      "excelLabel": "_responsiblePersonId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "wishes",
+      "field": "budgetYear",
+      "excelLabel": "Budgetår",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "budgetCategory",
+      "excelLabel": "Budgetkategori",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "estimatedCost",
+      "excelLabel": "Bedömd kostnad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "finalCost",
+      "excelLabel": "Slutkostnad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "wishes",
+      "field": "includeInBudget",
+      "excelLabel": "Ta med i budget",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignmentChanges",
+      "field": "id",
+      "excelLabel": "_id",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignmentChanges",
+      "field": "targetType",
+      "excelLabel": "_targetType",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignmentChanges",
+      "field": "targetId",
+      "excelLabel": "_targetId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "assignmentChanges",
+      "field": "fromPersonId",
+      "excelLabel": "_fromPersonId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "assignmentChanges",
+      "field": "toPersonId",
+      "excelLabel": "_toPersonId",
+      "hiddenInExcel": true,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": "Relationsnyckel: välj namn i UI, lagra stabilt ID."
+    },
+    {
+      "collection": "assignmentChanges",
+      "field": "changedAt",
+      "excelLabel": "Ändrad",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    },
+    {
+      "collection": "assignmentChanges",
+      "field": "changedBy",
+      "excelLabel": "Ändrad av",
+      "hiddenInExcel": false,
+      "modelRole": "legacy",
+      "proposedExposure": "legacy_import",
+      "reviewNote": ""
+    }
+  ]
+}
