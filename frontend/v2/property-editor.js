@@ -57,12 +57,12 @@ export function renderPropertyEditor(data, p, id, company=false) {
       id:c.id,
     };
   });
-  const contactRows=contacts.length
-    ? '<div class="property-contact-list">'+contacts.map(c=>
-      personSelect(data,"",c.personId,allPeople,"Verksamhetens kontaktperson",
-        "contract",c.id,c.unit+" · "+c.number)
-    ).join("")+'</div>'
-    : '<p class="property-empty">Inga avtalsobjekt med kontaktperson finns ännu.</p>';
+  // Contract contacts live on each contract, but their presentation is the
+  // same property-person-field as owner and our contacts. Never a separate card.
+  const contactRows=contacts.map(c=>
+    personSelect(data,"",c.personId,allPeople,"Verksamhetens kontaktperson",
+      "contract",c.id,c.unit+" · "+c.number)
+  ).join("");
   const locked=Boolean(id && !data.isDemo && company);
   const geo=hasGeo(p);
   return '<div class="editor-backdrop"></div><aside class="editor property-editor" aria-labelledby="editor-title">'+
@@ -81,7 +81,8 @@ export function renderPropertyEditor(data, p, id, company=false) {
       '<section class="property-section"><h3>Kontaktpersoner</h3><div class="property-grid">'+
         personSelect(data,"ownerResponsiblePersonId",p.ownerResponsiblePersonId,ownerPeople,"Fastighetsägarens kontaktperson","owner")+
         personSelect(data,"responsiblePersonId",p.responsiblePersonId,ourPeople,"Vår kontaktperson","our")+
-      '</div>'+contactRows+'<details class="property-help"><summary>Om kontaktkopplingar</summary><p>Kontakter sparas på respektive avtal. Välj Ej kopplad för att koppla bort utan att radera personen.</p></details></section>'+
+        contactRows+
+      '</div><details class="property-help"><summary>Om kontaktkopplingar</summary><p>Kontakter sparas på respektive avtal. Välj Ej kopplad för att koppla bort utan att radera personen.</p></details></section>'+
       responsibilityHtml(data,'property',p.id)+
       '<section class="property-section"><h3>Placering på kartan</h3>'+
       '<p class="property-map-hint">'+(geo
