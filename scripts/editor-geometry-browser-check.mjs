@@ -46,6 +46,28 @@ try{
     await form.waitFor();
     assert.ok(await form.evaluate(el=>el.classList.contains("editor-readonly")));
     assert.equal(await page.locator("body.editor-frame-active").count(),0,"Visa får inte visa grön kant");
+    const propertyTitle=page.locator("#edit-form #editor-title");
+    assert.notEqual((await propertyTitle.innerText()).trim(),"Fastighet",
+      "Fastighetsbeteckningen ska vara rubriken, inte ordet Fastighet");
+    assert.ok(await page.locator("#edit-form .property-heading-address").count(),
+      "Adressen ligger direkt under huvudrubriken");
+    assert.equal(await page.locator("#edit-form .property-contact-row").count(),0,
+      "Verksamhetens kontakt visas inte längre som ett separat kort");
+    const contractContacts=page.locator("#edit-form .property-contact-list .property-person-field");
+    if(await contractContacts.count()){
+      const first=contractContacts.first();
+      assert.match(await first.innerText(),/Verksamhetens kontaktperson/);
+      assert.equal(await first.locator("select[data-property-contract-contact]").count(),1);
+      assert.equal(await first.locator(".editor-mode-value").count(),1,
+        "Avtalskontakt får samma läsrepresentation som övriga kontakter");
+      assert.equal(await first.locator(".editor-mode-value").isVisible(),true);
+      const borders=await first.evaluate(node=>{
+        const parent=getComputedStyle(node.parentElement);
+        return {top:parent.borderTopWidth,box:node.parentElement.getBoundingClientRect().height};
+      });
+      assert.equal(borders.top,"0px","Inget stort kantat kontaktkort");
+      assert.ok(borders.box<170,"Kontaktlistan är kompakt");
+    }
     // Names and data occupy the same physical row; the editor must not
     // expand a two-line label+value cell when switching modes.
     const inlineProperty=async()=>page.locator("#edit-form .property-field").first().evaluate(el=>{
