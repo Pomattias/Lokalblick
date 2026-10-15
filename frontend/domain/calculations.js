@@ -99,7 +99,7 @@
         const confirmed=row&&!row.preliminary&&!/prelim|prognos/i.test(row.source||"")?number(row.value):0;
         const last=y===target;
         const current=last?(number(assumption)||confirmed||
-          (opts.allowLatestKpi?budgetIndex({indexSeries:series},y,0,basis).value:0)||number(row?.value)):confirmed;
+          (opts.scenario===true?budgetIndex({indexSeries:series},y,0,basis).value:0)||number(row?.value)):confirmed;
         const conflict=k=>new Set((series||[]).filter(x=>Number(x.year)===k&&
           (Number(x.month)===10||String(x.period||"").toLowerCase()==="oktober")&&
           (!x.seriesBase||seriesBase(x.seriesBase)===basis)).map(x=>number(x.value))).size>1;
@@ -166,7 +166,7 @@
     const contradictoryMonth=latestMonth && new Set(recentMonths.filter(x=>Number(x.month)===Number(latestMonth.month))
       .map(x=>number(x.value))).size>1;
     const latestMonthlyIndex=contradictoryMonth?0:number(latestMonth?.value);
-    const mayForecast=scenario||options.allowLatestKpi===true;
+    const mayForecast=scenario;
     const budgetFallback=mayForecast ? budgetIndex({indexSeries:series},year,0,basisSeries).value : 0;
     const usedIndex=ownIndex||knownIndex||number(row?.value)||
       (mayForecast?latestMonthlyIndex||budgetFallback:0);
