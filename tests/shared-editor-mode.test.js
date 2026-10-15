@@ -60,7 +60,7 @@ test("a shared field generates its read value only once without removing the inp
 });
 test("shared edit mode is used for all existing editors, without altering activity mode",()=>{
  const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
- const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
  for(const text of [
     'if(editor.col!=="activities"){',
     "prepareEditorModeFields(form);",
@@ -79,7 +79,7 @@ test("shared edit mode is used for all existing editors, without altering activi
 
 
 test("focus does not enlarge any iPhone editor value or field geometry",()=>{
- const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
  const last=css.slice(css.indexOf("/* Read/edit geometry: a mode switch"));
  assert.ok(last.includes("font-size:16px!important"),"iOS read and editable values must both use stable sizing despite legacy CSS specificity");
  assert.ok(last.includes(".editor:not(.issue-editor) #edit-form .editor-mode-value"));
@@ -95,7 +95,7 @@ test("focus does not enlarge any iPhone editor value or field geometry",()=>{
 
 test("multi-select values keep the same footprint when edit becomes a listbox",()=>{
  const helper=readFileSync(new URL("../frontend/v2/editor-mode-fields.js",import.meta.url),"utf8");
- const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
  assert.ok(helper.includes('control.tagName==="SELECT"&&control.multiple'));
  assert.ok(css.includes('.editor-mode-value[data-mode-kind="multiselect"]'));
  assert.ok(css.includes('select.editor-mode-control[multiple]'));
@@ -104,7 +104,7 @@ test("multi-select values keep the same footprint when edit becomes a listbox",(
 
 
 test("no mobile editor font sizes change only upon focus, including Android",()=>{
- const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
  const focused=[...css.matchAll(/([^{}]*:focus[^{}]*)\{([^{}]*)\}/g)]
    .filter(([,selector,body])=>selector.includes("editor")&&/font-size\s*:/.test(body));
  assert.deepEqual(focused.map(([,s])=>s.trim()),[]);
@@ -112,7 +112,7 @@ test("no mobile editor font sizes change only upon focus, including Android",()=
 
 
 test("journal read and edit share the same second row on mobile",()=>{
- const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
  const fragment=css.slice(css.lastIndexOf("/* Issue details: description"));
  assert.ok(fragment.includes("grid-template-rows:auto minmax(36px,auto)"));
  assert.ok(fragment.includes("> .issue-history-value"));
@@ -125,7 +125,7 @@ test("journal read and edit share the same second row on mobile",()=>{
 
 test("mobile editing uses a real overlay and keeps normal-weight text",()=>{
   const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
-  const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
   const rule=css.slice(css.lastIndexOf("/* Redigera: native HTML"));
   assert.ok(app.includes('function syncEditorFrame(active)'));
   assert.ok(app.includes('frame=document.createElement("div")'));
@@ -172,7 +172,7 @@ test("editing frame lifecycle creates one real element and cleans up on exit",()
 });
 
 test("Siri-inspired fade stays outside the green mobile editing outline",()=>{
-  const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
   const start=css.indexOf("body.editor-frame-active > #editor-edit-frame {");
   const end=css.indexOf("}",start);
   assert.ok(start>=0&&end>start,"editing outline must exist");
