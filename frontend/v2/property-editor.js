@@ -76,12 +76,12 @@ export function renderPropertyEditor(data, p, id, company=false) {
         personSelect(data,"ownerResponsiblePersonId",p.ownerResponsiblePersonId,ownerPeople,"Fastighetsägarens kontaktperson","owner")+
         personSelect(data,"responsiblePersonId",p.responsiblePersonId,ourPeople,"Vår kontaktperson","our")+
       '</div><h4>Verksamhetens kontaktpersoner</h4>'+
-      contactRows+'<small class="property-help">Kontakterna kopplas till respektive avtalsobjekt även om du ändrar dem här. Välj Ej kopplad för att koppla bort en person utan att radera personen.</small></section>'+
+      contactRows+'<details class="property-help"><summary>Om kontaktkopplingar</summary><p>Kontakter sparas på respektive avtal. Välj Ej kopplad för att koppla bort utan att radera personen.</p></details></section>'+
       responsibilityHtml(data,'property',p.id)+
       '<section class="property-section"><h3>Placering på kartan</h3>'+
       '<p class="property-map-hint">'+(geo
-        ? 'Fastighetens position visas på kartan. Klicka eller dra nålen för att rätta placeringen.'
-        : 'Koordinater saknas. Klicka på rätt plats på kartan för att sätta en nål.')+'</p>'+
+        ? 'Klicka eller dra nålen för att ändra position.'
+        : 'Klicka på kartan för att placera nålen.')+'</p>'+
       '<div id="property-editor-map" class="property-map" role="application" aria-label="Karta för fastighetens placering"></div>'+
       '<div class="property-map-footer"><span data-property-coordinates aria-live="polite">'+
        (geo?esc(coordinates(p)):"Ingen position registrerad")+'</span>'+
@@ -90,7 +90,7 @@ export function renderPropertyEditor(data, p, id, company=false) {
       '<input type="hidden" data-property-lng'+(geo?' name="longitude" value="'+esc(p.longitude)+'"':'')+'>'+
       '</section>'+
       (company?'<p class="computed">Källstyrd fastighetsdata ändras i underlaget. Kompletteringar och valda koordinater sparas via backend.</p>':'')+
-      '<div class="actions editor-actions"><span>Vald kartposition sparas med övriga ändringar.</span>'+
+      '<div class="actions editor-actions">'+
       '<button type="submit" class="primary">Spara ändring</button></div>'+
     '</form></aside>';
 }
