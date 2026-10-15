@@ -48,7 +48,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = []) {
     const contractSignals=headerKeys.filter(h=>/avtals|hyra|hyres|uppsagning|forlangning/.test(h));
     const signature = JSON.stringify(headers.filter(present).map(norm).sort());
     const previous = saved.find(s => s.sheet===name && (!source?.fileName||!s.fileName||s.fileName===source.fileName) && s.signature===signature);
-    const inferred = /avtalverksamhet/i.test(name)?'contractBusinesses':/verksamheter|verksamhetsregister/i.test(name)?'businesses':/ansvar|tilldelning/i.test(name)?'assignments':/part|organisation/i.test(name)?'organizations':/best[aä]llning|order/i.test(name)?'orders':/aktivitet/i.test(name)?'activities': /^objekt/i.test(name)?'objects': /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
+    const inferred = /lopandekostnad/.test(norm(name))?'recurringCosts':/avtalverksamhet/i.test(name)?'contractBusinesses':/verksamheter|verksamhetsregister/i.test(name)?'businesses':/ansvar|tilldelning/i.test(name)?'assignments':/part|organisation/i.test(name)?'organizations':/best[aä]llning|order/i.test(name)?'orders':/aktivitet/i.test(name)?'activities': /^objekt/i.test(name)?'objects': /person|kontakt/i.test(name) ? 'people' : /avtal|hyra/i.test(name) || contractSignals.length>=2 || headerKeys.some(h=>/^avtals(?:nummer|nr)$/.test(h)) ? 'contracts' : /projekt|underhall|drift|onskemal/i.test(norm(name)) ? 'activities' : 'properties';
     const columns = headers.map((header,index) => {
       if(!present(header)) return null;
       const values=matrix.slice(headerIndex+1).map(r=>r[index]).filter(present);
@@ -216,6 +216,14 @@ if(!(data.contracts||[]).some(c=>norm(c.number)===norm(number)))expanded.get('co
         }
         if(collection==='businesses'&&!group.identity.length&&!group.values.sourceId){const old=(data.businesses||[]).filter(b=>b.provenance?.name?.sourceId===sourceId&&b.provenance.name.cell===group.origins.name?.cell&&b.name===group.values.name);if(old.length===1){group.values.id=old[0].id;group.identity=['id'];}}
         if(collection==='contractBusinesses'){group.values.contractId ||= rowRecords.contracts;group.values.businessId ||= rowRecords.businesses;}
+        if(collection==='recurringCosts'){
+          group.values.contractId ||= rowRecords.contracts || "";
+          if(!group.values.contractId)group.values.propertyId ||= rowRecords.properties || "";
+          const hasContract=Boolean(group.values.contractId),hasProperty=Boolean(group.values.propertyId);
+          if(hasContract===hasProperty)group.errors.push("Kostnaden behöver exakt en koppling till fastighet eller avtal");
+          if(!String(group.values.name||"").trim())group.errors.push("Kostnadens namn saknas");
+          if(!Number.isFinite(Number(group.values.annualAmount))||Number(group.values.annualAmount)<0||group.values.annualAmount==null||group.values.annualAmount==="")group.errors.push("Årsbelopp saknas eller är ogiltigt");
+        }
         if(collection==='objects'&&rowRecords.properties&&!present(group.values.propertyId))group.values.propertyId=rowRecords.properties;
         if(collection==='contracts'&&rowRecords.objects&&!present(group.values.objectId))group.values.objectId=rowRecords.objects;
         if(collection==='contracts'&&rowRecords.properties&&!present(group.values.propertyId))group.values.propertyId=rowRecords.properties;
