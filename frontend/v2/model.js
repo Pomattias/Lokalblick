@@ -15,7 +15,6 @@ export const collections = [
   "orders",
   "activities",
   "recurringCosts",
-  "maintenanceStatus",
   "budgetPlans",
   "auditLog",
   "indexSeries",
@@ -26,7 +25,6 @@ export const collections = [
 export const kinds = {
   activities: "Ärende",
   recurringCosts: "Löpande kostnad",
-  maintenanceStatus: "Status",
 };
 export const clone = (x) => JSON.parse(JSON.stringify(x));
 
@@ -689,7 +687,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
   }
 
   if (decision === "accept" && item.kind === "record") {
-    const allowed = ["activities", "recurringCosts", "maintenanceStatus"];
+    const allowed = ["activities", "recurringCosts"];
     if (!allowed.includes(item.collection)) throw Error("Ogiltig importtyp");
     const existing = data[item.collection].find((r) => r.id === item.recordId);
     const record = clone(item.record);
