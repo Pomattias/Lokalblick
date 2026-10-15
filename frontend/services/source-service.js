@@ -488,6 +488,16 @@
         }
         property.ownerPartyId=party.id;
       }
+      // External LEB assignments are valid input relations, not legacy tables.
+      // Resolve the owner's contact directly before importing names and people.
+      if(!property.ownerResponsiblePersonId && property.ownerPartyId) {
+        const assignment=data.assignments.find(a=>
+          a.targetType==="property" && a.targetId===property.id &&
+          !a.toDate && /fastighetsförvaltare|ägar/i.test(String(a.role||"")) &&
+          data.people.some(person=>person.id===a.personId &&
+            person.organizationId===property.ownerPartyId));
+        if(assignment)property.ownerResponsiblePersonId=assignment.personId;
+      }
     }
     window.LokalblickBusinessModel?.normalize(data);
     window.LokalblickResponsibility?.normalize(data);
