@@ -1523,3 +1523,1516 @@ details .table-wrap {
 .issue-editor #edit-form.editor-readonly .issue-enhancing-toggle {border-color:transparent;background:transparent;padding-left:0;}
 .issue-editor #edit-form.editor-readonly .issue-enhancing-toggle input:disabled {opacity:1;}
 @media(max-width:700px){.issue-editor .issue-enhancing-toggle{min-height:37px;font-size:12px;}}
+
+/* --- Shared visual components and view/edit geometry (consolidated) --- */
+/* Lokalblick visual primitives – additive in stage 1.
+   Existing classes and controls keep their current appearance/behavior until migration.
+   No JavaScript, data model or form semantics are changed. */
+:root {
+  --ui-color-text: var(--ink);
+  --ui-color-muted: var(--muted);
+  --ui-color-border: var(--line);
+  --ui-color-surface: var(--paper);
+  --ui-color-page: var(--bg);
+  --ui-color-primary: var(--accent);
+  --ui-color-primary-soft: var(--soft);
+  --ui-color-warning: var(--warning);
+  --ui-color-focus: #d9a44c;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 24px;
+  --ui-radius-sm: 6px;
+  --ui-radius-md: 9px;
+  --ui-radius-lg: 12px;
+  --ui-radius-pill: 999px;
+  --ui-height-compact: 36px;
+  --ui-height-control: 42px;
+  --ui-overview-tile-height: 48px;
+  --ui-font-xs: 11px;
+  --ui-font-sm: 12px;
+  --ui-font-base: 14px;
+  --ui-font-lg: 18px;
+}
+.ui-button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:var(--ui-space-2);
+  min-height:var(--ui-height-control);
+  max-width:100%;
+  padding:8px 12px;
+  border:1px solid var(--ui-color-border);
+  border-radius:var(--ui-radius-md);
+  background:var(--ui-color-surface);
+  color:var(--ui-color-text);
+  font:inherit;
+  text-align:center;
+  cursor:pointer;
+}
+.ui-button:hover:not(:disabled) { background:var(--ui-color-primary-soft); }
+.ui-button:focus-visible,.ui-field:focus-visible,.ui-filter:focus-within {
+  outline:3px solid var(--ui-color-focus);
+  outline-offset:2px;
+}
+.ui-button:disabled { opacity:.5;cursor:default; }
+.ui-button--primary,.ui-button[aria-pressed="true"] {
+  background:var(--ui-color-primary);
+  border-color:var(--ui-color-primary);
+  color:#fff;
+}
+.ui-button--primary:hover:not(:disabled) {background:var(--ui-color-primary); }
+.ui-button--quiet {background:transparent;border-color:transparent;}
+.ui-button--compact {min-height:var(--ui-height-compact);padding:6px 10px;font-size:var(--ui-font-sm);}
+.ui-button--pill {border-radius:var(--ui-radius-pill);}
+.ui-field {
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  min-height:var(--ui-height-control);
+  padding:8px 10px;
+  background:var(--ui-color-surface);
+  border:1px solid var(--ui-color-border);
+  border-radius:var(--ui-radius-md);
+  color:var(--ui-color-text);
+  font:inherit;
+}
+.ui-field--compact {min-height:var(--ui-height-compact);padding:6px 9px;}
+.ui-card {min-width:0;background:var(--ui-color-surface);border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-lg);padding:var(--ui-space-3);}
+.ui-card--compact {padding:var(--ui-space-2);border-radius:var(--ui-radius-md);}
+.ui-filter {position:relative;display:flex;align-items:center;justify-content:center;box-sizing:border-box;min-width:0;min-height:var(--ui-height-compact);padding:6px 8px;border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-md);background:var(--ui-color-surface);color:var(--ui-color-text);font-size:var(--ui-font-xs);font-weight:600;}
+.ui-filter[aria-pressed="true"],.ui-filter.is-selected {background:var(--ui-color-primary-soft);border-color:var(--ui-color-primary);}
+.ui-read-value {font-weight:600;color:var(--ui-color-text);overflow-wrap:anywhere;}
+.ui-label {font-size:var(--ui-font-xs);font-weight:600;color:var(--ui-color-muted);}
+@media(max-width:700px) {
+  /* Prevent iOS Safari zoom on text-entry fields when these primitives are used. */
+  .ui-field:is(input,select,textarea) {font-size:16px;}
+}
+
+
+/* Overview migration: scoped appearance only. Retain existing data-view actions. */
+body[data-view="overview"] .ui-overview-shortcuts{
+  gap:var(--ui-space-2);
+}
+body[data-view="overview"] .dashboard-link.ui-card{
+  padding:var(--ui-space-2) var(--ui-space-3);
+  border-radius:var(--ui-radius-md);
+  min-height:52px;
+  text-decoration:none;
+  color:var(--ui-color-text);
+}
+body[data-view="overview"] .dashboard-link.ui-card:focus-visible{
+  outline:3px solid var(--ui-color-focus);
+  outline-offset:2px;
+}
+body[data-view="overview"] .ui-overview-panel{
+  padding:var(--ui-space-3);
+  border-radius:var(--ui-radius-lg);
+}
+body[data-view="overview"] .ui-overview-panel h3{
+  margin-bottom:var(--ui-space-2);
+}
+body[data-view="overview"] .dashboard-text-link.ui-button{
+  min-height:var(--ui-height-compact);
+  padding:6px 4px;
+  justify-content:flex-start;
+  font-weight:600;
+  text-align:left;
+  border-color:transparent;
+  color:var(--ui-color-primary);
+}
+body[data-view="overview"] .dashboard-text-link.ui-button:hover{
+  background:var(--ui-color-primary-soft);
+}
+@media(max-width:700px){
+  body[data-view="overview"] .dashboard-intro{margin:4px 0 6px;}
+  body[data-view="overview"] .dashboard-quicklinks.ui-overview-shortcuts{
+    gap:var(--ui-space-1);
+    margin:4px 0 8px;
+  }
+  body[data-view="overview"] .dashboard-link.ui-card{
+    min-height:var(--ui-overview-tile-height);
+    padding:6px 8px;
+    gap:var(--ui-space-2);
+  }
+  body[data-view="overview"] .dashboard-link.ui-card .dashboard-link-icon{
+    width:25px;height:25px;
+    font-size:15px;
+  }
+  body[data-view="overview"] .ui-overview-panel{
+    padding:var(--ui-space-2) var(--ui-space-3);
+    border-radius:var(--ui-radius-md);
+  }
+}
+
+
+/* Overview refinements: KPI row matches shortcut tile height.
+   Scope to overview only; preserve the shared compact KPI rules elsewhere. */
+@media(max-width:700px){
+  body[data-view="overview"] #summary.summary {
+    min-height:var(--ui-overview-tile-height);
+  }
+  body[data-view="overview"] #summary.summary > div {
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+}
+/* Shared search field: identical across Overview, Map, Plan, Budget, More.
+   Use smaller, lighter copy than the filter chips without changing search behavior. */
+#filters .search input {
+  font-size:14px;
+  font-weight:400;
+  line-height:1.35;
+}
+#filters .search input::placeholder {
+  font-size:inherit;
+  font-weight:400;
+  color:var(--ui-color-muted);
+  opacity:.72;
+}
+@media(max-width:700px) {
+  /* iOS Safari zooms the page when focusing an input with text below 16px.
+     Temporarily use 16px while typing; the resting search field stays 14px. */
+  #filters .search input:focus { font-size:16px; }
+}
+
+
+/* A single accessible magnifier search field across the app.
+   The visible label is replaced with an icon; the "Sök" label stays available to screen readers. */
+#filters .search.ui-search {
+  position:relative;
+  display:block;
+  min-width:0;
+  gap:0;
+}
+#filters .search.ui-search .ui-search-icon {
+  position:absolute;
+  left:11px;
+  top:50%;
+  transform:translateY(-50%);
+  width:18px;
+  height:18px;
+  color:var(--ui-color-muted);
+  pointer-events:none;
+  z-index:1;
+}
+#filters .search.ui-search input {
+  padding-left:37px;
+}
+
+
+/* Shared portfolio filter bar and scope navigation.
+   These style rules are global; data-filter and data-view behavior stays in app.js. */
+#filters .filters {
+  gap:var(--ui-space-2);
+  align-items:stretch;
+}
+#filters .filters .filter-chip {
+  height:var(--ui-height-compact);
+  min-height:var(--ui-height-compact);
+  padding:5px var(--ui-space-2);
+  border-radius:var(--ui-radius-md);
+  border-color:var(--ui-color-border);
+}
+#filters .filters .filter-chip .filter-value {
+  font-size:var(--ui-font-xs);
+  font-weight:600;
+  line-height:1.15;
+}
+#filters .filters .filter-chip.is-selected {
+  background:var(--ui-color-primary-soft);
+  border-color:var(--ui-color-primary);
+}
+#filters .search.ui-search input {
+  height:var(--ui-height-compact);
+  min-height:var(--ui-height-compact);
+  box-sizing:border-box;
+  border-radius:var(--ui-radius-md);
+  border-color:var(--ui-color-border);
+  padding-block:6px;
+}
+#context.has-selection {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:var(--ui-space-2);
+  margin:4px 0 7px;
+  min-height:var(--ui-height-compact);
+  font-size:var(--ui-font-sm);
+}
+#context.has-selection > span {
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  flex:1;
+  font-weight:600;
+}
+#context.has-selection :is([data-clear-property],[data-toggle-global-filters]) {
+  min-height:var(--ui-height-compact);
+  padding:5px 10px;
+  border-radius:var(--ui-radius-pill);
+  font-size:var(--ui-font-xs);
+  flex:none;
+}
+#context.has-selection [data-toggle-global-filters] {
+  border-color:var(--ui-color-primary);
+  color:var(--ui-color-primary);
+}
+#context.has-selection [data-toggle-global-filters][aria-expanded="true"] {
+  background:var(--ui-color-primary-soft);
+}
+#content :is(.issue-type-filters button,.tabs button,.plan-mobile-actions button) {
+  min-height:var(--ui-height-compact);
+  border-radius:var(--ui-radius-pill);
+  font-size:var(--ui-font-sm);
+  font-weight:600;
+}
+#content :is(.plan-mobile-card,.plan-property-group,.budget-category-card) {
+  border-radius:var(--ui-radius-md);
+  border-color:var(--ui-color-border);
+}
+@media(max-width:700px) {
+  #filters .filters { gap:var(--ui-space-1); }
+  #filters:not([hidden]) { background:var(--ui-color-page); }
+  #context.has-selection { gap:var(--ui-space-1); margin:3px 0 5px; }
+  #context.has-selection :is([data-clear-property],[data-toggle-global-filters]) {
+    padding:5px 8px;
+  }
+}
+
+/* Global action row adjacent to the shared search.
+   Uses the same DOM action nodes on every view: click handlers stay intact. */
+#filters .ui-search-action-row {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:var(--ui-space-2);
+  min-width:0;
+  grid-column:auto;
+}
+#filters .ui-search-action-row .search.ui-search {
+  flex:1 1 170px;
+  width:auto;
+  min-width:0;
+  margin:0;
+}
+#filters .ui-filter-actions-slot { display:flex;flex:0 1 auto;min-width:0; }
+.ui-global-actions {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:var(--ui-space-1);
+  min-width:0;
+}
+.ui-global-actions[hidden],.view-actions-fallback[hidden] {display:none!important;}
+.ui-global-actions > button {
+  box-sizing:border-box;
+  min-height:var(--ui-height-compact);
+  max-width:100%;
+  border-radius:var(--ui-radius-md);
+  padding:6px 10px;
+  font-size:var(--ui-font-sm);
+  line-height:1.2;
+  font-weight:600;
+  white-space:nowrap;
+}
+.ui-global-actions > :is(#add,[data-new-object],[data-new-issue],[data-edit][data-id=""]) {
+  border-color:var(--ui-color-primary);
+  color:var(--ui-color-primary);
+  background:var(--ui-color-primary-soft);
+}
+.ui-global-actions > #save {
+  color:#fff;
+  background:var(--ui-color-primary);
+  border-color:var(--ui-color-primary);
+}
+.view-actions-fallback {
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  min-height:var(--ui-height-compact);
+  margin:4px 0 7px;
+}
+@media(max-width:1000px) {
+  #filters .ui-search-action-row { grid-column:1/-1; }
+}
+@media(max-width:700px) {
+  #filters .ui-search-action-row {gap:var(--ui-space-1);}
+  #filters .ui-search-action-row .search.ui-search {flex:1 1 165px;}
+  #filters .ui-filter-actions-slot {flex:0 0 auto;max-width:100%;}
+  .ui-global-actions > button {
+    min-height:var(--ui-height-compact);
+    padding:6px 9px;
+    font-size:var(--ui-font-xs);
+  }
+  .view-actions-fallback {margin:2px 0 6px;}
+}
+
+
+/* Mobile wordmark: keep it IN the page's flow, above the filters.
+   Never position the brand outside main: iOS Safari can clip it beneath
+   the browser chrome. Remove excess top padding to reuse that space. */
+.mobile-wordmark {display:none;}
+@media(max-width:700px){
+  main {padding-top:0;}
+  main > .mobile-wordmark {
+    display:flex;
+    position:relative;
+    inset:auto;
+    align-items:center;
+    gap:6px;
+    height:21px;
+    min-height:21px;
+    max-height:21px;
+    margin:0;
+    padding:0;
+    white-space:nowrap;
+    color:var(--ui-color-text);
+    font-size:13px;
+    line-height:21px;
+    font-weight:700;
+    letter-spacing:-.2px;
+    z-index:3;
+  }
+  main > .mobile-wordmark strong {font-size:inherit;line-height:inherit;}
+  .mobile-wordmark-mark {
+    display:inline-grid;
+    place-items:center;
+    width:19px;
+    height:19px;
+    border-radius:5px;
+    background:var(--ui-color-primary);
+    color:#fff;
+    font-size:13px;
+    font-weight:750;
+    line-height:1;
+    flex:none;
+  }
+}
+
+
+/* Harmonized case workspace: one concise hierarchy on desktop and mobile. */
+.issue-editor .section-title.issue-heading {
+  display:flex;align-items:center;gap:12px;padding:0 0 10px;margin:0;
+  border-bottom:1px solid var(--ui-color-border);
+}
+.issue-editor .issue-heading-text {flex:1;min-width:0;}
+.issue-editor .issue-heading-text h2 {margin:0 0 3px;line-height:1.15;font-size:clamp(17px,2vw,22px);}
+.issue-editor .issue-heading-text > small {font-size:11px;}
+.issue-editor .issue-heading-actions {
+  display:flex;align-items:center;justify-content:flex-end;flex:none;gap:6px;
+}
+.issue-editor .issue-heading-actions button {
+  flex:none;min-height:34px;padding:6px 10px;border-radius:var(--ui-radius-md);
+  font-size:12px;white-space:nowrap;
+}
+.issue-editor .issue-section {padding:9px 0;}
+.issue-editor .issue-section h3 {margin:0 0 7px;}
+.issue-editor .issue-main-section > .issue-grid {gap:5px 10px;}
+.issue-editor .issue-main-section .issue-home-row,
+.issue-editor .issue-main-section .issue-owner-row,
+.issue-editor .issue-main-section .issue-compact-meta,
+.issue-editor .issue-main-section .issue-description {margin:0;padding:0;}
+.issue-editor .issue-main-section .issue-owner-row {grid-column:1/-1;}
+.issue-editor .issue-main-section .issue-owner-row .issue-field {min-width:0;}
+.issue-editor .issue-main-section .issue-description textarea {max-width:100%;box-sizing:border-box;}
+.issue-editor .issue-time-fields {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.issue-editor .issue-cost-section .issue-grid {gap:7px 12px;align-items:center;}
+.issue-editor #edit-form.editor-readonly .issue-time-section,
+.issue-editor #edit-form.editor-readonly .issue-cost-section > h3,
+.issue-editor #edit-form.editor-readonly .issue-cost-section > .issue-grid {display:none;}
+.issue-editor #edit-form.editor-readonly .issue-main-section {padding-top:6px;}
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-owner-row .issue-field,
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-compact-meta .issue-field {
+  display:flex;flex-direction:row;gap:7px;align-items:baseline;padding:3px 0;
+}
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-description {padding:4px 0;}
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-description textarea {
+  min-height:22px;max-height:100px;resize:none;
+}
+.issue-editor .activity-journal {
+  box-sizing:border-box;padding:12px!important;margin:6px 0!important;
+  border-radius:var(--ui-radius-md);
+}
+.issue-editor .activity-journal .activity-journal-compose-row {
+  display:flex;align-items:stretch;gap:9px;margin:9px 0;
+}
+.issue-editor .activity-journal .activity-journal-compose {
+  display:block;flex:1;min-width:0;margin:0;
+}
+.issue-editor .activity-journal .activity-journal-compose textarea {
+  width:100%;box-sizing:border-box;min-height:44px;padding:9px 10px;
+  font-size:12px;font-weight:400;border-radius:var(--ui-radius-md);
+}
+.issue-editor .activity-journal .activity-journal-compose-row button {
+  min-height:44px;padding:7px 13px;border-radius:var(--ui-radius-md);
+}
+.issue-editor .activity-journal-groups {
+  display:grid;grid-template-columns:minmax(0,1fr);gap:10px;
+}
+.issue-editor .activity-journal-group {
+  min-width:0;padding:4px 2px;
+}
+.issue-editor .activity-journal-group h4 {
+  margin:0 0 7px;font-size:12px;
+}
+.issue-editor .activity-journal-entry {
+  box-sizing:border-box;max-width:100%;padding:9px 11px;margin:5px 0;
+}
+.issue-editor .activity-journal-history-group {
+  display:grid;grid-template-columns:minmax(0,1fr);gap:6px;
+}
+.issue-editor .activity-journal-history {
+  margin:0;padding:0;border:1px solid var(--ui-color-border);
+  border-radius:var(--ui-radius-md);background:var(--ui-color-surface);
+}
+.issue-editor .activity-journal-history summary {
+  list-style:none;display:flex;justify-content:space-between;align-items:center;
+  gap:8px;padding:10px;cursor:pointer;font-size:12px;
+}
+.issue-editor .activity-journal-history summary::-webkit-details-marker {display:none;}
+.issue-editor .activity-journal-history summary::before {
+  content:"▸";color:var(--ui-color-primary);flex:none;
+}
+.issue-editor .activity-journal-history[open] summary::before {content:"▾";}
+.issue-editor .activity-journal-history summary > span:first-child {
+  min-width:0;flex:1;overflow-wrap:anywhere;
+}
+.issue-editor .activity-journal-history-count {color:var(--ui-color-muted);white-space:nowrap;font-size:11px;}
+.issue-editor .activity-journal-history .activity-journal-entries {
+  padding:0 9px 7px;
+}
+.issue-editor .issue-assessment {padding:8px 10px;margin-top:7px;}
+.issue-editor .issue-order-rows>div {padding:7px 10px;}
+/* Budget inclusion and rent impact are planning decisions, not case input fields. */
+.plan-budget-settings {
+  margin:10px 0;padding:9px 11px;border:1px solid var(--ui-color-border);
+  border-radius:var(--ui-radius-md);background:var(--ui-color-surface);
+}
+.plan-budget-settings>summary {
+  cursor:pointer;font-weight:650;font-size:13px;padding:2px;
+}
+.plan-budget-help {margin:7px 0;font-size:12px;}
+.plan-budget-rows {display:grid;gap:7px;}
+.plan-budget-row {
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,180px);
+  gap:7px 12px;align-items:center;padding:9px;
+  border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-md);
+}
+.plan-budget-row > strong {font-size:12px;overflow-wrap:anywhere;}
+.plan-budget-row label {font-size:11px;min-width:0;}
+.plan-budget-row :is(select,input) {min-height:36px;max-width:100%;font-size:13px;}
+.plan-budget-row small {grid-column:1/-1;}
+@media(max-width:700px) {
+  .issue-editor .issue-heading-actions {gap:5px;}
+  .issue-editor .issue-heading-actions button {padding:6px 9px;min-height:34px;}
+  .issue-editor .issue-heading-text h2 {font-size:17px;}
+  .issue-editor .issue-section {padding:7px 0;}
+  .issue-editor .issue-time-fields {grid-template-columns:repeat(2,minmax(0,1fr));}
+  .issue-editor .issue-time-fields > .issue-field:last-child {grid-column:1/-1;}
+  .issue-editor .activity-journal {padding:10px!important;}
+  .issue-editor .activity-journal .activity-journal-compose-row {gap:6px;}
+  .issue-editor .activity-journal .activity-journal-compose textarea {min-height:43px;}
+  .plan-budget-row {grid-template-columns:1fr;}
+  .plan-budget-row small {grid-column:auto;}
+}
+
+
+/* The journal's existing cost card is the sole read-only cost summary.
+   Its checkbox indicates classification but does not mutate records. */
+.issue-editor .activity-journal-history summary .journal-cost-enhancing {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+  flex:none;
+  font-size:11px;
+  font-weight:500;
+  color:var(--ui-color-text);
+}
+.issue-editor .journal-cost-enhancing input[type="checkbox"] {
+  accent-color:var(--ui-color-primary);
+  width:15px;
+  height:15px;
+  margin:0;
+  opacity:1;
+  pointer-events:none;
+}
+.issue-editor .issue-visual-planner {
+  margin:6px 0 8px;
+}
+.issue-editor .issue-economic-details {
+  border:1px solid var(--ui-color-border);
+  border-radius:var(--ui-radius-md);
+  margin:5px 0 0;
+  background:var(--ui-color-surface);
+}
+.issue-editor .issue-economic-details > summary {
+  cursor:pointer;
+  padding:9px 10px;
+  font-size:12px;
+  color:var(--ui-color-text);
+  font-weight:600;
+}
+.issue-editor .issue-economic-details .issue-assessment {
+  margin:0 8px 8px;
+  border-radius:var(--ui-radius-sm);
+  padding:7px 9px;
+}
+.issue-editor .issue-economic-details .issue-assessment small {
+  display:block;
+  font-size:11px;
+}
+@media(max-width:700px){
+ .issue-editor .activity-journal-history summary {
+   flex-wrap:wrap;
+   row-gap:5px;
+ }
+ .issue-editor .activity-journal-history summary .journal-cost-enhancing {
+   margin-left:auto;
+ }
+ .issue-editor .activity-journal-history-count {
+   margin-left:auto;
+ }
+}
+
+/* The read-only indicator in the journal must not duplicate the editable checkbox. */
+.issue-editor #edit-form:not(.editor-readonly) .journal-cost-enhancing {display:none;}
+
+
+/* Unified activity editor: view and edit keep identical DOM, grid and cards.
+   Only field presentation changes. This supersedes older mode-specific layouts. */
+.issue-editor #edit-form .issue-heading-text .issue-edit-title {display:block;margin:0;}
+.issue-editor #edit-form .issue-heading-text .issue-edit-title input {
+  box-sizing:border-box;min-width:0;width:100%;max-width:100%;
+  min-height:34px;padding:6px 8px;margin:0;
+  font-size:17px;font-weight:650;border-radius:var(--ui-radius-md);
+}
+.issue-editor #edit-form:not(.editor-readonly) .issue-heading-text > h2 {display:none;}
+.issue-editor #edit-form.editor-readonly .issue-heading-text .issue-edit-title {display:none;}
+.issue-editor #edit-form .issue-heading-actions {display:flex;flex:none;justify-content:flex-end;align-items:center;gap:5px;}
+.issue-editor #edit-form .issue-heading-actions [data-editor-save-status] {
+  position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;
+}
+.issue-editor #edit-form .issue-heading-actions button {
+  border-radius:var(--ui-radius-md);min-height:34px;padding:5px 9px;font-size:12px;line-height:1.1;
+}
+.issue-editor #edit-form.editor-readonly .issue-heading-actions button[type="submit"],
+.issue-editor #edit-form.editor-readonly .issue-heading-actions [data-editor-undo] {display:none!important;}
+.issue-editor #edit-form .editor-actions {display:none!important;}
+.issue-editor #edit-form .issue-main-section > .issue-grid,
+.issue-editor #edit-form.editor-readonly .issue-main-section > .issue-grid {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 10px;
+}
+.issue-editor #edit-form .issue-main-section .issue-home-row,
+.issue-editor #edit-form .issue-main-section .issue-owner-row,
+.issue-editor #edit-form .issue-main-section .issue-compact-meta,
+.issue-editor #edit-form .issue-main-section .issue-description-row {
+  grid-column:1/-1;min-width:0;margin:0;
+}
+.issue-editor #edit-form .issue-home-row {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:center;}
+.issue-editor #edit-form .issue-home-row .issue-property-reference {
+  display:flex;align-items:baseline;gap:6px;min-width:0;margin:0;
+}
+.issue-editor #edit-form .issue-home-row .issue-property-reference strong {
+  min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.issue-editor #edit-form .issue-compact-meta,
+.issue-editor #edit-form.editor-readonly .issue-compact-meta {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field,
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-mode-field {
+  display:grid!important;
+  grid-template-columns:minmax(58px,32%) minmax(0,1fr);
+  gap:5px;align-items:center;margin:0;padding:4px 0;
+  min-height:32px;box-sizing:border-box;min-width:0;
+  font-size:12px;line-height:1.3;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-label {font-weight:500;color:var(--ui-color-muted);min-width:0;}
+.issue-editor #edit-form .issue-mode-field .issue-field-value {
+  display:block;min-width:0;font-weight:650;color:var(--ui-color-text);overflow-wrap:anywhere;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-control {
+  display:block;min-width:0;max-width:100%;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea) {
+  box-sizing:border-box;width:100%;min-width:0;max-width:100%;
+  min-height:32px;height:auto;padding:5px 8px;border-radius:var(--ui-radius-md);
+  font-size:13px;font-weight:600;line-height:1.3;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-control textarea {
+  min-height:44px;resize:vertical;font-size:13px;
+}
+.issue-editor #edit-form:not(.editor-readonly) .issue-mode-field .issue-field-value {display:none!important;}
+.issue-editor #edit-form.editor-readonly .issue-mode-field .issue-field-control {display:none!important;}
+.issue-editor #edit-form .issue-description-row .issue-mode-field {
+  grid-template-columns:minmax(74px,16%) minmax(0,1fr);
+}
+.issue-editor #edit-form .issue-main-section {padding:7px 0 9px;}
+.issue-editor #edit-form .issue-main-section .issue-owner-row .issue-mode-field {
+  grid-template-columns:minmax(58px,16%) minmax(0,1fr);
+}
+.issue-editor #edit-form .activity-journal-groups {grid-template-columns:1fr;gap:8px;}
+.issue-editor #edit-form .activity-journal-history-group {
+  display:grid;grid-template-columns:1fr;gap:6px;
+}
+.issue-editor #edit-form .issue-history-card {
+  border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-md);
+  background:var(--ui-color-surface);padding:0;
+}
+.issue-editor #edit-form .issue-history-card-row {
+  display:grid;grid-template-columns:65px minmax(0,1fr) auto auto;
+  gap:8px;align-items:center;min-height:40px;padding:7px 10px;
+}
+.issue-editor #edit-form .issue-history-label {font-size:12px;color:var(--ui-color-muted);}
+.issue-editor #edit-form .issue-history-value {font-size:13px;min-width:0;overflow-wrap:anywhere;}
+.issue-editor #edit-form .issue-history-edit {
+  min-width:0;display:flex;gap:6px;align-items:center;box-sizing:border-box;
+  font-size:12px;font-weight:600;
+}
+.issue-editor #edit-form .issue-cost-edit {justify-self:start;}
+.issue-editor #edit-form .issue-cost-edit input {width:100px;}
+.issue-editor #edit-form .issue-enhancing-edit {white-space:nowrap;}
+.issue-editor #edit-form .issue-enhancing-edit input,
+.issue-editor #edit-form .journal-cost-enhancing input {accent-color:var(--ui-color-primary);width:16px;height:16px;margin:0;}
+.issue-editor #edit-form .issue-dates-edit {gap:5px;flex-wrap:wrap;}
+.issue-editor #edit-form .issue-dates-edit :is(input[type="date"]) {width:133px;max-width:100%;}
+.issue-editor #edit-form .issue-year-edit {display:flex;align-items:center;gap:4px;}
+.issue-editor #edit-form .issue-year-edit input {width:74px;max-width:100%;}
+.issue-editor #edit-form .issue-history-edit input {
+  box-sizing:border-box;min-height:33px;padding:4px 6px;font-size:13px;
+  border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-md);
+}
+.issue-editor #edit-form .issue-history-card .activity-journal-history {
+  margin:0;border:none;background:transparent;min-width:0;
+}
+.issue-editor #edit-form .issue-history-card .activity-journal-history > summary {
+  padding:6px;display:flex;gap:4px;align-items:center;
+  font-size:11px;color:var(--ui-color-muted);white-space:nowrap;cursor:pointer;
+}
+.issue-editor #edit-form .issue-history-card .activity-journal-history[open] {
+  grid-column:1/-1;border-top:1px solid var(--ui-color-border);
+  padding-top:4px;
+}
+.issue-editor #edit-form.editor-readonly .issue-history-edit {display:none!important;}
+.issue-editor #edit-form:not(.editor-readonly) .issue-history-value,
+.issue-editor #edit-form:not(.editor-readonly) .journal-cost-enhancing {display:none!important;}
+.issue-editor #edit-form .issue-history-card .journal-cost-enhancing {
+  display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:11px;
+}
+@media(max-width:700px) {
+  .issue-editor #edit-form .issue-heading-actions {gap:3px;}
+  .issue-editor #edit-form .issue-heading-actions button {padding:5px 7px;font-size:11px;}
+  .issue-editor #edit-form .issue-home-row {gap:7px;grid-template-columns:repeat(2,minmax(0,1fr));}
+  .issue-editor #edit-form .issue-main-section .issue-mode-field {grid-template-columns:minmax(54px,30%) minmax(0,1fr);}
+  .issue-editor #edit-form .issue-compact-meta,
+  .issue-editor #edit-form.editor-readonly .issue-compact-meta {gap:3px 7px;}
+  .issue-editor #edit-form .issue-history-card-row {
+    grid-template-columns:minmax(0,1fr) auto;row-gap:5px;padding:8px;
+  }
+  .issue-editor #edit-form .issue-history-label {grid-column:1;grid-row:1;}
+  .issue-editor #edit-form .issue-history-card .activity-journal-history {grid-column:2;grid-row:1;}
+  .issue-editor #edit-form .issue-history-value {grid-column:1;grid-row:2;}
+  .issue-editor #edit-form .issue-cost-edit {grid-column:1;grid-row:2;}
+  .issue-editor #edit-form .issue-enhancing-edit,
+  .issue-editor #edit-form .journal-cost-enhancing {grid-column:2;grid-row:2;}
+  .issue-editor #edit-form .issue-dates-edit {grid-column:1/-1;grid-row:2;}
+  .issue-editor #edit-form .issue-history-card .activity-journal-history[open] {
+    grid-column:1/-1;grid-row:3;
+  }
+  .issue-editor #edit-form .issue-dates-edit :is(input[type="date"]) {max-width:135px;font-size:13px;}
+  .issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea) {font-size:13px;}
+  .issue-editor #edit-form .issue-history-edit input {font-size:13px;}
+  .issue-editor #edit-form .issue-year-edit input {width:64px;}
+}
+
+
+/* A read-only case contains no visible native fields.
+   The edit action only unlocks controls in the identical existing grid slots. */
+.issue-editor #edit-form [hidden] { display:none!important; }
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-value {
+  display:flex;
+  align-items:center;
+  min-height:34px;
+  box-sizing:border-box;
+  padding:5px 8px;
+  border:1px solid transparent;
+  border-radius:var(--ui-radius-md);
+  font-size:13px;
+  font-weight:600;
+  line-height:1.3;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-control :is(input,select,textarea) {
+  font-weight:600;
+}
+.issue-editor #edit-form .issue-heading-text .issue-title-heading,
+.issue-editor #edit-form .issue-heading-text .issue-edit-title input {
+  box-sizing:border-box;
+  min-height:36px;
+  display:flex;
+  align-items:center;
+  margin:0;
+  line-height:1.2;
+}
+.issue-editor #edit-form .issue-heading-text .issue-edit-title input {
+  display:block;
+  height:36px;
+}
+.issue-editor #edit-form.editor-readonly .issue-heading-actions [data-editor-activate] {
+  display:inline-flex;
+}
+.issue-editor #edit-form:not(.editor-readonly) .issue-heading-actions [data-editor-activate] {
+  display:none!important;
+}
+.issue-editor #edit-form.editor-readonly .issue-history-card .issue-history-edit,
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-field-control {
+  display:none!important;
+}
+.issue-editor #edit-form:not(.editor-readonly) .issue-history-card .issue-history-value,
+.issue-editor #edit-form:not(.editor-readonly) .issue-main-section .issue-field-value {
+  display:none!important;
+}
+@media(max-width:700px) {
+  .issue-editor #edit-form .issue-main-section .issue-mode-field {
+    min-height:38px;
+  }
+  .issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-value {
+    min-height:36px;
+    padding:6px 7px;
+    font-size:13px;
+  }
+}
+
+
+/* Keep case typography and dimensions stable between view and edit.
+   iOS receives a 16px focused field to prevent viewport auto-zoom. */
+.issue-editor #edit-form .issue-mode-field .issue-field-value,
+.issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select,textarea) {
+  font-family:inherit;
+  font-size:13px;
+  font-weight:600;
+  line-height:1.3;
+}
+.issue-editor #edit-form .issue-heading-text .issue-title-heading,
+.issue-editor #edit-form .issue-heading-text .issue-edit-title input {
+  font-family:inherit;
+  font-size:17px;
+  font-weight:650;
+  line-height:1.2;
+  letter-spacing:inherit;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field {
+  min-height:36px;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-value,
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-control :is(input,select) {
+  min-height:36px;
+}
+.issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-control select {
+  appearance:auto;
+  -webkit-appearance:menulist;
+}
+.issue-editor #edit-form .issue-home-row,
+.issue-editor #edit-form.editor-readonly .issue-home-row {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:center;
+}
+.issue-editor #edit-form .issue-home-row .issue-property-reference,
+.issue-editor #edit-form.editor-readonly .issue-home-row .issue-property-reference {
+  align-items:baseline;
+}
+.issue-editor #edit-form .issue-home-row .issue-property-reference strong,
+.issue-editor #edit-form.editor-readonly .issue-home-row .issue-property-reference strong {
+  min-height:0;
+  padding:0;
+  font-size:13px;
+}
+.issue-editor #edit-form .issue-mode-field .issue-field-control textarea {
+  font-size:13px;
+  line-height:1.3;
+  padding:5px 8px;
+  min-height:44px;
+  max-height:120px;
+  resize:vertical;
+}
+.issue-editor #edit-form .issue-history-edit :is(input,select) {font-size:13px;}
+@media(max-width:700px) {
+  .issue-editor #edit-form .issue-home-row,
+  .issue-editor #edit-form.editor-readonly .issue-home-row {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;
+  }
+}
+
+
+/* Issue journal cards: same compact two-row geometry in View and Edit.
+   Preserve the date picker, cost input and historical data; only their layout changes. */
+.issue-editor #edit-form .issue-history-card-row {
+  gap:6px 9px;
+  align-items:center;
+}
+.issue-editor #edit-form .issue-cost-edit {
+  display:inline-flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:flex-start;
+  align-self:center;
+  flex-wrap:nowrap;
+  gap:6px;
+  height:35px;
+  min-height:35px;
+  width:max-content;
+  max-width:100%;
+  min-width:0;
+  white-space:nowrap;
+}
+.issue-editor #edit-form .issue-cost-edit input[name="estimatedCostTkr"] {
+  box-sizing:border-box;
+  flex:0 0 92px;
+  width:92px;
+  min-width:0;
+  max-width:92px;
+  height:35px;
+  min-height:35px;
+  padding:5px 8px;
+  text-align:left;
+  font-size:13px;
+}
+.issue-editor #edit-form .issue-cost-edit > span:last-child {
+  display:inline-block;
+  flex:none;
+  align-self:center;
+  white-space:nowrap;
+  color:var(--ui-color-muted);
+  font-size:12px;
+  line-height:1;
+}
+.issue-editor #edit-form .issue-enhancing-edit,
+.issue-editor #edit-form .journal-cost-enhancing {
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-direction:row;
+  gap:6px;
+  min-width:max-content;
+  white-space:nowrap;
+  margin:0;
+  line-height:1.2;
+  font-size:12px;
+  font-weight:500;
+}
+.issue-editor #edit-form .issue-enhancing-edit input[type="checkbox"],
+.issue-editor #edit-form .journal-cost-enhancing input[type="checkbox"] {
+  flex:none;
+  width:16px;
+  height:16px;
+  margin:0;
+}
+.issue-editor #edit-form .issue-dates-edit {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr);
+  align-items:center;
+  align-self:center;
+  gap:5px;
+  height:30px;
+  min-height:30px;
+  max-height:30px;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+}
+.issue-editor #edit-form .issue-dates-edit > label:not(.issue-year-edit) {
+  display:block;
+  min-width:0;
+  width:100%;
+  height:30px;
+  min-height:30px;
+  max-height:30px;
+  margin:0;
+}
+.issue-editor #edit-form .issue-dates-edit > span[aria-hidden] {
+  text-align:center;
+  white-space:nowrap;
+  color:var(--ui-color-muted);
+}
+.issue-editor #edit-form .issue-dates-edit input[type="date"] {
+  box-sizing:border-box;
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:30px;
+  min-height:30px;
+  max-height:30px;
+  margin:0;
+  padding:0 5px;
+  font-size:12px;
+  font-weight:600;
+  line-height:30px;
+  text-align:center;
+  vertical-align:middle;
+  -webkit-appearance:none;
+  appearance:none;
+}
+/* Safari renders date content inside WebKit shadow elements; align the
+   visible date inside the existing 30px input without changing native picker. */
+.issue-editor #edit-form .issue-dates-edit input[type="date"]::-webkit-date-and-time-value {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  min-height:100%;
+  width:100%;
+}
+.issue-editor #edit-form .issue-dates-edit input[type="date"]::-webkit-datetime-edit {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:100%;
+  padding:0;
+  line-height:normal;
+}
+.issue-editor #edit-form .issue-dates-edit input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}
+@media(max-width:700px) {
+  .issue-editor #edit-form .issue-history-card-row {
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:5px 7px;
+    padding:8px 10px;
+  }
+  .issue-editor #edit-form .issue-cost-edit {
+    grid-column:1;
+    grid-row:2;
+  }
+  .issue-editor #edit-form .issue-enhancing-edit,
+  .issue-editor #edit-form .journal-cost-enhancing {
+    grid-column:2;
+    grid-row:2;
+    align-self:center;
+  }
+  .issue-editor #edit-form .issue-dates-edit {
+    grid-column:1/-1;
+    grid-row:2;
+  }
+  .issue-editor #edit-form .issue-dates-edit input[type="date"] {
+    height:30px;
+    min-height:30px;
+    max-height:30px;
+    font-size:12px;
+  }
+}
+@media(max-width:380px) {
+  .issue-editor #edit-form .issue-dates-edit {
+    grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr);
+    gap:3px;
+  }
+  .issue-editor #edit-form .issue-dates-edit input[type="date"] {
+    padding-inline:1px;
+    font-size:11px;
+  }
+  .issue-editor #edit-form .issue-cost-edit input[name="estimatedCostTkr"] {
+    width:78px;
+    flex-basis:78px;
+  }
+}
+
+
+/* Dashboard lenses follow the shared design-system tokens and replace dropdowns only on Overview. */
+:root{
+  --ui-chart-1:#216957;--ui-chart-2:#579a82;--ui-chart-3:#86b9a6;
+  --ui-chart-4:#c3d9c9;--ui-chart-5:#478a99;--ui-chart-6:#92acb1;--ui-chart-7:#b6c1a2;
+}
+body[data-view="overview"] #filters .dashboard-mode-filters .dashboard-mode-button{
+  box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+  min-height:var(--ui-height-compact);height:var(--ui-height-compact);
+  padding:5px 8px;border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-md);
+  background:var(--ui-color-surface);color:var(--ui-color-text);font-size:var(--ui-font-xs);
+  font-weight:600;text-align:center;line-height:1.15;min-width:0;
+}
+body[data-view="overview"] #filters .dashboard-mode-button[aria-pressed="true"]{
+  color:#fff;background:var(--ui-color-primary);border-color:var(--ui-color-primary);
+}
+body[data-view="overview"] .portfolio-heading{margin:7px 0 10px;}
+body[data-view="overview"] .portfolio-panels{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-space-3);
+}
+body[data-view="overview"] .portfolio-panels>.dashboard-panel{
+  min-width:0;padding:var(--ui-space-4);border-radius:var(--ui-radius-lg);
+}
+body[data-view="overview"] .portfolio-panels h3{margin:0 0 var(--ui-space-3);font-size:var(--ui-font-base);}
+.portfolio-rent-layout{display:grid;grid-template-columns:minmax(140px,190px) minmax(0,1fr);gap:var(--ui-space-3);align-items:center;}
+.portfolio-ring{width:100%;max-width:190px;height:auto;overflow:visible;}
+.portfolio-ring-total{font-size:15px;font-weight:700;fill:var(--ui-color-text);}
+.portfolio-ring-caption{font-size:10px;fill:var(--ui-color-muted);}
+.portfolio-ring-target{cursor:pointer;outline:none;}
+.portfolio-ring-target:hover circle,.portfolio-ring-target:focus-visible circle{stroke-width:25;}
+.portfolio-ring-target:focus-visible{filter:drop-shadow(0 0 2px var(--ui-color-focus));}
+.portfolio-legend{min-width:0;display:grid;gap:3px;max-height:230px;overflow-y:auto;}
+.portfolio-legend-item{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:7px;
+  width:100%;text-align:left;border:0;padding:6px 5px;border-radius:var(--ui-radius-sm);min-width:0;background:transparent;}
+.portfolio-legend-item:hover:not(:disabled){background:var(--ui-color-primary-soft);}
+.portfolio-legend-item:disabled{cursor:default;opacity:.8;}
+.portfolio-legend-dot{width:9px;height:9px;border-radius:3px;}
+.portfolio-legend-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
+.portfolio-legend-item strong{font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.portfolio-more>summary{font-size:11px;cursor:pointer;padding:4px;color:var(--ui-color-primary);}
+.portfolio-bar-list{display:grid;gap:3px;}
+.portfolio-bar-list .dashboard-bar-row{margin:3px 0;grid-template-columns:minmax(95px,140px) minmax(0,1fr) 30px;}
+.portfolio-bar-action{width:100%;border:0;background:transparent;text-align:left;padding:5px 3px;}
+.portfolio-bar-action:hover{background:var(--ui-color-primary-soft);}
+.portfolio-cost-list{display:grid;gap:4px;}
+.portfolio-cost-row{display:grid;grid-template-columns:minmax(100px,1.3fr) minmax(50px,1fr) auto;gap:10px;
+  align-items:center;text-align:left;width:100%;border:0;background:transparent;padding:8px 2px;font-size:12px;}
+.portfolio-cost-row:hover{background:var(--ui-color-primary-soft);}
+.portfolio-cost-track{height:9px;background:var(--ui-color-primary-soft);border-radius:10px;overflow:hidden;}
+.portfolio-cost-track span{height:100%;display:block;background:var(--ui-color-primary);border-radius:10px;}
+.portfolio-cost-row strong{font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.portfolio-empty{font-size:12px;color:var(--ui-color-muted);}
+.portfolio-breadcrumb{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;font-size:12px;}
+.portfolio-breadcrumb button{padding:4px 8px;border-radius:var(--ui-radius-pill);font-size:11px;}
+.portfolio-shortcuts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.portfolio-shortcut{gap:8px;}
+.portfolio-shortcut strong{color:var(--ui-color-primary);}
+@media(max-width:900px){
+ body[data-view="overview"] .portfolio-panels{grid-template-columns:1fr;}
+}
+@media(max-width:700px){
+ body[data-view="overview"] #filters .dashboard-mode-filters{gap:4px;}
+ body[data-view="overview"] #filters .dashboard-mode-filters .dashboard-mode-button{height:36px;min-height:36px;font-size:11px;padding:4px;}
+ body[data-view="overview"] .portfolio-heading h2{font-size:16px;}
+ body[data-view="overview"] .portfolio-panels{gap:8px;}
+ body[data-view="overview"] .portfolio-panels>.dashboard-panel{padding:10px 11px;border-radius:var(--ui-radius-md);}
+ body[data-view="overview"] .portfolio-rent-layout{grid-template-columns:minmax(110px,39%) minmax(0,1fr);gap:7px;}
+ .portfolio-legend-item{gap:4px;padding:5px 2px;}
+ .portfolio-legend-title{font-size:11px;}
+ .portfolio-legend-item strong{font-size:10px;}
+ .portfolio-cost-row{grid-template-columns:minmax(72px,1fr) minmax(40px,.6fr) auto;gap:6px;}
+ .portfolio-shortcuts{gap:4px;margin-top:8px;}
+ .portfolio-shortcut{font-size:11px;padding:4px 7px;min-height:34px;}
+}
+
+/* Dashboard: prioritize amount (kr), volume (st) and area (m²). */
+body[data-view="overview"] #summary .summary{grid-template-columns:repeat(3,minmax(0,1fr));margin:9px 0 13px;}
+body[data-view="overview"] #summary .summary>div{min-width:0;overflow-wrap:anywhere;border-bottom:1px solid var(--ui-color-border);}
+body[data-view="overview"] #summary .summary>div:nth-child(3n){border-right:0;}
+body[data-view="overview"] #summary .summary>div:nth-last-child(-n+3){border-bottom:0;}
+.portfolio-legend-details{display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left;}
+.portfolio-legend-details small{font-size:10px;line-height:1.3;white-space:normal;}
+.portfolio-legend-money{font-size:11px;white-space:nowrap;text-align:right;}
+body[data-view="overview"] .portfolio-bar-list .dashboard-bar-row{grid-template-columns:minmax(82px,1fr) minmax(40px,1fr) auto;gap:8px;}
+.portfolio-bar-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.portfolio-bar-values{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:90px;font-variant-numeric:tabular-nums;}
+.portfolio-bar-values strong{font-size:11px;white-space:nowrap;}
+.portfolio-bar-values small{font-size:10px;white-space:nowrap;}
+.portfolio-metric-note{margin:-4px 0 8px;font-size:11px;color:var(--ui-color-muted);}
+.portfolio-area-row{grid-template-columns:minmax(105px,1.4fr) minmax(45px,.65fr) auto;}
+.portfolio-area-name{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere;}
+.portfolio-area-name small{font-size:10px;line-height:1.2;}
+.portfolio-area-row strong{font-size:11px;white-space:nowrap;}
+.portfolio-ring-total{font-size:11px;}
+@media(max-width:700px){
+ body[data-view="overview"] #summary .summary{grid-template-columns:repeat(2,minmax(0,1fr));margin:7px 0 9px;}
+ body[data-view="overview"] #summary .summary>div{min-height:55px;padding:7px 9px!important;border-right:1px solid var(--ui-color-border);border-bottom:1px solid var(--ui-color-border);}
+ body[data-view="overview"] #summary .summary>div:nth-child(even){border-right:0;}
+ body[data-view="overview"] #summary .summary>div:nth-last-child(-n+3){border-bottom:1px solid var(--ui-color-border);}
+ body[data-view="overview"] #summary .summary>div:nth-last-child(-n+2){border-bottom:0;}
+ body[data-view="overview"] #summary .summary>div strong{font-size:14px!important;overflow-wrap:break-word;}
+ body[data-view="overview"] .portfolio-rent-layout{grid-template-columns:1fr;gap:6px;}
+ body[data-view="overview"] .portfolio-ring{max-width:155px;margin:0 auto;}
+ .portfolio-legend{max-height:none;gap:2px;}
+ .portfolio-legend-item{padding:8px 4px;border-bottom:1px solid var(--ui-color-border);}
+ .portfolio-legend-details small{font-size:10px;}
+ body[data-view="overview"] .portfolio-bar-list .dashboard-bar-row{grid-template-columns:minmax(80px,1fr) minmax(35px,.7fr) auto;gap:5px;}
+ .portfolio-bar-values{min-width:83px;}
+ .portfolio-area-row{grid-template-columns:minmax(100px,1.3fr) minmax(30px,.4fr) auto;gap:6px;}
+}
+
+
+/* Budget: slim index panel and optional onboarding panel; inherits Lokalblick tokens. */
+body[data-view="budget"] .budget-about{padding:0;margin:7px 0 8px;border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-md);background:var(--ui-color-surface);}
+body[data-view="budget"] .budget-about>summary{padding:7px 11px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;list-style:none;color:var(--ui-color-primary);font-size:12px;font-weight:600;}
+body[data-view="budget"] .budget-about>summary::-webkit-details-marker{display:none;}
+body[data-view="budget"] .budget-about-body{border-top:1px solid var(--ui-color-border);padding:7px 11px;}
+body[data-view="budget"] .budget-about-body p{margin:5px 0 8px;font-size:12px;line-height:1.5;}
+body[data-view="budget"] .budget-controls-compact{padding:8px 10px;gap:8px;flex-wrap:wrap;border-radius:var(--ui-radius-md);align-items:center;}
+body[data-view="budget"] .budget-index-compact{flex:1 1 450px;width:auto;min-width:0;gap:5px;}
+body[data-view="budget"] .budget-index-head{display:flex;align-items:center;gap:7px 13px;flex-wrap:wrap;}
+body[data-view="budget"] .budget-index-head>strong{font-size:13px;}
+body[data-view="budget"] .budget-index-published{font-size:11px;color:var(--ui-color-muted);flex:1 1 175px;}
+body[data-view="budget"] .budget-index-head button,body[data-view="budget"] .budget-index-edit button{min-height:31px;height:31px;font-size:11px;padding:4px 9px;}
+body[data-view="budget"] .budget-index-current{font-size:11px;color:var(--ui-color-muted);}
+body[data-view="budget"] .budget-index-edit{display:flex;align-items:center;flex-wrap:wrap;gap:5px 10px;}
+body[data-view="budget"] .budget-index-manual{display:flex;flex-direction:row;align-items:center;gap:7px;max-width:none;font-size:11px;}
+body[data-view="budget"] .budget-index-manual input{width:112px;max-width:112px;height:33px;min-height:33px;padding:4px 6px;text-align:center;font-size:16px;}
+body[data-view="budget"] .budget-index-manual input[aria-invalid="true"]{border-color:var(--ui-color-warning);}
+body[data-view="budget"] .budget-index-compact>small{font-size:11px;line-height:1.3;}
+body[data-view="budget"] .budget-index-live:not(:empty){font-weight:600;color:var(--ui-color-primary);}
+body[data-view="budget"] .budget-overview-total{margin:10px 0;font-size:13px;}
+@media(max-width:700px){
+ body[data-view="budget"] .budget-controls-compact{align-items:stretch;gap:7px;padding:8px;}
+ body[data-view="budget"] .budget-index-compact{flex:auto;}
+ body[data-view="budget"] .budget-index-head{gap:4px 8px;}
+ body[data-view="budget"] .budget-index-published{flex:1 1 165px;}
+ body[data-view="budget"] .budget-index-edit{gap:6px;}
+ body[data-view="budget"] .budget-index-manual{width:100%;justify-content:space-between;}
+ body[data-view="budget"] .budget-index-edit button{width:100%;}
+}
+
+
+/* Short budget-index summary and side-by-side comparison, same on mobile and desktop. */
+body[data-view="budget"] .budget-index-head{gap:6px 10px;}
+body[data-view="budget"] .budget-index-head>strong{font-size:12px;white-space:nowrap;}
+body[data-view="budget"] .budget-index-published{flex:1 1 auto;color:var(--ui-color-text);font-weight:600;font-size:12px;}
+body[data-view="budget"] .budget-index-compact{flex:1 1 300px;min-width:0;}
+body[data-view="budget"] .budget-index-current{font-size:11px;}
+body[data-view="budget"] .budget-rent-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 11px;flex:1 1 100%;border-top:1px solid var(--ui-color-border);padding-top:8px;}
+body[data-view="budget"] .budget-rent-metric{min-width:0;display:flex;flex-direction:column;gap:3px;}
+body[data-view="budget"] .budget-rent-metric>span{font-size:11px;color:var(--ui-color-muted);}
+body[data-view="budget"] .budget-rent-metric>strong{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+body[data-view="budget"] .budget-rent-delta{grid-column:1/-1;font-size:11px;color:var(--ui-color-muted);padding-top:2px;}
+body[data-view="budget"] .budget-rent-delta strong{color:var(--ui-color-text);font-variant-numeric:tabular-nums;}
+@media(max-width:700px){
+ body[data-view="budget"] .budget-index-compact{flex:auto;}
+ body[data-view="budget"] .budget-index-head>strong{white-space:normal;}
+ body[data-view="budget"] .budget-index-published{flex:1 1 auto;}
+ body[data-view="budget"] .budget-rent-metric>strong{font-size:15px;}
+ body[data-view="budget"] .budget-rent-compare{gap:7px;}
+}
+
+
+/* Shared read/edit invariant, all record editors except the existing issue workspace.
+   One structural form in both modes, with text in the same cells as editable controls. */
+.editor:not(.issue-editor) #edit-form .editor-mode-value {
+  display:none;
+  box-sizing:border-box;
+  min-width:0;
+  width:100%;
+  min-height:36px;
+  padding:6px 9px;
+  border:1px solid transparent;
+  border-radius:var(--ui-radius-md);
+  color:var(--ui-color-text);
+  background:transparent;
+  font-family:inherit;
+  font-size:13px;
+  font-weight:600;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+  white-space:pre-wrap;
+  align-items:center;
+}
+.editor:not(.issue-editor) #edit-form .editor-mode-value[data-mode-kind="textarea"] {
+  min-height:66px;
+  align-items:flex-start;
+}
+.editor:not(.issue-editor) #edit-form.editor-readonly .editor-mode-value {
+  display:flex;
+}
+.editor:not(.issue-editor) #edit-form.editor-readonly .editor-mode-control {
+  display:none!important;
+}
+.editor:not(.issue-editor) #edit-form :is(input.editor-mode-control,select.editor-mode-control,textarea.editor-mode-control) {
+  box-sizing:border-box;
+  min-width:0;
+  max-width:100%;
+  min-height:36px;
+  font-family:inherit;
+  font-size:13px;
+  font-weight:600;
+  line-height:1.35;
+}
+.editor:not(.issue-editor) #edit-form .property-person-field .editor-mode-value,
+.editor:not(.issue-editor) #edit-form .property-person-inline .editor-mode-value {
+  flex:1 1 auto;
+}
+.editor:not(.issue-editor) #edit-form.editor-readonly :is(.property-person-actions,.property-person-inline button,[data-person-new],[data-person-edit]) {
+  visibility:hidden;
+}
+.editor:not(.issue-editor) #edit-form .section-title {
+  min-width:0;
+}
+@media(max-width:700px) {
+  .editor:not(.issue-editor) #edit-form .editor-mode-value,
+  .editor:not(.issue-editor) #edit-form :is(input.editor-mode-control,select.editor-mode-control,textarea.editor-mode-control) {
+    min-height:34px;
+    font-size:13px;
+    line-height:1.3;
+  }
+  .editor:not(.issue-editor) #edit-form .editor-mode-value {
+    padding:6px 7px;
+  }
+  .editor:not(.issue-editor) #edit-form :is(input[type="date"].editor-mode-control, input[type="number"].editor-mode-control) {
+    text-align:left;
+    min-width:0;
+  }
+}
+
+.editor:not(.issue-editor) #edit-form .editor-activate-placeholder{
+  visibility:hidden!important;
+  pointer-events:none;
+}
+
+
+/* Read/edit geometry: a mode switch must not resize any control or cell.
+   Single-line fields are compact and equal in both modes, including checkbox rows. */
+.editor:not(.issue-editor) #edit-form .editor-mode-value:not([data-mode-kind="textarea"]),
+.editor:not(.issue-editor) #edit-form :is(
+  input.editor-mode-control:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select.editor-mode-control:not([multiple])
+){
+  box-sizing:border-box;
+  min-height:36px;
+  height:36px;
+  max-height:36px;
+  padding:6px 9px;
+  line-height:1.3;
+  min-width:0;
+  max-width:100%;
+}
+.editor:not(.issue-editor) #edit-form .editor-mode-value:not([data-mode-kind="textarea"]){
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.editor:not(.issue-editor) #edit-form input.editor-mode-control:is([type="checkbox"],[type="radio"]){
+  box-sizing:border-box;
+  width:18px;
+  min-width:18px;
+  max-width:18px;
+  height:18px;
+  min-height:18px;
+  max-height:18px;
+  margin:9px 0;
+  padding:0;
+  flex:none;
+}
+.editor:not(.issue-editor) #edit-form .editor-mode-value[data-mode-kind="textarea"],
+.editor:not(.issue-editor) #edit-form textarea.editor-mode-control {
+  box-sizing:border-box;
+  min-height:66px;
+  height:66px;
+  max-height:66px;
+  overflow:auto;
+}
+@media(max-width:700px){
+  .editor:not(.issue-editor) #edit-form .editor-mode-value:not([data-mode-kind="textarea"]),
+  .editor:not(.issue-editor) #edit-form :is(
+    input.editor-mode-control:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    select.editor-mode-control:not([multiple])
+  ){
+    min-height:34px;
+    height:34px;
+    max-height:34px;
+    padding:5px 7px;
+  }
+  .editor:not(.issue-editor) #edit-form input.editor-mode-control:is([type="checkbox"],[type="radio"]){
+    margin:8px 0;
+  }
+}
+/* iPhone Safari zooms inputs smaller than 16px. Apply the same readable
+   font size in both read and edit before focus, never only on :focus.
+   Explicit heights keep the compact layout from expanding. */
+@media(max-width:700px){
+  @supports (-webkit-touch-callout:none){
+    .editor:not(.issue-editor) #edit-form .editor-mode-value,
+    .editor:not(.issue-editor) #edit-form :is(
+      input.editor-mode-control:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+      select.editor-mode-control,
+      textarea.editor-mode-control
+    ),
+    .issue-editor #edit-form .issue-mode-field :is(
+      .issue-field-value,
+      .issue-field-control input,
+      .issue-field-control select,
+      .issue-field-control textarea
+    ),
+    .issue-editor #edit-form .issue-history-card-row :is(
+      .issue-history-value,
+      .issue-history-edit input,
+      .issue-history-edit select,
+      .issue-cost-edit input
+    ),
+    .issue-editor #edit-form .issue-dates-edit input[type="date"],
+    .issue-editor #edit-form .issue-heading-text :is(.issue-title-heading,.issue-edit-title input) {
+      font-size:16px!important; /* Match all existing high-specificity read styles. */
+      line-height:1.15;
+    }
+    .issue-editor #edit-form .issue-mode-field .issue-field-value,
+    .issue-editor #edit-form .issue-mode-field .issue-field-control :is(input,select){
+      min-height:36px;
+      height:36px;
+      max-height:36px;
+      box-sizing:border-box;
+    }
+    .issue-editor #edit-form .issue-dates-edit input[type="date"]{
+      min-height:30px;
+      height:30px;
+      max-height:30px;
+    }
+    .issue-editor #edit-form .issue-history-card-row .issue-history-edit input{
+      box-sizing:border-box;
+    }
+  }
+}
+
+
+/* Explicit multi-selects remain full-height listboxes in both modes.
+   Their text representation reserves the same height in the identical row. */
+.editor:not(.issue-editor) #edit-form .editor-mode-value[data-mode-kind="multiselect"],
+.editor:not(.issue-editor) #edit-form select.editor-mode-control[multiple] {
+  box-sizing:border-box;
+  min-height:90px;
+  height:90px;
+  max-height:90px;
+  overflow:auto;
+  white-space:normal;
+  align-items:flex-start;
+}
+
+
+/* Issue details: description and journal values occupy the same rows as
+   their edit controls. Keep journal history and dates accessible in both modes. */
+.issue-editor #edit-form .issue-description-row .issue-mode-field .issue-field-value,
+.issue-editor #edit-form .issue-description-row .issue-mode-field .issue-field-control textarea{
+  box-sizing:border-box;
+  min-height:52px;
+}
+@media(max-width:700px){
+  .issue-editor #edit-form .issue-history-card-row{
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-rows:auto minmax(36px,auto);
+    align-items:center;
+  }
+  .issue-editor #edit-form .issue-history-card-row > .issue-history-label{
+    grid-column:1;
+    grid-row:1;
+  }
+  .issue-editor #edit-form .issue-history-card-row > .activity-journal-history{
+    grid-column:2;
+    grid-row:1;
+  }
+  .issue-editor #edit-form .issue-history-card-row > .issue-history-value{
+    grid-column:1 / -1;
+    grid-row:2;
+    align-items:center;
+    min-height:36px;
+    padding:0 3px;
+    box-sizing:border-box;
+  }
+  .issue-editor #edit-form .issue-history-card-row:has(.issue-cost-edit) > .issue-history-value{
+    grid-column:1;
+  }
+  .issue-editor #edit-form .issue-history-card-row .issue-cost-edit,
+  .issue-editor #edit-form .issue-history-card-row .issue-dates-edit{
+    grid-row:2;
+    align-self:center;
+    max-width:100%;
+  }
+  .issue-editor #edit-form .issue-history-card-row .issue-dates-edit{
+    grid-column:1 / -1;
+  }
+}
+
+/* The native hidden attribute controls the mode; never override it with a
+   display rule in journal, as that would show both value and edit field. */
+.issue-editor #edit-form .issue-history-card-row > .issue-history-value[hidden]{
+  display:none!important;
+}
+
+
+/* Redigera: native HTML + a standalone iOS-safe frame above all drawers.
+   It has no layout dimensions or interactive hit area; no text becomes an image. */
+#editor-edit-frame { display:none; }
+@media(max-width:700px) {
+  body.editor-frame-active > #editor-edit-frame {
+    display:block!important;
+    position:fixed!important;
+    /* Reserve a narrow visible strip OUTSIDE the sharp green perimeter.
+       Outer (non-inset) colored shadows fade into the screen edge; never
+       paint over the form or capture touches, including on iPhone Safari. */
+    /* Closer to the viewport edge, leaving edit labels and titles unobstructed.
+       No padding, font changes or layout reflow. */
+    top:max(5px,env(safe-area-inset-top,0px));
+    right:5px;
+    bottom:max(5px,env(safe-area-inset-bottom,0px));
+    left:5px;
+    box-sizing:border-box;
+    border:3px solid #177b5d;
+    border-radius:17px;
+    box-shadow:
+      0 0 0 1px rgba(245,255,252,.82),
+      -10px -5px 15px -5px rgba(81,148,247,.48),
+      10px -5px 16px -5px rgba(255,144,177,.43),
+      -10px 7px 18px -5px rgba(144,110,229,.34),
+      10px 7px 18px -5px rgba(65,204,164,.43),
+      0 -8px 19px -4px rgba(255,180,120,.32),
+      0 9px 20px -4px rgba(70,176,221,.37),
+      0 0 12px 0 rgba(33,165,125,.22);
+    z-index:2147483000!important;
+    pointer-events:none!important;
+    opacity:1;
+  }
+}
+
+/* The values are REGULAR text in both Visa and Redigera, not bold labels.
+   Existing read-only and issue rules used weights 600/650; override only
+   data values, preserving headings and action buttons. */
+#editor-root .editor #edit-form :is(
+  .editor-mode-value,
+  input.editor-mode-control:not([type="checkbox"]):not([type="radio"]),
+  select.editor-mode-control,
+  textarea.editor-mode-control,
+  .issue-main-section .issue-mode-field .issue-field-value,
+  .issue-main-section .issue-mode-field .issue-field-control input,
+  .issue-main-section .issue-mode-field .issue-field-control select,
+  .issue-main-section .issue-mode-field .issue-field-control textarea,
+  .issue-property-reference strong,
+  .issue-history-value,
+  .issue-history-edit input,
+  .issue-history-edit select,
+  .issue-history-edit textarea
+) {
+  font-family:inherit!important;
+  font-weight:400!important;
+}
+
+
+
+/* Compact central registers under Mer > Inställningar */
+.activity-option-settings{margin:0 0 18px;max-width:1100px}
+.activity-option-settings>p{margin:5px 0 12px;font-size:12px;color:var(--ui-color-muted,#64766f)}
+.activity-option-grid{display:grid;gap:10px}
+.activity-option-block{border:1px solid var(--ui-color-border,#dbe3df);border-radius:12px;padding:12px;background:var(--ui-color-surface,#fff);min-width:0}
+.activity-option-block>h3{margin:0 0 4px;font-size:15px}
+.activity-option-block>p{margin:0 0 8px;font-size:12px;color:var(--ui-color-muted,#64766f)}
+.activity-option-list{display:grid;gap:3px}
+.activity-option-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--ui-color-border,#e4e9e7)}
+.activity-option-row.is-inactive{opacity:.65}
+.activity-option-name{flex:1 1 160px;min-width:0;display:grid;gap:1px}
+.activity-option-name strong{font-weight:600;font-size:13px}
+.activity-option-name small{font-size:11px;color:var(--ui-color-muted,#64766f)}
+.activity-option-actions{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.activity-option-actions button{padding:5px 7px;min-height:30px;font-size:12px;white-space:nowrap}
+.activity-option-scope{display:flex;flex-direction:column;font-size:11px;gap:2px;flex:0 1 180px}
+.activity-option-scope select{width:100%;min-height:32px;font-size:13px}
+.activity-option-add{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.activity-option-add>input{min-width:150px;flex:1 1 175px;max-width:380px}
+.activity-option-add>select{max-width:200px}
+.activity-option-add>*{min-height:34px}
+@media(max-width:700px){
+  .activity-option-block{padding:10px}
+  .activity-option-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 7px}
+  .activity-option-name{min-width:0;grid-column:1;grid-row:1}
+  .activity-option-scope{grid-column:1/-1;grid-row:2}
+  .activity-option-actions{grid-column:2;grid-row:1;justify-content:flex-end}
+  .activity-option-actions button{font-size:11px;padding:4px 5px;min-height:29px}
+}
