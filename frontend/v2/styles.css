@@ -3129,3 +3129,13 @@ body.editor-frame-active > #editor-edit-frame {
 .issue-editor #edit-form:not(.editor-readonly) .issue-heading-actions [data-issue-save] {
   visibility:visible!important;
 }
+
+/* Desktop journal values and native inputs need the same minimum row height.
+   Use min-height, never a fixed maximum: expanded journal history must grow. */
+@media(min-width:701px) {
+  .issue-editor #edit-form .issue-history-card-row:has(.issue-cost-edit),
+  .issue-editor #edit-form .issue-history-card-row:has(.issue-dates-edit) {
+    box-sizing:border-box;
+    min-height:49px;
+  }
+}
