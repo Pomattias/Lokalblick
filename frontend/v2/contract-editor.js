@@ -16,6 +16,35 @@ const percent = (c,key) => {
 const select = (name, records, c, value, title, blank, disabled=false) =>
   '<select name="'+name+'"'+(disabled?' disabled':'')+'>'+options(records, value, title, c[name], blank)+'</select>';
 
+const METHODS=[
+  {id:"kpi",name:"KPI enligt avtalet"},
+  {id:"fixed",name:"Fast årlig procent"},
+  {id:"kpi-limited",name:"KPI med min/max"},
+  {id:"none",name:"Ingen uppräkning"}
+];
+function adjustmentControls(c,prefix) {
+  const method=String(c[prefix+"AdjustmentMethod"]||"kpi");
+  const pct=(key,placeholder)=>'<input name="'+prefix+key+'" type="number" step="any" min="-99.99" max="1000" value="'+
+    esc(c[prefix+key]??"")+'" placeholder="'+placeholder+'">';
+  const conditional=(kind,title,control,note="")=>{
+    const visible=kind==="kpi"?["kpi","kpi-limited"].includes(method):
+      kind==="fixed"?method==="fixed":kind==="limits"&&method==="kpi-limited";
+    return '<div class="contract-rule-field" data-rule-for="'+prefix+'" data-rule-show="'+kind+'"'+(visible?"":" hidden")+'>'+
+      field(title,control,note)+'</div>';
+  };
+  return field("Avtalad justering",
+    '<select name="'+prefix+'AdjustmentMethod" data-contract-rule="'+prefix+'">'+
+      options(METHODS,x=>x.id,x=>x.name,method)+'</select>')+
+    conditional("kpi","Indexandel, %",percent(c,prefix+"IndexPercent"))+
+    conditional("fixed","Fast ökning, %/år",pct("AnnualPercent","3"))+
+    conditional("limits","Lägsta ökning, %/år",pct("MinPercent","Inte avtalad"))+
+    conditional("limits","Högsta ökning, %/år",pct("MaxPercent","Inte avtalad"))+
+    conditional("limits","Gränserna gäller",
+      '<select name="'+prefix+'LimitBasis">'+options([
+        {id:"rent",name:"Hyresökningen"},{id:"index",name:"KPI-förändringen"}
+      ],x=>x.id,x=>x.name,c[prefix+"LimitBasis"]||"rent")+'</select>');
+}
+
 function chosenCategory(raw) {
   const current=String(raw||"").trim();
   if (/^(ÄBO\b|äldreboende)/i.test(current)) return "Äldreboende";
@@ -95,18 +124,19 @@ export function renderContractEditor(data, c, id, company=false) {
         field("Förlängningstid, månader",input(c,"renewalPeriodMonths","number",false,'min="0" step="1"'))+
       '</div><p class="contract-note">'+lastNotice+'</p>'+
       '<small class="contract-help">Beräknat från senast sparade villkor. Faktisk uppsägning behöver registreras innan förlängning påverkar budget.</small></section>'+
-      '<section class="contract-section"><h3>Hyra och index</h3><div class="contract-grid">'+
+      '<section class="contract-section"><h3>Hyra och avtalad justering</h3>'+
+      '<p class="contract-note">Villkoren gäller per avtal. Basår är KPI-basår; bashyran avser följande hyresår. Min/max tillämpas vid varje årsjustering enligt avtal.</p><div class="contract-grid">'+
         field("Bashyra, kr/år",input(c,"baseRent","number",false,'min="0" step="any"'))+
         field("Basår",input(c,"rentBaseYear","number",false,'min="1900" step="1"'))+
-        field("Indexuppräkning, %",percent(c,"rentIndexPercent"))+
-        field("Bastal KPI",display(totals.rent.bastal||"Saknas"),"Från KPI eller avtalat bastal")+
+        adjustmentControls(c,"rent")+
+        field("Bastal KPI",input(c,"rentBaseIndex","number",false,'min="0" step="any"'),"Lämna tomt för fastställt KPI för basåret")+
       '</div>'+
       '<details class="contract-additions"'+((Number(c.baseAdditions)>0||needsLegacyAddition)?' open':'')+'>'+
         '<summary>Tillägg <span>'+money(totals.addition.amount)+'/år</span></summary><div class="contract-grid">'+
           field("Tillägg, kr/år",input(additionForm,"baseAdditions","number",false,'min="0" step="any"'))+
           field("Tillägg basår",input(c,"additionBaseYear","number",false,'min="1900" step="1"'))+
-          field("Indexuppräkning tillägg, %",percent(additionForm,"additionIndexPercent"))+
-          field("Bastal KPI tillägg",display(totals.addition.bastal||"Saknas"),"Från KPI eller avtalat bastal")+
+          adjustmentControls(additionForm,"addition")+
+          field("Bastal KPI tillägg",input(c,"additionBaseIndex","number",false,'min="0" step="any"'),"Lämna tomt för KPI för tilläggets basår")+
         '</div></details>'+
       '<div class="contract-grid contract-tax-field">'+
         field("Fastighetsskatt, kr/år",input(c,"annualPropertyTax","number",false,'min="0" step="any"'))+

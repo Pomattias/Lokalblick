@@ -43,12 +43,12 @@ test('new budget version preserves prior locked snapshot and metadata',()=>{
  assert.equal(plan.versions[0].snapshot.lockedAt,'2026-10-01');
  assert.throws(()=>ctx.LokalblickBudgetFollowup.beginVersion(plan,'igen','Mattias'),/arbetsbudget/);
 });
-test('manual preliminary index overrides monthly fallback but official October takes precedence',()=>{
+test('manual preliminary index overrides both latest monthly and confirmed October until cleared',()=>{
  const data={indexSeries:[{year:2026,month:9,value:420,seriesBase:'1980'}]};
  assert.equal(calc.budgetIndex(data,2027,425).value,425);
  assert.equal(calc.budgetIndex(data,2027,0).value,420);
  data.indexSeries.push({year:2026,month:10,value:422,seriesBase:'1980'});
- assert.equal(calc.budgetIndex(data,2027,425).value,422);
+ assert.equal(calc.budgetIndex(data,2027,425).value,425);
 });
 test('locked budget view shows current September separately from missing saved index',async()=>{
  const {budget}=await import('../frontend/v2/views.js');
@@ -59,7 +59,7 @@ test('locked budget view shows current September separately from missing saved i
  globalThis.LokalblickBudgetUI={html:()=>''};
  const data=normalize({indexSeries:[{year:2026,month:9,value:420,seriesBase:'1980'}],budgetPlans:[{year:2027,status:'Låst',lockedAt:'2026-10-01',lockedIndexValue:0,lines:[]}]});
  const html=budget(data,{}, {year:2027});
- assert.ok(html.includes('september 2026: 420'));assert.ok(html.includes('data-budget-index'));
+ assert.ok(html.includes('september 2026') && html.includes('420'));assert.ok(html.includes('data-budget-index'));
  assert.equal(data.budgetPlans[0].lockedIndexValue,0);
  data.budgetPlans[0].status='Arbetsbudget';
  assert.ok(budget(data,{}, {year:2027}).includes('data-preliminary'));

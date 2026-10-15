@@ -33,7 +33,7 @@ const internalPeople = (data) =>
 const generated =
   /^(?:id|sourceId|sourceSheet|sourceRow|enrichment|derived|calculated|rentPerSqm|rentCalculation|additionCalculation|rentIndexCurrent|additionIndexCurrent|rentIndexYear|additionIndexYear|provenance|createdAt|createdBy|updatedAt|updatedBy)/;
 const numeric =
-  /^(?:usedArea|costSharePercent|area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths|investmentThreshold|rentSurchargeRate)/;
+  /^(?:usedArea|costSharePercent|area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|rentAnnualPercent|additionAnnualPercent|rentMinPercent|rentMaxPercent|additionMinPercent|additionMaxPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths|investmentThreshold|rentSurchargeRate)/;
 const group = (key) =>
   /^media/.test(key)
     ? "Media"
@@ -307,6 +307,24 @@ export function readEditor(form, record) {
       (Number(out[key]) < 0 || Number(out[key]) > 1)
     )
       throw Error("Indexandel anges mellan 0 och 1");
+  if (form.dataset?.collection === "contracts") {
+    for(const prefix of ["rent","addition"]){
+      const method=String(out[prefix+"AdjustmentMethod"]||"kpi");
+      if(!["kpi","fixed","kpi-limited","none"].includes(method))throw Error("Okänd avtalsregel för uppräkning");
+      const value=k=>out[prefix+k],present=k=>value(k)!==""&&value(k)!=null;
+      const valid=k=>present(k)&&Number.isFinite(Number(value(k)))&&Number(value(k))>-100&&Number(value(k))<=1000;
+      if(method==="fixed"&&(!Number(value("BaseYear"))||!valid("AnnualPercent")))
+        throw Error("Fast uppräkning kräver basår och en giltig procentsats.");
+      if(method==="kpi-limited"&&(!Number(value("BaseYear"))||
+        (value("IndexPercent")===""||value("IndexPercent")==null)||
+        (!present("MinPercent")&&!present("MaxPercent"))||
+        (present("MinPercent")&&!valid("MinPercent"))||
+        (present("MaxPercent")&&!valid("MaxPercent"))||
+        (present("MinPercent")&&present("MaxPercent")&&Number(value("MinPercent"))>Number(value("MaxPercent")))||
+        !["rent","index"].includes(String(value("LimitBasis")||"rent"))))
+        throw Error("KPI med min/max kräver basår, indexandel, giltiga gränser och beräkningsgrund.");
+    }
+  }
   if (out.start && out.end && out.end < out.start)
     throw Error("Giltigt t.o.m. kan inte vara före giltigt fr.o.m.");
   if (out.moveInDate && out.moveOutDate && out.moveOutDate < out.moveInDate)

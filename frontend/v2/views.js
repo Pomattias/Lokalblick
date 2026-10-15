@@ -355,13 +355,16 @@ export function overview(data, s, ui) {
 function contractIndexBreakdown(c, name, v, rawShare) {
   const amount = v.status === "Behöver kontroll" && v.amount <= 0
     ? "Kan inte beräknas" : money(v.amount);
-  const indexText = v.calculated && v.share > 0
+  const ruleText=v.method==="none"?"Oförändrat":
+    v.method==="fixed"?"Fast "+indexFormat(v.annualPercent)+" %/år":
+    v.method==="kpi-limited"?"Min "+(v.minPercent??"–")+" % / max "+(v.maxPercent??"–")+" % ("+(v.limitBasis==="index"?"KPI":"hyra")+")":null;
+  const indexText = ruleText?ruleText:v.calculated && v.share > 0
     ? `${v.indexYear}: ${indexFormat(v.usedIndex)}${v.preliminary ? " (preliminärt)" : ""}`
     : v.share === 0 && v.calculated ? "Ej tillämpligt (0 %)" : "Saknas";
   const basisText = v.calculated && v.share > 0
     ? `${v.baseYear}: ${indexFormat(v.bastal)}` :
       v.baseYear ? String(v.baseYear) : "–";
-  const share = rawShare === "" || rawShare == null ? "Saknas" :
+  const share = v.method==="none"||v.method==="fixed"?"–":rawShare === "" || rawShare == null ? "Saknas" :
     Number.isFinite(v.share) ? indexFormat(v.share * 100) + " %" : "Ogiltig";
   return `<tr><th scope="row">${esc(name)}</th><td>${money(v.base)}</td><td>${esc(basisText)}</td><td>${esc(share)}</td><td>${esc(indexText)}</td><td><strong>${esc(amount)}</strong></td><td>${badge(v.status)}</td></tr>`;
 }
@@ -377,7 +380,7 @@ export function contractDetail(data, id, year) {
   return `<section class="detail"><div class="section-title"><h2>Avtal ${esc(c.number||c.id)}</h2><button data-close-contract>Stäng detalj</button></div>
   <section class="rent-calculation">
     <h3>Årsberäkning ${year}</h3>
-    <p><small>Hyra och tillägg räknas separat: basbelopp × (1 + indexandel × (KPI oktober ${year-1} / bastal − 1)). Indexandelen 0 % innebär oförändrat basbelopp. Avtalets golvregel kan hindra sänkning. Preliminära eller ofullständiga underlag markeras.</small></p>
+    <p><small>Hyra och tillägg beräknas separat enligt avtalad regel: KPI, fast årlig procent, KPI med min/max eller ingen uppräkning. Ofullständiga villkor markeras för kontroll.</small></p>
     <div class="table-wrap"><table><thead><tr><th>Del</th><th>Basbelopp / år</th><th>Basår / bastal</th><th>Indexandel</th><th>KPI oktober</th><th>Belopp ${year}</th><th>Kontroll</th></tr></thead><tbody>
     ${contractIndexBreakdown(c,"Hyra",v.rent,c.rentIndexPercent)}
     ${contractIndexBreakdown(c,"Tillägg",v.addition,c.additionIndexPercent)}
@@ -653,6 +656,10 @@ const importFieldLabels = {
   baseRent: "Bashyra",
   baseAdditions: "Tillägg",
   rentBaseYear: "Basår hyra",
+  rentAdjustmentMethod:"Avtalad hyresjustering",rentAnnualPercent:"Hyra fast %, per år",
+  rentMinPercent:"Hyra min %, per år",rentMaxPercent:"Hyra max %, per år",rentLimitBasis:"Hyra gränser gäller",
+  additionAdjustmentMethod:"Tilläggsjustering",additionAnnualPercent:"Tillägg fast %, per år",
+  additionMinPercent:"Tillägg min %, per år",additionMaxPercent:"Tillägg max %, per år",additionLimitBasis:"Tillägg gränser gäller",
   rentIndexPercent: "Indexandel hyra",
   additionBaseYear: "Basår tillägg",
   additionIndexPercent: "Indexandel tillägg",

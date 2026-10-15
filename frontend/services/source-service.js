@@ -24,7 +24,9 @@
       ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["tenantName","Hyresgäst enligt källa"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
       ["start","Start"],["end","Slut"],["moveInDate","Inflyttning"],["moveOutDate","Utflyttning"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
       ["baseRent","Bashyra"],["baseAdditions","Bastillägg"],["rentBaseYear","Hyra basår"],["rentBaseIndex","Hyra bastal (KPI)"],["rentIndexPercent","Hyra uppräkning %"],["additionBaseYear","Tillägg basår"],["additionBaseIndex","Tillägg bastal (KPI)"],["additionIndexPercent","Tillägg uppräkning %"],
-      ["annualContractDrift","Media per år"],["annualPropertyTax","F-skatt per år"],
+      ["rentAdjustmentMethod","Hyra justeringsregel"],["rentAnnualPercent","Hyra fast årlig uppräkning %"],["rentMinPercent","Hyra minsta uppräkning %"],["rentMaxPercent","Hyra högsta uppräkning %"],["rentLimitBasis","Hyra min/max gäller"],
+        ["additionAdjustmentMethod","Tillägg justeringsregel"],["additionAnnualPercent","Tillägg fast årlig uppräkning %"],["additionMinPercent","Tillägg minsta uppräkning %"],["additionMaxPercent","Tillägg högsta uppräkning %"],["additionLimitBasis","Tillägg min/max gäller"],
+        ["annualContractDrift","Media per år"],["annualPropertyTax","F-skatt per år"],
       ["costCenterOperations","Kstl drift"],["costCenterPremises","Kstl lokaler"],["ekotObject","Objekt i Ekot"],["contractDocumentUrl","Avtals-PDF"],["contractDocumentName","Avtalsdokument"],["contractDocumentKind","Dokumenttyp"],
       ["mediaWaste","Sopor"],["mediaElectricity","El"],["mediaWater","VA"],["mediaHeating","Värme"],["mediaHotWater","VV"],["mediaVentilation","Vent"],["mediaOutdoor","Utem."],["mediaPropertyTax","F-skatt ingår"],
       ["unitId","_unitId",true],["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"],
@@ -1385,8 +1387,8 @@
         base.contracts.push(mapped);found=mapped;report.counts.contractsCreated++;
       } else if(mergeFields(found,mapped,[
         "sourceId","objectId","propertyId","number","area","category","tenantName","use","businessPartyId","businessName","businessResponsiblePersonId",
-        "start","end","noticePeriodMonths","renewalPeriodMonths","originalTerm","baseRent","baseAdditions","rentBaseYear","rentIndexPercent",
-        "additionBaseYear","additionIndexPercent","annualContractDrift","annualPropertyTax","costCenterOperations","costCenterPremises","ekotObject",
+        "start","end","noticePeriodMonths","renewalPeriodMonths","originalTerm","baseRent","baseAdditions","rentBaseYear","rentBaseIndex","rentIndexPercent","rentSeriesBase",
+        "additionBaseYear","additionBaseIndex","additionIndexPercent","additionSeriesBase","rentAdjustmentMethod","rentAnnualPercent","rentMinPercent","rentMaxPercent","rentLimitBasis","additionAdjustmentMethod","additionAnnualPercent","additionMinPercent","additionMaxPercent","additionLimitBasis","annualContractDrift","annualPropertyTax","costCenterOperations","costCenterPremises","ekotObject",
         "contractDocumentUrl","contractDocumentName","contractDocumentKind","unitId","employees","users","rooms","commonArea","apartmentArea"
       ],"contracts","Avtal")) {
         report.counts.contractsUpdated++;

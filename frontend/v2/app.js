@@ -1542,6 +1542,17 @@ document.addEventListener("click",event=>{
 document.addEventListener("change", (event) =>
   run(async () => {
     const x = event.target;
+    if (x.matches('select[data-contract-rule]')) {
+      const area=x.closest(".contract-section,.contract-additions");
+      const method=x.value;
+      area?.querySelectorAll('[data-rule-for="'+x.dataset.contractRule+'"]').forEach(node=>{
+        const role=node.dataset.ruleShow;
+        node.hidden=!(role==="kpi"&&["kpi","kpi-limited"].includes(method)||
+          role==="fixed"&&method==="fixed"||role==="limits"&&method==="kpi-limited");
+      });
+      updateEditorActions();
+      return;
+    }
     if (x.closest('form[data-collection="activities"]') && ["startDate","endDate","planningYear"].includes(x.name)) {
       delete x.closest("form").dataset.pendingPlanMonth;
       redrawFormPlanning(x.closest("form"));

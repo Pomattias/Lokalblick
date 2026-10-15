@@ -61,7 +61,77 @@
     if(raw>1&&raw<=100) return raw/100;
     return raw;
   }
+  // Explicit contractual rules; absent method preserves legacy KPI exactly.
+  // Base amount applies in baseYear+1; later years apply each annual adjustment.
+  function contractualComponent(c,kind,year,assumption,series,opts) {
+    const p=kind==="addition"?"addition":"rent",method=String(c[p+"AdjustmentMethod"]||"kpi");
+    if(method==="kpi")return null;
+    const base=number(c[kind==="addition"?"baseAdditions":"baseRent"]);
+    const sourceAmount=number(kind==="addition"?(c.annualAdditions||c.annualContractDrift):c.annualRent);
+    const baseYear=number(c[p+"BaseYear"]),target=Number(year);
+    const basis=seriesBase(c[p+"SeriesBase"])||"1980";
+    const bastal=number(c[p+"BaseIndex"])||number(october(series,baseYear,basis)?.value);
+    const share=normalizedShare(c[p+"IndexPercent"]),shareSet=c[p+"IndexPercent"]!==""&&c[p+"IndexPercent"]!=null;
+    const pct=c[p+"AnnualPercent"],mn=c[p+"MinPercent"],mx=c[p+"MaxPercent"];
+    const min=mn===""||mn==null?null:Number(mn),max=mx===""||mx==null?null:Number(mx);
+    const limitBasis=String(c[p+"LimitBasis"]||"rent");
+    const valid=n=>n!==""&&n!=null&&Number.isFinite(Number(n))&&Number(n)>-100&&Number(n)<=1000;
+    let calculated=false,preliminary=false,usedIndex=0,amount=base,reason="",source="";
+    if(method==="none"){calculated=base>0;source="Avtalat utan uppräkning";if(!calculated)reason="Basbelopp saknas";}
+    else if(method==="fixed"){
+      calculated=base>0&&baseYear>0&&target>=baseYear+1&&target-baseYear<=150&&valid(pct);
+      source="Avtalad fast årlig procent";
+      if(calculated){
+        amount=base*Math.pow(1+Number(pct)/100,target-baseYear-1);
+        if(!Number.isFinite(amount)){calculated=false;reason="Avtalad uppräkning ger ett ogiltigt belopp";}
+      }
+      else reason="Basbelopp, basår eller avtalad procentsats saknas";
+    }else if(method==="kpi-limited"){
+      calculated=base>0&&baseYear>0&&bastal>0&&target>=baseYear+1&&target-baseYear<=150&&
+        shareSet&&share>=0&&share<=1&&(min!==null||max!==null)&&
+        (min===null||valid(mn))&&(max===null||valid(mx))&&
+        (min===null||max===null||min<=max)&&["rent","index"].includes(limitBasis);
+      source="Avtalat KPI med min/max";
+      if(!calculated)reason="Kontrollera basår, bastal, indexandel och avtalad min/max";
+      for(let y=baseYear+2;calculated&&y<=target;y++){
+        const prev=y-2===baseYear?bastal:number(october(series,y-2,basis)?.value);
+        const row=october(series,y-1,basis);
+        const confirmed=row&&!row.preliminary&&!/prelim|prognos/i.test(row.source||"")?number(row.value):0;
+        const last=y===target;
+        const current=last?(number(assumption)||confirmed||
+          (opts.allowLatestKpi?budgetIndex({indexSeries:series},y,0,basis).value:0)||number(row?.value)):confirmed;
+        const conflict=k=>new Set((series||[]).filter(x=>Number(x.year)===k&&
+          (Number(x.month)===10||String(x.period||"").toLowerCase()==="oktober")&&
+          (!x.seriesBase||seriesBase(x.seriesBase)===basis)).map(x=>number(x.value))).size>1;
+        if(!prev||!current||conflict(y-2)||conflict(y-1)){
+          calculated=false;reason="KPI oktober saknas eller är motstridigt för "+(y-2)+"–"+(y-1);
+          break;
+        }
+        const kpiPct=(current/prev-1)*100;
+        const rate=limitBasis==="index"?
+          Math.min(max??Infinity,Math.max(min??-Infinity,kpiPct))*share:
+          Math.min(max??Infinity,Math.max(min??-Infinity,kpiPct*share));
+        amount*=1+rate/100;
+        if(c[p+"Floor"]!==false)amount=Math.max(base,amount);
+        if(last){usedIndex=current;preliminary=number(assumption)>0||!confirmed;}
+      }
+      if(calculated&&target===baseYear+1)usedIndex=bastal;
+    }else reason="Okänd avtalad hyresjustering";
+    if(!calculated)amount=sourceAmount;
+    const basedOn=method==="fixed"?["Fast ökning "+pct+" % per år"]:
+      method==="none"?["Ingen uppräkning"]:
+      ["Indexandel "+share*100+" %","Min "+(min===null?"–":min+" %"),
+       "Max "+(max===null?"–":max+" %"),
+       limitBasis==="index"?"Gräns för KPI-förändring":"Gräns för hyresökning"];
+    return {amount,calculated,preliminary,knownIndex:preliminary?0:usedIndex,
+      usedIndex,indexYear:target-1,sourceAmount,base,baseYear,bastal,share,seriesBase:basis,
+      status:!calculated?"Behöver kontroll":preliminary?"Preliminär":"Beräknad",
+      reason,source,basedOn,method,annualPercent:method==="fixed"?Number(pct):null,
+      minPercent:min,maxPercent:max,limitBasis};
+  }
   function component(c, kind, year, preliminaryIndex, series, options={}) {
+    const agreed=contractualComponent(c,kind,year,preliminaryIndex,series,options);
+    if(agreed)return agreed;
     const prefix = kind === "addition" ? "addition" : "rent";
     const base = number(kind === "addition" ? c.baseAdditions : c.baseRent);
     // Older imports called the same contract addition "Media". Never add

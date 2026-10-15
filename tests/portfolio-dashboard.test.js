@@ -44,7 +44,7 @@ test("all dimensions partition the same contract rent and group activities by th
  assert.equal(persons.groups.find(x=>x.name==="Anna").rent,100000);
  assert.equal(persons.groups.find(x=>x.name==="Anna").activities,1);
  assert.equal(persons.groups.find(x=>x.name==="Bo").activities,1);
- assert.match(summary(data,selection,2026,{view:"overview",dashboardMode:"person"}),/Medarbetare/);
+ assert.match(summary(data,selection,2026,{view:"overview",dashboardMode:"person"}),/Avtalad yta/);
 });
 test("drill-down respects scope and moves from group to property",()=>{
  const scoped=buildPortfolioInsights(data,{...selection,unit:"VARDBO"},2026,"unit");
