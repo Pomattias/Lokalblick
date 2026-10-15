@@ -1222,7 +1222,7 @@ details .table-wrap {
  .issue-editor .issue-section { padding:9px 0; }
  .issue-editor .issue-section h3 { font-size:13px; margin-bottom:7px; }
  .issue-editor .issue-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 9px; }
- .issue-editor .issue-title-field, .issue-editor .issue-field:has([name="issueHome"]) { grid-column:1/-1; }
+ .issue-editor .issue-title-field { grid-column:1/-1; }
  .issue-editor .issue-field { font-size:11px; gap:3px; }
  .issue-editor .issue-field input, .issue-editor .issue-field select { min-height:36px; padding:6px 7px; font-size:13px; }
  .issue-editor .issue-description { margin:7px 0; }
@@ -1236,7 +1236,7 @@ details .table-wrap {
 }
 @media(max-width:365px) {
  .issue-editor .issue-grid { grid-template-columns:1fr; }
- .issue-editor .issue-title-field, .issue-editor .issue-field:has([name="issueHome"]) { grid-column:auto; }
+ .issue-editor .issue-title-field { grid-column:auto; }
 }
 
 
