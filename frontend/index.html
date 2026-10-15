@@ -1,120 +1,20 @@
 <!doctype html>
 <html lang="sv">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Lokalblick – fastigheter, avtal, ärenden och ekonomi.">
+  <meta http-equiv="refresh" content="0; url=./v2/index.html">
+  <title>Lokalblick</title>
   <script>
-    if (!new URLSearchParams(location.search).has("legacy")) {
-      location.replace(new URL("v2/index.html" + location.search + location.hash, location.href));
-    }
+    const url = new URL("./v2/index.html",location.href);
+    const params = new URLSearchParams(location.search);
+    params.delete("legacy");
+    url.search=params.toString();
+    url.hash=location.hash;
+    location.replace(url.href);
   </script>
-  <title>Lokalblick · Publik demo</title>
-  <meta name="description" content="Publik demo av Lokalblick. Ingen företagsdata lagras eller importeras här." />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="dropdown-overflow-fix.css" />
-  <link rel="stylesheet" href="overview-list-tight.css" />
-  <link rel="stylesheet" href="unified-design.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-  <script src="/api/runtime-config" defer></script>
-    <script src="services/map-service.js" defer></script>
-  <script src="services/maps/leaflet-map-adapter.js" defer></script>
-  <script src="data/demo-data.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js" defer></script>
-  <script src="services/data-service.js" defer></script>
-  <script src="domain/import-rules.js" defer></script>
-  <script type="module" src="services/import-formats.js"></script>
-  <script src="services/migration-adapter.js" defer></script>
-  <script src="domain/calculations.js" defer></script>
-  <script src="domain/documents.js" defer></script>
-  <script src="services/address-match.js" defer></script>
-    <script src="services/contract-enrichment-adapter.js" defer></script>
-  <script src="services/operational-enrichment-adapter.js" defer></script>
-  <script src="domain/object-model.js"></script>
-    <script src="domain/business-model.js"></script>
-    <script src="domain/responsibility-model.js"></script>
-  <script src="services/source-service.js" defer></script>
-  <script src="services/geocoding-service.js" defer></script>
-  <link rel="stylesheet" href="budget-followup.css">
-  <script src="domain/budget-followup.js" defer></script>
-  <script src="budget-followup-ui.js" defer></script>
-  <script src="app.js" defer></script>
-  <script src="overview-list-tight.js" defer></script>
 </head>
-<body>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark">L</div>
-        <div>
-          <strong>Lokalblick</strong>
-          <span>Överblick · Planering · Beslut</span>
-        </div>
-      </div>
-      <nav id="main-nav" class="nav-list" aria-label="Huvudnavigation"></nav>
-      <div class="sidebar-foot">
-        <div class="privacy-note">Datakällor, behörighet och kunddata hålls bakom Lokalblicks autentiserade datagräns.</div>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <div class="eyebrow" id="page-eyebrow">PORTFÖLJ</div>
-          <h1 id="page-title">Översikt</h1>
-        </div>
-        <div class="topbar-actions">
-          <span class="badge amber">DEMO</span>
-          <a class="button secondary" href="v2/index.html" data-ui-version="v2">Visa V2</a>
-          <button id="header-edit" class="button secondary header-edit-button" type="button">Redigera</button>
-          <button id="clear-data" class="button secondary" type="button">Återställ demo</button>
-        </div>
-      </header>
-
-      <section id="mode-banner" class="mode-banner demo">
-        <strong>Demo</strong>
-        <span>Endast syntetisk data. Företagsdata ansluts säkert via Datakällor i en autentiserad miljö.</span>
-      </section>
-
-      <section id="content" class="content" aria-live="polite"></section>
-    </main>
-  </div>
-
-  <nav id="mobile-dock" class="mobile-dock mobile-only" aria-label="Mobilnavigation">
-    <button type="button" data-mobile-dock="overview"><span class="mobile-dock-icon">⌂</span><span>Översikt</span></button>
-    <button type="button" data-mobile-dock="map"><span class="mobile-dock-icon">⌖</span><span>Karta</span></button>
-    <button type="button" data-mobile-dock="plan"><span class="mobile-dock-icon">◫</span><span>Planera</span></button>
-    <button type="button" data-mobile-dock="budget"><span class="mobile-dock-icon">¤</span><span>Budget</span></button>
-    <button type="button" data-mobile-dock="more"><span class="mobile-dock-icon">≡</span><span>Mer</span></button>
-  </nav>
-
-  <div id="mobile-more-sheet" class="mobile-more-sheet mobile-only" hidden>
-    <button type="button" class="mobile-sheet-backdrop" data-mobile-sheet-close aria-label="Stäng meny"></button>
-    <section class="mobile-sheet-card" aria-label="Mer i Lokalblick">
-      <div class="mobile-sheet-handle"></div>
-      <div class="mobile-sheet-head"><div><span>LOKALBLICK</span><h2>Mer</h2></div><button type="button" data-mobile-sheet-close aria-label="Stäng">×</button></div>
-      <button type="button" class="mobile-sheet-link" data-mobile-target="organisation"><span>◎</span><strong>Organisation</strong><small>Ansvariga, roller och fördelning</small><b>→</b></button>
-      <button type="button" class="mobile-sheet-link" data-mobile-target="api"><span>⌁</span><strong>Datakällor</strong><small>Excel, Microsoft 365 och externa system</small><b>→</b></button>
-      <button type="button" class="mobile-sheet-link" data-mobile-target="about"><span>ⓘ</span><strong>Om Lokalblick</strong><small>Arkitektur, säkerhet och datagräns</small><b>→</b></button>
-    </section>
-  </div>
-
-  <dialog id="editor-dialog" class="editor-dialog">
-    <form method="dialog" id="editor-form">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow" id="dialog-eyebrow">NY POST</div>
-          <h2 id="dialog-title">Lägg till</h2>
-        </div>
-        <button class="icon-button" value="cancel" aria-label="Stäng">×</button>
-      </div>
-      <div id="dialog-fields" class="dialog-fields"></div>
-      <div class="dialog-actions">
-        <button class="button secondary" value="cancel" type="button" id="dialog-cancel">Avbryt</button>
-        <button class="button primary" value="default" type="submit">Spara demo</button>
-      </div>
-    </form>
-  </dialog>
-</body>
+<body><p>Öppnar Lokalblick. <a href="./v2/index.html">Fortsätt till appen</a>.</p></body>
 </html>
