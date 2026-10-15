@@ -1,4 +1,5 @@
 import {businessList} from './business-editor.js';
+import {recurringCostPanel,openRecurringCostDialog} from "./recurring-costs-ui.js";
 import {activityJournalHtml,appendActivityNote} from "./activity-journal.js";
 import {editorSnapshot,editorHasUnsavedChanges} from "./editor-safety.js";
 import {prepareEditorModeFields,refreshEditorModeFields} from "./editor-mode-fields.js";
@@ -112,7 +113,7 @@ function captureChanges(before){
   }
 }
 function showHistory(type='',id=''){
-  const collection={contract:'contracts',activity:'activities',order:'orders',operation:'operations',maintenanceStatus:'maintenanceStatus'}[type]||type;
+  const collection={contract:'contracts',activity:'activities',order:'orders',recurringCost:'recurringCosts',maintenanceStatus:'maintenanceStatus'}[type]||type;
   const entries=data.auditLog.slice().reverse().filter(h=>!collection||(h.collection===collection&&String(h.recordId)===String(id)));
   const d=document.createElement('dialog');d.className='followup-dialog';
   d.innerHTML='<h2>Ändringshistorik</h2>'+(entries.length?'':'<p>Ingen sparad ändringshistorik för detta objekt.</p>')+entries.map(h=>'<article><strong>'+esc(h.action)+' · '+esc(h.collection)+' · '+esc(h.recordId)+'</strong><p>'+esc(h.by)+' · '+esc(new Date(h.at).toLocaleString('sv-SE'))+'</p><ul>'+(h.fields||[]).map(f=>'<li>'+esc(f.label||f.field)+': '+esc(typeof f.from==='object'?JSON.stringify(f.from):f.from)+' → '+esc(typeof f.to==='object'?JSON.stringify(f.to):f.to)+'</li>').join('')+'</ul></article>').join('')+'<form method="dialog"><button>Stäng</button></form>';
@@ -617,13 +618,13 @@ function render() {
   if(ui.view==='objects')content.innerHTML=objectList(data,selection);
   if(ui.view==='businesses')content.innerHTML=businessList(data);
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
-  if (ui.view === "budget") content.innerHTML = budget(data, selection, ui);
+  if (ui.view === "budget") content.innerHTML = budget(data, selection, ui) + recurringCostPanel(data, ui.year, scope(data, selection), canEdit());
   if (ui.view === "budget") bindBudget();
   if (ui.view === "sources") content.innerHTML = sources(data, transport);
   if (ui.view === "datamodel") { content.innerHTML = relationshipView(data); bindRelationshipView(data); }
   if (ui.view === "settings") content.innerHTML = activityOptionSettings(data)+economicSettings(data, ui);
   if (ui.view === "people") content.innerHTML = organization(data);
-  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","businesses","activities","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<a href="../index.html?legacy=1" data-ui-version="v1">Visa V1</a><small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
+  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","businesses","activities","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
     content.innerHTML =
       '<div class="section-title map-heading"><h2>Fastigheter i aktuellt urval</h2></div><div id="property-map" aria-label="Fastigheter på karta"></div><p class="map-help">Välj en fastighet på kartan för att öppna dess detaljer.</p>';
@@ -1368,6 +1369,18 @@ document.addEventListener("click", (event) =>
     }
     if(b.hasAttribute("data-new-object"))openEditor("objects","",{propertyId:selection.propertyId||"",start:"",end:"",predecessorIds:[]});
     if(b.dataset.objectContract){ui.view="contracts";ui.contractId=b.dataset.objectContract;render();}
+    if (b.hasAttribute("data-new-recurring-cost") || b.hasAttribute("data-recurring-cost")) {
+      if (!canEdit()) throw Error("Denna anslutning är skrivskyddad");
+      openRecurringCostDialog(data, b.dataset.recurringCost || "", ui.year, selection.propertyId,
+        next => mutation(d => {
+          const rows=d.recurringCosts || (d.recurringCosts=[]);
+          const index=rows.findIndex(x=>x.id===next.id);
+          if (index<0) rows.push(next);
+          else rows[index]=next;
+          globalThis.LokalblickRecurringCosts.validateCosts(d);
+        }));
+      return;
+    }
     if (b.hasAttribute("data-edit")) openEditor(b.dataset.edit, b.dataset.id);
     if (b.hasAttribute("data-editor-close")) closeEditor();
     if (b.dataset.editorTab) {
