@@ -6,7 +6,7 @@ Avtal har `objectId`. Avtalets datum beskriver avtalsperioden, inte objektets li
 
 ## Migration
 
-Befintliga objekt bevaras. Tidigare avtal utan objekt får en stabil `OBJ|<avtals-ID>`-post när fastighetskopplingen är giltig. Om källan uttryckligen har `objectNumber` återanvänds entydigt objekt på samma fastighet. Utan sådan identitet slås olika avtal aldrig automatiskt samman till ett objekt. Det provisoriska objektet har `migrationSourceContractId`, kopierad relevant fältproveniens och tomma objektdatum. Avtalsdatum används aldrig som objektdatum. Migrerade objekt kan senare kopplas ihop med rätt verkligt objekt genom redigering av avtalets objektkoppling; äldre objektsinformation finns kvar.
+Befintliga objekt bevaras. Tidigare avtal utan objekt får en stabil `OBJ|<avtals-ID>`-post när fastighetskopplingen är giltig. Om källan uttryckligen har `objectNumber` återanvänds entydigt objekt på samma fastighet. Utan sådan identitet slås olika avtal aldrig automatiskt samman till ett objekt. Det provisoriska objektet har `objektets deterministiska ID (`OBJ|avtals-ID`)`, kopierad relevant fältproveniens och tomma objektdatum. Avtalsdatum används aldrig som objektdatum. Migrerade objekt kan senare kopplas ihop med rätt verkligt objekt genom redigering av avtalets objektkoppling; äldre objektsinformation finns kvar.
 
 Migrationen är idempotent i webbläsaren, Excel och lokal backend. Backend lagrar objekten i det lokala användarlagret; de försvinner inte vid källuppdatering eller omstart. Inga skarpa källfiler ändras under utvecklingsarbetet.
 
