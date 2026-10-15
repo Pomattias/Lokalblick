@@ -101,8 +101,32 @@ try{
         select:info(root.querySelector("select"))
       };
     });
+    // Every issue card occupies the same physical row in Visa and Redigera.
+    // This catches layout drift that a mere CSS substring assertion misses.
+    const issueSnapshot=async()=>page.locator("#edit-form").evaluate(form=>{
+      const box=(selector)=>{
+        const el=form.querySelector(selector);
+        if(!el)return null;
+        const r=el.getBoundingClientRect();
+        return {width:r.width,height:r.height};
+      };
+      const read=form.querySelector(".issue-compact-meta .issue-field-value");
+      const edit=form.querySelector(".issue-compact-meta .issue-field-control select");
+      const style=el=>el?{font:parseFloat(getComputedStyle(el).fontSize),
+        weight:parseInt(getComputedStyle(el).fontWeight,10)}:null;
+      return {
+        compact:box(".issue-compact-meta .issue-mode-field"),
+        cost:box(".issue-history-card-row:has(.issue-cost-edit)"),
+        dates:box(".issue-history-card-row:has(.issue-dates-edit)"),
+        description:box(".issue-description-row"),
+        title:box(".issue-heading-text"),
+        read:style(read),edit:style(edit),
+        pageWidth:document.documentElement.scrollWidth,viewport:innerWidth
+      };
+    });
     const issueBefore=await issueRoot.boundingBox();
     const beforeLayout=await issueMetrics();
+    const beforeIssue=await issueSnapshot();
     await page.locator("[data-editor-activate]").first().click();
     await page.locator("#edit-form.editor-editing").waitFor();
     assert.equal(await page.locator("#editor-edit-frame").count(),1,"Ärenden använder samma ram");
@@ -112,6 +136,35 @@ try{
       console.log("Issue edit geometry diagnostic",JSON.stringify({width,before:beforeLayout,after:afterLayout}));
     near(issueBefore.width,issueAfter.width,"ärende radbredd");
     near(issueBefore.height,issueAfter.height,"ärende radhöjd",2);
+    const afterIssue=await issueSnapshot();
+    for(const kind of ["compact","cost","dates","description","title"]){
+      if(!beforeIssue[kind]||!afterIssue[kind])continue;
+      near(beforeIssue[kind].width,afterIssue[kind].width,
+        "ärende "+kind+" bredd",2);
+      near(beforeIssue[kind].height,afterIssue[kind].height,
+        "ärende "+kind+" höjd",2);
+    }
+    if(beforeIssue.read&&afterIssue.edit){
+      near(beforeIssue.read.font,afterIssue.edit.font,"ärendets textstorlek");
+      assert.equal(beforeIssue.read.weight,400,"Visa visar vanlig text");
+      assert.equal(afterIssue.edit.weight,400,"Redigera visar vanlig text");
+    }
+    assert.ok(afterIssue.pageWidth<=afterIssue.viewport+1,
+      "Redigera får inte förstora sidan i sidled");
+    if(width===390){
+      assert.ok(afterIssue.edit.font>=16,
+        "iPhone använder minst 16px på formulärfält för att undvika automatisk zoom");
+      const date=page.locator('#edit-form input[name="startDate"]');
+      if(await date.count()){
+        const dateBefore=await state(page,'#edit-form input[name="startDate"]');
+        await date.focus();
+        const dateFocused=await state(page,'#edit-form input[name="startDate"]');
+        near(dateBefore.rowHeight,dateFocused.rowHeight,
+          "ärendets datumfält får inte växa vid fokus",1);
+        near(dateBefore.fontSize,dateFocused.fontSize,
+          "ärendets datumtecken får inte växa vid fokus",0);
+      }
+    }
     await page.locator('[data-editor-close]').first().click();
     assert.deepEqual(errors,[],"Inga sidfel");
     await context.close();
