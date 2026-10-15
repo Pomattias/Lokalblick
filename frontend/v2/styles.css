@@ -3097,3 +3097,8 @@ body.editor-frame-active > #editor-edit-frame {
   max-height:60px;
   overflow:auto;
 }
+/* A textarea is inline-level by default: its baseline creates an extra
+   descender line below the 60px control in edit mode. */
+.issue-editor #edit-form .issue-description-row .issue-mode-field .issue-field-control textarea {
+  display:block;
+}
