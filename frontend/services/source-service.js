@@ -1221,11 +1221,6 @@
       const mapped=clone(row);mapped.propertyId=propertyMap.get(mapped.propertyId)||mapped.propertyId;
       let found=base.objects.find(o=>o.id===mapped.id);
       if(!found&&mapped.number){const hits=base.objects.filter(o=>o.propertyId===mapped.propertyId&&String(o.number)===String(mapped.number));if(hits.length===1)found=hits[0];}
-      if(!found&&!mapped.number&&mapped.migrationSourceContractId){
-        const sourceContract=incoming.contracts.find(c=>c.id===mapped.migrationSourceContractId),number=String(sourceContract?.number||'').replace(/\s/g,'').toUpperCase();
-        const matches=base.contracts.filter(c=>number&&c.propertyId===mapped.propertyId&&String(c.number||'').replace(/\s/g,'').toUpperCase()===number);
-        if(matches.length===1)found=base.objects.find(o=>o.id===matches[0].objectId);
-      }
       if(!found){base.objects.push(mapped);found=mapped;report.counts.objectsCreated=(report.counts.objectsCreated||0)+1;}
       else mergeFields(found,mapped,['number','name','area','category','use','businessName','unitId','employees','users','rooms','commonArea','apartmentArea','start','end','comment'],'objects','Objekt');
       objectMap.set(row.id,found.id);
