@@ -629,10 +629,12 @@
           );
       });
 
-    (data.operations || [])
-      .filter((x) => number(x.period) === number(year) && budgetIncluded(x))
+    // The same recurring cost contributes to each year in its active period.
+    // Its scope is either one property or one agreement, never both.
+    (data.recurringCosts || [])
+      .filter((x) => root.LokalblickRecurringCosts.annualBudget(x, year) > 0)
       .forEach((x) =>
-        add(x, "Driftkostnader", number(x.budget), "operation"),
+        add(x, "Driftkostnader", root.LokalblickRecurringCosts.annualBudget(x, year), "recurringCost", x.name),
       );
 
     // Frozen/manual budget rows belong to the locked baseline, never to live forecast.
@@ -659,20 +661,16 @@
         (contracts || data.contracts || []).map((c) => c.propertyId),
       );
     const rows = [];
-    (data.operations || [])
-      .filter(
-        (x) =>
-          number(x.period) === number(year) &&
-          (x.contractId ? ids.has(x.contractId) : pids.has(x.propertyId)),
-      )
+    (data.recurringCosts || [])
+      .filter((x) => (x.contractId ? ids.has(x.contractId) : pids.has(x.propertyId)))
       .forEach((x) => {
-        const amount = number(x.actual);
-        if (amount)
-          rows.push({
-            category: "Driftkostnader",
-            amount,
-            sourceId: x.id,
-          });
+        const amount = root.LokalblickRecurringCosts.annualActual(x, year);
+        if (amount) rows.push({
+          category: "Driftkostnader",
+          amount,
+          sourceId: x.id,
+          sourceType: "recurringCost",
+        });
       });
     (data.orders || []).forEach((order) => {
       const activity=(data.activities||[]).find((x)=>x.id===order.activityId);
