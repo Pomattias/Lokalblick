@@ -37,6 +37,8 @@ test("own index changes rent forecast and leaves source records unmodified",()=>
   assert.ok(sum(proposed)>sum(original));
   assert.equal(JSON.stringify(original),beforeJSON);
   assert.match(render(proposed),/value="466"/);
+  assert.match(render(proposed),/Avtalshyra utan scenario/);
+  assert.match(render(proposed),/Budgetscenario med eget KPI/);
 });
 test("a locked budget cannot edit index and keeps locked value",()=>{
   const state=data();
@@ -56,7 +58,7 @@ test("typing computes an unsaved scenario and updates the budget cards immediate
 });
 
 
-test("last confirmed KPI month is displayed and a manual assumption wins over confirmed October",()=>{
+test("a manual index alters only budget scenarios, never confirmed contractual rent",()=>{
   const calc=globalThis.LokalblickCalculations;
   const d=data();
   assert.deepEqual(
@@ -66,10 +68,14 @@ test("last confirmed KPI month is displayed and a manual assumption wins over co
   assert.match(render(d),/september 2026/);
   const withOctober={...d,indexSeries:[{year:2026,month:10,value:448.5,seriesBase:"1980",source:"SCB KPI",preliminary:false}]};
   const official=calc.annualValues(withOctober.contracts[0],2027,0,withOctober.indexSeries);
-  const manual=calc.annualValues(withOctober.contracts[0],2027,466,withOctober.indexSeries);
+  const ordinary=calc.annualValues(withOctober.contracts[0],2027,466,withOctober.indexSeries);
+  assert.equal(ordinary.total,official.total);
+  assert.equal(calc.budgetIndex(withOctober,2027,466).value,448.5);
+  const manual=calc.annualValues(withOctober.contracts[0],2027,466,withOctober.indexSeries,{scenario:true});
   assert.ok(manual.total>official.total);
-  assert.equal(calc.budgetIndex(withOctober,2027,466).value,466);
+  assert.equal(calc.budgetScenarioIndex(withOctober,2027,466).value,466);
   assert.equal(manual.rent.preliminary,true);
+  assert.equal(calc.propertyAnnualCost(withOctober,"p",2027).annualCost,official.total);
 });
 test("missing target October falls back to a dated confirmed KPI, not a guessed value",()=>{
  const calc=globalThis.LokalblickCalculations;
