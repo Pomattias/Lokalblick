@@ -11,14 +11,14 @@
    if(!c.tenantPartyId&&c.tenantName){
     const matches=data.organizations.filter(o=>key(o.name)===key(c.tenantName));
     if(matches.length===1)c.tenantPartyId=matches[0].id;
-    else if(!matches.length){const party={id:'TENANT|'+encodeURIComponent(key(c.tenantName)),name:c.tenantName,type:'tenant',provenance:{name:copy(c.provenance?.tenantName||{source:'legacy-tenant'})}};data.organizations.push(party);c.tenantPartyId=party.id;}
+    else if(!matches.length){const party={id:'TENANT|'+encodeURIComponent(key(c.tenantName)),name:c.tenantName,type:'tenant',provenance:{name:copy(c.provenance?.tenantName||{source:'contract-tenant'})}};data.organizations.push(party);c.tenantPartyId=party.id;}
     else review(data,'tenant-identity|'+c.id,'Flera parter har samma hyresgästnamn','contracts',{id:c.id,tenantName:c.tenantName,provenance:c.provenance});
-    if(c.tenantPartyId){c.provenance ||= {};c.provenance.tenantPartyId ||= {...copy(c.provenance.tenantName||{source:'legacy-tenant'}),decision:'exact-party-name',value:c.tenantPartyId};}
+    if(c.tenantPartyId){c.provenance ||= {};c.provenance.tenantPartyId ||= {...copy(c.provenance.tenantName||{source:'contract-tenant'}),decision:'exact-party-name',value:c.tenantPartyId};}
    }
-   // Once links exist (even closed ones), legacy fields cannot re-open usage.
+   // Once explicit links exist (even closed ones), source fields cannot re-open usage.
    if(c.businessLinksManaged)continue;
    const existing=data.contractBusinesses.filter(l=>l.contractId===c.id);
-   const placeholder=existing.length===1&&existing[0].migratedFromLegacy&&c.businessName&&data.businesses.find(b=>b.id===existing[0].businessId)?.name===(groups[c.unitId]||c.unitId)?existing[0]:null;
+   const placeholder=existing.length===1&&existing[0].id===('CB|'+c.id+'|'+existing[0].businessId)&&c.businessName&&data.businesses.find(b=>b.id===existing[0].businessId)?.name===(groups[c.unitId]||c.unitId)?existing[0]:null;
    if(existing.length&&!placeholder)continue;
    const name=String(c.businessName||'').trim(),unit=c.unitId||'',organizationId=c.businessPartyId||'';
    if(!name&&!unit)continue;
@@ -32,9 +32,9 @@
     if(matches.length===1)business=matches[0];else if(matches.length>1){review(data,'business-identity|'+c.id,'Flera verksamheter har samma namn och organisation','businesses',{name,organizationId,unitId:unit,contractId:c.id});continue;}
    }
    if(!business&&name&&!organizationId&&data.businesses.some(b=>key(b.name)===key(name))){review(data,'business-identity|'+c.id,'Verksamhetsnamnet saknar säker organisations- eller källidentitet','businesses',{name,contractId:c.id});continue;}
-   if(!business){business={id,name:name||groups[unit]||unit,type:c.use||'',unitId:unit,organizationId,status:'Aktiv',sourceId,provenance:{name:copy(c.provenance?.businessName||c.provenance?.unitId||{source:'legacy-contract',contractId:c.id})}};data.businesses.push(business);}
+   if(!business){business={id,name:name||groups[unit]||unit,type:c.use||'',unitId:unit,organizationId,status:'Aktiv',sourceId,provenance:{name:copy(c.provenance?.businessName||c.provenance?.unitId||{source:'contract-field',contractId:c.id})}};data.businesses.push(business);}
    if(placeholder){placeholder.businessId=business.id;placeholder.provenance=copy(c.provenance?.businessName||placeholder.provenance);}
-   else data.contractBusinesses.push({migratedFromLegacy:true,id:'CB|'+c.id+'|'+business.id,contractId:c.id,businessId:business.id,fromDate:'',toDate:'',usedArea:null,costSharePercent:null,provenance:copy(c.provenance?.businessName||c.provenance?.unitId||{source:'legacy-contract',contractId:c.id})});
+   else data.contractBusinesses.push({id:'CB|'+c.id+'|'+business.id,contractId:c.id,businessId:business.id,fromDate:'',toDate:'',usedArea:null,costSharePercent:null,provenance:copy(c.provenance?.businessName||c.provenance?.unitId||{source:'contract-field',contractId:c.id})});
   }
   // Former unit-level assignments keep IDs and dates, on a stable register entry.
   for(const a of data.assignments||[]){if(a.targetType!=='business'||data.businesses.some(b=>b.id===a.targetId))continue;const unit=a.targetId;if(!data.contracts.some(c=>c.unitId===unit))continue;const id='BUS|'+encodeURIComponent('unit|'+unit);if(!data.businesses.some(b=>b.id===id))data.businesses.push({id,name:groups[unit]||unit,unitId:unit,type:'',organizationId:a.organizationId||'',status:'Aktiv',sourceId:unit});a.targetId=id;}
