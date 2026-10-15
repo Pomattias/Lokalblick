@@ -53,7 +53,7 @@ try{
       "Adressen ligger direkt under huvudrubriken");
     assert.equal(await page.locator("#edit-form .property-contact-row").count(),0,
       "Verksamhetens kontakt visas inte längre som ett separat kort");
-    const contractContacts=page.locator("#edit-form .property-contact-list .property-person-field");
+    const contractContacts=page.locator("#edit-form .property-grid > .property-person-field:has([data-property-contract-contact])");
     if(await contractContacts.count()){
       const first=contractContacts.first();
       assert.match(await first.innerText(),/Verksamhetens kontaktperson/);
@@ -66,7 +66,7 @@ try{
         return {top:parent.borderTopWidth,box:node.parentElement.getBoundingClientRect().height};
       });
       assert.equal(borders.top,"0px","Inget stort kantat kontaktkort");
-      assert.ok(borders.box<170,"Kontaktlistan är kompakt");
+      assert.ok(borders.box<170,"Alla kontaktpersoner ligger tätt i samma grid");
     }
     // Names and data occupy the same physical row; the editor must not
     // expand a two-line label+value cell when switching modes.
