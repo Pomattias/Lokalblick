@@ -9,7 +9,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const USER_ENTITIES = [
-  "businesses", "contractBusinesses", "assignments", "objects", "organizations", "people", "orders", "activities", "maintenanceStatus",
+  "businesses", "contractBusinesses", "assignments", "objects", "organizations", "people", "orders", "activities",
   "recurringCosts", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
 ];
 const CORE_ENTITIES = ["properties", "contracts"];
@@ -219,7 +219,7 @@ export class LokalblickRepository {
     await this.writeQueue;
     const base=await this.bootstrap(),revision=this.revision();
     if(payload.baseRevision&&payload.baseRevision!==revision){const e=Error('Arbetsytan har ändrats. Läs om underlaget innan import.');e.statusCode=409;throw e;}
-    const entities=['properties','objects','contracts','organizations','people','activities','orders','recurringCosts','maintenanceStatus'];
+    const entities=['properties','objects','contracts','organizations','people','activities','orders','recurringCosts'];
     const candidate={...base,...structuredClone(payload.data)};
     for(const entity of entities){if(!Array.isArray(candidate[entity]))throw TypeError(entity+' måste vara en lista');const ids=new Set();for(const row of candidate[entity]){validateRecord(row);if(ids.has(row.id))throw TypeError('Dubbelt ID i '+entity);ids.add(row.id);}}
     const proposed=globalThis.LokalblickImportRules.reconcile(base,{data:candidate,report:payload.report||{}},null,payload.report?.fileName||'Excelimport');
