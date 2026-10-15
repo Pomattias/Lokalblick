@@ -34,6 +34,8 @@ try {
   await page.locator('.mobile-nav [data-view=budget]').click();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  }
  await page.screenshot({path:'/tmp/lokalblick-v2-integrated.png'});
- assert.deepEqual(errors,[]);console.log('PASS: default V2, shared budget danger/version/final cost/audit/reload, equal mobile/desktop colors, real map navigation and legacy fallback.');
- await page.goto('http://127.0.0.1:8796/index.html?legacy=1');await page.waitForSelector('#mobile-dock');assert.ok(!page.url().includes('/v2/'));
+ assert.deepEqual(errors,[]);console.log('PASS: default V2, shared budget danger/version/final cost/audit/reload, mobile/desktop colors and map navigation.');
+ await page.goto('http://127.0.0.1:8796/index.html?legacy=1');
+ await page.waitForSelector('.mobile-nav');
+ assert.ok(page.url().includes('/v2/'),'Former V1 links must lead to the new app');
 }finally {await browser?.close();server.kill();}
