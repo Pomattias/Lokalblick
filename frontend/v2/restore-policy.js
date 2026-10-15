@@ -4,7 +4,7 @@
 export function hasWorkspaceRecords(data) {
   if (!data || typeof data!=="object") return false;
   return ["properties","contracts","activities","organizations","people","orders",
-    "operations","maintenanceStatus","sourceRegistry","importReview","budgetPlans"]
+    "recurringCosts","sourceRegistry","importReview","budgetPlans"]
     .some(key=>Array.isArray(data[key]) && data[key].length>0);
 }
 export function shouldRestoreViewSnapshot(saved, context={}) {
