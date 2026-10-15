@@ -13,25 +13,22 @@ export function editorDisplayValue(control) {
     text=control.checked?String(control.value||"Ja"):"";
   } else {
     text=String(control.value??"").trim();
-    // Use the native ISO date text without duplicating a separate year label.
-    if(control.type==="date" && /^\d{4}-\d{2}-\d{2}$/.test(text)){
-      const [y,m,d]=text.split("-");
-      text=d+"/"+m+"/"+y;
-    }
+    // ISO dates are the common app format; never localize to DD/MM/YYYY.
+    // Native date inputs already expose their canonical value as YYYY-MM-DD.
   }
   return text||"–";
 }
 export function prepareEditorModeFields(form) {
   if(!form||form.dataset.collection==="activities")return 0;
   let count=0;
-  form.querySelectorAll('input[name]:not([type="hidden"]),select[name],textarea[name]').forEach(control=>{
+  form.querySelectorAll('input[name]:not([type="hidden"]),select[name],select[data-property-contract-contact],textarea[name]').forEach(control=>{
     if(control.dataset.modePrepared==="1" || control.closest("[data-editor-mode-exclude]"))return;
     if(control.type==="radio" && !control.checked)return;
     control.dataset.modePrepared="1";
     control.classList.add("editor-mode-control");
     const display=document.createElement("span");
     display.className="editor-mode-value";
-    display.dataset.modeField=control.name;
+    display.dataset.modeField=control.name||control.dataset.propertyContractContact||"";
     display.dataset.modeKind=control.tagName==="TEXTAREA"?"textarea":
       (control.tagName==="SELECT"&&control.multiple)?"multiselect":"field";
     // The read-mode value must remain accessible when the native control is hidden.
