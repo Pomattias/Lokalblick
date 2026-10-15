@@ -2950,7 +2950,7 @@ body[data-view="budget"] .budget-rent-delta strong{color:var(--ui-color-text);fo
 
 
 /* The fixed edit perimeter is defined once in CANONICAL EDIT MODE below. */
-#editor-edit-frame {display:none;}
+#editor-edit-frame { display:none; }
 
 /* The values are REGULAR text in both Visa and Redigera, not bold labels.
    Existing read-only and issue rules used weights 600/650; override only
@@ -3013,7 +3013,10 @@ body[data-view="budget"] .budget-rent-delta strong{color:var(--ui-color-text);fo
 body.editor-frame-active > #editor-edit-frame {
   display:block!important;
   position:fixed!important;
-  inset: max(5px,env(safe-area-inset-top,0px)) 5px max(5px,env(safe-area-inset-bottom,0px)) 5px;
+  top:max(5px,env(safe-area-inset-top,0px));
+  right:5px;
+  bottom:max(5px,env(safe-area-inset-bottom,0px));
+  left:5px;
   border:3px solid #177b5d;
   border-radius:17px;
   box-sizing:border-box;
@@ -3073,14 +3076,6 @@ body.editor-frame-active > #editor-edit-frame {
     line-height:1.15!important;
     -webkit-text-size-adjust:100%;
     text-size-adjust:100%;
-  }
-  #editor-root .editor #edit-form :is(
-    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-    select,
-    textarea
-  ):focus {
-    font-size:16px!important;
-    line-height:1.15!important;
   }
   #editor-root .editor #edit-form,
   #editor-root .editor,
