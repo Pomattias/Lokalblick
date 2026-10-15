@@ -44,6 +44,19 @@
       ["deliveryText","Leverans"],["completedAt","Utförd"],["finalCost","Utfall"],["paymentStatus","Betalstatus"],["paidAt","Betald"],["invoiceComment","Kommentar"],["ownerPays","Betalas av fastighetsägaren"]
     ], display:["Aktivitet","Beställd av"] },
   ];
+  // New product: recurring expenses are actual business records, not legacy drift issues.
+  // Yearly actuals remain structured metadata per row; the visible sheet is intentionally compact.
+  SCHEMAS.push({
+    sheet:"Löpande kostnader",key:"recurringCosts",prefix:"KOST",
+    columns:[
+      ["id","_id",true],
+      ["propertyId","_propertyId",true],["contractId","_contractId",true],
+      ["name","Kostnad"],["category","Kategori"],
+      ["annualAmount","Årskostnad, kr"],
+      ["startYear","Från år"],["endYear","Till år"]
+    ],
+    display:["Fastighet","Avtal"]
+  });
   SCHEMAS.push({sheet:'Verksamheter',key:'businesses',prefix:'BUS',columns:[['id','_id',true],['sourceId','Källans verksamhets-ID'],['name','Verksamhetsnamn'],['type','Verksamhetstyp'],['unitId','Organisatorisk tillhörighet'],['organizationId','_organizationId',true],['status','Status'],['businessResponsiblePersonId','_businessResponsiblePersonId',true]],display:['Part','Verksamhetsansvarig']},
    {sheet:'AvtalVerksamhet',key:'contractBusinesses',prefix:'CB',columns:[['id','_id',true],['contractId','_contractId',true],['businessId','_businessId',true],['fromDate','Giltigt fr.o.m.'],['toDate','Giltigt t.o.m.'],['usedArea','Nyttjad area, m²'],['costSharePercent','Kostnadsandel, %'],['cancelled','_cancelled',true]],display:['Avtal','Verksamhet']});
   SCHEMAS.find(s=>s.key==='objects').columns.push(['areaType','Areatyp']);
@@ -616,8 +629,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","recurringCosts","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
-  const RESTORE_EXTRA_KEYS = ["recurringCosts","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
+  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
+  const RESTORE_EXTRA_KEYS = ["maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
