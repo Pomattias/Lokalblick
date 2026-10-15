@@ -121,3 +121,23 @@ test("journal read and edit share the same second row on mobile",()=>{
  assert.ok(fragment.includes("grid-row:2"));
  assert.ok(fragment.includes("min-height:52px"),"description display and textarea reserve same height");
 });
+
+
+test("mobile editing uses a non-layout-changing perimeter frame only in active mode",()=>{
+  const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+  assert.ok(app.includes('document.querySelector("#editor-root")?.classList.toggle("editor-frame-active",!editor.readOnly)'));
+  assert.ok(app.includes('root.classList.toggle("editor-frame-active",!id)'));
+  assert.ok(app.includes('root?.classList.remove("editor-frame-active")'),
+    "Stäng must remove the frame");
+  assert.ok(!/toDataURL\(|<canvas|html2canvas/.test(app.slice(app.indexOf("function setEditorReadMode"),app.indexOf("function updateEditorActions"))),
+    "Editing must keep native HTML values and controls");
+  assert.ok(css.includes('#editor-root.editor-frame-active::after'));
+  const frame=css.slice(css.lastIndexOf('/* Shared mobile edit frame'));
+  assert.ok(frame.includes("max-width:700px"));
+  assert.ok(frame.includes('position:fixed'));
+  assert.ok(frame.includes('pointer-events:none'));
+  assert.ok(frame.includes('border:2px solid'));
+  assert.ok(!frame.includes("transform:")&&!frame.includes("zoom:")&&!frame.includes("padding:"),
+    "Frame must never affect editor geometry or scale");
+});

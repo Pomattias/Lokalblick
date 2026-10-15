@@ -808,6 +808,8 @@ function setEditorReadMode(readOnly){
   }
   form.classList.toggle("editor-readonly",editor.readOnly);
   form.classList.toggle("editor-editing",!editor.readOnly);
+  // Frame only the mobile editor during active editing; no new DOM or re-layout.
+  document.querySelector("#editor-root")?.classList.toggle("editor-frame-active",!editor.readOnly);
   if(editor.col==="activities"){
     // Same cards and grid in both modes. Only reveal/hide the control in each slot.
     form.querySelectorAll(".issue-mode-field").forEach(slot=>{
@@ -875,7 +877,9 @@ function closeEditor({force=false}={}){
     propertyMapCleanup();
     propertyMapCleanup = null;
   }
-  document.querySelector("#editor-root").innerHTML = "";
+  const root=document.querySelector("#editor-root");
+  root?.classList.remove("editor-frame-active");
+  if(root)root.innerHTML = "";
   editor = null;
   document.body.classList.remove("editing");
   return true;
@@ -916,6 +920,8 @@ function openEditor(col, id, defaults = {}) {
   editor = { col, id, defaults:clone(defaults), record: result.record };
   const root = document.querySelector("#editor-root");
   root.innerHTML = result.html;
+  // New records open immediately in editing mode; existing records open in Visa.
+  root.classList.toggle("editor-frame-active",!id);
   const typeSelect=root.querySelector('[data-assignment-type]');
   if(typeSelect)typeSelect.onchange=()=>{
     const type=typeSelect.value,collection=globalThis.LokalblickResponsibility.types[type];

@@ -4,12 +4,14 @@
 
 - Visa och Redigera använder exakt samma formulär, kort, rader, sektioner och fältordning. Redigera låser enbart upp värdena.
 - I Visa-läge presenteras fältvärden som vanlig text på **samma plats** där input, select eller textarea visas i Redigera. Inga avaktiverade rullistor ska visas som värden.
-- Samma typsnitt, textstorlek, fälthöjd, radavstånd och containerbredd ska gälla för mobil och desktop i båda lägena.
+- Samma typsnitt, textstorlek, fälthöjd, radavstånd och containerbredd ska gälla för mobil och desktop i båda lägena. Text och formulär får aldrig ersättas med bilder.
 - När Redigera aktiveras flyttas eller ersätts inte hela formuläret; fokusera inte automatiskt ett fält eller öppna tangentbordet på iPhone.
 - Ärenden använder den redan införda enhetliga uppställningen; övriga redigerare (fastighet, avtal, objekt, verksamhet, person, ansvar, beställning och andra schemastyrda register) använder `editor-mode-fields.js`.
 - Kontrollernas värden och namn finns kvar i DOM och lagras oförändrat. Textrepresentationen är endast visning, aldrig ett nytt datakällfält.
 - När man trycker Ångra, sparar eller lämnar redigeraren gäller befintlig återställning, validering och historik.
 - Hjälptexter, knappar för ytterligare åtgärder och kartor påverkas inte av värdeomkopplingen. Åtgärdsknappar kan vara visuellt reserverade för att inte ändra layouten när redigering aktiveras.
+
+- På mobil visas en tunn grön ram runt hela skärmen enbart i aktivt Redigera-läge. Den skapas som en fixerad CSS-överlagring på `#editor-root`, utan att ändra layout, skroll, fältstorlekar eller typografi; den tas bort när Redigera avslutas.
 
 ## Testa vid fortsatta ändringar
 
