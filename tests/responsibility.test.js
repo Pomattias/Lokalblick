@@ -15,6 +15,21 @@ test('migration preserves stable IDs and unknown dates and is idempotent',()=>{
  const d=fixture();d.properties[0].responsiblePersonId='u1';model.normalize(d);const first=structuredClone(d);model.normalize(d);assert.deepEqual(d,first);assert.equal(d.assignments[0].personId,'u1');assert.equal(d.assignments[0].fromDate,'');assert.equal(d.assignments[0].organizationId,'our');
  const legacy=fixture();legacy.assignments=[{id:'old',personId:'u1',targetType:'property',targetId:'p',role:'Ansvarig',fromDate:'',toDate:''}];model.normalize(legacy);assert.equal(legacy.assignments.length,1);assert.equal(legacy.assignments[0].id,'old');
 });
+test('business responsibilities require actual business IDs, not unit aliases',()=>{
+ const d=fixture();
+ const stale={id:'ref-old',personId:'u1',targetType:'business',targetId:'VARDBO',
+   role:'Verksamhetsansvarig',roleKey:'business',fromDate:'2026-01-01',toDate:''};
+ d.assignments=[stale];
+ const normalized=normalize(d);
+ assert.equal(normalized.assignments[0].targetId,'VARDBO',
+   'Normalization must not rewrite a unit assignment into a business');
+ assert.ok(model.issues(normalized).some(issue=>/hemvist saknas/.test(issue.message)));
+ const actual=normalized.businesses.find(b=>b.unitId==='VARDBO');
+ assert.ok(actual,'Explicit business register can still be derived from source contract');
+ normalized.assignments[0].targetId=actual.id;
+ model.validate(normalized);
+});
+
 test('replacement closes previous period, preserves unknown beginning and logs source and actor',()=>{
  const d=fixture();d.properties[0].responsiblePersonId='u1';model.normalize(d);const id=d.assignments[0].id;replace(d,'u2');assert.equal(d.assignments[0].id,id);assert.equal(d.assignments[0].fromDate,'');assert.equal(d.assignments[0].toDate,'2026-10-11');assert.equal(d.properties[0].responsiblePersonId,'u2');assert.equal(d.assignments[1].createdBy,'Test');assert.equal(d.assignments[1].provenance.source,'manual');model.validate(d);
  replace(d,'u2');assert.equal(d.assignments.length,2);assert.equal(d.auditLog.length,1);
