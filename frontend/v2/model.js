@@ -1099,7 +1099,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
   }
 
   if (decision === "accept" && item.kind === "record") {
-    const allowed = ["activities", "operations", "maintenanceStatus"];
+    const allowed = ["activities", "recurringCosts", "maintenanceStatus"];
     if (!allowed.includes(item.collection)) throw Error("Ogiltig importtyp");
     const existing = data[item.collection].find((r) => r.id === item.recordId);
     const record = clone(item.record);
