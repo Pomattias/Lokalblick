@@ -3118,7 +3118,7 @@ body.editor-frame-active > #editor-edit-frame {
 .issue-editor #edit-form .issue-heading-actions [data-issue-save] {grid-area:1 / 2;}
 .issue-editor #edit-form .issue-heading-actions [data-editor-close] {grid-area:1 / 3;}
 .issue-editor #edit-form.editor-readonly .issue-heading-actions [data-editor-undo],
-.issue-editor #edit-form.editor-readonly .issue-heading-actions [data-issue-save],
+.issue-editor #edit-form.editor-readonly .issue-heading-actions button[data-issue-save],
 .issue-editor #edit-form:not(.editor-readonly) .issue-heading-actions [data-editor-activate] {
   display:inline-flex!important;
   visibility:hidden!important;
