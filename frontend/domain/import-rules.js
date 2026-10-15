@@ -5,7 +5,7 @@
   const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   const key=x=>String(x??'').trim().toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'');
   const exactKey=x=>String(x??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('sv');
-  const entities=['organizations','people','properties','objects','contracts','activities','orders','businesses','contractBusinesses','assignments','operations','maintenanceStatus'];
+  const entities=['organizations','people','properties','objects','contracts','activities','orders','businesses','contractBusinesses','assignments','recurringCosts','maintenanceStatus'];
   const protectedField=field=>['id','sourceId','objectId','propertyId','contractId','activityId'].includes(field);
   // A fresh index belongs to one import run. Buckets retain all candidates so
   // duplicate identities are still reviewed rather than arbitrarily selected.
@@ -31,7 +31,10 @@
   function identify(records,values,collection,identity=[],index){
     const businessIdentity=collection==='businesses'?(present(values.id)?['id']:present(values.sourceId)?['sourceId']:present(values.organizationId)&&present(values.name)&&(present(values.unitId)||present(values.type))?['name','organizationId',...(present(values.unitId)?['unitId']:[]),...(present(values.type)?['type']:[])]:[]):null;
     if(collection==='businesses'&&!identity.length&&!businessIdentity.length){const candidates=records.filter(r=>exactKey(r.name)===exactKey(values.name));if(candidates.length)return {kind:'B',candidates,reason:'Verksamhetsnamn kräver säker organisations- eller källidentitet'};return {kind:present(values.name)?'C':'D',reason:present(values.name)?'Ny verksamhet, ingen namnmatchning':'Verksamhetsidentitet saknas'};}
-    const keys=identity.length?identity:businessIdentity||({properties:present(values.sourceId)?['sourceId']:['designation'],objects:['number','propertyId'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId'],contractBusinesses:['contractId','businessId','fromDate'],assignments:['personId','targetType','targetId','role','fromDate']}[collection]||[]);
+    const costIdentity=collection==='recurringCosts'?
+      (present(values.id)?['id']:present(values.name)&&present(values.contractId)?['name','contractId']:
+        present(values.name)&&present(values.propertyId)?['name','propertyId']:[]):null;
+    const keys=identity.length?identity:costIdentity||businessIdentity||({properties:present(values.sourceId)?['sourceId']:['designation'],objects:['number','propertyId'],contracts:['number'],people:['email'],organizations:['name'],orders:['orderReference'],activities:['sourceId'],contractBusinesses:['contractId','businessId','fromDate'],assignments:['personId','targetType','targetId','role','fromDate']}[collection]||[]);
     const usable=keys.filter(k=>present(values[k]));
     const objectIdentified=collection!=='objects'||identity.some(k=>k!=='propertyId'&&present(values[k]))||present(values.number)||present(values.id)||present(values.sourceId);
     const hits=usable.length&&objectIdentified?(index?index.lookup(usable[0],values[usable[0]]):records).filter(r=>(collection!=='objects'||r.propertyId===values.propertyId)&&usable.every(k=>['businesses','organizations'].includes(collection)&&k==='name'?exactKey(r[k])===exactKey(values[k]):collection==='businesses'&&k==='sourceId'?String(r[k]||'').trim()===String(values[k]||'').trim():key(r[k])===key(values[k]))):[];
