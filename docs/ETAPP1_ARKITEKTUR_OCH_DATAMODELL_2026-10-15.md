@@ -70,3 +70,48 @@ Tabeller nedan är logiska domänobjekt, inte nödvändigtvis ett krav på SQL. 
 
 ## Etapp 1 leverans
 Detta är första kodgrundade nuläges-/målrapporten, **inte** påstående om genomförd fullständigt exekverad revision eller verifierade tester. Nästa leverans är detaljerad fält- och beroendematris samt exekverad testbaslinje.
+
+
+## Tillägg 2026-10-15: privat lagring och utbytbar databas (fastställt arkitekturbeslut)
+
+### Förtydligande efter granskning av äldre commits och backendkontrakt
+Excel är **ett valbart privat lagringsalternativ och ett import-/exportformat**, inte Lokalblicks kanoniska databasarkitektur och inte ett krav för användaren. Kunddata får inte publiceras i GitHub, Vercels statiska assets, publika demo-API:er eller webbläsarens beständiga cache. Samma domänmodell och UI ska fungera för:
+1. **Lokal filbaserad företagsmiljö**: godkänd Excelarbetsfil och/eller lokal backendägd filstore på Windows 365/OneDrive-synkat företagsutrymme. Privata transaktioner genom same-origin lokal backend. Explicit Excel-export/återskrivning med kontrollerat godkännande.
+2. **Intern databas**: exempelvis SQL Server/PostgreSQL/Dataverse/M365 i företagets godkända miljö, bakom autentiserat Lokalblick-API.
+3. **Extern värdlagrad databas**: endast om organisationen godkänner databehandling, region, behörigheter, åtkomst, avtal, kryptering, loggning och backup; åtkomst sker genom autentiserad serverkomponent/API, **aldrig direkt från publik frontend med kundhemligheter**.
+
+### Gemensam, leverantörsoberoende kontraktsgräns
+
+```
+Lokalblick UI (samma för mobil och desktop)
+        ↓ autentiserat Lokalblick API
+Tjänstelager: behörighet, normalisering, relationer, validering,
+             budgetregler, import, historik och spårbarhet
+        ↓ Repository / DataStore-interface
+   ┌───────────────┬───────────────────┬─────────────────────────┐
+   │ Lokal fil     │ Intern databas    │ Extern databas         │
+   │ Excel / JSON  │ SQL / M365 / etc. │ godkänt DB/API         │
+   └───────────────┴───────────────────┴─────────────────────────┘
+        ↑ read-only källadaptrar: LEB, Excel, externa API:er
+```
+
+**Separera två typer av adapter:** `SourceAdapter` (läser/importerar källmaterial och metadata) och `PersistenceAdapter` (säker beständig CRUD, transaktion, revision, historik och backup). En Excelimport ska inte i sig avgöra vilken databas som äger sparad information. Källan kan vara skrivskyddad trots att Lokalblick låter behörig användare redigera kompletteringar.
+
+**Minimikrav för PersistenceAdapter:** `get/list/create/update/delete`, atomisk import-/batchcommit, optimistic locking/revisioner, beständig journaling/audit, schema- och migrationsversion, source-proveniens, backups/restore, roll- och tenant-isolering samt konsekvent felhantering. Kanoniskt API-kontrakt kan erbjudas via OpenAPI och kontraktstester som körs mot samtliga implementationer. Koppla inte UI till leverantörsspecifika SQL-tabeller eller Excel-flikar.
+
+### Vad tidigare kod/commits faktiskt visar
+- Commit `7dec876`: separat backendström `copilot-backend` och integration genom `utveckling`; detta är tidigare arbetssätt, inte automatiskt beslut att införa ny gren.
+- Commits `b1d8bd9` och `ae626ee`: enhetlig Excelimport och framsteg till UI.
+- Commit `2d29a48`: samordning av importregler med företagsbackend och tidigare testreparationer.
+- `backend/company/adapters/source-adapter.js` har `health/loadCore/loadComplements/refresh`; det är en **källadapter**, inte ett fullständigt CRUD-persistenskontrakt.
+- `m365-source-adapter.js` och `external-api-source-adapter.js` är i den granskade grenen fortfarande skelett med `configured:false`/icke implementerad `loadCore`. Att externa eller interna databaser kan kopplas **är arkitekturmålet**, inte verifierad färdig funktion.
+- `backend/src/data-repository.js` dokumenterar leverantörsneutral gräns men flera CRUD-metoder är ännu `Not implemented`. Den existerande lokala `backend/company/data-repository.js` har separat faktisk persistens, och måste jämföras innan konsolidering.
+- `docs/COMPANY-LOCAL-SETUP.md` beskriver Windows 365, lokal API på loopback och datafil utanför repo. `backend/README.md` kräver att autentisering, behörighet och hemligheter hanteras server-side.
+
+### Nästa tekniska leverabler i etapp 1
+- Inventera nuvarande **faktisk** källadapter, persistenstjänst, API-endpoints och transportvägar, inklusive fail-closed när en adapter saknas.
+- Dokumentera en enda kanonisk schema- och relationskatalog med kolumntyper, validering, visning, importalias, ansvar och livscykel.
+- Gör förslag för `SourceAdapter` respektive `PersistenceAdapter` och migrationsväg för lokal fil → intern/extern databas utan att ändra affärslogik.
+- Definiera automatiska kontraktstester som kör samma relations-, CRUD-, import-, historik- och budgetfall mot varje lagringsadapter.
+- Inventera CSS/importordning och centralisera token/design innan modulvis utrensning.
+- Säkerhetskrav: datakällans lokalisering och API-host avgör vad som lämnar företagsdomänen; lokal eller privat installation måste gå att köra utan att skarpa data skickas till extern molntjänst.
