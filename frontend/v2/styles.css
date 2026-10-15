@@ -2949,39 +2949,8 @@ body[data-view="budget"] .budget-rent-delta strong{color:var(--ui-color-text);fo
 }
 
 
-/* Redigera: native HTML + a standalone iOS-safe frame above all drawers.
-   It has no layout dimensions or interactive hit area; no text becomes an image. */
-#editor-edit-frame { display:none; }
-@media(max-width:700px) {
-  body.editor-frame-active > #editor-edit-frame {
-    display:block!important;
-    position:fixed!important;
-    /* Reserve a narrow visible strip OUTSIDE the sharp green perimeter.
-       Outer (non-inset) colored shadows fade into the screen edge; never
-       paint over the form or capture touches, including on iPhone Safari. */
-    /* Closer to the viewport edge, leaving edit labels and titles unobstructed.
-       No padding, font changes or layout reflow. */
-    top:max(5px,env(safe-area-inset-top,0px));
-    right:5px;
-    bottom:max(5px,env(safe-area-inset-bottom,0px));
-    left:5px;
-    box-sizing:border-box;
-    border:3px solid #177b5d;
-    border-radius:17px;
-    box-shadow:
-      0 0 0 1px rgba(245,255,252,.82),
-      -10px -5px 15px -5px rgba(81,148,247,.48),
-      10px -5px 16px -5px rgba(255,144,177,.43),
-      -10px 7px 18px -5px rgba(144,110,229,.34),
-      10px 7px 18px -5px rgba(65,204,164,.43),
-      0 -8px 19px -4px rgba(255,180,120,.32),
-      0 9px 20px -4px rgba(70,176,221,.37),
-      0 0 12px 0 rgba(33,165,125,.22);
-    z-index:2147483000!important;
-    pointer-events:none!important;
-    opacity:1;
-  }
-}
+/* The fixed edit perimeter is defined once in CANONICAL EDIT MODE below. */
+#editor-edit-frame {display:none;}
 
 /* The values are REGULAR text in both Visa and Redigera, not bold labels.
    Existing read-only and issue rules used weights 600/650; override only
