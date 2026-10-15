@@ -558,7 +558,7 @@
           source:label||x.title||x.name||x.category||x.id,
           sub:label||x.title||x.category||"",
           amount,
-          propertyId:x.propertyId||(data.objects||[]).find(o=>o.id===x.objectId)?.propertyId||contract?.propertyId||"",
+          propertyId:x.propertyId||(data.objects||[]).find(o=>o.id===x.objectId)?.propertyId||contract?.propertyId||(data.objects||[]).find(o=>o.id===contract?.objectId)?.propertyId||"",
           objectId:x.objectId||contract?.objectId||"",
           contractId:x.contractId||"",
           sourceType:type,
@@ -657,9 +657,12 @@
   }
   function actualRows(data, year, contracts) {
     const ids = new Set((contracts || data.contracts || []).map((c) => c.id)),
-      pids = new Set(
-        (contracts || data.contracts || []).map((c) => c.propertyId),
-      );
+      pids = new Set(contracts
+        ? contracts.map(c => c.propertyId || (data.objects || []).find(o => o.id === c.objectId)?.propertyId).filter(Boolean)
+        : [
+            ...(data.properties || []).map(p => p.id),
+            ...(data.contracts || []).map(c => c.propertyId || (data.objects || []).find(o => o.id === c.objectId)?.propertyId).filter(Boolean),
+          ]);
     const rows = [];
     (data.recurringCosts || [])
       .filter((x) => (x.contractId ? ids.has(x.contractId) : pids.has(x.propertyId)))
