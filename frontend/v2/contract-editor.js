@@ -124,7 +124,7 @@ export function renderContractEditor(data, c, id, company=false) {
         adjustmentControls(c,"rent")+
         field("Bastal KPI",input(c,"rentBaseIndex","number",false,'min="0" step="any"'),"Lämna tomt för fastställt KPI för basåret")+
       '</div>'+
-      '<details class="contract-additions"'+((Number(c.baseAdditions)>0||needsLegacyAddition)?' open':'')+'>'+
+      '<details class="contract-additions"'+((Number(c.baseAdditions)>0)?' open':'')+'>'+
         '<summary>Tillägg <span>'+money(totals.addition.amount)+'/år</span></summary><div class="contract-grid">'+
           field("Tillägg, kr/år",input(c,"baseAdditions","number",false,'min="0" step="any"'))+
           field("Tillägg basår",input(c,"additionBaseYear","number",false,'min="1900" step="1"'))+
