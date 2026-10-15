@@ -620,8 +620,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog"];
-  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings"];
+  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","operations","maintenanceStatus","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
+  const RESTORE_EXTRA_KEYS = ["operations","maintenanceStatus","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}

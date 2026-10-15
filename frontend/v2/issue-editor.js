@@ -3,25 +3,22 @@ import {activityJournalHtml} from "./activity-journal.js";
 import { esc, options, propertyReference, units, calc, money } from "./views.js";
 import { planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
 import { fieldCaption } from "./field-labels.js";
+import { DEFAULT_ACTIVITY_OPTIONS,activityChoices } from "./activity-options.js";
 
 // Exactly one editor for every activity type. Source columns and data semantics
 // remain in the canonical activities model; they do not dictate UI fields.
-export const ISSUE_TYPES=["Projekt","Underhåll","Drift","Önskemål"];
-// Begränsad kodlista: påverkar enbart formulärets alternativ, inte lagrad data.
-export const ISSUE_CATEGORIES=[
-  "Ytskikt","Inredning","Installationer","Ventilation","Ombyggnad",
-  "Nya lokaler","Tillgänglighet","Brand och säkerhet","Utemiljö","Energi","Övrigt"
-];
-export function issueCategoryChoices(current) {
-  const categories=ISSUE_CATEGORIES.map(value=>({value,label:value}));
-  const legacy=String(current||"").trim();
-  if(legacy && !categories.some(item=>item.value===legacy))
-    categories.push({value:legacy,label:legacy});
-  return categories;
+export const ISSUE_TYPES=DEFAULT_ACTIVITY_OPTIONS.type;
+export const ISSUE_CATEGORIES=DEFAULT_ACTIVITY_OPTIONS.category;
+export function issueCategoryChoices(current,data={},type=""){
+  return activityChoices(data,"category",{type,current});
 }
 const field=(label,html,display="")=>'<label class="issue-field issue-mode-field"><span class="issue-field-label">'+esc(fieldCaption('activities',html,label))+'</span><span class="issue-field-value">'+esc(display||"–")+'</span><span class="issue-field-control">'+html+'</span></label>';
 const input=(item,key,type="text",attrs="")=>'<input name="'+key+'" type="'+type+'" value="'+esc(item[key]??"")+'" '+attrs+'>';
-const choice=(name,list,selected,placeholder="Välj")=>'<select name="'+name+'">'+options(list,x=>x.value,x=>x.label,selected,placeholder)+'</select>';
+// Respect administrator's order; shared views.options deliberately sorts alphabetically.
+const choice=(name,list,selected,placeholder="Välj")=>
+  '<select name="'+esc(name)+'"><option value="">'+esc(placeholder)+'</option>'+
+  list.map(row=>'<option value="'+esc(row.value)+'"'+(String(row.value)===String(selected)?' selected':'')+
+    '>'+esc(row.label)+'</option>').join("")+'</select>';
 const currency=n=>money(Number(n)||0);
 function issueHome(activity) {
   if(activity.contractId) return "contract:"+activity.contractId;
@@ -80,8 +77,7 @@ export function applyIssueHome(activity,home) {
   return activity;
 }
 export function renderIssueEditor(data,issue,id,company=false) {
-  const kinds=ISSUE_TYPES.includes(issue.type)||!issue.type
-    ? ISSUE_TYPES : [...ISSUE_TYPES,issue.type];
+  const kinds=activityChoices(data,"type",{current:issue.type});
   const orderList=(data.orders||[]).filter(x=>x.activityId===issue.id);
   const linkedContract=(data.contracts||[]).find(x=>x.id===issue.contractId);
   const linkedObject=(data.objects||[]).find(x=>x.id===(issue.objectId||linkedContract?.objectId));
@@ -91,9 +87,8 @@ export function renderIssueEditor(data,issue,id,company=false) {
 
   const year=Number(issue.planningYear)||new Date().getFullYear();
   const assessment=calc().activityEconomics(data,issue,year);
-  const typeSelect=choice("type",kinds.map(value=>({value,label:value})),issue.type,"Välj ärendetyp");
-  const statuses=[...new Set(["Nytt","Planerad","Förstudie","Utredning","Projektering","Upphandling","Genomförande","Besiktning","Pågår","Beställd","Utförd","Klar","Avslutad","Avslaget",...
-    (data.activities||[]).map(a=>a.status).filter(Boolean),issue.status].filter(Boolean))];
+  const typeSelect=choice("type",kinds,issue.type,"Välj ärendetyp");
+  const statuses=activityChoices(data,"status",{current:issue.status});
   const priorities=[...new Set(["Låg","Normal","Hög","Akut",...
     (data.activities||[]).map(a=>a.priority).filter(Boolean),issue.priority].filter(Boolean))];
   const internal=(data.people||[]).filter(p=>!p.organizationId||(data.organizations||[])
@@ -120,8 +115,8 @@ export function renderIssueEditor(data,issue,id,company=false) {
       '<div class="issue-owner-row">'+field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"),internal.find(p=>p.id===issue.responsiblePersonId)?.name||"Ej fördelad")+'</div>'+
       '<div class="issue-compact-meta">'+
       field("Typ",typeSelect,issue.type)+
-      field("Status",choice("status",statuses.map(value=>({value,label:value})),issue.status,"Välj status"),issue.status)+
-      field("Kategori",choice("category",issueCategoryChoices(issue.category),issue.category,"Välj kategori"),issue.category)+
+      field("Status",choice("status",statuses,issue.status,"Välj status"),issue.status)+
+      field("Kategori",choice("category",issueCategoryChoices(issue.category,data,issue.type),issue.category,"Välj kategori"),issue.category)+
       field("Prioritet",choice("priority",priorities.map(value=>({value,label:value})),issue.priority,"Ej prioriterad"),issue.priority)+
       '</div>'+
       '<div class="issue-description-row">'+field("Beskrivning",'<textarea name="description" rows="2">'+esc(issue.description||"")+'</textarea>',issue.description)+'</div>'+

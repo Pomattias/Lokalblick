@@ -2,6 +2,7 @@ import "../services/import-formats.js";
 import "../domain/object-model.js";
 import "../domain/responsibility-model.js";
 import "../domain/business-model.js";
+import {normalizeActivityOptions} from "./activity-options.js";
 export const collections = [
   "properties",
   "objects",
@@ -537,6 +538,7 @@ export function normalize(data) {
     (x) => x.id === "lokalblick-v2-workspace",
   );
   if (metadata) Object.assign(out, metadata.workspace);
+  out.activityOptions=normalizeActivityOptions(out.activityOptions);
   [...collections, ...legacyCollections].forEach((k) => {
     if (!Array.isArray(out[k])) out[k] = [];
   });
@@ -572,6 +574,9 @@ export function normalize(data) {
   // Keep their import adapters intact so historical source files remain readable.
   for (const key of legacyCollections) delete canonical[key];
   delete canonical.legacyOrganizations;
+  // Include unknown imported categories/statuses in administration as inactive
+  // options without altering their original values in activities or budgets.
+  canonical.activityOptions=normalizeActivityOptions(canonical.activityOptions,canonical.activities);
   return canonical;
 }
 export function activityPropertyId(data, record) {

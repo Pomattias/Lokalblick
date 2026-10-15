@@ -10,6 +10,7 @@ const metadataKeys = [
   "documents",
   "importMappings",
   "importFieldPreferences",
+  "activityOptions",
 ];
 export function createTransport() {
   const source = () => window.LokalblickSourceService;

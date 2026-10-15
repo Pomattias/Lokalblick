@@ -20,6 +20,8 @@ import { createTransport } from "./transport.js";
 import { retainImportedData } from "./import-workspace.js";
 import { shouldRestoreViewSnapshot } from "./restore-policy.js";
 import { updateLegacyDemoIndexTerms } from "./demo-index-migration.js";
+import {activityChoices,changeActivityOption,normalizeActivityOptions} from "./activity-options.js";
+import {activityOptionSettings} from "./activity-option-settings.js";
 import { filterPresentation } from "./filter-presentation.js";
 import {
   esc,
@@ -619,7 +621,7 @@ function render() {
   if (ui.view === "budget") bindBudget();
   if (ui.view === "sources") content.innerHTML = sources(data, transport);
   if (ui.view === "datamodel") { content.innerHTML = relationshipView(data); bindRelationshipView(data); }
-  if (ui.view === "settings") content.innerHTML = economicSettings(data, ui);
+  if (ui.view === "settings") content.innerHTML = activityOptionSettings(data)+economicSettings(data, ui);
   if (ui.view === "people") content.innerHTML = organization(data);
   if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","businesses","activities","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<a href="../index.html?legacy=1" data-ui-version="v1">Visa V1</a><small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
@@ -1280,6 +1282,20 @@ document.addEventListener("click", (event) =>
       updateEditorActions();
       return;
     }
+    if(b.dataset.optionAction){
+      const kind=b.dataset.optionKind,action=b.dataset.optionAction,name=b.dataset.optionName||"";
+      const section=b.closest("[data-activity-option-kind]");
+      const newName=section?.querySelector('[data-option-new="'+kind+'"]')?.value?.trim()||"";
+      const type=section?.querySelector('[data-option-new-scope="'+kind+'"]')?.value||"";
+      const found=normalizeActivityOptions(data.activityOptions)[kind]?.find(x=>x.name===name);
+      if(action==="delete"&&!confirm('Ta bort "'+name+'"? Alternativet får inte användas av något ärende.'))return;
+      await mutation(d=>{
+        const before={values:clone(normalizeActivityOptions(d.activityOptions)[kind])};
+        changeActivityOption(d,{kind,action,name,newName,type,active:!found?.active,direction:Number(b.dataset.optionDirection)||1});
+        audit(d,"activityOptions",kind,before,{values:d.activityOptions[kind]},actor());
+      });
+      return;
+    }
     if (b.dataset.tool) document.getElementById(b.dataset.tool)?.click();
     if (b.dataset.view) {
       pendingPlanSelection=null;
@@ -1324,11 +1340,11 @@ document.addEventListener("click", (event) =>
       return;
     }
     if (b.hasAttribute("data-new-issue")) {
-      const type = ["Projekt","Underhåll","Drift","Önskemål"].includes(ui.issueType) ? ui.issueType : "";
+      const type = activityChoices(data,"type").some(x=>x.value===ui.issueType) ? ui.issueType : "";
       openEditor("activities","",{
         type,
         title:"",
-        status:"Nytt",
+        status:activityChoices(data,"status").some(x=>x.value==="Nytt")?"Nytt":activityChoices(data,"status")[0]?.value||"",
         planningYear:ui.year,
         budgetCategory:{Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Önskemål:"Ej budget"}[type]||"Ej budget",
         includeInBudget:type==="Önskemål"?"Nej":"Ja",
@@ -1454,10 +1470,10 @@ document.addEventListener("click", (event) =>
         "",
         col === "activities"
           ? {
-              type: ["Projekt","Underhåll","Drift","Önskemål"].includes(ui.issueType) ? ui.issueType : "",
+              type: activityChoices(data,"type").some(x=>x.value===ui.issueType) ? ui.issueType : "",
               budgetCategory: {Projekt:"Projekt",Underhåll:"Underhåll",Drift:"Driftkostnader",Önskemål:"Ej budget"}[ui.issueType]||"Ej budget",
               includeInBudget:ui.issueType==="Önskemål"?"Nej":"Ja",
-              status: "Nytt",
+              status: activityChoices(data,"status").some(x=>x.value==="Nytt")?"Nytt":activityChoices(data,"status")[0]?.value||"",
               planningYear: ui.year,
               propertyId: selection.propertyId || "",
             }
@@ -1577,6 +1593,25 @@ document.addEventListener("click",event=>{
 document.addEventListener("change", (event) =>
   run(async () => {
     const x = event.target;
+    if(x.dataset.optionScope!==undefined){
+      const kind=x.dataset.optionKind,name=x.dataset.optionName;
+      await mutation(d=>{
+        const previous={values:clone(normalizeActivityOptions(d.activityOptions)[kind])};
+        changeActivityOption(d,{kind,action:"scope",name,type:x.value});
+        audit(d,"activityOptions",kind,previous,{values:d.activityOptions[kind]},actor());
+      });
+      return;
+    }
+    if(x.name==="type"&&x.closest('form[data-collection="activities"]')){
+      const form=x.closest("form"),category=form.querySelector('[name="category"]');
+      if(category){
+        const old=category.value;
+        const items=activityChoices(data,"category",{type:x.value,current:old});
+        category.innerHTML='<option value="">Välj kategori</option>'+items.map(c=>'<option value="'+esc(c.value)+'"'+(c.value===old?' selected':'')+'>'+esc(c.label)+'</option>').join("");
+      }
+      updateEditorActions();
+      return;
+    }
     if (x.matches('select[data-contract-rule]')) {
       const area=x.closest(".contract-section,.contract-additions");
       const method=x.value;

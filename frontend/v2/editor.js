@@ -5,6 +5,7 @@ import { clone } from "./model.js";
 import { renderContractEditor } from "./contract-editor.js";
 import { renderPropertyEditor } from "./property-editor.js";
 import { applyIssueHome, renderIssueEditor } from "./issue-editor.js";
+import {activityChoices} from "./activity-options.js";
 const relations = {
   businessId: ["businesses",x=>x.name],
   objectId: ["objects", x=>[x.number,x.name].filter(Boolean).join(" · ")||x.id],
@@ -126,9 +127,9 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
       control = `<select name="${key}">${options(items, (x) => x.id, fn, record[key], "Ej kopplad")}</select>`;
     } else if (key === "type" && col === "activities")
       control = `<select name="type">${options(
-        ["Projekt", "Underhåll", "Drift", "Önskemål", "Utredning"],
-        (x) => x,
-        (x) => x,
+        activityChoices(data,"type",{current:record.type}),
+        (x) => x.value,
+        (x) => x.label,
         record.type,
         "Välj typ",
       )}</select>`;
@@ -143,13 +144,8 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
         {id:"stadsfastigheter",name:"Stadsfastigheter – ägarinvestering"}
       ],x=>x.id,x=>x.name,record.investmentRule||"","Normalregel")}</select>`;
     else if (key === "category" && col === "activities") {
-      const unique = [...new Map((data.activities || [])
-        .map(a => String(a.category || "").trim())
-        .filter(Boolean).concat(record.category ? [String(record.category).trim()] : [])
-        .map(value => [value.toLocaleLowerCase("sv"), value])).values()];
-      control = unique.length
-        ? `<select name="category">${options(unique, x=>x, x=>x, record.category || "", "Välj kategori")}</select>`
-        : `<input name="category" value="${esc(record.category || "")}" placeholder="Ange första kategorin">`;
+      const available=activityChoices(data,"category",{type:record.type,current:record.category});
+      control=`<select name="category">${options(available,x=>x.value,x=>x.label,record.category||"","Välj kategori")}</select>`;
     }
     else if (key === "includeInBudget" && col === "activities")
       control = `<select name="includeInBudget">${options(

@@ -2,6 +2,7 @@ import {fieldCaption} from "./field-labels.js";
 import {portfolioDashboard, buildPortfolioInsights} from "./portfolio-dashboard.js";
 import { scope, responsible, kinds, bulkEligible } from "./model.js";
 import { planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
+import {activityChoices} from "./activity-options.js";
 export const esc = (x) =>
   String(x ?? "").replace(
     /[&<>"']/g,
@@ -304,7 +305,10 @@ export function overview(data, s, ui) {
     ? propertyLabel(data, s.propertyId)
     : "Aktuellt urval";
   const tabs = ["Fastigheter", "Avtal", "Ärenden"];
-  const typeChoices = ["Alla","Projekt","Underhåll","Drift","Önskemål"];
+  const typeChoices = ["Alla",...new Set([
+    ...activityChoices(data,"type").map(x=>x.value),
+    ...(data.activities||[]).map(x=>x.type).filter(Boolean)
+  ])];
   const selectedType = typeChoices.includes(ui.issueType) ? ui.issueType : "Alla";
   let body = "";
   if (ui.perspective === "Fastigheter") {
@@ -453,7 +457,10 @@ export function planning(data, s, ui) {
     title: "Fastighetsansvar",
     cost: 0,
   }));
-  const typeChoices = ["Alla","Projekt","Underhåll","Drift","Önskemål"];
+  const typeChoices = ["Alla",...new Set([
+    ...activityChoices(data,"type").map(x=>x.value),
+    ...(data.activities||[]).map(x=>x.type).filter(Boolean)
+  ])];
   const issueType=typeChoices.includes(ui.issueType)?ui.issueType:"Alla";
   const visibleIssues = issueType === "Alla" ? v.items : v.items.filter(x=>x.record.type===issueType);
   let items = issueType === "Alla" ? propertyItems.concat(visibleIssues) : visibleIssues;
