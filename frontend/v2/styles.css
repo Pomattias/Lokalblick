@@ -3119,3 +3119,171 @@ body.editor-frame-active > #editor-edit-frame {
     min-height:49px;
   }
 }
+
+/* Compact Lokalblick presentation: shared rhythm across Overview, Bestånd,
+   Planera, Budget, Karta and Mer. Labels and data share a single line.
+   Read/edit use the same field DOM and row geometry. */
+:root {
+  --compact-row-height:34px;
+  --compact-gap:6px;
+  --compact-section-space:8px;
+}
+main .section-title:not(.issue-heading),
+main .plan-topbar {margin-block:8px 5px;gap:8px}
+main .section-title h2 {font-size:17px;line-height:1.2;margin:0}
+main .tabs {margin-block:5px 7px;gap:4px}
+main .tabs button {padding:6px 9px;min-height:32px}
+main .table-wrap {margin-block:5px}
+main .compact-data-table {margin-top:5px;border-radius:9px}
+main .compact-data-table td {padding:5px 8px;height:32px}
+main .compact-data-table th {padding:5px 8px}
+main .ui-card {padding:8px 10px}
+main .budget-category-cards {gap:7px;margin:6px 0}
+main .budget-category-card {padding:9px 10px}
+main .budget-category-card dl {gap:4px;margin:6px 0 0}
+main .plan-mobile-card {padding:7px 9px;margin-bottom:5px}
+main .plan-property-group {margin:6px 0;padding:6px}
+main .detail {padding:10px 12px;margin:7px 0}
+main .detail h3 {margin:8px 0 4px;font-size:13px}
+main .detail-grid {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  column-gap:17px;row-gap:0;
+}
+main .detail-grid > div {
+  display:grid;grid-template-columns:minmax(0,45%) minmax(0,1fr);
+  align-items:center;gap:6px;min-width:0;min-height:29px;
+  padding:4px 0;border-bottom:1px solid var(--line);
+}
+main .detail-grid > div > small {
+  color:var(--muted);font-size:11px;line-height:1.2;
+}
+main .detail-grid > div > strong {
+  min-width:0;margin:0;font-size:12px;font-weight:500;
+  line-height:1.25;text-align:right;overflow-wrap:anywhere;
+}
+main .rent-calculation > h3 {margin:4px 0 6px}
+main .rent-calculation > p {margin:4px 0}
+main .planning-timeline-help {margin:4px 0 7px;font-size:12px}
+main .planning-timeline-help > summary {font-weight:500}
+main .planning-timeline-help > p {margin:5px 0}
+
+/* Budget totals have their value on the same line as the explanation. */
+body[data-view="budget"] .budget-rent-compare {
+  gap:3px 12px;padding-top:6px;
+}
+body[data-view="budget"] .budget-rent-metric {
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:8px;min-height:27px;padding:3px 0;
+}
+body[data-view="budget"] .budget-rent-metric > span {
+  flex:1 1 auto;font-size:11px;line-height:1.2;
+}
+body[data-view="budget"] .budget-rent-metric > strong {
+  flex:0 0 auto;font-size:13px;font-weight:600;line-height:1.2;
+  text-align:right;
+}
+body[data-view="budget"] .budget-rent-delta {padding-top:2px}
+body[data-view="budget"] .budget-index-head {gap:5px 8px}
+body[data-view="budget"] .budget-controls-compact {padding:6px 8px}
+body[data-view="budget"] .budget-overview-total {margin:5px 0}
+
+/* All general / property / contract form fields: name + value/input in one
+   row. The existing real input remains intact for saving and accessibility.
+   Avoid edit-only padding and font changes that trigger iPhone autozoom. */
+.editor:not(.issue-editor) #edit-form :is(
+  .property-field,.contract-field,.form-grid > label,
+  .property-person-field > label
+) {
+  display:grid;grid-template-columns:minmax(0,39%) minmax(0,1fr);
+  align-items:center;column-gap:8px;row-gap:2px;
+  min-width:0;min-height:var(--compact-row-height);margin:0;
+}
+.editor:not(.issue-editor) #edit-form :is(
+  .property-field,.contract-field,.form-grid > label,
+  .property-person-field > label
+) > .field-name {
+  min-width:0;color:var(--muted);font-size:12px;
+  font-weight:500;line-height:1.25;overflow-wrap:anywhere;
+}
+.editor:not(.issue-editor) #edit-form :is(
+  .property-field,.contract-field,.form-grid > label,
+  .property-person-field > label
+) > :is(input,select,textarea,.contract-readonly,.editor-mode-value) {
+  grid-column:2;min-width:0;max-width:100%;margin:0;
+}
+.editor:not(.issue-editor) #edit-form :is(
+  .property-field,.contract-field,.form-grid > label
+) > small {grid-column:2;margin:0;font-size:10px}
+.editor:not(.issue-editor) #edit-form :is(
+  .property-grid,.contract-grid,.form-grid
+) {gap:6px 12px}
+.editor:not(.issue-editor) #edit-form :is(
+  .property-section,.contract-section
+) {padding-block:8px 6px}
+.editor:not(.issue-editor) #edit-form :is(
+  .property-section,.contract-section
+) > h3 {margin:0 0 5px;font-size:13px}
+.editor:not(.issue-editor) #edit-form .section-title {margin:0 0 7px}
+.editor:not(.issue-editor) #edit-form .section-title h2 {margin:2px 0;font-size:18px}
+.editor:not(.issue-editor) #edit-form .contract-readonly {
+  box-sizing:border-box;min-height:36px;padding:6px 8px;
+}
+.editor:not(.issue-editor) #edit-form :is(
+  .contract-help,.property-help
+) {grid-column:1/-1;margin:3px 0 6px;font-size:11px}
+.editor:not(.issue-editor) #edit-form :is(
+  .contract-help,.property-help
+) > summary {font-size:11px;font-weight:500}
+.editor:not(.issue-editor) #edit-form :is(
+  .contract-help,.property-help
+) p {margin:5px 0}
+.editor:not(.issue-editor) #edit-form .contract-note {
+  background:transparent;padding:3px 0;margin:4px 0;
+}
+.editor:not(.issue-editor) #edit-form .contract-rent-total {
+  margin-top:7px;padding:8px 10px;align-items:baseline;
+}
+.editor:not(.issue-editor) #edit-form .contract-rent-total strong {font-size:15px}
+.editor:not(.issue-editor) #edit-form .property-person-actions {
+  gap:4px;justify-content:flex-end;
+}
+.editor:not(.issue-editor) #edit-form .property-person-field {gap:3px}
+.editor:not(.issue-editor) #edit-form .property-contact-row {padding:5px 8px}
+.editor:not(.issue-editor) #edit-form .property-map-hint {margin:0 0 5px;font-size:11px}
+.editor:not(.issue-editor) #edit-form .property-map-footer {padding-top:4px}
+.editor:not(.issue-editor) #edit-form .actions.editor-actions {margin-top:6px}
+
+/* Issue fields already pair label and control; compact spacing must apply
+   identically to Visa and Redigera, without altering input geometry. */
+.issue-editor #edit-form .issue-main-section,
+.issue-editor #edit-form.editor-readonly .issue-main-section {
+  padding-block:5px 6px;
+}
+.issue-editor #edit-form .issue-main-section > .issue-grid,
+.issue-editor #edit-form.editor-readonly .issue-main-section > .issue-grid {gap:4px 8px}
+.issue-editor #edit-form .issue-main-section .issue-mode-field,
+.issue-editor #edit-form.editor-readonly .issue-main-section .issue-mode-field {
+  padding-block:2px;gap:4px;
+}
+
+@media(max-width:700px) {
+  main .section-title h2 {font-size:16px}
+  main .detail-grid {grid-template-columns:minmax(0,1fr)}
+  main .detail-grid > div {min-height:27px;padding:3px 0;grid-template-columns:minmax(0,43%) minmax(0,1fr)}
+  main .detail {padding:8px 9px}
+  main .ui-card {padding:7px 8px}
+  main .budget-category-card {padding:8px 9px}
+  body[data-view="budget"] .budget-rent-compare {grid-template-columns:minmax(0,1fr);gap:0}
+  body[data-view="budget"] .budget-rent-metric {min-height:27px}
+  body[data-view="budget"] .budget-rent-metric > strong {font-size:13px}
+  .editor:not(.issue-editor) #edit-form .property-grid,
+  .editor:not(.issue-editor) #edit-form .contract-grid {grid-template-columns:minmax(0,1fr);gap:5px}
+  .editor:not(.issue-editor) #edit-form :is(
+    .property-field,.contract-field,.form-grid > label,
+    .property-person-field > label
+  ) {grid-template-columns:minmax(0,41%) minmax(0,1fr);column-gap:6px}
+  .editor:not(.issue-editor) #edit-form .property-map {height:185px;min-height:185px}
+  .editor:not(.issue-editor) #edit-form .contract-additions {margin-top:6px}
+  .editor:not(.issue-editor) #edit-form .contract-additions summary {padding:7px 8px}
+  .editor:not(.issue-editor) #edit-form .contract-additions[open] .contract-grid {padding:0 8px 8px}
+}
