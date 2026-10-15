@@ -3083,3 +3083,18 @@ body.editor-frame-active > #editor-edit-frame {
     max-width:100%;
   }
 }
+
+/* The issue home row must be exactly as high in Visa as in Redigera.
+   WebKit/Chromium can otherwise grow the native select when font-size:16px
+   combines with the older min-height + padding declarations. */
+@media(max-width:700px){
+  .issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-value,
+  .issue-editor #edit-form .issue-main-section .issue-mode-field .issue-field-control :is(input:not([type="checkbox"]),select){
+    box-sizing:border-box;
+    min-height:36px;
+    height:36px;
+    max-height:36px;
+    margin:0;
+    line-height:1.15;
+  }
+}
