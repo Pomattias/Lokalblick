@@ -126,7 +126,7 @@ test("journal read and edit share the same second row on mobile",()=>{
 test("mobile editing uses a real overlay and keeps normal-weight text",()=>{
   const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
-  const rule=css.slice(css.lastIndexOf("/* Redigera: native HTML"));
+  const rule=css.slice(css.lastIndexOf("/* CANONICAL EDIT MODE"));
   assert.ok(app.includes('function syncEditorFrame(active)'));
   assert.ok(app.includes('frame=document.createElement("div")'));
   assert.ok(app.includes('body.appendChild(frame)'));
