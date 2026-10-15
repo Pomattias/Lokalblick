@@ -3102,3 +3102,30 @@ body.editor-frame-active > #editor-edit-frame {
 .issue-editor #edit-form .issue-description-row .issue-mode-field .issue-field-control textarea {
   display:block;
 }
+
+/* Keep the case heading width independent of editing mode.
+   Redigera/Ångra share one grid slot, Spara the next, Stäng the third.
+   Hidden actions reserve their slot without receiving pointer events. */
+.issue-editor #edit-form .issue-heading-actions {
+  display:grid;
+  grid-template-columns:max-content max-content max-content;
+  align-items:center;
+  justify-content:end;
+  gap:5px;
+}
+.issue-editor #edit-form .issue-heading-actions [data-editor-activate],
+.issue-editor #edit-form .issue-heading-actions [data-editor-undo] {grid-area:1 / 1;}
+.issue-editor #edit-form .issue-heading-actions [data-issue-save] {grid-area:1 / 2;}
+.issue-editor #edit-form .issue-heading-actions [data-editor-close] {grid-area:1 / 3;}
+.issue-editor #edit-form.editor-readonly .issue-heading-actions [data-editor-undo],
+.issue-editor #edit-form.editor-readonly .issue-heading-actions [data-issue-save],
+.issue-editor #edit-form:not(.editor-readonly) .issue-heading-actions [data-editor-activate] {
+  display:inline-flex!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+.issue-editor #edit-form.editor-readonly .issue-heading-actions [data-editor-activate],
+.issue-editor #edit-form:not(.editor-readonly) .issue-heading-actions [data-editor-undo],
+.issue-editor #edit-form:not(.editor-readonly) .issue-heading-actions [data-issue-save] {
+  visibility:visible!important;
+}
