@@ -12,7 +12,7 @@ const fixture=()=>{
  return win.LokalblickDemoData;
 };
 const engine=globalThis.LokalblickCalculations;
-const totalRent=(data,year)=>engine.budgetRows(data,year)
+const totalRent=(data,year)=>engine.budgetScenarioRows(data,year)
  .filter(row=>row.sourceType==="contract")
  .reduce((sum,row)=>sum+row.amount,0);
 
@@ -24,7 +24,7 @@ test("all four demo lease fixtures include indexed base rent, year and reference
   assert.ok(contract.rentBaseYear>=2023,contract.id+" rentBaseYear");
   assert.ok(contract.rentBaseIndex>0,contract.id+" rentBaseIndex");
   assert.ok(contract.rentIndexPercent>0&&contract.rentIndexPercent<=1,contract.id+" rentIndexPercent");
-  const indexed=engine.annualValues(contract,2027,460,demo.indexSeries,{allowLatestKpi:true});
+  const indexed=engine.annualValues(contract,2027,460,demo.indexSeries,{scenario:true});
   assert.ok(indexed.rent.amount>contract.baseRent,contract.id+" annual rent indexed");
  }
 });
