@@ -14,7 +14,7 @@ export const collections = [
   "contractBusinesses",
   "orders",
   "activities",
-  "operations",
+  "recurringCosts",
   "maintenanceStatus",
   "budgetPlans",
   "auditLog",
@@ -25,7 +25,7 @@ export const collections = [
 ];
 export const kinds = {
   activities: "Ärende",
-  operations: "Kostnad",
+  recurringCosts: "Löpande kostnad",
   maintenanceStatus: "Status",
 };
 export const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -544,6 +544,9 @@ export function normalize(data) {
   });
   globalThis.LokalblickBusinessModel.normalize(out);
   globalThis.LokalblickResponsibility.normalize(out);
+  // Validate the new canonical cost model before any persistence path uses it.
+  // Old `operations` rows are deliberately not migrated into the new product.
+  globalThis.LokalblickRecurringCosts?.validateCosts(out);
   normalizeOwnerRelations(out);
   // An activity without a home is a planning task, not an import conflict.
   // Preserve the historical review record while removing it from the open queue.
