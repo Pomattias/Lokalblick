@@ -3317,3 +3317,137 @@ main .settings-inline-actions button {min-height:31px;padding:5px 9px;font-size:
   main .settings-inline-field {grid-template-columns:minmax(0,42%) minmax(0,1fr)}
   main .settings-inline-field > input {font-size:16px}
 }
+
+/* Fastighetseditorn: en tät rad per uppgift, också för avtalskontakter.
+   Inga reserverade, osynliga knapprader i Visa-läget. */
+.property-editor #edit-form .property-heading {
+  margin:0 0 5px;
+  padding:0 0 6px;
+  align-items:center;
+  gap:8px;
+}
+.property-editor #edit-form .property-heading-text {
+  display:grid;
+  gap:1px;
+  min-width:0;
+}
+.property-editor #edit-form .property-heading h2 {
+  margin:0;
+  font-size:19px;
+  line-height:1.18;
+  font-weight:650;
+  overflow-wrap:anywhere;
+}
+.property-editor #edit-form .property-heading-address {
+  display:block;
+  margin:0;
+  font-size:12px;
+  line-height:1.25;
+  color:var(--muted);
+}
+.property-editor #edit-form .property-section {
+  padding:6px 0 5px;
+}
+.property-editor #edit-form .property-section > h3 {
+  margin:0 0 3px;
+}
+.property-editor #edit-form .property-grid {
+  gap:2px;
+}
+.property-editor #edit-form .property-contact-list {
+  display:grid;
+  gap:2px;
+  margin:2px 0 0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  overflow:visible;
+}
+.property-editor #edit-form .property-contact-list > .property-person-field {
+  border:0;
+  padding:0;
+}
+.property-editor #edit-form .property-person-field {
+  position:relative;
+  display:block;
+  min-width:0;
+  min-height:34px;
+  margin:0;
+}
+.property-editor #edit-form .property-person-field > label {
+  display:grid;
+  grid-template-columns:minmax(0,39%) minmax(0,1fr);
+  align-items:center;
+  column-gap:8px;
+  min-width:0;
+  min-height:34px;
+  margin:0;
+}
+.property-editor #edit-form .property-person-field .field-name {
+  min-width:0;
+  line-height:1.18;
+}
+.property-editor #edit-form .property-contact-context {
+  display:block;
+  margin:2px 0 0;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:400;
+  line-height:1.15;
+}
+.property-editor #edit-form .property-person-actions {
+  position:absolute;
+  right:0;
+  top:50%;
+  transform:translateY(-50%);
+  display:flex;
+  gap:3px;
+  margin:0;
+}
+.property-editor #edit-form .property-person-actions button {
+  min-height:28px;
+  padding:3px 5px;
+  font-size:11px;
+}
+.property-editor #edit-form.editor-readonly .property-person-actions {
+  display:none!important;
+}
+.property-editor #edit-form.editor-editing .property-person-field > label > select {
+  width:calc(100% - 100px);
+  justify-self:start;
+}
+.property-editor #edit-form .responsibility-section {
+  padding:5px 0;
+}
+.property-editor #edit-form .responsibility-section > label {
+  grid-template-columns:minmax(0,61%) minmax(0,1fr);
+  gap:6px;
+  min-height:34px;
+}
+.property-editor #edit-form .responsibility-section > small {
+  margin:2px 0 4px;
+  font-size:11px;
+  line-height:1.25;
+}
+.property-editor #edit-form .responsibility-section details {
+  margin:3px 0;
+}
+.property-editor #edit-form .property-help {
+  margin:2px 0;
+}
+@media(max-width:700px) {
+  .property-editor #edit-form .property-heading {margin-bottom:4px;}
+  .property-editor #edit-form .property-heading h2 {font-size:19px;}
+  .property-editor #edit-form .property-grid {gap:1px;}
+  .property-editor #edit-form .property-person-field > label {
+    grid-template-columns:minmax(0,41%) minmax(0,1fr);
+    column-gap:6px;
+  }
+  .property-editor #edit-form .property-person-actions button {
+    padding:3px 4px;
+    font-size:10px;
+  }
+  .property-editor #edit-form.editor-editing .property-person-field > label > select {
+    width:calc(100% - 91px);
+  }
+}
