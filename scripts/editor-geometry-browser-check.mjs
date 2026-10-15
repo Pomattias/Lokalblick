@@ -68,6 +68,23 @@ try{
       assert.equal(borders.top,"0px","Inget stort kantat kontaktkort");
       assert.ok(borders.box<170,"Alla kontaktpersoner ligger tätt i samma grid");
     }
+    const contactGeometry=async()=>page.locator("#edit-form .property-grid .property-person-field").evaluateAll(rows=>rows.map(row=>{
+      const label=row.querySelector(".field-name");
+      const value=row.querySelector(".editor-mode-value");
+      const select=row.querySelector("select");
+      const active=[value,select].find(el=>el&&getComputedStyle(el).display!=="none");
+      const a=label.getBoundingClientRect(),b=active.getBoundingClientRect();
+      return {height:row.getBoundingClientRect().height,labelLeft:a.left,valueLeft:b.left,labelRight:a.right};
+    }));
+    const contactsBefore=await contactGeometry();
+    assert.ok(contactsBefore.length>=2,"Fastighetens kontaktpersoner visas i en gemensam lista");
+    assert.ok(contactsBefore.every(row=>row.valueLeft>=row.labelRight-1),
+      "Även avtalskontakter har etikett vänster och värde höger");
+    const responsibilityDate=page.locator('#edit-form input[name="responsibilityChangeDate"] + .editor-mode-value');
+    if(await responsibilityDate.count())assert.match(
+      await responsibilityDate.innerText(),/^\\d{4}-\\d{2}-\\d{2}$/,
+      "Datum i Visa använder alltid YYYY-MM-DD"
+    );
     // Names and data occupy the same physical row; the editor must not
     // expand a two-line label+value cell when switching modes.
     const inlineProperty=async()=>page.locator("#edit-form .property-field").first().evaluate(el=>{
@@ -99,6 +116,14 @@ try{
     assert.ok(activeFrame.width>width-15);
     assert.equal(activeFrame.border,"rgb(23, 123, 93)");
     const after=await state(page,'#edit-form input[name="city"]');
+    const contactsAfter=await contactGeometry();
+    assert.equal(contactsAfter.length,contactsBefore.length);
+    for(let i=0;i<contactsAfter.length;i++){
+      near(contactsBefore[i].height,contactsAfter[i].height,
+        "kontaktperson "+(i+1)+" samma radhöjd Visa/Redigera",1);
+      near(contactsBefore[i].valueLeft,contactsAfter[i].valueLeft,
+        "kontaktperson "+(i+1)+" samma värdeposition",1);
+    }
     const inlineAfter=await inlineProperty();
     near(inlineBefore.fieldHeight,inlineAfter.fieldHeight,"fastighet kompakt etikettrad",1);
     assert.ok(inlineAfter.valueLeft>=inlineAfter.labelRight-1,
