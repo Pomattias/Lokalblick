@@ -103,7 +103,7 @@ test("ordinary lease validation remains strict when October index is unavailable
   const calc=globalThis.LokalblickCalculations;
   const c={baseRent:100000,rentBaseYear:2025,rentBaseIndex:419.35,rentIndexPercent:0.8};
   assert.equal(calc.component(c,"rent",2027,0,[]).status,"Behöver kontroll");
-  const budget=calc.annualValues(c,2027,0,[],{allowLatestKpi:true});
+  const budget=calc.annualValues(c,2027,0,[],{scenario:true});
   assert.equal(budget.rent.status,"Preliminär");
   assert.ok(budget.rent.amount>0);
 });
