@@ -7,14 +7,14 @@ const own = (data, person) => !person.organizationId ||
   (data.organizations || []).some(org => org.id === person.organizationId && org.type === "our");
 
 function control(label, html, description="") {
-  return '<label class="property-field">'+esc(fieldCaption('properties',html,label))+html+
+  return '<label class="property-field"><span class="field-name">'+esc(fieldCaption('properties',html,label))+'</span>'+html+
     (description ? '<small>'+esc(description)+'</small>' : '')+'</label>';
 }
 function textInput(p, key, locked=false) {
   return '<input type="text" name="'+key+'" value="'+esc(p[key] ?? "")+'"'+(locked?' disabled':'')+'>';
 }
 function personSelect(data, key, value, people, description, kind) {
-  return '<div class="property-person-field"><label>'+esc(description)+
+  return '<div class="property-person-field"><label><span class="field-name">'+esc(description)+'</span>'+
     '<select name="'+key+'" data-property-person-select="'+kind+'"'+
     (kind==="owner"?' data-owner-contact':'')+'>'+
     options(people,p=>p.id,p=>p.name,value,"Ej kopplad")+'</select></label>'+
