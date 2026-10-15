@@ -818,6 +818,21 @@ function syncEditorFrame(active) {
   }
 }
 
+// The green editing perimeter follows EVERY active editable form, including
+// cost/person modals. It is a fixed overlay and never changes page geometry.
+function activeEditableForm() {
+  const editorActive=Boolean(document.querySelector("#editor-root #edit-form.editor-editing"));
+  const modalActive=[...document.querySelectorAll("dialog[open] form")].some(form=>
+    form.querySelector('input:not([type="hidden"]):not(:disabled),select:not(:disabled),textarea:not(:disabled)'));
+  return editorActive||modalActive;
+}
+function refreshEditorFrame() {
+  syncEditorFrame(activeEditableForm());
+}
+// Observe only dialog entry/exit and editor nodes; the frame itself is idempotent.
+const editFrameObserver=new MutationObserver(refreshEditorFrame);
+editFrameObserver.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["open"]});
+
 function setEditorReadMode(readOnly){
   const form=editorForm();
   if(!form||!editor||!editor.id)return;
@@ -829,7 +844,7 @@ function setEditorReadMode(readOnly){
   }
   form.classList.toggle("editor-readonly",editor.readOnly);
   form.classList.toggle("editor-editing",!editor.readOnly);
-  // Frame only the mobile editor during active editing; no new DOM or re-layout.
+  // Same fixed perimeter on desktop/iPhone; never resize the actual editor.
   syncEditorFrame(!editor.readOnly);
   if(editor.col==="activities"){
     // Same cards and grid in both modes. Only reveal/hide the control in each slot.
