@@ -594,7 +594,7 @@ test("non-demo normalization never inserts demo data; multi-contract scope stays
   const d = normalize({
     contracts: [contract, { ...contract, id: "c2", number: "A-2" }],
     properties: [{ id: "p1", address: "Test" }],
-    maintenance: [{ id: "m1", contractId: "c2" }],
+    activities: [{ id: "a1", type: "Underhåll", title: "Tak", contractId: "c2" }],
   });
   const v = scope(d, { propertyId: "p1" });
   assert.equal(v.contracts.length, 2);
