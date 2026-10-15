@@ -384,13 +384,12 @@ export function contractDetail(data, id, year) {
   return `<section class="detail"><div class="section-title"><h2>Avtal ${esc(c.number||c.id)}</h2><button data-close-contract>Stäng detalj</button></div>
   <section class="rent-calculation">
     <h3>Årsberäkning ${year}</h3>
-    <p><small>Hyra och tillägg beräknas separat enligt avtalad regel: KPI, fast årlig procent, KPI med min/max eller ingen uppräkning. Ofullständiga villkor markeras för kontroll.</small></p>
     <div class="table-wrap"><table><thead><tr><th>Del</th><th>Basbelopp / år</th><th>Basår / bastal</th><th>Indexandel</th><th>KPI oktober</th><th>Belopp ${year}</th><th>Kontroll</th></tr></thead><tbody>
     ${contractIndexBreakdown(c,"Hyra",v.rent,c.rentIndexPercent)}
     ${contractIndexBreakdown(c,"Tillägg",v.addition,c.additionIndexPercent)}
     </tbody></table></div>
     <p><strong>Fastighetsskatt:</strong> ${money(v.tax)} · <strong>Total årskostnad:</strong> ${money(v.total)}</p>
-    <p><small>Indexkälla hyra: ${esc(v.rent.source)}${v.rent.reason ? " · "+esc(v.rent.reason) : ""}. Tillägg: ${esc(v.addition.source)}${v.addition.reason ? " · "+esc(v.addition.reason) : ""}.</small></p>
+    <details class="rent-source"><summary>Beräkningsunderlag</summary><p><small>Indexkälla hyra: ${esc(v.rent.source)}${v.rent.reason ? " · "+esc(v.rent.reason) : ""}. Tillägg: ${esc(v.addition.source)}${v.addition.reason ? " · "+esc(v.addition.reason) : ""}.</small></p></details>
   </section>
   <div class="detail-grid">
     <div><small>Verksamhet</small><strong>${esc(units[c.unitId]||c.use||"–")}</strong></div>
@@ -405,7 +404,7 @@ export function contractDetail(data, id, year) {
     <div><small>Hyra kr/kvm · beräknat</small><strong>${c.area>0?num(v.rent.amount/c.area):"–"}</strong></div>
     <div><small>Säg upp senast · beräknat</small><strong>${esc(notice||"–")}</strong></div>
   </div>
-  <p>${esc(v.rent.basedOn.join(" · ")||v.rent.source)}${v.rent.reason?" · "+esc(v.rent.reason):""}</p>
+
   <p>${doc.status==="ready"?`<a href="${esc(doc.href)}" target="_blank" rel="noopener noreferrer">${esc(doc.label)}</a>`:esc(doc.label)} <small>${esc(doc.name)}</small></p>
   <h3>Beställningar</h3>
   ${table(["Aktivitet","Leverantör","Beställt","Utfall","Status",""],orders.map((o)=>{const a=acts.find((x)=>x.id===o.activityId)||{};return row([esc(a.title||o.activityId),esc(o.supplier),money(o.orderedCost),money(o.finalCost),esc(o.paymentStatus||o.completedAt||""),edit("orders",o.id)]);}))}
@@ -429,7 +428,7 @@ function timelineView(data, items, ui) {
       : `<input type="number" min="0" step="1" data-activity-year-amount="${esc(a.id)}" data-allocation-year="${year}" aria-label="Årsbelopp ${year} för ${esc(x.title)}" placeholder="Ej fördelad" value="${esc(annual?.amount ?? "")}">`;
     return `<div class="timeline-row"><div class="timeline-label"><button type="button" class="text-button" data-edit="activities" data-id="${esc(a.id)}">${esc(x.title)}</button><small>${esc(home)} · ${esc(a.status||"Planerad")}</small></div><div class="timeline-track" style="--timeline-columns:${12*span}">${planningMonthButtons(a,year,span,"plan")}</div><div class="timeline-cost">${amount}</div></div>`;
   }).join("");
-  return `<p class="planning-timeline-help">Välj en startmånad och därefter en slutmånad i raden. Klicka på en månad igen för att påbörja en ny period. Samma tider visas i ärendeformuläret.</p><div class="timeline-scroll"><div class="timeline-content" style="--timeline-columns:${12*span}"><div class="timeline-row timeline-head"><div class="timeline-label">Ärende</div><div class="timeline-track">${header}</div><div class="timeline-cost">Årsbelopp</div></div>${rows||"<p>Inga ärenden i urvalet.</p>"}</div></div>`;
+  return `<details class="planning-timeline-help"><summary>Så väljer du period</summary><p>Välj startmånad och slutmånad i raden. Klicka igen för en ny period.</p></details><div class="timeline-scroll"><div class="timeline-content" style="--timeline-columns:${12*span}"><div class="timeline-row timeline-head"><div class="timeline-label">Ärende</div><div class="timeline-track">${header}</div><div class="timeline-cost">Årsbelopp</div></div>${rows||"<p>Inga ärenden i urvalet.</p>"}</div></div>`;
 }
 export function economicSettings(data, ui) {
   const year=Number(ui.settingsYear || new Date().getFullYear());
