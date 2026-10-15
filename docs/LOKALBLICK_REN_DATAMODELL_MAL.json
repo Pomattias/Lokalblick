@@ -4,7 +4,9 @@
     "date": "2026-10-15",
     "version": "target-1",
     "status": "designbeslut_för_etapp_1_inte_implementerat",
-    "premise": "Inga äldre kundposter finns att migrera. Tidigare V1/V2-scheman får ersättas utan bakåtkompatibilitet. Läs godtyckliga källfiler via importadaptrar. Privat datalagring: lokal fil, internt eller externt databassystem bakom behörighetsstyrt API."
+    "premise": "Inga äldre kundposter finns att migrera. Tidigare V1/V2-scheman får ersättas utan bakåtkompatibilitet. Läs godtyckliga källfiler via importadaptrar. Privat datalagring: lokal fil, internt eller externt databassystem bakom behörighetsstyrt API.",
+    "lastUpdated": "2026-10-15",
+    "actualImplementation": "Grundfunktion i utveckling: recurringCosts via API, Excel, budget, UI. Målschemat som helhet är ännu inte infört."
   },
   "entities": {
     "properties": {
@@ -768,7 +770,7 @@
         },
         {
           "name": "sourceType",
-          "type": "enum:contract|activity|order|adjustment",
+          "type": "enum:contract|activity|recurringCost|order|adjustment",
           "visibility": "system"
         },
         {
@@ -930,6 +932,67 @@
       ],
       "relations": [],
       "ui": "system"
+    },
+    "recurringCosts": {
+      "label": "Löpande kostnad",
+      "why": "En återkommande kostnad på exakt en fastighet eller ett avtal. Är aldrig ett ärende och skapas inte på nytt varje år.",
+      "ui": "normal",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "propertyId",
+          "type": "ref:properties?",
+          "visibility": "core",
+          "notes": "Exklusivt alternativ till contractId"
+        },
+        {
+          "name": "contractId",
+          "type": "ref:contracts?",
+          "visibility": "core",
+          "notes": "Exklusivt alternativ till propertyId"
+        },
+        {
+          "name": "category",
+          "type": "string?",
+          "visibility": "optional"
+        },
+        {
+          "name": "annualAmount",
+          "type": "money",
+          "visibility": "core",
+          "notes": "Årsbudget/årligt kostnadsbelopp"
+        },
+        {
+          "name": "startYear",
+          "type": "integer?",
+          "visibility": "optional"
+        },
+        {
+          "name": "endYear",
+          "type": "integer?",
+          "visibility": "optional"
+        },
+        {
+          "name": "actuals",
+          "type": "[{year,amount}]",
+          "visibility": "optional",
+          "notes": "Årsvis utfall; på sikt kan separat tabell användas av SQL-adapter"
+        }
+      ],
+      "relations": [
+        "Exakt en av propertyId eller contractId måste anges",
+        "contractId -> contracts.id",
+        "propertyId -> properties.id"
+      ]
     }
   },
   "invariants": [
@@ -943,7 +1006,12 @@
     "För framtida datakällor krävs inte bakåtkompatibilitet med gamla Lokalblick V1/V2-exporter"
   ],
   "openDecisions": [
-    "Löpande driftkostnader: knytas som separat återkommande kostnadsrad eller bara som enstaka ärende?",
     "Exakt omfattning av objektets egna verksamhets- och kapacitetsfält styrs av faktiska användningsfall"
+  ],
+  "decisions": [
+    {
+      "date": "2026-10-15",
+      "value": "Återkommande kostnader ligger på fastighet eller avtal och påverkar driftbudgeten, åtgärder är enbart activities."
+    }
   ]
 }
