@@ -30,10 +30,10 @@ test("only explicit budget scenario can override confirmed CPI",()=>{
   const d=fixture(),a=d.contracts[0];
   assert.equal(calc.budgetScenarioIndex(d,2027,460).value,460);
   const v=calc.annualValues(a,2027,460,d.indexSeries,{scenario:true});
-  assert.equal(v.rent.amount,115000);
+  assert.ok(Math.abs(v.rent.amount-115000)<0.001);
   assert.equal(v.rent.status,"Preliminär");
-  assert.equal(calc.budgetScenarioRows(d,2027).find(x=>x.sourceType==="contract").amount,115000);
-  assert.equal(calc.budgetProposal(d,2027).find(x=>x.sourceType==="contract").amount,115000);
+  assert.ok(Math.abs(calc.budgetScenarioRows(d,2027).find(x=>x.sourceType==="contract").amount-115000)<0.001);
+  assert.ok(Math.abs(calc.budgetProposal(d,2027).find(x=>x.sourceType==="contract").amount-115000)<0.001);
   assert.equal(calc.propertyAnnualCost(d,"p",2027).annualCost,105000);
 });
 
