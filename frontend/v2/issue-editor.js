@@ -111,7 +111,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
     '<button type="submit" class="primary" data-issue-save>Spara</button><button type="button" data-editor-close>Stäng</button>'+
     '<span class="editor-save-status" role="status" data-editor-save-status></span></div></div>'+
     '<section class="issue-section issue-main-section"><div class="issue-grid">'+
-      '<div class="issue-home-row"><div class="issue-property-reference"><span>Fastighet</span><strong title="'+esc(propertyName)+'">'+esc(propertyName)+'</strong></div>'+field("Objekt",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"),homeChoices(data,issueHome(issue)).find(x=>x.value===issueHome(issue))?.label||"Ej kopplat")+'</div>'+
+      '<div class="issue-home-row"><div class="issue-property-reference"><span>Fastighet</span><strong title="'+esc(propertyName)+'">'+esc(propertyName)+'</strong></div>'+field("Kopplat till",choice("issueHome",homeChoices(data,issueHome(issue)),issueHome(issue),"Ej kopplat"),homeChoices(data,issueHome(issue)).find(x=>x.value===issueHome(issue))?.label||"Ej kopplat")+'</div>'+
       '<div class="issue-owner-row">'+field("Ansvarig",choice("responsiblePersonId",internal.map(p=>({value:p.id,label:p.name})),issue.responsiblePersonId,"Ej fördelad"),internal.find(p=>p.id===issue.responsiblePersonId)?.name||"Ej fördelad")+'</div>'+
       '<div class="issue-compact-meta">'+
       field("Typ",typeSelect,issue.type)+
