@@ -43,10 +43,11 @@ test("a limit on KPI growth is applied before the contractual index share",()=>{
 });
 test("bounded KPI remains preliminary for a user-provided current October figure",()=>{
  const c={...base,rentAdjustmentMethod:"kpi-limited",rentMinPercent:2,rentMaxPercent:4,rentLimitBasis:"rent"};
- const own=C.annualValues(c,2027,475,series);
+ const own=C.annualValues(c,2027,475,series,{scenario:true});
  assert.equal(own.rent.status,"Preliminär");
  nearly(own.rent.amount,106080);
  assert.equal(own.rent.usedIndex,475);
+ assert.equal(C.annualValues(c,2027,475,series).rent.usedIndex,460);
 });
 test("missing intermediate October and reversed min/max cannot silently calculate",()=>{
  const c={...base,rentAdjustmentMethod:"kpi-limited",rentMinPercent:4,rentMaxPercent:2,rentLimitBasis:"rent"};
