@@ -589,6 +589,21 @@ test("metadata-only edits contribute to pending changes", () => {
     }).some((x) => x.sheet === "Tilläggsdata"),
   );
 });
+test("retired Lokalblick entities cannot resurrect old model or create canonical activity",()=>{
+  const data=normalize({
+    isDemo:false,
+    properties:[{id:"p",address:"Testgatan 1"}],
+    projects:[{id:"P-OLD",propertyId:"p",name:"Gammalt projekt"}],
+    maintenance:[{id:"M-OLD",propertyId:"p",title:"Gammalt underhåll"}],
+    driftCosts:[{id:"D-OLD",propertyId:"p",budget:1000}],
+    wishes:[{id:"W-OLD",propertyId:"p",title:"Önskemål"}],
+    maintenanceStatus:[{id:"S-OLD",propertyId:"p",actionNeed:"Tak"}],
+    activities:[{id:"A-NEW",propertyId:"p",title:"Nytt ärende",type:"Underhåll"}]
+  });
+  for(const key of ["projects","maintenance","driftCosts","wishes","maintenanceStatus"])
+    assert.equal(Object.hasOwn(data,key),false,key);
+  assert.deepEqual(data.activities.map(row=>row.id),["A-NEW"]);
+});
 test("non-demo normalization never inserts demo data; multi-contract scope stays coherent", () => {
   assert.equal(normalize({ isDemo: false }).properties.length, 0);
   const d = normalize({
