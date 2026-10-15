@@ -168,6 +168,10 @@ export function normalize(data) {
   // Include unknown imported categories/statuses in administration as inactive
   // options without altering their original values in activities or budgets.
   canonical.activityOptions=normalizeActivityOptions(canonical.activityOptions,canonical.activities);
+  // Retired collections are not imported, persisted or converted in the new app.
+  for(const key of ["contacts","projects","maintenance","investigations",
+    "driftIssues","wishes","assignmentChanges","operations","driftCosts",
+    "maintenanceStatus","legacyOrganizations"]) delete canonical[key];
   return canonical;
 }
 export function activityPropertyId(data, record) {
