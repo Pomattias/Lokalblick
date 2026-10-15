@@ -152,8 +152,18 @@
         ? number(row.value)
         : 0;
     const ownIndex=number(preliminaryIndex);
+    // Published October takes priority. A preliminary assumption must never
+    // overwrite a confirmed contractual CPI reference in the normal forecast.
+    const recentMonths=(series||[]).filter(x=>Number(x.year)===indexYear &&
+      Number(x.month)>=1 && Number(x.month)<10 && number(x.value)>0 &&
+      (!x.seriesBase || seriesBase(x.seriesBase)===basisSeries))
+      .sort((a,b)=>Number(b.month)-Number(a.month));
+    const latestMonth=recentMonths[0];
+    const contradictoryMonth=latestMonth && new Set(recentMonths.filter(x=>Number(x.month)===Number(latestMonth.month))
+      .map(x=>number(x.value))).size>1;
+    const latestMonthlyIndex=contradictoryMonth?0:number(latestMonth?.value);
     const budgetFallback=options.allowLatestKpi ? budgetIndex({indexSeries:series},year,0,basisSeries).value : 0;
-    const usedIndex=ownIndex||knownIndex||budgetFallback||number(row?.value);
+    const usedIndex=knownIndex||ownIndex||number(row?.value)||latestMonthlyIndex||budgetFallback;
     const bastal = explicitBaseIndex || number(basisRow?.value);
     const rawShare = c[prefix + "IndexPercent"];
     const share = normalizedShare(rawShare);
@@ -182,10 +192,10 @@
     const amount = unindexed ? base : calculated
       ? indexedAmount(base, bastal, share, usedIndex, c[prefix + "Floor"] !== false)
       : sourceAmount;
-    const preliminary = calculated && !unindexed && (ownIndex>0 || !knownIndex);
+    const preliminary = calculated && !unindexed && !knownIndex;
     const missingRentInput = kind !== "addition" && base <= 0 && sourceAmount <= 0;
     const needsReview = missingRentInput ||
-      (share > 0 && (incompatible || conflicting)) ||
+      (share > 0 && (incompatible || conflicting || contradictoryMonth)) ||
       (base > 0 && !calculated);
     return {
       amount,
@@ -211,6 +221,8 @@
         ? "KPI-seriernas bas skiljer sig"
         : share > 0 && conflicting
           ? "Motstridiga oktoberindex"
+          : share > 0 && contradictoryMonth
+            ? "Motstridiga månadsindex"
           : missingRentInput
             ? "Bashyra saknas"
             : base > 0 && !validShare
@@ -221,7 +233,11 @@
       source: unindexed
         ? "Avtalad bashyra / bastillägg (0 % index)"
         : calculated
-          ? (preliminary ? "Preliminärt oktoberindex" : row?.source || "SCB KPI")
+          ? (preliminary
+              ? (!row && latestMonthlyIndex && usedIndex===latestMonthlyIndex
+                  ? "Senast kända KPI " + indexYear + "-" + String(latestMonth.month).padStart(2,"0")
+                  : "Preliminärt oktoberindex")
+              : row?.source || "SCB KPI")
           : c.provenance?.[kind === "addition" ? "annualAdditions" : "annualRent"]
               ?.source || c.enrichmentSource || c.source || "Källvärde",
       basedOn: unindexed
@@ -232,7 +248,9 @@
               "Basår " + baseYear,
               "KPI oktober " + baseYear + " = " + bastal,
               "Indexandel " + Math.round(share*10000)/100 + " %",
-              "KPI oktober " + indexYear + " = " + usedIndex,
+              (!row && latestMonthlyIndex && usedIndex===latestMonthlyIndex
+                ? "KPI " + indexYear + "-" + String(latestMonth.month).padStart(2,"0")
+                : "KPI oktober " + indexYear) + " = " + usedIndex,
             ]
           : [],
     };
@@ -505,10 +523,10 @@
     const row=october((data&&data.indexSeries)||[],indexYear,preferredBase);
     if(row?.seriesBase&&seriesBase(row.seriesBase)!==preferredBase)
       return {year:indexYear,month:10,value:0,source:"KPI-seriernas bas skiljer sig",status:"Behöver kontroll"};
-    const own=number(preliminaryIndex);
-    if(own>0)return {year:indexYear,month:10,value:own,source:"Eget indexantagande",status:"Preliminär"};
     const known=row&&!row.preliminary&&!/prelim|prognos/i.test(row.source||"")?number(row.value):0;
     if(known)return {year:indexYear,month:10,value:known,source:row.source||"SCB KPI",status:"Fastställd"};
+    const own=number(preliminaryIndex);
+    if(own>0)return {year:indexYear,month:10,value:own,source:"Manuellt preliminärt index",status:"Preliminär"};
     const latest=latestKnownKpi(data,year,preferredBase);
     if(latest.status==="Behöver kontroll")return {year:indexYear,month:latest.month,value:0,source:latest.source,status:"Behöver kontroll"};
     return {year:indexYear,month:latest.month,value:latest.value,
