@@ -1,3 +1,4 @@
+import {isoDate} from "./date-format.js";
 /* Unified read/edit presentation for every non-issue editor.
    Both modes use the same section DOM and row wrappers; only the field representation changes.
    This adds no new data fields and never substitutes disabled controls into FormData. */
@@ -16,7 +17,7 @@ export function editorDisplayValue(control) {
     // ISO dates are the common app format; never localize to DD/MM/YYYY.
     // Native date inputs already expose their canonical value as YYYY-MM-DD.
   }
-  return text||"–";
+  return (control.type==="date"?isoDate(text):text)||"–";
 }
 export function prepareEditorModeFields(form) {
   if(!form||form.dataset.collection==="activities")return 0;
