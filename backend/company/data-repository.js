@@ -12,11 +12,6 @@ export const USER_ENTITIES = [
   "businesses", "contractBusinesses", "assignments", "objects", "organizations", "people", "orders", "activities", "maintenanceStatus",
   "recurringCosts", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
 ];
-const LEGACY_USER_ENTITIES = [
-  "contacts", "projects", "maintenance", "driftCosts", "driftIssues",
-  "wishes", "investigations"
-];
-
 const CORE_ENTITIES = ["properties", "contracts"];
 const ALL_ENTITIES = [...CORE_ENTITIES, ...USER_ENTITIES];
 
@@ -58,265 +53,22 @@ function validateEntityRecord(entity, payload, id, core) {
   return record;
 }
 
-function legacyActivities(entities) {
-  const rows = [];
-  const extras = (x) => ({
-    includeInBudget: x.includeInBudget || (x.budgetIncluded === false ? "Nej" : "Ja"),
-    finalCosts: x.finalCosts || undefined,
-    finalCostConfirmed: Boolean(x.finalCostConfirmed),
-    provenance: structuredClone(x.provenance || {}),
-    createdAt: x.createdAt || "",
-    createdBy: x.createdBy || "",
-    updatedAt: x.updatedAt || "",
-    updatedBy: x.updatedBy || ""
-  });
-  const seen = new Set();
-  const add = (activity) => {
-    if (!activity?.id || seen.has(activity.id)) return;
-    seen.add(activity.id);
-    rows.push(activity);
-  };
-  (entities.projects || []).forEach((x) => {
-    const execution = Number(x.budgetExecution) || 0;
-    const furnishing = Number(x.budgetFurnishing) || 0;
-    add({
-      ...extras(x),
-      id:x.id,type:"Projekt",propertyId:x.propertyId||"",contractId:x.contractId||"",
-      responsiblePersonId:x.responsiblePersonId||"",title:x.name||"",description:x.description||"",
-      category:"",status:x.status||"",priority:"",planningYear:x.budgetYear||"",
-      planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:"Projekt",
-      estimatedCost:execution+furnishing||Number(x.preliminaryCost)||0,
-      investigationCost:Number(x.budgetInvestigation)||0,phase:x.phase||"",
-      startDate:x.start||"",endDate:x.end||"",orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",
-      orderedByPersonId:x.orderedByPersonId||"",supplier:x.supplier||"",orderReference:x.orderReference||"",
-      orderedCost:Number(x.orderedCost)||0,deliveryText:x.deliveryText||"",completedAt:x.completedAt||"",
-      finalCost:Number(x.finalCost)||0,paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",
-      invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
-    });
-  });
-  (entities.maintenance || []).forEach((x) => add({
-    ...extras(x),
-    id:x.id,type:"Underhåll",propertyId:x.propertyId||"",contractId:x.contractId||"",
-    responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
-    category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.year||"",
-    planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:"Underhåll",
-    estimatedCost:Number(x.cost)||0,investigationCost:0,phase:"",startDate:"",endDate:"",
-    orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",orderedByPersonId:x.orderedByPersonId||"",
-    supplier:x.supplier||"",orderReference:x.orderReference||"",orderedCost:Number(x.orderedCost)||0,
-    deliveryText:x.deliveryText||"",completedAt:x.completedAt||"",finalCost:Number(x.finalCost)||0,
-    paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
-  }));
-  (entities.driftIssues || []).forEach((x) => add({
-    ...extras(x),
-    id:x.id,type:"Drift",propertyId:x.propertyId||"",contractId:x.contractId||"",
-    responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
-    category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.budgetYear||"",
-    planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:"Driftkostnader",
-    estimatedCost:Number(x.estimatedCost)||0,investigationCost:0,phase:"",startDate:x.createdDate||"",
-    endDate:x.targetDate||"",orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",
-    orderedByPersonId:x.orderedByPersonId||"",supplier:x.supplier||"",orderReference:x.orderReference||"",
-    orderedCost:Number(x.orderedCost)||0,deliveryText:x.deliveryText||"",completedAt:x.completedAt||x.completedDate||"",
-    finalCost:Number(x.finalCost)||0,paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",
-    invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
-  }));
-  (entities.wishes || []).forEach((x) => add({
-    ...extras(x),
-    id:x.id,type:"Önskemål",propertyId:x.propertyId||"",contractId:x.contractId||"",
-    responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
-    category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.budgetYear||"",
-    planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:x.budgetCategory||"Ej budget",
-    estimatedCost:Number(x.estimatedCost)||0,investigationCost:0,phase:"",startDate:x.createdDate||"",
-    endDate:x.targetDate||"",orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",
-    orderedByPersonId:x.orderedByPersonId||"",supplier:x.supplier||"",orderReference:x.orderReference||"",
-    orderedCost:Number(x.orderedCost)||0,deliveryText:x.deliveryText||"",completedAt:x.completedAt||x.completedDate||"",
-    finalCost:Number(x.finalCost)||0,paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",
-    invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
-  }));
-  (entities.investigations || []).forEach((x) => add({
-    ...extras(x),
-    id:x.id,type:"Utredning",propertyId:x.propertyId||"",contractId:x.contractId||"",
-    responsiblePersonId:x.responsiblePersonId||"",title:x.title||"",description:x.description||"",
-    category:x.category||"",status:x.status||"",priority:x.priority||"",planningYear:x.year||"",
-    planningQuarter:x.planningQuarter||"",planningMonth:x.planningMonth||"",budgetCategory:"Utredningar",
-    estimatedCost:Number(x.cost)||0,investigationCost:0,phase:"",startDate:"",endDate:"",
-    orderedAt:x.orderedAt||"",orderedBy:x.orderedBy||"",orderedByPersonId:x.orderedByPersonId||"",
-    supplier:x.supplier||"",orderReference:x.orderReference||"",orderedCost:Number(x.orderedCost)||0,
-    deliveryText:x.deliveryText||"",completedAt:x.completedAt||"",finalCost:Number(x.finalCost)||0,
-    paymentStatus:x.paymentStatus||"",paidAt:x.paidAt||"",invoiceComment:x.invoiceComment||"",ownerPays:x.ownerPays||""
-  }));
-  return rows;
-}
-function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
-  const store = emptyStore();
-  if (!value || typeof value !== "object" || Array.isArray(value)) return store;
-  const entities = value.entities || {};
-  for (const entity of USER_ENTITIES) {
-    if (Array.isArray(entities[entity])) store.entities[entity] = structuredClone(entities[entity]);
+function ensureStoreShape(value) {
+  const store=emptyStore();
+  if(!value||typeof value!=="object"||Array.isArray(value))return store;
+  const entities=value.entities||{};
+  for(const entity of USER_ENTITIES) {
+    if(Array.isArray(entities[entity]))
+      store.entities[entity]=structuredClone(entities[entity]);
   }
-
-  const byActivity = new Map(store.entities.activities.map((x) => [x.id, x]));
-  for (const activity of legacyActivities(entities)) {
-    if (!byActivity.has(activity.id)) {
-      store.entities.activities.push(activity);
-      byActivity.set(activity.id, activity);
-    }
-  }
-  store.entities.activities.forEach((activity) => {
-    if (!activity.includeInBudget && activity.budgetIncluded === false) activity.includeInBudget = "Nej";
-    else if (!activity.includeInBudget && activity.budgetIncluded === true) activity.includeInBudget = "Ja";
-    delete activity.budgetIncluded;
-  });
-
-  const people = new Map(store.entities.people.map((x) => [x.id, x]));
-  const organizations = new Map(store.entities.organizations.map((x) => [x.id, x]));
-  function isOurPerson(id) {
-    const person=people.get(id);
-    if(!person)return false;
-    if(!person.organizationId)return true;
-    return organizations.get(person.organizationId)?.type==="our";
-  }
-  function responsibilityRole(role) { return /ansvar|projektledare|objektansvar/i.test(String(role||"")); }
-  function propertyOverlay(propertyId) {
-    if (!propertyId) return null;
-    let overlay=store.entities.propertyOverlays.find((x) => x.propertyId===propertyId);
-    if (!overlay) {
-      overlay={id:propertyId,propertyId};
-      store.entities.propertyOverlays.push(overlay);
-    }
-    return overlay;
-  }
-  function contractOverlay(contractId) {
-    if (!contractId) return null;
-    let overlay=store.entities.contractOverlays.find((x) => x.contractId===contractId);
-    if (!overlay) {
-      overlay={id:contractId,contractId};
-      store.entities.contractOverlays.push(overlay);
-    }
-    return overlay;
-  }
-  function ensurePropertyResponsibility(propertyId, personId) {
-    if (!propertyId || !personId) return;
-    const overlay=propertyOverlay(propertyId);
-    if (overlay && !overlay.responsiblePersonId) overlay.responsiblePersonId=personId;
-  }
-  function mapExternalResponsibility(personId,targetType,targetId) {
-    if (!personId || !targetId || isOurPerson(personId)) return false;
-    const type=targetType==="object"?"contract":targetType;
-    if (type==="property") {
-      const overlay=propertyOverlay(targetId);
-      if (overlay && !overlay.ownerResponsiblePersonId) overlay.ownerResponsiblePersonId=personId;
-      return Boolean(overlay);
-    }
-    if (type==="contract") {
-      const overlay=contractOverlay(targetId);
-      if (overlay && !overlay.businessResponsiblePersonId) overlay.businessResponsiblePersonId=personId;
-      return Boolean(overlay);
-    }
-    return false;
-  }
-  (entities.contacts || []).filter((x)=>!x.toDate).forEach((contact)=>{
-    mapExternalResponsibility(contact.personId,contact.targetType,contact.targetId);
-  });
-
-  const legacyType = (type) => ({project:"Projekt",maintenance:"Underhåll",driftIssue:"Drift",wish:"Önskemål",investigation:"Utredning"}[type]||"");
-  (entities.assignments || []).forEach((a) => {
-    if (a.toDate) return;
-    if (a.targetType==="property" && isOurPerson(a.personId) && responsibilityRole(a.role)) {
-      ensurePropertyResponsibility(a.targetId,a.personId); return;
-    }
-    if (a.targetType==="maintenanceStatus" && isOurPerson(a.personId) && responsibilityRole(a.role)) {
-      const activity=byActivity.get("STATUS-ACT|"+a.targetId); if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId; return;
-    }
-    if ((a.targetType==="activity" || legacyType(a.targetType)) && isOurPerson(a.personId) && responsibilityRole(a.role)) {
-      const activity=byActivity.get(a.targetId); if(activity&&!activity.responsiblePersonId)activity.responsiblePersonId=a.personId; return;
-    }
-    if ((a.targetType==="activity" || legacyType(a.targetType)) && a.role==="Beställare") {
-      const activity=byActivity.get(a.targetId);
-      if(activity){activity.orderedByPersonId ||= a.personId; activity.orderedBy ||= people.get(a.personId)?.name || "";}
-      return;
-    }
-    if ((a.targetType==="object"||a.targetType==="contract") && isOurPerson(a.personId) && responsibilityRole(a.role)) {
-      const contract=(core.contracts||[]).find((x)=>x.id===a.targetId);
-      if(contract)ensurePropertyResponsibility(contract.propertyId,a.personId);
-      return;
-    }
-    mapExternalResponsibility(a.personId,a.targetType,a.targetId);
-  });
-
-  store.entities.maintenanceStatus.forEach((status) => {
-    if (status.actionNeed || Number(status.estimatedCost)>0) {
-      const id="STATUS-ACT|"+status.id;
-      if(!byActivity.has(id)){
-        const activity={
-          id,type:"Underhåll",propertyId:status.propertyId||"",contractId:status.contractId||"",
-          responsiblePersonId:status.responsiblePersonId||"",title:[status.category,status.actionNeed].filter(Boolean).join(" · ")||"Åtgärdsbehov",
-          description:status.comment||"",category:status.category||"",status:/bra/i.test(String(status.status||""))?"Identifierad":status.status||"Identifierad",
-          priority:status.priority||"",planningYear:status.budgetYear||"",planningQuarter:status.planningQuarter||"",planningMonth:status.planningMonth||"",
-          budgetCategory:"Underhåll",includeInBudget:status.includeInBudget||"Ja",estimatedCost:Number(status.estimatedCost)||0,investigationCost:0,phase:"",startDate:status.assessedDate||"",endDate:"",
-          sourceId:status.id,sourceSheet:"Status",sourceRow:""
-        };
-        store.entities.activities.push(activity);byActivity.set(id,activity);
-      }
-    }
-    delete status.responsiblePersonId;
-  });
-
-  const knownContracts=new Set((core.contracts||[]).map((x)=>x.id));
-  const legacyInvestigationActivities=[];
-  store.entities.activities.forEach((activity)=>{
-    if (activity.contractId && knownContracts.has(activity.contractId)) delete activity.propertyId;
-
-    const investigationCost=Number(activity.investigationCost)||0;
-    if (investigationCost>0) {
-      const id="MIG-UTR|"+activity.id;
-      if (!byActivity.has(id)) {
-        legacyInvestigationActivities.push({
-          id,type:"Utredning",propertyId:activity.propertyId||"",contractId:activity.contractId||"",
-          responsiblePersonId:activity.responsiblePersonId||"",
-          title:(activity.title||"Aktivitet")+" · utredning",description:"Migrerad separat utredningsbudget",
-          category:activity.category||"",status:activity.status||"Planerad",priority:activity.priority||"",
-          planningYear:activity.planningYear||"",planningQuarter:activity.planningQuarter||"",planningMonth:activity.planningMonth||"",
-          budgetCategory:"Utredningar",includeInBudget:activity.includeInBudget||"Ja",estimatedCost:investigationCost,
-          phase:"Utredning",startDate:activity.startDate||"",endDate:activity.endDate||"",
-          sourceId:activity.sourceId||activity.id,sourceSheet:activity.sourceSheet||"",sourceRow:activity.sourceRow||""
-        });
-      }
-    }
-
-    const hasOrder=activity.orderedAt||activity.orderedBy||activity.orderedByPersonId||activity.supplier||activity.orderReference||
-      Number(activity.orderedCost)||activity.deliveryText||activity.completedAt||Number(activity.finalCost)||activity.paymentStatus||
-      activity.paidAt||activity.invoiceComment||activity.ownerPays;
-    if (hasOrder) {
-      const id="ORD|"+activity.id;
-      if (!store.entities.orders.some((x)=>x.id===id)) {
-        store.entities.orders.push({
-          id,activityId:activity.id,orderedAt:activity.orderedAt||"",orderedByPersonId:activity.orderedByPersonId||"",
-          supplier:activity.supplier||"",orderReference:activity.orderReference||"",orderedCost:Number(activity.orderedCost)||0,
-          deliveryText:activity.deliveryText||"",completedAt:activity.completedAt||"",finalCost:Number(activity.finalCost)||0,
-          paymentStatus:activity.paymentStatus||"",paidAt:activity.paidAt||"",invoiceComment:activity.invoiceComment||"",ownerPays:activity.ownerPays||""
-        });
-      }
-    }
-    ["orderedAt","orderedBy","orderedByPersonId","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost",
-     "paymentStatus","paidAt","invoiceComment","ownerPays","finalCosts","finalCostConfirmed","investigationCost"].forEach((key)=>delete activity[key]);
-  });
-  legacyInvestigationActivities.forEach((activity)=>{
-    if (activity.contractId && knownContracts.has(activity.contractId)) delete activity.propertyId;
-    store.entities.activities.push(activity);
-    byActivity.set(activity.id,activity);
-  });
-
-  for (const entity of CORE_ENTITIES) {
-    if (Array.isArray(value.deleted?.[entity])) store.deleted[entity] = value.deleted[entity];
+  for(const entity of CORE_ENTITIES) {
+    if(Array.isArray(value.deleted?.[entity]))
+      store.deleted[entity]=structuredClone(value.deleted[entity]);
   }
   store.imported=structuredClone(value.imported||{properties:[],contracts:[]});
-  const responsibilityData={...core,...store.entities,contacts:entities.contacts||[]};
-  // Overlay arrays do not replace the actual homes used by responsibility migration.
-  responsibilityData.properties=(core.properties||[]).map(p=>({...p,...store.entities.propertyOverlays.find(o=>o.propertyId===p.id)}));
-  responsibilityData.contracts=(core.contracts||[]).map(c=>({...c,...store.entities.contractOverlays.find(o=>o.contractId===c.id)}));
-  store.entities.assignments=globalThis.LokalblickResponsibility.normalize(responsibilityData).assignments;
-  store.version = 4;
-  store.updatedAt = typeof value.updatedAt === "string" ? value.updatedAt : null;
+  store.updatedAt=typeof value.updatedAt==="string"?value.updatedAt:null;
+  // No conversion from projects, maintenance, wishes, driftCosts or contacts.
+  // Assignments, orders and activities are authored in their canonical collections.
   return store;
 }
 
@@ -372,16 +124,13 @@ export class LokalblickRepository {
     if (this.sourceAdapter) this.core = await this.sourceAdapter.loadCore();
     try {
       const rawStore = JSON.parse(await fs.readFile(this.dataPath, "utf8"));
-      const backup=this.dataPath+'.before-responsibility-v1.bak';
-      try{await fs.copyFile(this.dataPath,backup,1);}catch(error){if(error.code!=='EEXIST')throw error;}
-      this.store = ensureStoreShape(rawStore, {...this.core,properties:[...this.core.properties,...(rawStore.imported?.properties||[])],contracts:[...this.core.contracts,...(rawStore.imported?.contracts||[])]});
-      if (Number(rawStore.version || 1) < 4) await this.persist(this.store);
+      this.store = ensureStoreShape(rawStore);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
       await this.persist(this.store);
     }
-    const migrated=globalThis.LokalblickObjectModel.normalize({properties:this.effectiveCore().properties,contracts:structuredClone(this.effectiveCore().contracts),objects:[...(this.core.objects||[]).filter(o=>!this.store.entities.objects.some(saved=>saved.id===o.id)),...this.store.entities.objects],activities:this.store.entities.activities});
-    if(JSON.stringify(migrated.objects)!==JSON.stringify(this.store.entities.objects))this.store.entities.objects=migrated.objects;
+    const normalized=globalThis.LokalblickObjectModel.normalize({properties:this.effectiveCore().properties,contracts:structuredClone(this.effectiveCore().contracts),objects:[...(this.core.objects||[]).filter(o=>!this.store.entities.objects.some(saved=>saved.id===o.id)),...this.store.entities.objects],activities:this.store.entities.activities});
+    if(JSON.stringify(normalized.objects)!==JSON.stringify(this.store.entities.objects))this.store.entities.objects=normalized.objects;
     const responsibility=await this.bootstrap();
     this.store.entities.assignments=responsibility.assignments;
     this.store.entities.organizations=responsibility.organizations;this.store.entities.businesses=responsibility.businesses;this.store.entities.contractBusinesses=responsibility.contractBusinesses;
