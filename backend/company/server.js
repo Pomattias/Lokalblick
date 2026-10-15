@@ -31,7 +31,7 @@ const API_ENTITIES = {
   orders: "orders",
   activities: "activities",
   "maintenance-status": "maintenanceStatus",
-  operations: "operations",
+  "recurring-costs": "recurringCosts",
   "budget-data": "budgetData",
   coordinates: "coordinates",
   "contract-overlays": "contractOverlays",
