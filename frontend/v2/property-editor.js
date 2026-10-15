@@ -20,7 +20,7 @@ function personSelect(data, key, value, people, description, kind, contractId=""
   const contextAttr=contract?' data-contract-id="'+esc(contractId)+'"':"";
   const label='<span class="field-name">'+esc(description)+
     (context?'<small class="property-contact-context">'+esc(context)+'</small>':"")+'</span>';
-  return '<div class="property-person-field'+(contract?' property-business-contact':'')+'"><label>'+label+
+  return '<div class="property-person-field"><label>'+label+
     '<select'+(contract
       ? ' data-property-contract-contact="'+esc(contractId)+'" aria-label="'+esc(description+' · '+context)+'"'
       : ' name="'+key+'"')+
