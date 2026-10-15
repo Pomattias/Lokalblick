@@ -8,7 +8,7 @@ const required = [
   "README.md",
   "ARCHITECTURE.md",
   "backend/README.md",
-  "frontend/app.js",
+  "frontend/v2/app.js",
   "backend/src/data-repository.js",
   ".github/copilot-instructions.md"
 ];
