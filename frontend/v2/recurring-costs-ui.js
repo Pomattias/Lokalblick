@@ -16,7 +16,7 @@ export function recurringCostPanel(data, year, visible, editable) {
   return '<section class="recurring-costs section" aria-label="Löpande kostnader">'+
     '<div class="section-title"><div><h2>Löpande kostnader</h2><small>Årliga kostnader på fastighet eller avtal · budget '+esc(year)+'</small></div>'+
     (editable?'<button type="button" data-new-recurring-cost>Ny kostnad</button>':'')+'</div>'+
-    '<p>Årliga kostnader fortsätter automatiskt till slutåret om ett sådant finns. Enskilda åtgärder hör till Ärenden.</p>'+
+    '<p>Årliga kostnader fortsätter automatiskt till slutåret om ett sådant finns. Enskilda åtgärder hör till Ärenden. Registrera inte kostnader som redan ingår i avtalets hyra, tillägg eller fastighetsskatt.</p>'+
     '<div class="table-wrap"><table><thead><tr><th>Kostnad</th><th>Kopplad till</th><th>Budget '+esc(year)+'</th><th>Utfall '+esc(year)+'</th><th></th></tr></thead><tbody>'+
     (active.map(x=>{
       const contract=(data.contracts||[]).find(c=>c.id===x.contractId);
@@ -39,7 +39,7 @@ export function openRecurringCostDialog(data, id, year, selectedPropertyId, onSa
   const dialog=document.createElement("dialog");
   dialog.className="followup-dialog";
   dialog.innerHTML='<form><h2>'+esc(existing?'Ändra löpande kostnad':'Ny löpande kostnad')+'</h2>'+
-    '<p>En återkommande kostnad – inte ett ärende. Budgetbeloppet gäller varje år under perioden.</p>'+
+    '<p>En återkommande kostnad – inte ett ärende. Budgetbeloppet gäller varje år under perioden och får inte redan ingå i avtalskostnaden.</p>'+
     '<label>Vad gäller kostnaden?<input name="name" required maxlength="160" value="'+esc(existing?.name||'')+'" placeholder="Exempelvis el, värme eller städning"></label>'+
     '<label>Fastighet eller avtal<select name="owner" required><option value="">Välj koppling</option>'+
     owners.map(p=>'<option value="'+esc(p.value)+'"'+(owner===p.value?' selected':'')+'>'+esc(p.label)+'</option>').join('')+'</select></label>'+
