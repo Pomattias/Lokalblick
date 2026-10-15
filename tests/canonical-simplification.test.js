@@ -38,4 +38,8 @@ test("canonical normalization does not duplicate contact, business or review dat
  assert.equal(once.importReview[0].status,"planning");
  assert.ok(!Object.hasOwn(once.contracts[0],"annualContractDrift"));
  assert.ok(!Object.hasOwn(once.contractBusinesses[0],"migratedFromLegacy"));
+ assert.equal(once.contracts[0].objectId,"OBJ|c");
+ assert.equal(once.objects[0].id,"OBJ|c");
+ assert.equal(once.objects[0].propertyId,"p");
+ assert.equal(Object.hasOwn(once.objects[0],"migrationSourceContractId"),false);
 });
