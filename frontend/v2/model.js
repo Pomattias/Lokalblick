@@ -149,13 +149,13 @@ export function normalize(data) {
     )
   );
   globalThis.LokalblickRecurringCosts?.validateCosts(canonical);
-  markCrossObjectReviews(canonical);
   for (const review of canonical.importReview) {
     if (review.status === "pending" && review.kind === "activity-property") {
       review.status = "planning";
       review.resolutionReason = "Hemvist tilldelas under Planera.";
     }
   }
+  markCrossObjectReviews(canonical);
   canonical.activityOptions = normalizeActivityOptions(
     canonical.activityOptions, canonical.activities,
   );
