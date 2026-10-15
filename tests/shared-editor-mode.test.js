@@ -47,7 +47,7 @@ test("a shared field generates its read value only once without removing the inp
    assert.equal(prepareEditorModeFields(form),0);
    assert.equal(displayed.length,2);
    assert.equal(one.nextElementSibling.textContent,"Gamla gatan");
-   assert.equal(two.nextElementSibling.textContent,"01/11/2026");
+   assert.equal(two.nextElementSibling.textContent,"2026-11-01");
    assert.equal(one.nextElementSibling.attributes["aria-label"],"address");
    one.value="Nya gatan";
    refreshEditorModeFields(form);
