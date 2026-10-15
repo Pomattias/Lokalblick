@@ -172,9 +172,9 @@ export function summary(data, s, year, ui = {}) {
       ["Årshyra "+year,money(insights.rent)],
       ["Avtal",num(view.contracts.length)+" st"],
       ["Avtalad yta",num(insights.area)+" m²"],
+      ["Fastigheter",num(view.properties.length)+" st"],
       ["Aktiviteter · kr",money(insights.activityCost),"Bedömd totalkostnad, samtliga år"],
       ["Aktiviteter · antal",num(view.items.length)+" st"],
-      ["Fastigheter",num(view.properties.length)+" st"],
     ]);
   }
 
