@@ -141,7 +141,7 @@ test("missing title and reversed dates reject edits",()=>{
      cb("Planerat","title");cb("Projekt","type");
      cb("2028-01-01","startDate");cb("2027-01-01","endDate");
    }};
-   assert.throws(()=>readEditor({dataset:{collection:"activities"}},base),/Slutdatum/);
+   assert.throws(()=>readEditor({dataset:{collection:"activities"},querySelector:()=>null},base),/Slutdatum/);
  } finally {globalThis.FormData=original;}
 });
 
