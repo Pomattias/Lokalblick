@@ -76,3 +76,48 @@ test("shared edit mode is used for all existing editors, without altering activi
  assert.ok(app.includes('setEditorReadMode(false);'),"Redigera only unlocks controls");
  assert.ok(!app.includes('if(editor.col!=="activities")\n        editorForm()?.querySelector('),"Editing must not auto focus a field");
 });
+
+
+test("focus does not enlarge any iPhone editor value or field geometry",()=>{
+ const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+ const last=css.slice(css.indexOf("/* Read/edit geometry: a mode switch"));
+ assert.ok(last.includes("font-size:16px!important"),"iOS read and editable values must both use stable sizing despite legacy CSS specificity");
+ assert.ok(last.includes(".editor:not(.issue-editor) #edit-form .editor-mode-value"));
+ assert.ok(last.includes(".issue-editor #edit-form .issue-mode-field"));
+ assert.ok(last.includes(".issue-editor #edit-form .issue-dates-edit input[type=\"date\"]"));
+ assert.ok(last.includes("height:34px"),"mobile view and edit share a stable height");
+ assert.ok(last.includes("height:30px"),"case date height is always fixed");
+ assert.ok(last.includes('input.editor-mode-control:is([type="checkbox"],[type="radio"])'),
+  "checkbox and radio must not inherit oversized editor input geometry");
+ assert.doesNotMatch(last,/:focus\s*\{[^}]*font-size/,"no focus-only typography changes");
+});
+
+
+test("multi-select values keep the same footprint when edit becomes a listbox",()=>{
+ const helper=readFileSync(new URL("../frontend/v2/editor-mode-fields.js",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+ assert.ok(helper.includes('control.tagName==="SELECT"&&control.multiple'));
+ assert.ok(css.includes('.editor-mode-value[data-mode-kind="multiselect"]'));
+ assert.ok(css.includes('select.editor-mode-control[multiple]'));
+ assert.ok(css.includes('height:90px'));
+});
+
+
+test("no mobile editor font sizes change only upon focus, including Android",()=>{
+ const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+ const focused=[...css.matchAll(/([^{}]*:focus[^{}]*)\{([^{}]*)\}/g)]
+   .filter(([,selector,body])=>selector.includes("editor")&&/font-size\s*:/.test(body));
+ assert.deepEqual(focused.map(([,s])=>s.trim()),[]);
+});
+
+
+test("journal read and edit share the same second row on mobile",()=>{
+ const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+ const fragment=css.slice(css.lastIndexOf("/* Issue details: description"));
+ assert.ok(fragment.includes("grid-template-rows:auto minmax(36px,auto)"));
+ assert.ok(fragment.includes("> .issue-history-value"));
+ assert.ok(fragment.includes(".issue-cost-edit,"));
+ assert.ok(fragment.includes(".issue-dates-edit"));
+ assert.ok(fragment.includes("grid-row:2"));
+ assert.ok(fragment.includes("min-height:52px"),"description display and textarea reserve same height");
+});

@@ -32,7 +32,8 @@ export function prepareEditorModeFields(form) {
     const display=document.createElement("span");
     display.className="editor-mode-value";
     display.dataset.modeField=control.name;
-    display.dataset.modeKind=control.tagName==="TEXTAREA"?"textarea":"field";
+    display.dataset.modeKind=control.tagName==="TEXTAREA"?"textarea":
+      (control.tagName==="SELECT"&&control.multiple)?"multiselect":"field";
     // The read-mode value must remain accessible when the native control is hidden.
     display.setAttribute("aria-label",control.getAttribute("aria-label")||control.name||"Värde");
     display.textContent=editorDisplayValue(control);
