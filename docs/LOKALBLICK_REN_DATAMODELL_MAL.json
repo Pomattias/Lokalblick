@@ -1,0 +1,949 @@
+{
+  "meta": {
+    "name": "Lokalblick – ren målmodell",
+    "date": "2026-10-15",
+    "version": "target-1",
+    "status": "designbeslut_för_etapp_1_inte_implementerat",
+    "premise": "Inga äldre kundposter finns att migrera. Tidigare V1/V2-scheman får ersättas utan bakåtkompatibilitet. Läs godtyckliga källfiler via importadaptrar. Privat datalagring: lokal fil, internt eller externt databassystem bakom behörighetsstyrt API."
+  },
+  "entities": {
+    "properties": {
+      "label": "Fastighet",
+      "why": "Bär byggnadsidentitet och fastighetsägare. Årskostnad beräknas, lagras inte.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "designation",
+          "type": "string",
+          "visibility": "core",
+          "notes": "Fastighetsbeteckning, får saknas"
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "postalCode",
+          "type": "string",
+          "visibility": "optional"
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "ownerPartyId",
+          "type": "ref:parties",
+          "visibility": "core"
+        },
+        {
+          "name": "propertyType",
+          "type": "enum",
+          "visibility": "optional"
+        },
+        {
+          "name": "latitude",
+          "type": "number?",
+          "visibility": "system"
+        },
+        {
+          "name": "longitude",
+          "type": "number?",
+          "visibility": "system"
+        }
+      ],
+      "relations": [
+        "ownerPartyId -> parties.id"
+      ],
+      "ui": "normal"
+    },
+    "objects": {
+      "label": "Objekt",
+      "why": "Egen identitet även utan avtal; flera objekt per fastighet.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "propertyId",
+          "type": "ref:properties",
+          "visibility": "core"
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "visibility": "core",
+          "notes": "Unikt inom fastighet"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "area",
+          "type": "number",
+          "visibility": "core",
+          "notes": "Objektarea m², inte avtalsarea"
+        },
+        {
+          "name": "areaType",
+          "type": "enum",
+          "visibility": "optional"
+        },
+        {
+          "name": "category",
+          "type": "enum",
+          "visibility": "optional"
+        },
+        {
+          "name": "businessId",
+          "type": "ref:businesses?",
+          "visibility": "optional"
+        },
+        {
+          "name": "employees",
+          "type": "integer?",
+          "visibility": "optional"
+        },
+        {
+          "name": "users",
+          "type": "integer?",
+          "visibility": "optional"
+        },
+        {
+          "name": "rooms",
+          "type": "integer?",
+          "visibility": "optional"
+        },
+        {
+          "name": "commonArea",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "apartmentArea",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "validFrom",
+          "type": "date?",
+          "visibility": "optional"
+        },
+        {
+          "name": "validTo",
+          "type": "date?",
+          "visibility": "optional"
+        },
+        {
+          "name": "predecessorIds",
+          "type": "ref:objects[]",
+          "visibility": "optional",
+          "notes": "För framtida delning/sammanslagning"
+        }
+      ],
+      "relations": [
+        "propertyId -> properties.id"
+      ],
+      "ui": "normal"
+    },
+    "contracts": {
+      "label": "Avtal",
+      "why": "Rätt avtalad kostnad och avtalsvillkor; aldrig dubblad fastighetsägare.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "objectId",
+          "type": "ref:objects",
+          "visibility": "core"
+        },
+        {
+          "name": "number",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "tenantPartyId",
+          "type": "ref:parties",
+          "visibility": "core",
+          "notes": "Osäker hyresgäst löses i importgranskning, inte som felaktig koppling"
+        },
+        {
+          "name": "area",
+          "type": "number",
+          "visibility": "core",
+          "notes": "Avtalad area i m²"
+        },
+        {
+          "name": "validFrom",
+          "type": "date",
+          "visibility": "core"
+        },
+        {
+          "name": "validTo",
+          "type": "date?",
+          "visibility": "core"
+        },
+        {
+          "name": "noticeMonths",
+          "type": "integer?",
+          "visibility": "optional"
+        },
+        {
+          "name": "renewalMonths",
+          "type": "integer?",
+          "visibility": "optional"
+        },
+        {
+          "name": "terminationDate",
+          "type": "date?",
+          "visibility": "optional",
+          "notes": "Uppsagt avtal, annars härledd uppsägningsdag"
+        },
+        {
+          "name": "baseRentAnnual",
+          "type": "money",
+          "visibility": "core"
+        },
+        {
+          "name": "rentIndexRule",
+          "type": "enum",
+          "visibility": "optional",
+          "notes": "kpi/fixed/kpi-limited/none"
+        },
+        {
+          "name": "rentBaseYear",
+          "type": "integer?",
+          "visibility": "optional"
+        },
+        {
+          "name": "rentBaseIndex",
+          "type": "number?",
+          "visibility": "optional",
+          "notes": "Explicit avtalat bastal"
+        },
+        {
+          "name": "rentIndexPercent",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "rentFixedPercent",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "rentMinPercent",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "rentMaxPercent",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "annualPropertyTax",
+          "type": "money?",
+          "visibility": "optional"
+        },
+        {
+          "name": "documentId",
+          "type": "ref:documents?",
+          "visibility": "optional"
+        }
+      ],
+      "relations": [
+        "objectId -> objects.id",
+        "tenantPartyId -> parties.id"
+      ],
+      "ui": "normal"
+    },
+    "contractAdditions": {
+      "label": "Avtalstillägg",
+      "why": "Flera oberoende indexerade tillägg utan dubbelräkning.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "contractId",
+          "type": "ref:contracts",
+          "visibility": "core"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "annualBaseAmount",
+          "type": "money",
+          "visibility": "core"
+        },
+        {
+          "name": "indexRule",
+          "type": "enum",
+          "visibility": "optional"
+        },
+        {
+          "name": "baseYear",
+          "type": "integer?",
+          "visibility": "optional"
+        },
+        {
+          "name": "baseIndex",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "indexPercent",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "fixedPercent",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "minPercent",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "maxPercent",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "validFrom",
+          "type": "date?",
+          "visibility": "optional"
+        },
+        {
+          "name": "validTo",
+          "type": "date?",
+          "visibility": "optional"
+        }
+      ],
+      "relations": [
+        "contractId -> contracts.id"
+      ],
+      "ui": "advanced"
+    },
+    "parties": {
+      "label": "Part",
+      "why": "Juridiska ägare, hyresgäster och andra avtalsparter.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "partyType",
+          "type": "enum?",
+          "visibility": "optional"
+        },
+        {
+          "name": "organizationNumber",
+          "type": "string?",
+          "visibility": "optional",
+          "notes": "Säker identitet när uppgiften finns"
+        },
+        {
+          "name": "ownerClass",
+          "type": "enum?",
+          "visibility": "optional"
+        },
+        {
+          "name": "investmentRule",
+          "type": "string?",
+          "visibility": "advanced"
+        },
+        {
+          "name": "investmentThreshold",
+          "type": "money?",
+          "visibility": "advanced"
+        },
+        {
+          "name": "rentSurchargeRate",
+          "type": "number?",
+          "visibility": "advanced"
+        }
+      ],
+      "relations": [],
+      "ui": "normal"
+    },
+    "people": {
+      "label": "Person",
+      "why": "En personpost återanvänds i alla kontakter och ansvar.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "partyId",
+          "type": "ref:parties?",
+          "visibility": "optional"
+        },
+        {
+          "name": "jobTitle",
+          "type": "string?",
+          "visibility": "optional"
+        },
+        {
+          "name": "email",
+          "type": "string?",
+          "visibility": "core"
+        },
+        {
+          "name": "phone",
+          "type": "string?",
+          "visibility": "optional"
+        }
+      ],
+      "relations": [
+        "partyId -> parties.id"
+      ],
+      "ui": "normal"
+    },
+    "responsibilities": {
+      "label": "Roll och ansvar",
+      "why": "En rollkoppling med datum, inte konkurrerande personfält på flera objekt.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "personId",
+          "type": "ref:people",
+          "visibility": "core"
+        },
+        {
+          "name": "targetType",
+          "type": "enum:property|object|contract|activity|business|party",
+          "visibility": "system"
+        },
+        {
+          "name": "targetId",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "role",
+          "type": "enum",
+          "visibility": "core",
+          "notes": "Vår ansvarige, ägarens kontakt, hyresgästens kontakt, verksamhetsansvarig m.fl."
+        },
+        {
+          "name": "validFrom",
+          "type": "date?",
+          "visibility": "optional"
+        },
+        {
+          "name": "validTo",
+          "type": "date?",
+          "visibility": "optional"
+        }
+      ],
+      "relations": [
+        "personId -> people.id",
+        "targetType + targetId måste referera existerande post"
+      ],
+      "ui": "normal"
+    },
+    "businesses": {
+      "label": "Verksamhet",
+      "why": "Verksamhet skiljs från juridisk hyresgäst och fastighetsägare.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "organizationArea",
+          "type": "string?",
+          "visibility": "optional"
+        },
+        {
+          "name": "partyId",
+          "type": "ref:parties?",
+          "visibility": "optional"
+        },
+        {
+          "name": "businessType",
+          "type": "string?",
+          "visibility": "optional"
+        }
+      ],
+      "relations": [
+        "partyId -> parties.id"
+      ],
+      "ui": "advanced"
+    },
+    "contractBusinessLinks": {
+      "label": "Verksamhet i avtal",
+      "why": "Kan stödja flera verksamheter i ett avtal och fördelade kostnader.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "contractId",
+          "type": "ref:contracts",
+          "visibility": "core"
+        },
+        {
+          "name": "businessId",
+          "type": "ref:businesses",
+          "visibility": "core"
+        },
+        {
+          "name": "validFrom",
+          "type": "date?",
+          "visibility": "optional"
+        },
+        {
+          "name": "validTo",
+          "type": "date?",
+          "visibility": "optional"
+        },
+        {
+          "name": "usedArea",
+          "type": "number?",
+          "visibility": "optional"
+        },
+        {
+          "name": "costSharePercent",
+          "type": "number?",
+          "visibility": "optional"
+        }
+      ],
+      "relations": [
+        "contractId -> contracts.id",
+        "businessId -> businesses.id"
+      ],
+      "ui": "advanced"
+    },
+    "activities": {
+      "label": "Ärende",
+      "why": "Alla projekt/underhåll/drift/önskemål/utredningar är en typ av ärende.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "targetType",
+          "type": "enum:property|object|contract|business|general",
+          "visibility": "system"
+        },
+        {
+          "name": "targetId",
+          "type": "uuid?",
+          "visibility": "system",
+          "notes": "Härleds normalt av sammanhanget; ej tre parallella fastighet/objekt/avtals-ID"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "visibility": "core"
+        },
+        {
+          "name": "type",
+          "type": "enum",
+          "visibility": "core",
+          "notes": "Stabil systemkod under redigerbar etikett"
+        },
+        {
+          "name": "category",
+          "type": "enum?",
+          "visibility": "optional"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "visibility": "core",
+          "notes": "Stabil systemkod under redigerbar etikett"
+        },
+        {
+          "name": "description",
+          "type": "text?",
+          "visibility": "optional"
+        },
+        {
+          "name": "plannedStart",
+          "type": "date?",
+          "visibility": "core"
+        },
+        {
+          "name": "plannedEnd",
+          "type": "date?",
+          "visibility": "core"
+        },
+        {
+          "name": "estimatedCost",
+          "type": "money?",
+          "visibility": "core"
+        },
+        {
+          "name": "costKind",
+          "type": "enum?",
+          "visibility": "optional",
+          "notes": "Ekonomisk regel, inte enbart fritexttyp"
+        },
+        {
+          "name": "includeInBudget",
+          "type": "boolean",
+          "visibility": "optional",
+          "notes": "Standard efter regel"
+        },
+        {
+          "name": "priority",
+          "type": "enum?",
+          "visibility": "optional"
+        }
+      ],
+      "relations": [
+        "targetType + targetId valideras"
+      ],
+      "ui": "normal"
+    },
+    "orders": {
+      "label": "Beställning",
+      "why": "Separat bara när en verklig beställning finns.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "activityId",
+          "type": "ref:activities",
+          "visibility": "core"
+        },
+        {
+          "name": "orderedAt",
+          "type": "date?",
+          "visibility": "core"
+        },
+        {
+          "name": "supplier",
+          "type": "string?",
+          "visibility": "core"
+        },
+        {
+          "name": "orderedByPersonId",
+          "type": "ref:people?",
+          "visibility": "optional"
+        },
+        {
+          "name": "reference",
+          "type": "string?",
+          "visibility": "optional"
+        },
+        {
+          "name": "orderedCost",
+          "type": "money?",
+          "visibility": "core"
+        },
+        {
+          "name": "finalCost",
+          "type": "money?",
+          "visibility": "optional"
+        },
+        {
+          "name": "paidAt",
+          "type": "date?",
+          "visibility": "optional"
+        },
+        {
+          "name": "paymentStatus",
+          "type": "enum?",
+          "visibility": "optional"
+        }
+      ],
+      "relations": [
+        "activityId -> activities.id"
+      ],
+      "ui": "advanced"
+    },
+    "budgetPlans": {
+      "label": "Budget och prognos",
+      "why": "Låsta historiska budgetversioner är oföränderliga, prognos uppdateras.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "year",
+          "type": "integer",
+          "visibility": "core"
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "visibility": "system"
+        },
+        {
+          "name": "status",
+          "type": "enum:draft|locked",
+          "visibility": "core"
+        },
+        {
+          "name": "lockedAt",
+          "type": "datetime?",
+          "visibility": "system"
+        },
+        {
+          "name": "lockedBy",
+          "type": "ref:people?",
+          "visibility": "system"
+        },
+        {
+          "name": "lines",
+          "type": "collection:budgetLines",
+          "visibility": "system"
+        }
+      ],
+      "relations": [],
+      "ui": "normal"
+    },
+    "budgetLines": {
+      "label": "Budgetrad",
+      "why": "Fryst källa/belopp för revision även när källvärden ändras.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "budgetPlanId",
+          "type": "ref:budgetPlans",
+          "visibility": "system"
+        },
+        {
+          "name": "sourceType",
+          "type": "enum:contract|activity|order|adjustment",
+          "visibility": "system"
+        },
+        {
+          "name": "sourceId",
+          "type": "uuid?",
+          "visibility": "system"
+        },
+        {
+          "name": "category",
+          "type": "enum",
+          "visibility": "system"
+        },
+        {
+          "name": "amount",
+          "type": "money",
+          "visibility": "system"
+        },
+        {
+          "name": "allocationYear",
+          "type": "integer",
+          "visibility": "system"
+        }
+      ],
+      "relations": [
+        "budgetPlanId -> budgetPlans.id"
+      ],
+      "ui": "system"
+    },
+    "events": {
+      "label": "Journal och revisionshändelser",
+      "why": "Nya händelser från nu och framåt. Ingen migrering av gammal historia.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "targetType",
+          "type": "enum",
+          "visibility": "system"
+        },
+        {
+          "name": "targetId",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "type",
+          "type": "enum",
+          "visibility": "system"
+        },
+        {
+          "name": "occurredAt",
+          "type": "datetime",
+          "visibility": "system"
+        },
+        {
+          "name": "actorId",
+          "type": "ref:people?",
+          "visibility": "system"
+        },
+        {
+          "name": "note",
+          "type": "text?",
+          "visibility": "core"
+        },
+        {
+          "name": "changes",
+          "type": "json?",
+          "visibility": "system"
+        }
+      ],
+      "relations": [],
+      "ui": "advanced"
+    },
+    "sourceRegistry": {
+      "label": "Källor och proveniens",
+      "why": "Spårbar import även från godtycklig Excel/LEB/API-källa.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "kind",
+          "type": "enum:file|api",
+          "visibility": "system"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "visibility": "system"
+        },
+        {
+          "name": "fingerprint",
+          "type": "string?",
+          "visibility": "system"
+        },
+        {
+          "name": "importedAt",
+          "type": "datetime",
+          "visibility": "system"
+        },
+        {
+          "name": "mappingVersion",
+          "type": "integer",
+          "visibility": "system"
+        },
+        {
+          "name": "fieldProvenance",
+          "type": "json",
+          "visibility": "system"
+        }
+      ],
+      "relations": [],
+      "ui": "system"
+    },
+    "importReview": {
+      "label": "Granskning",
+      "why": "Bara verkligt osäkra relationer, inga automatiska dubbletter.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "visibility": "system"
+        },
+        {
+          "name": "sourceId",
+          "type": "ref:sourceRegistry",
+          "visibility": "system"
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "visibility": "system"
+        },
+        {
+          "name": "candidates",
+          "type": "json",
+          "visibility": "system"
+        },
+        {
+          "name": "status",
+          "type": "enum:pending|accepted|discarded",
+          "visibility": "system"
+        },
+        {
+          "name": "decisionAt",
+          "type": "datetime?",
+          "visibility": "system"
+        },
+        {
+          "name": "decisionBy",
+          "type": "ref:people?",
+          "visibility": "system"
+        }
+      ],
+      "relations": [],
+      "ui": "system"
+    }
+  },
+  "invariants": [
+    "Importera skarpa data endast i godkänd privat miljö",
+    "Källadapter och persistensadapter är separata",
+    "Avtalad area är inte objektarea",
+    "Årskostnad och KPI-härledningar är beräknade, aldrig extra dubbla belopp",
+    "Fastighetsägare är inte hyresgäst och verksamhet är inte part",
+    "Låst budget ändras inte av nya kostnadsändringar",
+    "Journal och ansvarshistorik skapas framåt",
+    "För framtida datakällor krävs inte bakåtkompatibilitet med gamla Lokalblick V1/V2-exporter"
+  ],
+  "openDecisions": [
+    "Löpande driftkostnader: knytas som separat återkommande kostnadsrad eller bara som enstaka ärende?",
+    "Exakt omfattning av objektets egna verksamhets- och kapacitetsfält styrs av faktiska användningsfall"
+  ]
+}
