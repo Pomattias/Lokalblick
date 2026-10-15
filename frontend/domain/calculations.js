@@ -61,7 +61,7 @@
     if(raw>1&&raw<=100) return raw/100;
     return raw;
   }
-  function component(c, kind, year, preliminaryIndex, series) {
+  function component(c, kind, year, preliminaryIndex, series, options={}) {
     const prefix = kind === "addition" ? "addition" : "rent";
     const base = number(kind === "addition" ? c.baseAdditions : c.baseRent);
     // Older imports called the same contract addition "Media". Never add
@@ -81,8 +81,9 @@
       row && !row.preliminary && !/prelim|prognos/i.test(row.source || "")
         ? number(row.value)
         : 0;
-    const usedIndex =
-      knownIndex || number(preliminaryIndex) || number(row?.value) || budgetIndex({indexSeries:series},year,0,basisSeries).value;
+    const ownIndex=number(preliminaryIndex);
+    const budgetFallback=options.allowLatestKpi ? budgetIndex({indexSeries:series},year,0,basisSeries).value : 0;
+    const usedIndex=ownIndex||knownIndex||budgetFallback||number(row?.value);
     const bastal = explicitBaseIndex || number(basisRow?.value);
     const rawShare = c[prefix + "IndexPercent"];
     const share = normalizedShare(rawShare);
@@ -111,7 +112,7 @@
     const amount = unindexed ? base : calculated
       ? indexedAmount(base, bastal, share, usedIndex, c[prefix + "Floor"] !== false)
       : sourceAmount;
-    const preliminary = calculated && !unindexed && !knownIndex;
+    const preliminary = calculated && !unindexed && (ownIndex>0 || !knownIndex);
     const missingRentInput = kind !== "addition" && base <= 0 && sourceAmount <= 0;
     const needsReview = missingRentInput ||
       (share > 0 && (incompatible || conflicting)) ||
@@ -166,9 +167,9 @@
           : [],
     };
   }
-  function annualValues(c, year, preliminaryIndex, series) {
-    const rent = component(c, "rent", year, preliminaryIndex, series),
-      addition = component(c, "addition", year, preliminaryIndex, series);
+  function annualValues(c, year, preliminaryIndex, series, options={}) {
+    const rent = component(c, "rent", year, preliminaryIndex, series, options),
+      addition = component(c, "addition", year, preliminaryIndex, series, options);
     const tax = number(c.annualPropertyTax);
     return {
       rent,
@@ -397,34 +398,52 @@
     return number(activity?.estimatedCost);
   }
 
+  // Last confirmed CPI, not an October prediction. Reuse the built-in SCB October
+  // series only as a fallback when the connected index file has no newer data.
+  function latestKnownKpi(data, year, preferredBase="1980") {
+    const targetYear=number(year)-1,base=seriesBase(preferredBase)||"1980";
+    const rows=((data&&data.indexSeries)||[]).filter(x=>{
+      const y=Number(x.year),m=Number(x.month)||(/oktober/i.test(x.period||"")?10:0);
+      return Number.isInteger(y)&&Number.isInteger(m)&&m>=1&&m<=12&&
+        (y<targetYear||(y===targetYear&&m<=10))&&number(x.value)>0&&
+        (!x.seriesBase||seriesBase(x.seriesBase)===base)&&
+        !x.preliminary&&!/prelim|prognos/i.test(x.source||"");
+    }).map(x=>({...x,month:Number(x.month)||10}));
+    if(base==="1980"){
+      // Defaults stop at the last published year in this embedded reference table.
+      const fallback=defaultOctober(Math.min(targetYear,2025));
+      if(fallback&&!rows.some(x=>Number(x.year)===Number(fallback.year)&&Number(x.month)===10))
+        rows.push(fallback);
+    }
+    rows.sort((a,b)=>Number(b.year)-Number(a.year)||Number(b.month)-Number(a.month));
+    const latest=rows[0];
+    if(!latest)return {value:0,year:0,month:0,source:"",status:"Saknas"};
+    const clash=rows.filter(x=>Number(x.year)===Number(latest.year)&&Number(x.month)===Number(latest.month));
+    if(new Set(clash.map(x=>number(x.value))).size>1)
+      return {value:0,year:Number(latest.year),month:Number(latest.month),source:"Motstridiga KPI-uppgifter",status:"Behöver kontroll"};
+    return {value:number(latest.value),year:Number(latest.year),month:Number(latest.month),
+      source:latest.source||"SCB KPI",status:"Fastställd"};
+  }
   function budgetIndex(data, year, preliminaryIndex, preferredBase="1980") {
-    const indexYear = number(year) - 1;
-    preferredBase=seriesBase(preferredBase)||'1980';
-    const entries=((data&&data.indexSeries)||[]).filter(x=>Number(x.year)===indexYear&&number(x.value)>0&&(!x.seriesBase||seriesBase(x.seriesBase)===preferredBase));
-    const octoberEntries=entries.filter(x=>Number(x.month)===10||String(x.period||'').toLowerCase()==='oktober');
-    if(new Set(octoberEntries.map(x=>number(x.value))).size>1)return {year:indexYear,month:10,value:0,source:'Motstridiga oktoberindex',status:'Behöver kontroll'};
-    const row = october((data && data.indexSeries) || [], indexYear, preferredBase);
-    if(row?.seriesBase&&seriesBase(row.seriesBase)!==preferredBase)return {year:indexYear,month:10,value:0,source:"KPI-seriernas bas skiljer sig",status:"Behöver kontroll"};
-    const known =
-      row && !row.preliminary && !/prelim|prognos/i.test(row.source || "")
-        ? number(row.value)
-        : 0;
-    if (known)
-      return {
-        year:indexYear,month:10,
-        value:known,
-        source:row.source || "SCB KPI",
-        status:"Fastställd"
-      };
-    const latest=entries.filter(x=>Number(x.month)>0&&Number(x.month)<10&&!x.preliminary).sort((a,b)=>Number(b.month)-Number(a.month))[0];
-    if(!number(preliminaryIndex)&&latest&&new Set(entries.filter(x=>Number(x.month)===Number(latest.month)&&!x.preliminary).map(x=>number(x.value))).size>1)return {year:indexYear,month:Number(latest.month),value:0,source:'Motstridiga preliminära indextal',status:'Behöver kontroll'};
-    const preliminary = number(preliminaryIndex)||number(row?.value)||number(latest?.value);
-    return {
-      year:indexYear,month:number(preliminaryIndex)||row?.value?10:number(latest?.month),
-      value:preliminary,
-      source:preliminary ? (number(preliminaryIndex)?"Manuellt preliminärt index":latest?.source||"Preliminärt oktoberindex") : "",
-      status:preliminary ? "Preliminär" : "Saknas"
-    };
+    const indexYear=number(year)-1;
+    preferredBase=seriesBase(preferredBase)||"1980";
+    const entries=((data&&data.indexSeries)||[]).filter(x=>Number(x.year)===indexYear&&number(x.value)>0&&
+      (!x.seriesBase||seriesBase(x.seriesBase)===preferredBase));
+    const octoberEntries=entries.filter(x=>Number(x.month)===10||String(x.period||"").toLowerCase()==="oktober");
+    if(new Set(octoberEntries.map(x=>number(x.value))).size>1)
+      return {year:indexYear,month:10,value:0,source:"Motstridiga oktoberindex",status:"Behöver kontroll"};
+    const row=october((data&&data.indexSeries)||[],indexYear,preferredBase);
+    if(row?.seriesBase&&seriesBase(row.seriesBase)!==preferredBase)
+      return {year:indexYear,month:10,value:0,source:"KPI-seriernas bas skiljer sig",status:"Behöver kontroll"};
+    const own=number(preliminaryIndex);
+    if(own>0)return {year:indexYear,month:10,value:own,source:"Eget indexantagande",status:"Preliminär"};
+    const known=row&&!row.preliminary&&!/prelim|prognos/i.test(row.source||"")?number(row.value):0;
+    if(known)return {year:indexYear,month:10,value:known,source:row.source||"SCB KPI",status:"Fastställd"};
+    const latest=latestKnownKpi(data,year,preferredBase);
+    if(latest.status==="Behöver kontroll")return {year:indexYear,month:latest.month,value:0,source:latest.source,status:"Behöver kontroll"};
+    return {year:indexYear,month:latest.month,value:latest.value,
+      source:latest.value?"Senast kända KPI ("+latest.year+"-"+String(latest.month).padStart(2,"0")+")":"",
+      status:latest.value?"Preliminär":"Saknas"};
   }
 
   function budgetGroup(row) { return row.category==='Hyra + drift'?'Hyra':row.category==='Projekt'?'Investering':'Drift'; }
@@ -481,7 +500,7 @@
     (data.contracts || []).forEach((c) => {
       const period = budgetPeriod(c, year);
       if (!period.days) return;
-      const v = annualValues(c, year, plan?.preliminaryIndex, data.indexSeries);
+      const v = annualValues(c, year, plan?.preliminaryIndex, data.indexSeries, {allowLatestKpi:true});
       const status = [v.rent, v.addition].some((x) => x.status === "Behöver kontroll")
         ? "Behöver kontroll"
         : [v.rent, v.addition].some((x) => x.preliminary)
@@ -617,6 +636,7 @@
     budgetGroup,
     budgetProposal,
     budgetIndex,
+    latestKnownKpi,
     budgetRows,
     actualRows,
     summarize,

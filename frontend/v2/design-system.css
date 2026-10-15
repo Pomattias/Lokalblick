@@ -1168,3 +1168,24 @@ body[data-view="budget"] .budget-overview-total{margin:10px 0;font-size:13px;}
  body[data-view="budget"] .budget-index-manual{width:100%;justify-content:space-between;}
  body[data-view="budget"] .budget-index-edit button{width:100%;}
 }
+
+
+/* Short budget-index summary and side-by-side comparison, same on mobile and desktop. */
+body[data-view="budget"] .budget-index-head{gap:6px 10px;}
+body[data-view="budget"] .budget-index-head>strong{font-size:12px;white-space:nowrap;}
+body[data-view="budget"] .budget-index-published{flex:1 1 auto;color:var(--ui-color-text);font-weight:600;font-size:12px;}
+body[data-view="budget"] .budget-index-compact{flex:1 1 300px;min-width:0;}
+body[data-view="budget"] .budget-index-current{font-size:11px;}
+body[data-view="budget"] .budget-rent-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 11px;flex:1 1 100%;border-top:1px solid var(--ui-color-border);padding-top:8px;}
+body[data-view="budget"] .budget-rent-metric{min-width:0;display:flex;flex-direction:column;gap:3px;}
+body[data-view="budget"] .budget-rent-metric>span{font-size:11px;color:var(--ui-color-muted);}
+body[data-view="budget"] .budget-rent-metric>strong{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+body[data-view="budget"] .budget-rent-delta{grid-column:1/-1;font-size:11px;color:var(--ui-color-muted);padding-top:2px;}
+body[data-view="budget"] .budget-rent-delta strong{color:var(--ui-color-text);font-variant-numeric:tabular-nums;}
+@media(max-width:700px){
+ body[data-view="budget"] .budget-index-compact{flex:auto;}
+ body[data-view="budget"] .budget-index-head>strong{white-space:normal;}
+ body[data-view="budget"] .budget-index-published{flex:1 1 auto;}
+ body[data-view="budget"] .budget-rent-metric>strong{font-size:15px;}
+ body[data-view="budget"] .budget-rent-compare{gap:7px;}
+}

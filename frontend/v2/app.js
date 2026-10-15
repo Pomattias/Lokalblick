@@ -133,7 +133,7 @@ function previewBudgetIndex(field) {
     field.setAttribute("aria-invalid","true");
     const original=document.createElement("template");
     original.innerHTML=budget(data,selection,ui);
-    for(const selector of ["[data-budget-totals]",".budget-category-cards"]) {
+    for(const selector of ["[data-budget-totals]",".budget-category-cards","[data-budget-rent-compare]","[data-budget-index-used]"]) {
       const live=content.querySelector(selector),unchanged=original.content.querySelector(selector);
       if(live&&unchanged)live.replaceWith(unchanged);
     }
@@ -147,12 +147,11 @@ function previewBudgetIndex(field) {
     {...(plan||{}),year:ui.year,status:"Arbetsbudget",preliminaryIndex:value}]};
   const temporary=document.createElement("template");
   temporary.innerHTML=budget(draft,selection,ui);
-  for(const selector of ["[data-budget-totals]",".budget-category-cards"]) {
+  for(const selector of ["[data-budget-totals]",".budget-category-cards","[data-budget-rent-compare]","[data-budget-index-used]"]) {
     const live=content.querySelector(selector),updated=temporary.content.querySelector(selector);
     if(live&&updated)live.replaceWith(updated);
   }
-  const rent=content.querySelector(".budget-category-card .budget-card-total dd")?.textContent||"–";
-  status.textContent="Hyra med aktuellt antagande: "+rent+" · Förhandsvisning, sparas när fältet lämnas.";
+  status.textContent="Förhandsvisning · sparas när du lämnar fältet.";
 }
 function bindBudget(){
   const before=clone(data),hasScope=()=>Boolean(Object.values(selection).some(Boolean));
