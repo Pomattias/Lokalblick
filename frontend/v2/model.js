@@ -41,10 +41,7 @@ function canonicalRelations(out) {
       property.ownerResponsiblePersonId="";
   }
   for(const contract of out.contracts) {
-    // A contract belongs to one existing object/property. Never duplicate its home.
-    if(contract.objectId && out.objects.some(o=>o.id===contract.objectId))
-      delete contract.propertyId;
-    // Media/drift is now a separate recurring cost, not another rent addition.
+    // Operating costs have their own recurringCosts records.
     delete contract.annualContractDrift;
   }
   for(const activity of out.activities) {
@@ -78,11 +75,6 @@ function markCrossObjectReviews(out) {
       item.identityMismatch=true;
       item.matchWarning="Olika objekts-ID kräver ett uttryckligt identitetsval.";
     });
-  });
-  (out.sourceRegistry||[]).forEach((source)=>{
-    source.review=(out.importReview||[]).filter(
-      (item)=>item.status==="pending"&&(!source.name||item.source===source.name),
-    ).length;
   });
 }
 
