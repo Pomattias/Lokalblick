@@ -13,14 +13,23 @@ function control(label, html, description="") {
 function textInput(p, key, locked=false) {
   return '<input type="text" name="'+key+'" value="'+esc(p[key] ?? "")+'"'+(locked?' disabled':'')+'>';
 }
-function personSelect(data, key, value, people, description, kind) {
-  return '<div class="property-person-field"><label><span class="field-name">'+esc(description)+'</span>'+
-    '<select name="'+key+'" data-property-person-select="'+kind+'"'+
+// All contacts use the same two-column field. Contract contacts have their
+// own persistence path, so their select deliberately has no form name.
+function personSelect(data, key, value, people, description, kind, contractId="", context="") {
+  const contract=kind==="contract";
+  const contextAttr=contract?' data-contract-id="'+esc(contractId)+'"':"";
+  const label='<span class="field-name">'+esc(description)+
+    (context?'<small class="property-contact-context">'+esc(context)+'</small>':"")+'</span>';
+  return '<div class="property-person-field'+(contract?' property-business-contact':'')+'"><label>'+label+
+    '<select'+(contract
+      ? ' data-property-contract-contact="'+esc(contractId)+'" aria-label="'+esc(description+' · '+context)+'"'
+      : ' name="'+key+'"')+
+    ' data-property-person-select="'+kind+'"'+
     (kind==="owner"?' data-owner-contact':'')+'>'+
     options(people,p=>p.id,p=>p.name,value,"Ej kopplad")+'</select></label>'+
     '<div class="property-person-actions">'+
-      '<button type="button" data-person-new="'+kind+'">+ Ny</button>'+
-      '<button type="button" data-person-edit="'+kind+'"'+(!value?' disabled':'')+'>Ändra</button>'+
+      '<button type="button" data-person-new="'+kind+'"'+contextAttr+'>+ Ny</button>'+
+      '<button type="button" data-person-edit="'+kind+'"'+contextAttr+(!value?' disabled':'')+'>Ändra</button>'+
     '</div></div>';
 }
 function hasGeo(p) {
@@ -50,21 +59,18 @@ export function renderPropertyEditor(data, p, id, company=false) {
   });
   const contactRows=contacts.length
     ? '<div class="property-contact-list">'+contacts.map(c=>
-      '<div class="property-contact-row"><span>'+esc(c.unit)+' · '+esc(c.number)+'</span>'+
-      '<div class="property-person-inline"><select data-property-contract-contact="'+esc(c.id)+'"'+
-        ' data-property-person-select="contract" aria-label="Verksamhetsansvarig för '+esc(c.number)+'">'+
-         options(allPeople,x=>x.id,x=>x.name,c.personId,"Ej kopplad")+'</select>'+
-        '<button type="button" data-person-new="contract" data-contract-id="'+esc(c.id)+'">+ Ny</button>'+
-        '<button type="button" data-person-edit="contract" data-contract-id="'+esc(c.id)+'"'+(!c.personId?' disabled':'')+'>Ändra</button>'+
-      '</div></div>'
+      personSelect(data,"",c.personId,allPeople,"Verksamhetens kontaktperson",
+        "contract",c.id,c.unit+" · "+c.number)
     ).join("")+'</div>'
     : '<p class="property-empty">Inga avtalsobjekt med kontaktperson finns ännu.</p>';
   const locked=Boolean(id && !data.isDemo && company);
   const geo=hasGeo(p);
   return '<div class="editor-backdrop"></div><aside class="editor property-editor" aria-labelledby="editor-title">'+
     '<form id="edit-form" data-collection="properties" data-record-id="'+esc(id||"")+'">'+
-      '<div class="section-title"><div><small>'+(id?'ÄNDRA':'NY')+' FASTIGHET</small><h2 id="editor-title">Fastighet</h2>'+
-      '<small>'+esc(propertyReference(p)||"Ny fastighet")+'</small></div><button type="button" data-editor-close>Stäng</button></div>'+
+      '<div class="section-title property-heading"><div class="property-heading-text"><h2 id="editor-title">'+
+      esc(p.designation||p.address||"Ny fastighet")+'</h2>'+
+      '<small class="property-heading-address">'+esc(p.address||"")+'</small></div>'+
+      '<button type="button" data-editor-close>Stäng</button></div>'+
       '<section class="property-section"><h3>Fastighetsinfo</h3><div class="property-grid">'+
         control("Fastighetsbeteckning",textInput(p,"designation",locked))+
         control("Fastighetsägare",'<select name="ownerPartyId" data-owner-select>'+
@@ -75,8 +81,7 @@ export function renderPropertyEditor(data, p, id, company=false) {
       '<section class="property-section"><h3>Kontaktpersoner</h3><div class="property-grid">'+
         personSelect(data,"ownerResponsiblePersonId",p.ownerResponsiblePersonId,ownerPeople,"Fastighetsägarens kontaktperson","owner")+
         personSelect(data,"responsiblePersonId",p.responsiblePersonId,ourPeople,"Vår kontaktperson","our")+
-      '</div><h4>Verksamhetens kontaktpersoner</h4>'+
-      contactRows+'<details class="property-help"><summary>Om kontaktkopplingar</summary><p>Kontakter sparas på respektive avtal. Välj Ej kopplad för att koppla bort utan att radera personen.</p></details></section>'+
+      '</div>'+contactRows+'<details class="property-help"><summary>Om kontaktkopplingar</summary><p>Kontakter sparas på respektive avtal. Välj Ej kopplad för att koppla bort utan att radera personen.</p></details></section>'+
       responsibilityHtml(data,'property',p.id)+
       '<section class="property-section"><h3>Placering på kartan</h3>'+
       '<p class="property-map-hint">'+(geo
