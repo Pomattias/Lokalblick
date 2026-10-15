@@ -47,8 +47,16 @@ function sourceService(){const c=vm.createContext({window:{},XLSX,crypto:webcryp
 test('real XLSX roundtrip retains assignment IDs, validity dates, shared flags and provenance',()=>{
  const svc=sourceService(),d=fixture();replace(d,'u1','2025-01-01');replace(d,'u2');const w=svc.dataToWorkbook(d);assert.ok(w.Sheets.Ansvar);const bytes=XLSX.write(w,{type:'buffer',bookType:'xlsx'});const out=svc.workbookToData(XLSX.read(bytes,{type:'buffer'}));assert.equal(out.assignments.length,2);assert.equal(out.assignments[0].id,d.assignments[0].id);assert.equal(out.assignments[0].toDate,'2026-10-11');assert.equal(out.assignments[1].provenance.confirmedBy,'Test');assert.equal(out.properties[0].responsiblePersonId,'u2');
 });
-test('V2 migration retains old assignments and tenant IDs independently',()=>{
- const d=fixture();d.contracts[0].tenantOrgId='tenant';delete d.contracts[0].tenantPartyId;d.assignments=[{id:'old',personId:'u1',targetType:'property',targetId:'p',role:'Ansvarig'}];const out=normalize(d);assert.ok(out.assignments.some(a=>a.id==='old'));assert.equal(out.contracts[0].tenantPartyId,'tenant');assert.equal(out.contracts[0].businessPartyId,'business');assert.deepEqual(normalize(out),out);
+test('canonical responsibility and legal tenant IDs remain stable without migration',()=>{
+ const d=fixture();
+ d.contracts[0].tenantPartyId='tenant';
+ d.assignments=[{id:'assignment-1',personId:'u1',targetType:'property',targetId:'p',
+   role:'Ansvarig',roleKey:'our',fromDate:'2025-01-01',toDate:''}];
+ const out=normalize(d);
+ assert.ok(out.assignments.some(a=>a.id==='assignment-1'));
+ assert.equal(out.contracts[0].tenantPartyId,'tenant');
+ assert.equal(out.contracts[0].businessPartyId,'business');
+ assert.deepEqual(normalize(out),out);
 });
 test('reimporting stale responsibility fields stages a review and leaves current assignment history intact',async()=>{
  const d=fixture();d.properties[0].designation='Test 1';replace(d,'u1','2025-01-01');replace(d,'u2');const svc=sourceService(),w=XLSX.utils.book_new();XLSX.utils.book_append_sheet(w,XLSX.utils.aoa_to_sheet([['Fast.bet','Ansvarig hos oss'],['Test 1','u1']]),'Fastigheter');const file={fileName:'test.xlsx',buffer:XLSX.write(w,{type:'array',bookType:'xlsx'}),sheets:[{name:'Fastigheter'}]};const prepared=await combineImportSources([file],['Fastigheter'],XLSX);const result=prepareMappedImport(prepared.workbook,profileWorkbook(prepared.workbook,svc.schemas,XLSX),d,{schemas:svc.schemas,fingerprint:prepared.fingerprint,fileName:file.fileName,actor:'Test'},XLSX);assert.equal(result.data.properties[0].responsiblePersonId,'u2');assert.equal(result.data.assignments.length,2);assert.ok(result.data.importReview.some(r=>r.field==='responsiblePersonId'));
