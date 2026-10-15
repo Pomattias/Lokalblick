@@ -5,7 +5,7 @@
     data.objects ||= [];data.contracts ||= [];data.activities ||= [];
     for(const o of data.objects){if(!Array.isArray(o.predecessorIds)){const raw=String(o.predecessorIds||'');try{o.predecessorIds=raw?JSON.parse(raw):[];}catch{o.predecessorIds=raw.split(/[;,]/).map(x=>x.trim()).filter(Boolean);}if(!Array.isArray(o.predecessorIds))o.predecessorIds=[];}}
     for(const contract of data.contracts){
-      let object=data.objects.find(o=>o.id===contract.objectId||(!contract.objectId&&(o.migrationSourceContractId===contract.id||o.id==='OBJ|'+contract.id)));
+      let object=data.objects.find(o=>o.id===contract.objectId||(!contract.objectId&&(o.id==='OBJ|'+contract.id)));
       if(!object&&contract.objectId)continue; // Broken explicit relations must be reviewed, never silently replaced.
       if(!object){
         if(!(data.properties||[]).some(p=>p.id===contract.propertyId))continue;
@@ -13,14 +13,14 @@
         const same=number?data.objects.filter(o=>String(o.number??'')===number&&o.propertyId===contract.propertyId):[];
         if(same.length===1)object=same[0];
         else {
-          object={id:'OBJ|'+contract.id,propertyId:contract.propertyId||'',number:number||'',name:contract.businessName||contract.number||'Objekt',start:'',end:'',predecessorIds:[],migrationSourceContractId:contract.id};
+          object={id:'OBJ|'+contract.id,propertyId:contract.propertyId||'',number:number||'',name:contract.businessName||contract.number||'Objekt',start:'',end:'',predecessorIds:[]};
           for(const field of ['area','category','use','businessName','unitId','employees','users','rooms','commonArea','apartmentArea'])if(meaningful(contract[field]))object[field]=contract[field];
-          if(contract.provenance)object.provenance=Object.fromEntries(Object.entries(contract.provenance).filter(([field])=>Object.hasOwn(object,field)).map(([field,value])=>[field,{...value,migration:'Objekt från tidigare avtalsmodell'}]));
+          if(contract.provenance)object.provenance=Object.fromEntries(Object.entries(contract.provenance).filter(([field])=>Object.hasOwn(object,field)).map(([field,value])=>[field,{...value,derived:'object-from-imported-contract'}]));
           data.objects.push(object);
         }
         contract.objectId=object.id;
       }
-      // Compatibility projection for views/adapters; property belongs to object.
+      // Property identity is derived from the linked object.
       contract.objectId=object.id;
       contract.propertyId=object.propertyId;
     }
