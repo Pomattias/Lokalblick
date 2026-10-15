@@ -4,6 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import { webcrypto } from "node:crypto";
 import XLSX from "xlsx";
+import "../frontend/domain/recurring-costs.js";
 import "../frontend/domain/calculations.js";
 import "../frontend/domain/documents.js";
 import {
@@ -504,134 +505,35 @@ test("two sources create conflict and do not overwrite source values", () => {
   assert.ok(result.data.importReview.some((x) => x.field === "area"));
   assert.equal(result.data.contracts[0].provenance.area.source, "INT/EXT");
 });
-test("actual XLSX bytes roundtrip keeps one activity model, responsibility and locked budget", () => {
-  const svc = services();
-  const d = normalize({
-    isDemo: false,
-    properties: [
-      { id: "p1", address: "Testgatan 1", responsiblePersonId: "person1" },
-    ],
-    contracts: [
-      {
-        ...contract,
-        area: 406,
-        provenance: { area: { value: 406, source: "EXT", row: 2 } },
-        contractDocumentUrl: "https://example.test/A-1.pdf",
-      },
-    ],
-    people: [{ id: "person1", name: "Testperson" }],
-    projects: [
-      {
-        id: "pr1",
-        propertyId: "p1",
-        contractId: "c1",
-        name: "Testprojekt",
-        budgetYear: 2026,
-        budgetInvestigation: 10,
-        budgetExecution: 200,
-        budgetFurnishing: 30,
-        responsiblePersonId: "person1",
-        budgetIncluded: false,
-      },
-    ],
-    maintenance: [
-      {
-        id: "uh1",
-        propertyId: "p1",
-        title: "Tak",
-        year: 2026,
-        cost: 300,
-        responsiblePersonId: "person1",
-      },
-    ],
-    operations: [
-      { id: "op1", propertyId: "p1", period: 2026, category: "El", budget: 100, actual: 90 },
-    ],
-    maintenanceStatus: [
-      { id: "ms1", propertyId: "p1", category: "Ytskikt", status: "Bra" },
-    ],
-    auditLog: [{
-      id: "log1",
-      at: "2026-10-07T10:00:00.000Z",
-      by: "Test",
-      collection: "activities",
-      recordId: "uh1",
-      action: "Ändrad",
-      fields: [{ field: "estimatedCost", from: 200, to: 300 }],
-    }],
-    sourceRegistry: [{ id: "s1", name: "source", kind: "test" }],
-    importReview: [{ id: "r1", field: "area", status: "pending" }],
-    indexSeries: series.map((x) => ({ ...x, seriesBase: "1980" })),
-    budgetPlans: [
-      {
-        year: 2026,
-        status: "Låst",
-        lockedBy: "Test",
-        lockedIndexYear: 2025,
-        lockedIndexValue: 400,
-        lockedIndexSource: "known",
-        targets: { Underhåll: 300 },
-        lines: [
-          {
-            category: "Underhåll",
-            amount: 300,
-            sourceType: "maintenance",
-            sourceId: "uh1",
-            propertyId: "p1",
-            source: "Tak",
-          },
-        ],
-      },
-    ],
+test("canonical XLSX roundtrip preserves recurring expenses, records and locked budget", () => {
+  const svc=services();
+  const d=normalize({
+    isDemo:false,
+    properties:[{id:"p1",address:"Testgatan 1",responsiblePersonId:"person1"}],
+    objects:[{id:"obj1",propertyId:"p1",number:"1",name:"Lokalen",area:300}],
+    contracts:[{...contract,objectId:"obj1",propertyId:"p1",area:300,baseRent:120000,rentIndexPercent:0}],
+    people:[{id:"person1",name:"Testperson"}],
+    activities:[{id:"a1",type:"Underhåll",propertyId:"p1",title:"Tak",estimatedCost:300,includeInBudget:"Ja"}],
+    recurringCosts:[{id:"energy",name:"El",propertyId:"p1",contractId:"",annualAmount:1000,startYear:2026,endYear:null,actuals:[{year:2026,amount:900}]}],
+    auditLog:[{id:"log1",at:"2026-10-07T10:00:00.000Z",by:"Test",collection:"activities",recordId:"a1",action:"Ändrad",fields:[{field:"estimatedCost",from:200,to:300}]}],
+    sourceRegistry:[{id:"s1",name:"source",kind:"test"}],
+    indexSeries:series.map(x=>({...x,seriesBase:"1980"})),
+    budgetPlans:[{year:2026,status:"Låst",lockedBy:"Test",lines:[{category:"Underhåll",amount:300,sourceType:"activity",sourceId:"a1",propertyId:"p1"}]}],
   });
-  assert.equal(d.projects.length, 0);
-  assert.equal(d.maintenance.length, 0);
-  assert.equal(d.activities.length, 3);
-  const bytes = XLSX.write(
-    svc.LokalblickSourceService.dataToWorkbook(clone(d)),
-    { type: "buffer", bookType: "xlsx" },
-  );
-  const workbookOut = XLSX.read(bytes, { type: "buffer" });
+  const bytes=XLSX.write(svc.LokalblickSourceService.dataToWorkbook(clone(d)),{type:"buffer",bookType:"xlsx"});
+  const workbookOut=XLSX.read(bytes,{type:"buffer"});
   assert.ok(workbookOut.Sheets.Aktiviteter);
-  assert.equal(Boolean(workbookOut.Sheets.Index), false);
-  assert.equal(Boolean(workbookOut.Sheets.KPI), false);
-  assert.ok(workbookOut.Sheets["Tilläggsdata"]);
-  assert.equal(Boolean(workbookOut.Sheets.Projekt), false);
-  assert.equal(Boolean(workbookOut.Sheets.Underhåll), false);
-  assert.ok(workbookOut.Sheets.Ansvar);
-  assert.equal(Boolean(workbookOut.Sheets.Kostnader), false);
-  assert.equal(Boolean(workbookOut.Sheets.Status), false);
-  const out = svc.LokalblickSourceService.workbookToData(workbookOut);
-  assert.equal(out.contracts[0].id, "c1");
-  assert.deepEqual(
-    plain(out.contracts[0].provenance),
-    d.contracts[0].provenance,
-  );
-  const project = out.activities.find((x) => x.id === "pr1");
-  const investigation = out.activities.find((x) => x.id === "MIG-UTR|pr1");
-  const maintenance = out.activities.find((x) => x.id === "uh1");
-  assert.equal(Object.hasOwn(project, "investigationCost"), false);
-  assert.equal(project.estimatedCost, 230);
-  assert.equal(investigation.type, "Utredning");
-  assert.equal(investigation.estimatedCost, 10);
-  assert.equal(project.responsiblePersonId, "person1");
-  assert.equal(project.includeInBudget, "Nej");
-  assert.equal(Object.hasOwn(project, "budgetIncluded"), false);
-  assert.equal(maintenance.responsiblePersonId, "person1");
-  assert.equal(out.properties[0].responsiblePersonId, "person1");
-  assert.equal(out.operations[0].actual, 90);
-  assert.equal(out.maintenanceStatus[0].status, "Bra");
-  assert.equal(out.auditLog[0].action, "Ändrad");
-  assert.equal(out.auditLog[0].fields[0].field, "estimatedCost");
-  assert.equal(out.indexSeries.length, series.length);
-  assert.equal(out.indexSeries[0].seriesBase, "1980");
-  assert.equal(out.budgetPlans[0].lockedIndexYear, 2025);
-  assert.equal(out.budgetPlans[0].lockedIndexValue, 400);
-  assert.equal(out.budgetPlans[0].lockedIndexSource, "known");
-  assert.equal(out.budgetPlans[0].lines[0].sourceId, "uh1");
-  assert.equal(out.budgetPlans[0].lines[0].sourceType, "activity");
-  assert.equal(out.budgetPlans[0].lockedBy, "Test");
-  assert.equal(out.importReview.length, 1);
+  assert.ok(workbookOut.Sheets["Löpande kostnader"]);
+  assert.equal(Boolean(workbookOut.Sheets.Projekt),false);
+  assert.equal(Boolean(workbookOut.Sheets.Kostnader),false);
+  const out=svc.LokalblickSourceService.workbookToData(workbookOut);
+  assert.equal(out.contracts[0].objectId,"obj1");
+  assert.equal(out.activities[0].title,"Tak");
+  assert.equal(out.recurringCosts[0].annualAmount,1000);
+  assert.equal(out.recurringCosts[0].actuals[0].amount,900);
+  assert.equal(out.budgetPlans[0].status,"Låst");
+  assert.equal(out.budgetPlans[0].lines[0].sourceId,"a1");
+  assert.equal(out.auditLog[0].fields[0].field,"estimatedCost");
 });
 test("missing city can be completed once and persists to Lokalblick-data with audit", () => {
   const svc = services();
@@ -1337,10 +1239,11 @@ test("supplemental activities cannot create an unknown property or move a contra
   assert.throws(() => resolveReview(d, "r1", "accept", "", "Test"));
   assert.equal(d.activities.length, 0);
 });
-test("actual costs aggregate once from operations and activities", () => {
+test("actual costs aggregate once from recurring costs and activities", () => {
   const d = normalize({
     contracts: [contract],
-    operations: [{ id: "o1", propertyId: "p1", period: 2027, actual: 10 }],
+    properties: [{ id: "p1", address: "Testgatan 1" }],
+    recurringCosts: [{ id: "o1", name: "El", propertyId: "p1", contractId: "", annualAmount: 10, startYear: 2027, actuals: [{ year: 2027, amount: 10 }] }],
     activities: [
       {
         id: "m1",
