@@ -34,7 +34,7 @@ const selection={unit:"",owner:"",person:"",q:"",propertyId:""};
 
 test("every issue uses the same compact activities form, without tabs",()=>{
  const html=renderIssueEditor(data,project,"a1");
- assert.match(html,/id="edit-form" data-collection="activities"/);
+ assert.match(html,/id="edit-form" class="editor-readonly" data-collection="activities"/);
  assert.match(html,/Ärende/);
  for(const field of ["type","title","description","status","priority","issueHome",
    "responsiblePersonId","startDate","endDate","estimatedCostTkr",
