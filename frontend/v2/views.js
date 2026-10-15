@@ -581,7 +581,7 @@ export const categories = [
 ];
 export function objectList(data,s){
   const view=scope(data,s);
-  return `<div class="section-title"><h2>Objekt i aktuellt urval</h2><button data-new-object>Nytt objekt</button></div>${table(['Objekt','Fastighet','Objektarea','Giltighet','Avtal',''],(view.objects||[]).map(o=>row([esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)+(o.migrationSourceContractId&&!o.number?'<small>Kontrollera objektnummer och koppling</small>':''),esc(propertyReference(data.properties.find(p=>p.id===o.propertyId))),num(o.area)+' m²',esc((o.start||'Ej angivet')+' – '+(o.end||'tills vidare')),data.contracts.filter(c=>c.objectId===o.id).map(c=>`<button data-object-contract="${esc(c.id)}">${esc(c.number||c.id)}</button>`).join(' '),edit('objects',o.id)])))}`;
+  return `<div class="section-title"><h2>Objekt i aktuellt urval</h2><button data-new-object>Nytt objekt</button></div>${table(['Objekt','Fastighet','Objektarea','Giltighet','Avtal',''],(view.objects||[]).map(o=>row([esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)+(String(o.id||"").startsWith("OBJ|")&&!o.number?'<small>Kontrollera objektnummer och koppling</small>':''),esc(propertyReference(data.properties.find(p=>p.id===o.propertyId))),num(o.area)+' m²',esc((o.start||'Ej angivet')+' – '+(o.end||'tills vidare')),data.contracts.filter(c=>c.objectId===o.id).map(c=>`<button data-object-contract="${esc(c.id)}">${esc(c.number||c.id)}</button>`).join(' '),edit('objects',o.id)])))}`;
 }
 export function budget(data,s,ui) {
   const scoped=Boolean(s.propertyId||s.unit||s.owner||s.person||s.q),view=scope(data,s);
