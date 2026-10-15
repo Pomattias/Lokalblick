@@ -24,7 +24,7 @@ User-owned entities support `GET /api/{entity}`, `POST /api/{entity}`,
 `DELETE /api/{entity}/{id}`. Canonical business entities are
 `objects` (shown as **Objekt**, owns `propertyId`, independent validity dates and predecessor links),
 `organizations` (shown as **Parter** in the UI/Excel), `people`,
-`activities`, `orders`, `maintenance-status`, `operations`,
+`activities`, `orders`, `recurring-costs`,
 `budget-data`, and overlays.
 
 Responsibility is explicit rather than generic. A property overlay may carry
@@ -38,11 +38,14 @@ An activity may carry its own `responsiblePersonId`; it is intentionally
 independent from the property's responsible person. Orders are separate
 records linked by `activityId`.
 
-`contacts` and legacy `assignments`, `projects`, `maintenance`,
-`drift-issues`, `wishes`, and `investigations` are migration inputs
-only and are not active API entities. Existing external contacts are migrated
-to the explicit property/contract responsibility fields. Existing order
-fields on activities are migrated to `orders`.
+**There is no legacy data conversion.** `assignments` is the canonical current
+responsibility history. `activities` is the only case/work-item collection;
+`orders` is the separate order collection; `recurringCosts` is the
+independent annual expense collection associated with exactly one property or
+contract. Former `contacts`, `projects`, `maintenance`, `driftIssues`,
+`wishes`, `investigations`, `operations`, `driftCosts` and
+`maintenanceStatus` are not writable entities and are not migrated. Third-party
+Excel/LEB records are **sources**, mapped directly into current collections.
 
 Properties and imported contracts retain read-only LEB source records. Reviewed corrections are overlays, and separately imported core records are persisted in the local backend store. Their DELETE
 operations persist backend tombstones; editable property and contract
@@ -62,21 +65,22 @@ source-system write request.
 
 ## Budget persistence
 
-Working budget values are calculated live from agreements, activities and
-orders. `budget-data` keeps the budget header/metadata and UI workspace
+Working budget values are calculated live from agreements, activities,
+recurring costs and orders. `budget-data` keeps the budget header/metadata and UI workspace
 metadata. Budget rows become a frozen snapshot only when a budget is locked.
 After locking, follow-up compares the frozen budget with current forecast,
 ordered values and outcome without rewriting the locked baseline.
 
 
-## Model v5 workbook
+## Canonical workbook
 
-The visible Lokalblick workbook is centered on Fastigheter, Avtal, Aktiviteter,
-Beställningar, Parter, Personer, Budget, Budgetrader, Ändringslogg and Källor.
-Older Kostnader and Status collections are accepted for compatibility and may
-still feed calculations, but they are preserved as technical state instead of
-being written as parallel visible business sheets. This avoids creating two
-competing planning models while older data is migrated.
+A new Lokalblick workbook exposes Fastigheter, Objekt, Avtal, Aktiviteter,
+Beställningar, Löpande kostnader, Parter, Personer, Ansvar and Budget, with
+technical provenance and budget sheets where necessary. Older separate
+Projekt, Underhåll, Drift, Driftärenden, Önskemål and Status sheets are **not**
+a supported Lokalblick data model. No automatic conversion from them occurs.
+Arbitrary external Excel and LEB imports still use dedicated source adapters
+and field mapping rather than requiring these retired sheets.
 
 ## Avtal contacts and verksamhet – October 2026
 
@@ -87,11 +91,11 @@ The contact owner and unit are intentionally independent:
 - For one property with multiple contracts, each contract can have a different `tenantName`, `unitId` and `businessResponsiblePersonId`.
 - Company runtime persists the editable contract fields via backend-owned contract overlays; the imported LEB core remains read-only.
 - Source workbook export/import includes `Hyresgäst` and the existing `_unitId` / displayed `Verksamhet`. In the enrichment adapter, only an explicitly labeled `Hyresgäst` column populates `tenantName`: the unrelated legacy `Verksamhet` and `businessPartyId` fields must not silently become a tenant name.
-- Legacy `businessPartyId`, `businessName`, `tenantOrgId` and old V1 source representations have not been deleted; retire them after source mapping and migration are validated against real company workbooks. Do not duplicate person data when linking contacts.
+- Treat field names from external LEB sources as source aliases, not as a second application data model. Legal tenant, operational business and property owner must remain distinct; do not duplicate person data when linking contacts.
 
 ## Object hierarchy (model v6)
 
-`GET /api/bootstrap` includes `objects`. Agreements refer to `objectId`; their `propertyId` is derived from the object for existing integrations. Activities may refer directly to `objectId` without an agreement. `objects` supports the same CRUD routes as other user-owned entities. Workspace persistence validates object/property links, agreement and activity object references, validity dates, and predecessor lifecycle links. Referenced objects cannot be deleted. Existing data migrates deterministically without using agreement dates as object dates. Details: [OBJECT_MODEL.md](OBJECT_MODEL.md).
+`GET /api/bootstrap` includes `objects`. Agreements refer to `objectId`; their `propertyId` is derived from the object for existing integrations. Activities may refer directly to `objectId` without an agreement. `objects` supports the same CRUD routes as other user-owned entities. Workspace persistence validates object/property links, agreement and activity object references, validity dates, and predecessor lifecycle links. Referenced objects cannot be deleted. New import mapping uses stable object/property relations without converting old Lokalblick workspaces. Details: [OBJECT_MODEL.md](OBJECT_MODEL.md).
 
 
 ## Reviewed company import (store version 4)
