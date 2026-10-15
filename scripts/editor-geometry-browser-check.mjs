@@ -38,7 +38,7 @@ try{
     page.on("pageerror",e=>errors.push(e.message));
     await page.route("https://**/*",route=>route.abort());
     await page.goto("http://127.0.0.1:"+port+"/v2/index.html",{waitUntil:"domcontentloaded"});
-    await page.waitForSelector("[data-view=properties]");
+    await page.waitForSelector(width===390?".mobile-nav [data-view=more]":".sidebar [data-view=properties]");
     await page.locator(width===390?".mobile-nav [data-view=more]":".sidebar [data-view=properties]").first().click();
     if(width===390)await page.locator('[data-view=properties]:visible').first().click();
     await page.locator("[data-edit=properties]").first().click();
