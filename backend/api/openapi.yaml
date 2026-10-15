@@ -1,14 +1,17 @@
 openapi: 3.0.3
 info:
   title: Lokalblick API
-  version: 0.2.0
+  version: 0.3.0
   description: >
-    Contract between the Lokalblick frontend and the authenticated
-    Microsoft 365 backend. No production secrets or data belong in GitHub.
+    Backend/frontend contract for the new canonical Lokalblick data model.
+    The current company runtime binds to loopback; a remote deployment must
+    enforce authentication and authorization. No company data or secrets may
+    be kept in public frontend assets.
 servers:
   - url: /api
-security:
-  - entraBearer: []
+# Remote deployments require an authorization layer. The current company
+# implementation uses a loopback-only boundary, not deployed Entra authentication.
+security: []
 paths:
   /health:
     get:
@@ -56,9 +59,9 @@ paths:
     patch:
       summary: Persist a frontend workspace change set
       description: >
-        Transitional frontend contract. The production backend may internally
-        translate this into granular SharePoint/Dataverse writes and must
-        enforce authorization and concurrency.
+        Writes current canonical records only. The company backend owns local
+        storage and overlays. Any future internal/external database adapter
+        must implement the same validation and authorization contract.
       responses:
         "200":
           description: Updated workspace snapshot
@@ -70,7 +73,7 @@ paths:
           description: Bootstrap payload
   /budget/{year}:
     get:
-      summary: Build annual budget from contracts and timed needs
+      summary: Read annual budget based on agreements, cases and recurring costs
       parameters:
         - in: path
           name: year
@@ -81,7 +84,7 @@ paths:
           description: Budget rows and summaries
   /leb/refresh:
     post:
-      summary: Refresh LEB from the approved SharePoint workbook
+      summary: Refresh from an approved private source file
       description: >
         Server-side operation. The browser never uploads the LEB workbook
         to the public frontend.
@@ -97,7 +100,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [properties, objects, people, assignments, projects, maintenance-status, maintenance, drift-costs, drift-issues, wishes, investigations]
+            enum: [properties, objects, contracts, organizations, people, activities, orders, recurring-costs, budget-data, coordinates, contract-overlays, property-overlays]
       responses:
         "200":
           description: Records
@@ -140,9 +143,5 @@ paths:
       responses:
         "200":
           description: Updated
-components:
-  securitySchemes:
-    entraBearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+components: {}
+
