@@ -961,20 +961,6 @@ window.LokalblickDemoData = {
       "actuals": []
     }
   ],
-  "maintenanceStatus": [
-    {
-      "id": "MS-DEMO-101",
-      "propertyId": "DEMO-101",
-      "contractId": "AVT-DEMO-101",
-      "category": "Brand / utrymning",
-      "assessedDate": "2026-09-15",
-      "status": "Bra",
-      "priority": "Låg",
-      "comment": "Godkänt vid kontroll (demo).",
-      "actionNeed": "",
-      "estimatedCost": 0
-    }
-  ],
   "budgetPlans": [
     {
       "year": 2027,
