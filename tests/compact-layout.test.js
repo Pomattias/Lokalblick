@@ -12,7 +12,8 @@ test("property and lease fields keep accessible labels next to native controls",
     objects:[],contracts:[],organizations:[],people:[],orders:[],activities:[],
     indexSeries:[],auditLog:[],assignments:[],isDemo:true};
   const property=renderPropertyEditor(data,data.properties[0],"p");
-  assert.match(property,/<label class="property-field"><span class="field-name">Adress<\/span><input[^>]*name="address"/);
+  assert.match(property,/<label class="property-heading-edit property-heading-edit-address"><span class="visually-hidden">Adress<\/span><input[^>]*name="address"/);
+  assert.equal((property.match(/name="address"/g)||[]).length,1);
   assert.match(property,/<span class="field-name">Ort<\/span><input[^>]*name="city"/);
   assert.match(property,/<span class="field-name">Fastighetsägare<\/span><select name="ownerPartyId"/);
   const agreement={id:"c",propertyId:"p",number:"1",baseRent:150000,rentIndexPercent:0,baseAdditions:0,additionIndexPercent:0};
