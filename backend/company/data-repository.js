@@ -1,3 +1,4 @@
+import "../../frontend/domain/recurring-costs.js";
 import "../../frontend/domain/object-model.js";
 import "../../frontend/domain/responsibility-model.js";
 import "../../frontend/domain/business-model.js";
@@ -9,7 +10,7 @@ import path from "node:path";
 
 export const USER_ENTITIES = [
   "businesses", "contractBusinesses", "assignments", "objects", "organizations", "people", "orders", "activities", "maintenanceStatus",
-  "operations", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
+  "recurringCosts", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
 ];
 const LEGACY_USER_ENTITIES = [
   "contacts", "projects", "maintenance", "driftCosts", "driftIssues",
@@ -165,9 +166,6 @@ function ensureStoreShape(value, core = { properties: [], contracts: [] }) {
     else if (!activity.includeInBudget && activity.budgetIncluded === true) activity.includeInBudget = "Ja";
     delete activity.budgetIncluded;
   });
-  if (!store.entities.operations.length && Array.isArray(entities.driftCosts)) {
-    store.entities.operations = structuredClone(entities.driftCosts);
-  }
 
   const people = new Map(store.entities.people.map((x) => [x.id, x]));
   const organizations = new Map(store.entities.organizations.map((x) => [x.id, x]));
@@ -472,7 +470,7 @@ export class LokalblickRepository {
     await this.writeQueue;
     const base=await this.bootstrap(),revision=this.revision();
     if(payload.baseRevision&&payload.baseRevision!==revision){const e=Error('Arbetsytan har ändrats. Läs om underlaget innan import.');e.statusCode=409;throw e;}
-    const entities=['properties','objects','contracts','organizations','people','activities','orders','operations','maintenanceStatus'];
+    const entities=['properties','objects','contracts','organizations','people','activities','orders','recurringCosts','maintenanceStatus'];
     const candidate={...base,...structuredClone(payload.data)};
     for(const entity of entities){if(!Array.isArray(candidate[entity]))throw TypeError(entity+' måste vara en lista');const ids=new Set();for(const row of candidate[entity]){validateRecord(row);if(ids.has(row.id))throw TypeError('Dubbelt ID i '+entity);ids.add(row.id);}}
     const proposed=globalThis.LokalblickImportRules.reconcile(base,{data:candidate,report:payload.report||{}},null,payload.report?.fileName||'Excelimport');
@@ -486,6 +484,7 @@ export class LokalblickRepository {
     globalThis.LokalblickObjectModel.validate(data);
     globalThis.LokalblickResponsibility.validate(data);
     globalThis.LokalblickBusinessModel.validate(data);
+    globalThis.LokalblickRecurringCosts.validateCosts(data);
     for(const collection of ['properties','objects','contracts','activities','orders'])for(const row of data[collection]||[]){
       for(const [field,value] of Object.entries(row)){
         if(value==null||value==='')continue;
@@ -547,6 +546,13 @@ export class LokalblickRepository {
     }
     if(Array.isArray(payload.objects)){const current=await this.bootstrap();globalThis.LokalblickObjectModel.validate({...current,...payload});}
     const currentData=await this.bootstrap();
+    if (Array.isArray(payload.recurringCosts)) {
+      globalThis.LokalblickRecurringCosts.validateCosts({
+        ...currentData,
+        ...payload,
+        recurringCosts: payload.recurringCosts,
+      });
+    }
     const preparedResponsibility=globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickBusinessModel.normalize({...structuredClone(currentData),...structuredClone(payload)}));
     globalThis.LokalblickResponsibility.validate(preparedResponsibility,currentData);
     globalThis.LokalblickBusinessModel.validate(preparedResponsibility,currentData);
@@ -650,6 +656,13 @@ export class LokalblickRepository {
   async create(entity, payload) {
     if (!USER_ENTITIES.includes(entity)) throw new RangeError("Entity is read-only or unknown");
     const record = validateEntityRecord(entity, payload, undefined, this.effectiveCore());
+    if (entity === "recurringCosts") {
+      const snapshot = await this.bootstrap();
+      globalThis.LokalblickRecurringCosts.validateCosts({
+        ...snapshot,
+        recurringCosts: [...snapshot.recurringCosts, record],
+      });
+    }
     if(entity==='objects'){const data=await this.bootstrap();data.objects.push(record);globalThis.LokalblickObjectModel.validate(data);}
     await this.commit(async (store) => {
       if(['assignments','people','organizations','businesses','contractBusinesses'].includes(entity)){const before=await this.bootstrap();const candidate=structuredClone(before);candidate[entity].push(record);globalThis.LokalblickResponsibility.validate(candidate,before);globalThis.LokalblickBusinessModel.validate(candidate,before);}
@@ -670,6 +683,13 @@ export class LokalblickRepository {
       const index = store.entities[entity].findIndex((item) => item.id === id);
       if (index < 0) return null;
       const record = validateEntityRecord(entity, { ...store.entities[entity][index], ...payload, id }, id, this.effectiveCore());
+      if (entity === "recurringCosts") {
+        const snapshot = await this.bootstrap();
+        globalThis.LokalblickRecurringCosts.validateCosts({
+          ...snapshot,
+          recurringCosts: snapshot.recurringCosts.map(x => x.id === id ? record : x),
+        });
+      }
       if(['assignments','people','organizations','businesses','contractBusinesses'].includes(entity)){const current=await this.bootstrap();const data=structuredClone(current);data[entity]=data[entity].map(x=>x.id===id?record:x);globalThis.LokalblickResponsibility.validate(data,current);globalThis.LokalblickBusinessModel.validate(data,current);}
       if(entity==='objects'){const data={...this.core,objects:[...store.entities.objects.filter(o=>o.id!==id),record]};globalThis.LokalblickObjectModel.validate(data);}
       store.entities[entity][index] = record;
