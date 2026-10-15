@@ -103,50 +103,20 @@
     return FRONTEND_LABELS[collection]?.[field] || SCHEMAS.concat([ACTIVITY_SCHEMA]).find(s=>s.key===collection)?.columns.find(c=>c[0]===field&&!c[2])?.[1] || fallback || field;
   }
 
-    // Old sheets are accepted only for migration. They are never written to a new model-v5 workbook.
-  const LEGACY_SCHEMAS = [
-    { sheet:"Organisationer", key:"legacyOrganizations", prefix:"ORG", columns:[
-      ["id","_id",true],["name","Organisation"],["type","Typ"],["ownerClass","Ägarklass"]
-    ]},
-    { sheet:"Kontakter", key:"contacts", prefix:"K", columns:[
-      ["id","_id",true],["personId","_personId",true],["targetType","_targetType",true],["targetId","_targetId",true],
-      ["role","Roll"],["fromDate","Från"],["toDate","Till"]
-    ], display:["Person","Måltyp","Mål"] },
-    { sheet:"Ansvar", key:"assignments", prefix:"A", columns:[
-      ["id","_id",true],["personId","_personId",true],["targetType","_targetType",true],["targetId","_targetId",true],["role","Roll"],["fromDate","Från"],["toDate","Till"],["allocation","Omfattning %"]
-    ], display:["Person","Måltyp","Mål"] },
-    { sheet:"Projekt", key:"projects", prefix:"PR", columns:[
-      ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["name","Projekt"],["description","Beskrivning"],["status","Status"],["phase","Fas"],["start","Start"],["end","Slut"],["moveIn","Inflytt"],["budgetYear","Budgetår"],["budgetInvestigation","Utredning budget"],["budgetExecution","Genomförande budget"],["budgetFurnishing","Inredning budget"],["preliminaryCost","Prognos"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
-    ], display:["Fastighet","Avtal","Ansvarig"] },
-    { sheet:"Underhåll", key:"maintenance", prefix:"UH", columns:[
-      ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["title","Åtgärd"],["year","Planår"],["cost","Kostnad"],["priority","Prioritet"],["status","Status"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
-    ], display:["Fastighet","Avtal","Ansvarig"] },
-    { sheet:"Drift", key:"legacyOperations", prefix:"DR", columns:[
-      ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["period","År"],["category","Kategori"],["budget","Budget"],["actual","Utfall"]
-    ], display:["Fastighet","Avtal"] },
-    { sheet:"Utredningar", key:"investigations", prefix:"UTR", columns:[
-      ["id","_id",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["title","Utredning"],["year","År"],["cost","Kostnad"],["status","Status"]
-    ], display:["Fastighet","Avtal","Ansvarig"] },
-    { sheet:"Driftärenden", key:"driftIssues", prefix:"DI", columns:[
-      ["id","_id",true],["contractId","_contractId",true],["propertyId","_propertyId",true],["category","Kategori"],["title","Ärende"],["description","Beskrivning"],["createdDate","Skapad"],["targetDate","Måldatum"],["decisionDate","Beslutsdatum"],["completedDate","Klardatum"],["status","Status"],["priority","Prioritet"],["responsiblePersonId","_responsiblePersonId",true],["budgetYear","Budgetår"],["estimatedCost","Bedömd kostnad"],["finalCost","Slutkostnad"],["includeInBudget","Ta med i budget"],["planningQuarter","Kvartal"],["planningMonth","Månad"]
-    ], display:["Fastighet","Avtal","Ansvarig"] },
-    { sheet:"Önskemål", key:"wishes", prefix:"W", columns:[
-      ["id","_id",true],["contractId","_contractId",true],["propertyId","_propertyId",true],["category","Kategori"],["title","Önskemål"],["description","Beskrivning"],["createdDate","Skapad"],["targetDate","Måldatum"],["decisionDate","Beslutsdatum"],["completedDate","Klardatum"],["status","Status"],["responsiblePersonId","_responsiblePersonId",true],["budgetYear","Budgetår"],["budgetCategory","Budgetkategori"],["estimatedCost","Bedömd kostnad"],["finalCost","Slutkostnad"],["includeInBudget","Ta med i budget"]
-    ], display:["Fastighet","Avtal","Ansvarig"] },
-    { sheet:"Ansvarshistorik", key:"assignmentChanges", prefix:"AL", columns:[
-      ["id","_id",true],["targetType","_targetType",true],["targetId","_targetId",true],["fromPersonId","_fromPersonId",true],["toPersonId","_toPersonId",true],["changedAt","Ändrad"],["changedBy","Ändrad av"]
-    ], display:["Mål","Från person","Till person"] }
-  ];
-  const assignmentSchema=LEGACY_SCHEMAS.find(s=>s.key==='assignments');
-  assignmentSchema.columns.push(['organizationId','_organizationId',true],['roleKey','_roleKey',true],['shared','Delat ansvar'],['cancelled','_cancelled',true]);
-  SCHEMAS.push(assignmentSchema);LEGACY_SCHEMAS.splice(LEGACY_SCHEMAS.indexOf(assignmentSchema),1);
-  assignmentSchema.fields=assignmentSchema.columns.map(c=>c[0]);
-  assignmentSchema.display.push('Part');
-  SCHEMAS.forEach(s=>{s.fields=s.columns.map(c=>c[0]);});
-  LEGACY_SCHEMAS.forEach(function(schema) {
-    schema.fields = schema.columns.map(function(column){ return column[0]; });
-  });
-  const LEGACY_ACTIVITY_KEYS = new Set(["projects","maintenance","investigations","driftIssues","wishes"]);
+    // Only new canonical Lokalblick sheets are read and written.
+  const assignmentSchema={
+    sheet:"Ansvar", key:"assignments",prefix:"A",
+    columns:[
+      ["id","_id",true],["personId","_personId",true],
+      ["targetType","_targetType",true],["targetId","_targetId",true],
+      ["role","Roll"],["fromDate","Från"],["toDate","Till"],
+      ["allocation","Omfattning %"],["organizationId","_organizationId",true],
+      ["roleKey","_roleKey",true],["shared","Delat ansvar"],["cancelled","_cancelled",true]
+    ],
+    display:["Person","Måltyp","Mål","Part"]
+  };
+  SCHEMAS.push(assignmentSchema);
+  SCHEMAS.forEach(schema=>{schema.fields=schema.columns.map(col=>col[0]);});
 
   const source = {
     handle:null,
@@ -392,7 +362,7 @@
   }
 
   function ensureStableIds(data) {
-    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).concat(LEGACY_SCHEMAS).forEach(function(schema) {
+    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).forEach(function(schema) {
       const rows = data[schema.key] || [];
       rows.forEach(function(row) {
         if (!row.id) row.id = nextStableId(schema.prefix || "ID", rows);
@@ -496,134 +466,29 @@
     }
     (data.contractBusinesses||[]).forEach(function(row){if(!row.contractId&&row.__display_Avtal){const m=byDisplay(contracts,row.__display_Avtal,contractDisplay);if(m)row.contractId=m.id;}if(!row.businessId&&row.__display_Verksamhet){const hits=(data.businesses||[]).filter(b=>String(b.name).trim()===String(row.__display_Verksamhet).trim());if(hits.length===1)row.businessId=hits[0].id;}});
     (data.contacts||[]).forEach(resolveRelation); (data.assignments||[]).forEach(resolveRelation);
-    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).concat(LEGACY_SCHEMAS).forEach(function(schema) { (data[schema.key]||[]).forEach(function(row) { Object.keys(row).filter(function(key){return key.indexOf("__display_")===0;}).forEach(function(key){delete row[key];}); }); });
+    SCHEMAS.concat([ACTIVITY_SCHEMA]).concat(AUXILIARY_SCHEMAS).forEach(function(schema) { (data[schema.key]||[]).forEach(function(row) { Object.keys(row).filter(function(key){return key.indexOf("__display_")===0;}).forEach(function(key){delete row[key];}); }); });
   }
 
-  function assignedPersonId(data,id,legacyType,fallback) {
-    const active=(data.assignments||[]).filter(function(a){
-      return a.targetId===id && !a.toDate && (a.targetType==="activity" || a.targetType===legacyType);
-    });
-    const responsible=active.find(function(a){return a.role==="Ansvarig";});
-    return responsible ? responsible.personId : (fallback||"");
-  }
-
-  function activityRowsFromData(data) {
-    const rows = (data.activities||[]).map(function(item){return clone(item);});
-    const seen = new Set(rows.map(function(item){return item.id;}));
-    function pushLegacy(item){ if(item && item.id && !seen.has(item.id)){rows.push(item);seen.add(item.id);} }
-    function legacyExtras(item) {
-      return {
-        includeInBudget:item.includeInBudget || (item.budgetIncluded===false ? "Nej" : "Ja"),
-        finalCosts:item.finalCosts||undefined,
-        finalCostConfirmed:Boolean(item.finalCostConfirmed),
-        provenance:clone(item.provenance||{}),
-        createdAt:item.createdAt||"",createdBy:item.createdBy||"",updatedAt:item.updatedAt||"",updatedBy:item.updatedBy||""
-      };
-    }
-    function orderFields(item) {
-      return {
-        orderedAt:item.orderedAt||"",orderedBy:item.orderedBy||"",orderedByPersonId:item.orderedByPersonId||"",supplier:item.supplier||"",orderReference:item.orderReference||"",
-        orderedCost:Number(item.orderedCost)||0,deliveryText:item.deliveryText||"",completedAt:item.completedAt||item.completedDate||"",
-        finalCost:Number(item.finalCost)||0,paymentStatus:item.paymentStatus||"",paidAt:item.paidAt||"",invoiceComment:item.invoiceComment||"",
-        sourceId:item.sourceId||"",sourceSheet:item.sourceSheet||"",sourceRow:item.sourceRow||"",ownerPays:item.ownerPays||""
-      };
-    }
-    (data.projects||[]).forEach(function(item){
-      const execution=Number(item.budgetExecution)||0, furnishing=Number(item.budgetFurnishing)||0, preliminary=Number(item.preliminaryCost)||0;
-      pushLegacy(Object.assign({},legacyExtras(item),{
-        id:item.id,type:"Projekt",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"project",item.responsiblePersonId||""),
-        title:item.name||"",description:item.description||"",category:"",status:item.status||"",priority:"",
-        planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
-        budgetCategory:"Projekt",estimatedCost:execution+furnishing || preliminary,investigationCost:Number(item.budgetInvestigation)||0,
-        phase:item.phase||"",startDate:item.start||"",endDate:item.end||""
-      },orderFields(item)));
-    });
-    (data.maintenance||[]).forEach(function(item){
-      pushLegacy(Object.assign({},legacyExtras(item),{
-        id:item.id,type:"Underhåll",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"maintenance",item.responsiblePersonId||""),
-        title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
-        planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
-        budgetCategory:"Underhåll",estimatedCost:Number(item.cost)||0,investigationCost:0,phase:"",startDate:"",endDate:""
-      },orderFields(item)));
-    });
-    (data.driftIssues||[]).forEach(function(item){
-      pushLegacy(Object.assign({},legacyExtras(item),{
-        id:item.id,type:"Drift",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"driftIssue",item.responsiblePersonId||""),
-        title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
-        planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
-        budgetCategory:"Driftkostnader",estimatedCost:Number(item.estimatedCost)||0,investigationCost:0,phase:"",startDate:item.createdDate||"",endDate:item.targetDate||""
-      },orderFields(item)));
-    });
-    (data.wishes||[]).forEach(function(item){
-      pushLegacy(Object.assign({},legacyExtras(item),{
-        id:item.id,type:"Önskemål",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"wish",item.responsiblePersonId||""),
-        title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
-        planningYear:item.budgetYear||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
-        budgetCategory:item.budgetCategory||"Ej budget",estimatedCost:Number(item.estimatedCost)||0,investigationCost:0,phase:"",startDate:item.createdDate||"",endDate:item.targetDate||""
-      },orderFields(item)));
-    });
-    (data.investigations||[]).forEach(function(item){
-      pushLegacy(Object.assign({},legacyExtras(item),{
-        id:item.id,type:"Utredning",propertyId:item.propertyId||"",contractId:item.contractId||"",responsiblePersonId:assignedPersonId(data,item.id,"investigation",item.responsiblePersonId||""),
-        title:item.title||"",description:item.description||"",category:item.category||"",status:item.status||"",priority:item.priority||"",
-        planningYear:item.year||"",planningQuarter:item.planningQuarter||"",planningMonth:item.planningMonth||"",
-        budgetCategory:"Utredningar",estimatedCost:Number(item.cost)||0,investigationCost:0,phase:"",startDate:"",endDate:""
-      },orderFields(item)));
-    });
-    return rows;
-  }
-
-  function legacyActivityType(targetType) {
-    return {project:"Projekt",maintenance:"Underhåll",driftIssue:"Drift",wish:"Önskemål",investigation:"Utredning"}[targetType] || "";
-  }
   function canonicalizeModel(data) {
     data=data||{};
-    ["properties","objects","contracts","organizations","people","contacts","orders","activities","recurringCosts","maintenanceStatus","auditLog","sourceRegistry","importReview","documents"].forEach(function(key){ if(!Array.isArray(data[key])) data[key]=[]; });
-    if (!data.organizations.length && Array.isArray(data.legacyOrganizations)) data.organizations=data.legacyOrganizations.map(function(x){return clone(x);});
-
-    function ensureParty(name,type){ const label=String(name||"").trim();if(!label)return "";let p=data.organizations.find(function(x){return (!type||x.type===type)&&String(x.name||"").trim().toLowerCase()===label.toLowerCase();});if(!p){p={id:nextStableId("PART",data.organizations),name:label,type:type||"business",ownerClass:type==="owner"?"Extern":""};data.organizations.push(p);}return p.id; }
-    function validOwnerManager(personId, property){ const person=data.people.find(function(x){return x.id===personId;});const owner=data.organizations.find(function(x){return x.id===property?.ownerPartyId;});if(person && /\bJULDAM\b/i.test([person.name,person.sourceId,person.id].join(" ")) && !/stadsfastigheter/i.test(owner?.name||""))return false;return Boolean(person && property && property.ownerPartyId && person.organizationId === property.ownerPartyId); }
-    function isOurPerson(id){const p=data.people.find(function(x){return x.id===id;});if(!p)return false;if(!p.organizationId)return true;return data.organizations.find(function(x){return x.id===p.organizationId;})?.type==="our";}
-    function responsibilityRole(role){return /ansvar|projektledare|objektansvar/i.test(String(role||""));}
-    data.properties.forEach(function(p){if(p.owner&&!p.ownerPartyId)p.ownerPartyId=ensureParty(p.owner,"owner");if(!p.ownerPartyId&&p.ownerOrgId)p.ownerPartyId=p.ownerOrgId;if(p.owner&&!p.sourceOwner)p.sourceOwner=p.owner;if(p.manager&&!p.sourceManager)p.sourceManager=p.manager;delete p.ownerOrgId;delete p.owner;delete p.manager;});
-    data.properties.forEach(function(p){if(p.ownerResponsiblePersonId&&!validOwnerManager(p.ownerResponsiblePersonId,p))p.ownerResponsiblePersonId="";});
-    data.contracts.forEach(function(c){if(!c.tenantPartyId&&c.tenantOrgId)c.tenantPartyId=c.tenantOrgId;delete c.tenantOrgId;delete c.ownerOrgId;["notice","annualRent","annualAdditions","rentPerSqm","derivedRentBaseIndex","rentIndexCurrent","rentIndexYear","rentCalculationYear","calculatedAnnualRent","rentCalculationVariance","rentCalculationStatus","derivedAdditionBaseIndex","additionIndexCurrent","additionIndexYear","additionCalculationYear","calculatedAnnualAdditions","additionCalculationVariance","additionCalculationStatus"].forEach(function(k){delete c[k];});});
-    const canonicalActivities=activityRowsFromData(data),byActivity=new Map(data.activities.map(function(x){return[x.id,x];}));
-    canonicalActivities.forEach(function(a){if(a&&a.id&&!byActivity.has(a.id)){data.activities.push(a);byActivity.set(a.id,a);}});
-    data.maintenanceStatus.forEach(function(s){if(!s.actionNeed&&!(Number(s.estimatedCost)>0))return;const id="STATUS-ACT|"+s.id;if(byActivity.has(id))return;const a={id:id,type:"Underhåll",propertyId:s.propertyId||"",contractId:s.contractId||"",responsiblePersonId:s.responsiblePersonId||"",title:[s.category,s.actionNeed].filter(Boolean).join(" · ")||"Åtgärdsbehov",description:s.comment||"",category:s.category||"",status:/bra/i.test(String(s.status||""))?"Identifierad":s.status||"Identifierad",priority:s.priority||"",planningYear:s.budgetYear||"",planningQuarter:s.planningQuarter||"",planningMonth:s.planningMonth||"",budgetCategory:"Underhåll",includeInBudget:s.includeInBudget||"Ja",estimatedCost:Number(s.estimatedCost)||0,phase:"",startDate:s.assessedDate||"",endDate:"",sourceId:s.id,sourceSheet:"Status",sourceRow:""};data.activities.push(a);byActivity.set(id,a);});
-    function mapExternal(personId,targetType,targetId){if(!personId||!targetId||isOurPerson(personId))return false;const type=targetType==="object"?"contract":targetType;if(type==="property"){const p=data.properties.find(function(x){return x.id===targetId;});if(p&&!p.ownerResponsiblePersonId&&validOwnerManager(personId,p)){p.ownerResponsiblePersonId=personId;return true;}}if(type==="contract"){const c=data.contracts.find(function(x){return x.id===targetId;});if(c&&!c.businessResponsiblePersonId){c.businessResponsiblePersonId=personId;return true;}}return false;}
-    data.contacts.filter(function(x){return !x.toDate;}).forEach(function(c){mapExternal(c.personId,c.targetType,c.targetId);});
-    (data.assignments||[]).forEach(function(a){if(a.toDate)return;if(a.targetType==="property"&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const p=data.properties.find(function(x){return x.id===a.targetId;});if(p&&!p.responsiblePersonId)p.responsiblePersonId=a.personId;return;}if(a.targetType==="activity"&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const x=byActivity.get(a.targetId);if(x&&!x.responsiblePersonId)x.responsiblePersonId=a.personId;return;}if(a.targetType==="maintenanceStatus"&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const x=byActivity.get("STATUS-ACT|"+a.targetId);if(x&&!x.responsiblePersonId)x.responsiblePersonId=a.personId;return;}const lt=legacyActivityType(a.targetType);if(lt&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const x=byActivity.get(a.targetId);if(x&&!x.responsiblePersonId)x.responsiblePersonId=a.personId;return;}if((a.targetType==="object"||a.targetType==="contract")&&isOurPerson(a.personId)&&responsibilityRole(a.role)){const c=data.contracts.find(function(x){return x.id===a.targetId;});const p=c&&data.properties.find(function(x){return x.id===c.propertyId;});if(p&&!p.responsiblePersonId)p.responsiblePersonId=a.personId;return;}mapExternal(a.personId,a.targetType,a.targetId);});
-    const migratedInvestigations=[];
-    data.activities.forEach(function(a){
-      if(!a.includeInBudget&&a.budgetIncluded===false)a.includeInBudget="Nej";
-      else if(!a.includeInBudget&&a.budgetIncluded===true)a.includeInBudget="Ja";
-      delete a.budgetIncluded;
-      const investigationCost=Number(a.investigationCost)||0;
-      if(investigationCost>0){
-        const investigationId="MIG-UTR|"+a.id;
-        if(!byActivity.has(investigationId)){
-          migratedInvestigations.push({
-            id:investigationId,type:"Utredning",propertyId:a.propertyId||"",contractId:a.contractId||"",responsiblePersonId:a.responsiblePersonId||"",
-            title:(a.title||"Aktivitet")+" · utredning",description:"Migrerad separat utredningsbudget",category:a.category||"",
-            status:a.status||"Planerad",priority:a.priority||"",planningYear:a.planningYear||"",planningQuarter:a.planningQuarter||"",planningMonth:a.planningMonth||"",
-            budgetCategory:"Utredningar",includeInBudget:a.includeInBudget||"Ja",estimatedCost:investigationCost,phase:"Utredning",startDate:a.startDate||"",endDate:a.endDate||"",
-            sourceId:a.sourceId||a.id,sourceSheet:a.sourceSheet||"",sourceRow:a.sourceRow||""
-          });
+    ["properties","objects","contracts","organizations","people","assignments","orders",
+     "activities","recurringCosts","maintenanceStatus","auditLog","sourceRegistry",
+     "importReview","documents"].forEach(key=>{
+       if(!Array.isArray(data[key])) data[key]=[];
+     });
+    // Owner names in external Excel files may resolve to real organizations.
+    for(const property of data.properties){
+      if(!property.ownerPartyId && String(property.owner||"").trim()){
+        const name=String(property.owner).trim();
+        let party=data.organizations.find(x=>x.type==="owner"&&
+          String(x.name||"").toLowerCase()===name.toLowerCase());
+        if(!party){
+          party={id:nextStableId("PART",data.organizations),name,type:"owner",ownerClass:"Extern"};
+          data.organizations.push(party);
         }
+        property.ownerPartyId=party.id;
       }
-      if(a.contractId&&data.contracts.some(function(c){return c.id===a.contractId;}))delete a.propertyId;
-      const has=a.orderedAt||a.orderedBy||a.orderedByPersonId||a.supplier||a.orderReference||Number(a.orderedCost)||a.deliveryText||a.completedAt||Number(a.finalCost)||a.paymentStatus||a.paidAt||a.invoiceComment||a.ownerPays;
-      if(has){const id="ORD|"+a.id;if(!data.orders.some(function(x){return x.id===id;}))data.orders.push({id:id,activityId:a.id,orderedAt:a.orderedAt||"",orderedByPersonId:a.orderedByPersonId||"",supplier:a.supplier||"",orderReference:a.orderReference||"",orderedCost:Number(a.orderedCost)||0,deliveryText:a.deliveryText||"",completedAt:a.completedAt||"",finalCost:Number(a.finalCost)||0,paymentStatus:a.paymentStatus||"",paidAt:a.paidAt||"",invoiceComment:a.invoiceComment||"",ownerPays:a.ownerPays||""});}
-      ["orderedAt","orderedBy","orderedByPersonId","supplier","orderReference","orderedCost","deliveryText","completedAt","finalCost","paymentStatus","paidAt","invoiceComment","ownerPays","finalCosts","finalCostConfirmed","investigationCost"].forEach(function(k){delete a[k];});
-    });
-    migratedInvestigations.forEach(function(a){if(a.contractId&&data.contracts.some(function(c){return c.id===a.contractId;}))delete a.propertyId;data.activities.push(a);byActivity.set(a.id,a);});
-    (data.assignmentChanges||[]).forEach(function(ch){const id="legacy-assignment|"+String(ch.id||ch.changedAt||ch.targetId||"");if(data.auditLog.some(function(x){return x.id===id;}))return;data.auditLog.push({id:id,at:ch.changedAt||"",by:ch.changedBy||"Migrerad historik",collection:"responsibility",recordId:ch.targetId||"",action:"Ansvar ändrat",fields:[{field:"responsiblePersonId",from:ch.fromPersonId||"",to:ch.toPersonId||""}]});});
-    window.LokalblickBusinessModel?.normalize(data);
-    window.LokalblickResponsibility?.normalize(data);
-    delete data.contacts;["legacyOrganizations","projects","maintenance","investigations","driftIssues","wishes","assignmentChanges","legacyOperations"].forEach(function(k){data[k]=[];});data.maintenanceStatus.forEach(function(s){delete s.responsiblePersonId;});
-    function migrateBudgetLine(line){if(!line)return line;if(["project","maintenance","investigation","driftIssue","wish"].includes(line.sourceType))line.sourceType="activity";if(line.sourceType==="maintenanceStatus"){line.sourceType="activity";line.sourceId="STATUS-ACT|"+line.sourceId;}return line;}
-    (data.budgetPlans||[]).forEach(function(p){(p.lines||[]).forEach(migrateBudgetLine);(p.versions||[]).forEach(function(v){((v.snapshot||{}).lines||[]).forEach(migrateBudgetLine);});});
+    }
     window.LokalblickBusinessModel?.normalize(data);
     window.LokalblickResponsibility?.normalize(data);
     return data;
@@ -666,19 +531,9 @@
     AUXILIARY_SCHEMAS.forEach(function(schema) {
       data[schema.key] = workbook.Sheets[schema.sheet] ? schemaRowsFromSheet(workbook, schema) : [];
     });
-    LEGACY_SCHEMAS.forEach(function(schema) {
-      data[schema.key] = workbook.Sheets[schema.sheet] ? schemaRowsFromSheet(workbook, schema) : [];
-    });
     data.activities = workbook.Sheets[ACTIVITY_SCHEMA.sheet]
       ? schemaRowsFromSheet(workbook, ACTIVITY_SCHEMA)
       : [];
-    if (!(data.organizations||[]).length && (data.legacyOrganizations||[]).length)
-      data.organizations = data.legacyOrganizations.map(function(x){ return clone(x); });
-    const legacyStatusRows=normalizeRows(rowsFromSheet(workbook,"Status"));
-    (data.maintenanceStatus||[]).forEach(function(status,index){
-      const raw=legacyStatusRows[index]||{};
-      if(!status.responsiblePersonId && raw._responsiblePersonId)status.responsiblePersonId=raw._responsiblePersonId;
-    });
     ensureStableIds(data);
     resolveHumanRelations(data);
 
