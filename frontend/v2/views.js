@@ -1,3 +1,4 @@
+import {isoDate} from "./date-format.js";
 import {fieldCaption} from "./field-labels.js";
 import {portfolioDashboard, buildPortfolioInsights} from "./portfolio-dashboard.js";
 import { scope, responsible, kinds, bulkEligible } from "./model.js";
@@ -287,7 +288,7 @@ function activityRows(data, items) {
     const property = propertyById(data, x.propertyId);
     const notes=(data.auditLog||[]).filter(h=>h.collection==="activities"&&String(h.recordId)===String(x.record.id)&&h.action==="Journalanteckning").sort((a,b)=>String(b.at||"").localeCompare(String(a.at||"")));
     const latest=notes[0];
-    const date=latest?.at&&!Number.isNaN(Date.parse(latest.at))?new Date(latest.at).toLocaleDateString("sv-SE"):null;
+    const date=latest?.at&&!Number.isNaN(Date.parse(latest.at))?isoDate(latest.at):null;
     return row([
       `<strong><button type="button" class="text-button" data-edit="activities" data-id="${esc(x.record.id)}">${esc(x.title)}</button></strong><small>${esc(x.label)} · <button type="button" class="activity-note-link" data-open-activity-journal="${esc(x.record.id)}">Noteringar (${notes.length})${date?" · "+date:""}</button></small>`,
       esc(propertyDesignation(property) || "–"),
