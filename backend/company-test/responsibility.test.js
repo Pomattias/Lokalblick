@@ -6,11 +6,11 @@ import path from 'node:path';
 import {LokalblickRepository} from '../company/data-repository.js';
 const model=globalThis.LokalblickResponsibility;
 async function repository(t){const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lokalblick-ansvar-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));const dataPath=path.join(dir,'data.json'),core={properties:[{id:'p',address:'Testgatan',designation:'Test 1'}],contracts:[{id:'c',propertyId:'p',number:'C1'}]};const sourceAdapter={loadCore:async()=>structuredClone(core),loadCoordinates:async()=>[]};return {repo:await new LokalblickRepository({dataPath,sourceAdapter}).initialize(),dataPath,sourceAdapter};}
-test('company responsibility survives save, source refresh and restart with local pre-migration backup',async t=>{
+test('company responsibility survives save, source refresh and restart without legacy conversion',async t=>{
  let {repo,dataPath,sourceAdapter}=await repository(t);await repo.create('organizations',{id:'our',name:'Vi',type:'our'});await repo.create('people',{id:'u1',name:'Första',organizationId:'our'});await repo.create('people',{id:'u2',name:'Andra',organizationId:'our'});
  let d=await repo.bootstrap();model.change(d,{targetType:'property',targetId:'p',personId:'u1',fromDate:'2025-01-01',actor:'Test'});await repo.saveWorkspace(d);d=await repo.bootstrap();model.change(d,{targetType:'property',targetId:'p',personId:'u2',fromDate:'2026-10-12',actor:'Test'});await repo.saveWorkspace(d);const history=structuredClone(d.assignments);
- await repo.refreshSource();repo=await new LokalblickRepository({dataPath,sourceAdapter}).initialize();const out=await repo.bootstrap();assert.deepEqual(out.assignments,history);assert.equal(out.properties[0].responsiblePersonId,'u2');assert.ok((await fs.stat(dataPath+'.before-responsibility-v1.bak')).isFile());
- const old=await fs.readFile(dataPath+'.before-responsibility-v1.bak','utf8');await repo.initialize();assert.equal(await fs.readFile(dataPath+'.before-responsibility-v1.bak','utf8'),old);
+ await repo.refreshSource();repo=await new LokalblickRepository({dataPath,sourceAdapter}).initialize();const out=await repo.bootstrap();assert.deepEqual(out.assignments,history);assert.equal(out.properties[0].responsiblePersonId,'u2');assert.equal(out.properties[0].address,'Testgatan');
+ assert.equal((await repo.get('people','u2')).id,'u2');
 });
 test('backend rejects overlaps, dangling references and history removal without partial writes',async t=>{
  const {repo}=await repository(t);await repo.create('people',{id:'u1',name:'Person'});let d=await repo.bootstrap();model.change(d,{targetType:'property',targetId:'p',personId:'u1',fromDate:'2026-01-01'});await repo.saveWorkspace(d);const stable=await repo.bootstrap();
