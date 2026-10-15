@@ -123,21 +123,50 @@ test("journal read and edit share the same second row on mobile",()=>{
 });
 
 
-test("mobile editing uses a non-layout-changing perimeter frame only in active mode",()=>{
+test("mobile editing uses a real overlay and keeps normal-weight text",()=>{
   const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
-  assert.ok(app.includes('document.querySelector("#editor-root")?.classList.toggle("editor-frame-active",!editor.readOnly)'));
-  assert.ok(app.includes('root.classList.toggle("editor-frame-active",!id)'));
-  assert.ok(app.includes('root?.classList.remove("editor-frame-active")'),
-    "Stäng must remove the frame");
-  assert.ok(!/toDataURL\(|<canvas|html2canvas/.test(app.slice(app.indexOf("function setEditorReadMode"),app.indexOf("function updateEditorActions"))),
-    "Editing must keep native HTML values and controls");
-  assert.ok(css.includes('#editor-root.editor-frame-active::after'));
-  const frame=css.slice(css.lastIndexOf('/* Shared mobile edit frame'));
-  assert.ok(frame.includes("max-width:700px"));
-  assert.ok(frame.includes('position:fixed'));
-  assert.ok(frame.includes('pointer-events:none'));
-  assert.ok(frame.includes('border:2px solid'));
-  assert.ok(!frame.includes("transform:")&&!frame.includes("zoom:")&&!frame.includes("padding:"),
-    "Frame must never affect editor geometry or scale");
+  const rule=css.slice(css.lastIndexOf("/* Redigera: native HTML"));
+  assert.ok(app.includes('function syncEditorFrame(active)'));
+  assert.ok(app.includes('frame=document.createElement("div")'));
+  assert.ok(app.includes('body.appendChild(frame)'));
+  assert.ok(app.includes('syncEditorFrame(!editor.readOnly)'));
+  assert.ok(app.includes('syncEditorFrame(!id)'));
+  assert.ok(app.includes('syncEditorFrame(false)'));
+  assert.ok(rule.includes('body.editor-frame-active > #editor-edit-frame'));
+  assert.ok(rule.includes('position:fixed!important'));
+  assert.ok(rule.includes('z-index:2147483000!important'));
+  assert.ok(rule.includes('pointer-events:none!important'));
+  assert.ok(rule.includes('border:3px solid #177b5d'));
+  assert.ok(rule.includes('.issue-field-value'));
+  assert.ok(rule.includes('.editor-mode-value'));
+  assert.ok(rule.includes('font-weight:400!important'));
+  assert.ok(!rule.includes('toDataURL')&&!rule.includes('html2canvas'));
+});
+
+test("editing frame lifecycle creates one real element and cleans up on exit",()=>{
+  const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
+  const expr=app.slice(app.indexOf("function syncEditorFrame(active)"),app.indexOf("function setEditorReadMode("));
+  const oldDocument=globalThis.document;
+  const elements=new Map();
+  const classes=new Set();
+  const body={classList:{
+    add:v=>classes.add(v),
+    remove:v=>classes.delete(v)
+  },appendChild(el){elements.set(el.id,el);}};
+  globalThis.document={
+    body,
+    getElementById(id){return elements.get(id)||null;},
+    createElement(){return {id:"",attrs:{},setAttribute(k,v){this.attrs[k]=v;},remove(){elements.delete(this.id);}};}
+  };
+  try{
+    const sync=new Function("document",expr+"return syncEditorFrame;")(globalThis.document);
+    sync(true);sync(true);
+    assert.equal(elements.size,1);
+    assert.equal(elements.get("editor-edit-frame")?.attrs["aria-hidden"],"true");
+    assert.ok(classes.has("editor-frame-active"));
+    sync(false);
+    assert.equal(elements.size,0);
+    assert.ok(!classes.has("editor-frame-active"));
+  }finally{globalThis.document=oldDocument;}
 });

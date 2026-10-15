@@ -797,6 +797,25 @@ function editorForm(){return document.querySelector("#editor-root #edit-form");}
 function hasUnsavedEditorChanges(){
   return !!editor && editorHasUnsavedChanges(editorForm(),editor.initialSnapshot);
 }
+/* Render the editing outline as a REAL fixed DOM overlay on <body>.
+   A pseudo-element on #editor-root can be clipped/hidden by fixed iOS drawers. */
+function syncEditorFrame(active) {
+  const body=document.body;
+  let frame=document.getElementById("editor-edit-frame");
+  if(active) {
+    if(!frame) {
+      frame=document.createElement("div");
+      frame.id="editor-edit-frame";
+      frame.setAttribute("aria-hidden","true");
+      body.appendChild(frame);
+    }
+    body.classList.add("editor-frame-active");
+  } else {
+    body.classList.remove("editor-frame-active");
+    frame?.remove();
+  }
+}
+
 function setEditorReadMode(readOnly){
   const form=editorForm();
   if(!form||!editor||!editor.id)return;
@@ -809,7 +828,7 @@ function setEditorReadMode(readOnly){
   form.classList.toggle("editor-readonly",editor.readOnly);
   form.classList.toggle("editor-editing",!editor.readOnly);
   // Frame only the mobile editor during active editing; no new DOM or re-layout.
-  document.querySelector("#editor-root")?.classList.toggle("editor-frame-active",!editor.readOnly);
+  syncEditorFrame(!editor.readOnly);
   if(editor.col==="activities"){
     // Same cards and grid in both modes. Only reveal/hide the control in each slot.
     form.querySelectorAll(".issue-mode-field").forEach(slot=>{
@@ -878,7 +897,7 @@ function closeEditor({force=false}={}){
     propertyMapCleanup = null;
   }
   const root=document.querySelector("#editor-root");
-  root?.classList.remove("editor-frame-active");
+  syncEditorFrame(false);
   if(root)root.innerHTML = "";
   editor = null;
   document.body.classList.remove("editing");
@@ -921,7 +940,7 @@ function openEditor(col, id, defaults = {}) {
   const root = document.querySelector("#editor-root");
   root.innerHTML = result.html;
   // New records open immediately in editing mode; existing records open in Visa.
-  root.classList.toggle("editor-frame-active",!id);
+  syncEditorFrame(!id);
   const typeSelect=root.querySelector('[data-assignment-type]');
   if(typeSelect)typeSelect.onchange=()=>{
     const type=typeSelect.value,collection=globalThis.LokalblickResponsibility.types[type];
