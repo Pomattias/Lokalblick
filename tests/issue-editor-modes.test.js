@@ -5,7 +5,7 @@ import "../frontend/domain/calculations.js";
 import {renderIssueEditor} from "../frontend/v2/issue-editor.js";
 
 const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
-const css=readFileSync(new URL("../frontend/v2/design-system.css",import.meta.url),"utf8");
+const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
 
 const stubNode=(name="")=>({
  name,hidden:false,disabled:false,dataset:{},
