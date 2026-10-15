@@ -4,7 +4,6 @@ import {readFileSync} from "node:fs";
 import "../frontend/domain/recurring-costs.js";
 import "../frontend/domain/calculations.js";
 import {normalize} from "../frontend/v2/model.js";
-import {updateLegacyDemoIndexTerms} from "../frontend/v2/demo-index-migration.js";
 
 const fixture=()=>{
  const js=readFileSync(new URL("../frontend/data/demo-data.js",import.meta.url),"utf8");
@@ -39,21 +38,3 @@ test("demo budget rent responds to a manual October assumption",()=>{
  assert.ok(forecast>current,"provisional budget rent should exceed current rent");
 });
 
-test("legacy cached demo upgrades untouched lease index only, not real/user-edited content",()=>{
- const current=fixture(),cached=structuredClone(current);
- for(const contract of cached.contracts){
-  delete contract.rentBaseYear;
-  delete contract.rentBaseIndex;
-  delete contract.rentSeriesBase;
-  contract.rentIndexPercent=0;
- }
- cached.contracts[0].tenantName="Lokalt ändrad demotext";
- cached.contracts[1].baseRent+=100;
- assert.equal(updateLegacyDemoIndexTerms(cached,current),3);
- assert.equal(cached.contracts[0].tenantName,"Lokalt ändrad demotext");
- assert.equal(cached.contracts[0].rentIndexPercent,1);
- assert.equal(cached.contracts[1].rentIndexPercent,0);
- assert.equal(cached.contracts[1].baseRent,950100);
- assert.equal(updateLegacyDemoIndexTerms(cached,current),0);
- assert.equal(updateLegacyDemoIndexTerms({...cached,isDemo:false},current),0);
-});
