@@ -12,7 +12,7 @@ const issue={id:"a",title:"Takrenovering",type:"Underhåll",category:"Ytskikt",p
 test("issue name is the heading and first editable field",()=>{
   const html=renderIssueEditor(data,issue,"a");
   assert.match(html,/class="issue-title-heading">Takrenovering/);
-  assert.match(html,/class="issue-title-field"/);
+  assert.match(html,/class="issue-edit-title"/);
   assert.ok(html.indexOf('name="title"') < html.indexOf('name="type"'));
   assert.match(html,/Ärendenamn/);
   assert.match(html,/Kopplat till/);
