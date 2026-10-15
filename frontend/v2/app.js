@@ -968,6 +968,9 @@ function openEditor(col, id, defaults = {}) {
   };
   root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,globalThis.LokalblickSourceService.schemas));
   const form=root.querySelector("#edit-form");
+  // New property/object/contract forms previously had no edit-state class,
+  // so the perimeter disappeared when the observer refreshed the DOM.
+  if(form&&!id)form.classList.add("editor-editing");
   if(form&&id&&!form.querySelector("[data-editor-activate]")){
     const closeButton=form.querySelector("[data-editor-close]");
     if(closeButton){
