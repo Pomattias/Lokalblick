@@ -138,118 +138,35 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   assert.equal((await repository.get("people", person.id)).id, person.id);
 });
 
-test("legacy company store migrates once to explicit responsibility, activities and orders", async (t) => {
-  const directory = await tempDirectory();
-  t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const dataPath = path.join(directory, "legacy-data.json");
-  const source = parseLebWorkbook(syntheticWorkbook());
-  await fs.writeFile(
-    dataPath,
-    JSON.stringify(
-      {
-        version: 1,
-        entities: {
-          organizations: [
-            { id: "ORG-OUR", name: "Vår organisation", type: "our" },
-            { id: "ORG-OWNER", name: "Fastighetsägare", type: "owner" },
-          ],
-          people: [
-            { id: "P-INTERN", name: "Intern ansvarig", organizationId: "ORG-OUR" },
-            { id: "P-EXTERN", name: "Extern förvaltare", organizationId: "ORG-OWNER" },
-          ],
-          assignments: [
-            {
-              id: "A1",
-              personId: "P-INTERN",
-              targetType: "object",
-              targetId: source.contracts[0].id,
-              role: "Objektansvarig",
-              toDate: "",
-            },
-            {
-              id: "A2",
-              personId: "P-INTERN",
-              targetType: "maintenance",
-              targetId: "UH1",
-              role: "Ansvarig",
-              toDate: "",
-            },
-            {
-              id: "A3",
-              personId: "P-EXTERN",
-              targetType: "property",
-              targetId: "PROP-1",
-              role: "Fastighetsförvaltare",
-              toDate: "",
-            },
-          ],
-          projects: [],
-          maintenance: [
-            {
-              id: "UH1",
-              propertyId: "PROP-1",
-              title: "Tak",
-              year: 2027,
-              cost: 100000,
-              orderedAt: "2026-10-01",
-              orderedByPersonId: "P-INTERN",
-              supplier: "Syntetisk leverantör",
-              orderedCost: 90000,
-              finalCost: 88000,
-            },
-          ],
-          maintenanceStatus: [],
-          driftCosts: [],
-          operations: [],
-          driftIssues: [],
-          wishes: [],
-          investigations: [],
-          budgetData: [],
-          coordinates: [],
-          contractOverlays: [],
-          propertyOverlays: [],
-        },
-        deleted: { properties: [], contracts: [] },
-        updatedAt: null,
-      },
-      null,
-      2,
-    ),
-  );
-  const repository = await new LokalblickRepository({
-    sourceAdapter: {
-      loadCore: async () => source,
-      loadCoordinates: async () => [],
-    },
-    dataPath,
+test("new company store accepts only canonical activities and orders; no legacy conversion", async t => {
+  const directory=await tempDirectory();
+  t.after(()=>fs.rm(directory,{recursive:true,force:true}));
+  const dataPath=path.join(directory,"data.json");
+  const source=parseLebWorkbook(syntheticWorkbook());
+  const repository=await new LokalblickRepository({
+    sourceAdapter:{loadCore:async()=>source,loadCoordinates:async()=>[]},
+    dataPath
   }).initialize();
-  const workspace = await repository.bootstrap();
-  assert.equal(
-    workspace.properties.find((x) => x.id === "PROP-1").responsiblePersonId,
-    "P-INTERN",
-  );
-  assert.equal(workspace.activities.length, 1);
-  assert.equal(workspace.activities[0].id, "UH1");
-  assert.equal(workspace.activities[0].type, "Underhåll");
-  assert.equal(workspace.activities[0].responsiblePersonId, "P-INTERN");
-  assert.equal(Object.hasOwn(workspace.activities[0], "orderedCost"), false);
-  assert.equal(
-    workspace.properties.find((x) => x.id === "PROP-1").ownerResponsiblePersonId,
-    "P-EXTERN",
-  );
-  assert.equal(workspace.orders.length, 1);
-  assert.equal(workspace.orders[0].activityId, "UH1");
-  assert.equal(workspace.orders[0].orderedByPersonId, "P-INTERN");
-  assert.equal(workspace.orders[0].finalCost, 88000);
-  assert.equal(Object.hasOwn(workspace, "contacts"), false);
-  const stored = JSON.parse(await fs.readFile(dataPath, "utf8"));
-  assert.equal(stored.version, 4);
-  assert.equal(Object.hasOwn(stored.entities, "contacts"), false);
-  assert.ok(stored.entities.assignments.some(a=>a.id==="A1"));
-  assert.ok(stored.entities.assignments.some(a=>a.id==="A2"));
-  assert.equal(Object.hasOwn(stored.entities, "maintenance"), false);
-  assert.equal(stored.entities.activities.length, 1);
-  assert.equal(stored.entities.orders.length, 1);
+  const activity={id:"CASE-NEW",type:"Underhåll",propertyId:"PROP-1",title:"Tak",
+    estimatedCost:100000,status:"Planerad"};
+  const order={id:"ORD-NEW",activityId:"CASE-NEW",supplier:"Syntetisk leverantör",
+    orderedCost:90000,finalCost:88000};
+  await repository.create("activities",activity);
+  await repository.create("orders",order);
+  const second=await new LokalblickRepository({
+    sourceAdapter:{loadCore:async()=>source,loadCoordinates:async()=>[]},
+    dataPath
+  }).initialize();
+  const workspace=await second.bootstrap();
+  assert.equal(workspace.activities.length,1);
+  assert.equal(workspace.activities[0].id,"CASE-NEW");
+  assert.equal(workspace.orders.length,1);
+  assert.equal(workspace.orders[0].activityId,"CASE-NEW");
+  const stored=JSON.parse(await fs.readFile(dataPath,"utf8"));
+  assert.equal(stored.entities.activities.length,1);
+  assert.equal(stored.entities.orders.length,1);
+  for(const obsolete of ["contacts","projects","maintenance","driftCosts","driftIssues","wishes","investigations"])
+    assert.equal(Object.hasOwn(stored.entities,obsolete),false,obsolete);
 });
 
 test("workspace rejects invalid data and LEB core cannot be updated", async (t) => {
