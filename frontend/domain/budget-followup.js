@@ -1,8 +1,8 @@
 (function(root) {
   const copy = x => JSON.parse(JSON.stringify(x));
-  const actionTypes = new Set(['activity','project','maintenance','investigation','maintenanceStatus','driftIssue','wish']);
-  function collection(row) { return row.sourceType==='contract'?'contracts':row.sourceType==='operation'?'operations':actionTypes.has(row.sourceType)?'activities':null; }
-  function key(row) { return [actionTypes.has(row.sourceType)?'activity':row.sourceType || 'legacy',row.sourceId || row.contractId || row.source,row.category,row.sourceType ? '' : row.sub || ''].join('|'); }
+  const actionTypes = new Set(['activity']);
+  function collection(row) { return row.sourceType==='contract'?'contracts':row.sourceType==='activity'?'activities':row.sourceType==='recurringCost'?'recurringCosts':null; }
+  function key(row) { return [row.sourceType||'manual',row.sourceId||row.contractId||row.source,row.category,row.sourceType?'':row.sub||''].join('|'); }
   function record(data,row) { const col=collection(row); return col ? (data[col]||[]).find(x=>String(x.id)===String(row.sourceId)) : null; }
   function finalCost(data,row,year) {
     if(row.sourceType==='contract') return null;
