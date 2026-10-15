@@ -7,7 +7,7 @@ import { readEditor } from "../frontend/v2/editor.js";
 const contract = {
   id:"c1", number:"L-100", propertyId:"p1", businessPartyId:"tenant", tenantName:"Hyresgäst AB", unitId:"VARDBO",
   businessResponsiblePersonId:"person1", category:"ÄBO Äldreboende",
-  area:100, source:"SF", use:"VÅRDBO", annualContractDrift:12000,
+  area:100, source:"SF", use:"VÅRDBO",
   start:"2024-01-01", end:"2028-12-31",
   noticePeriodMonths:9, renewalPeriodMonths:36,
   baseRent:100000, rentBaseYear:2020, rentBaseIndex:300, rentIndexPercent:.8,
@@ -78,7 +78,7 @@ test("the edit merge preserves currently imported values until safe backend migr
     assert.equal(updated.tenantName,"Fastighetsförvaltning AB");
     assert.equal(updated.unitId,"ORDBO");
     assert.equal(updated.businessPartyId,"tenant");
-    assert.equal(updated.annualContractDrift,12000);
+    assert.equal(Object.hasOwn(updated,"annualContractDrift"),false);
     assert.equal(updated.source,"SF");
   } finally { globalThis.FormData=original; }
 });
@@ -97,29 +97,12 @@ test("contractual extension rolls at notice deadline and does not rewrite signed
   assert.equal(unknown.nextEnd,"");
 });
 
-test("legacy media becomes editable tillägg and tax remains a separate annual amount",()=>{
- const legacy={...contract,baseAdditions:0,additionIndexPercent:"",annualContractDrift:460000,annualPropertyTax:15000};
- const html=renderContractEditor(data,legacy,"c1");
- assert.match(html,/name="baseAdditions"[^>]*value="460000"/);
- assert.match(html,/name="additionIndexPercent"[^>]*value="0"/);
+test("contract edit shows contractual supplement and tax without old Media alias",()=>{
+ const record={...contract,annualPropertyTax:15000};
+ const html=renderContractEditor(data,record,"c1");
+ assert.match(html,/name="baseAdditions"[^>]*value="20000"/);
  assert.match(html,/name="annualPropertyTax"[^>]*value="15000"/);
  assert.doesNotMatch(html,/name="annualContractDrift"/);
-});
-
-test("editing an old Media field migrates it to one non-indexed addition without double count",()=>{
- const legacy={...contract,baseAdditions:0,additionIndexPercent:"",annualContractDrift:460000,annualPropertyTax:15000};
- const old=globalThis.FormData;
- globalThis.FormData=class {forEach(cb){cb("460000","baseAdditions");cb("0","additionIndexPercent");cb("15000","annualPropertyTax");}};
- try {
-   const updated=readEditor({dataset:{collection:"contracts"}},legacy);
-   assert.equal(updated.baseAdditions,460000);
-   assert.equal(updated.additionIndexPercent,0);
-   assert.equal(updated.annualContractDrift,0);
-   assert.equal(updated.annualPropertyTax,15000);
-   const v=globalThis.LokalblickCalculations.annualValues(updated,2026,0,data.indexSeries);
-   assert.equal(v.addition.amount,460000);
-   assert.equal(v.tax,15000);
- }finally{globalThis.FormData=old;}
 });
 
 test("new contract can pick property only when not already bound", () => {
