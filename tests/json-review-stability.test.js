@@ -15,7 +15,7 @@ function adapter() {
 }
 test("property annual cost is calculated from contract periods and never saved on properties",()=>{
  const data=normalize({isDemo:false,properties:[{id:"p",address:"Exempelgatan 1",designation:"TEST 1"}],contracts:[
-  {id:"c1",propertyId:"p",baseRent:120000,rentIndexPercent:0,baseAdditions:12000,additionIndexPercent:0,annualContractDrift:6000,start:"2026-07-01",end:"2026-12-31"},
+  {id:"c1",propertyId:"p",baseRent:120000,rentIndexPercent:0,baseAdditions:12000,additionIndexPercent:0,start:"2026-07-01",end:"2026-12-31"},
   {id:"c2",propertyId:"p",baseRent:70000,rentIndexPercent:0,end:"2025-12-31"}]});
  const value=C.propertyAnnualCost(data,"p",2026);
  assert.ok(Math.abs(value.annualCost-132000*184/365)<0.001);
@@ -24,6 +24,7 @@ test("property annual cost is calculated from contract periods and never saved o
  const html=overview(data,{propertyId:"",unit:"",owner:"",person:"",q:""},{perspective:"Fastigheter",year:2026,contractId:""});
  assert.match(html,/Årskostnad 2026/);
  assert.equal(data.properties[0].annualCost,undefined);
+ assert.equal(Object.hasOwn(data.contracts[0],"annualContractDrift"),false);
 });
 test("distinct numbered orders stay separate and repeated import does not duplicate",()=>{
  const wb=XLSX.utils.book_new();
