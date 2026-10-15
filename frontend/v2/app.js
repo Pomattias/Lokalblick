@@ -1,6 +1,7 @@
 import {businessList} from './business-editor.js';
 import {activityJournalHtml,appendActivityNote} from "./activity-journal.js";
 import {editorSnapshot,editorHasUnsavedChanges} from "./editor-safety.js";
+import {prepareEditorModeFields,refreshEditorModeFields} from "./editor-mode-fields.js";
 import {relationshipView,bindRelationshipView} from "./relationships.js";
 import {
   collections,
@@ -800,6 +801,11 @@ function setEditorReadMode(readOnly){
   const form=editorForm();
   if(!form||!editor||!editor.id)return;
   editor.readOnly=Boolean(readOnly);
+  // Prepare the text counterparts once; keep all original form controls mounted.
+  if(editor.col!=="activities"){
+    prepareEditorModeFields(form);
+    if(editor.readOnly)refreshEditorModeFields(form);
+  }
   form.classList.toggle("editor-readonly",editor.readOnly);
   form.classList.toggle("editor-editing",!editor.readOnly);
   if(editor.col==="activities"){
@@ -833,7 +839,13 @@ function setEditorReadMode(readOnly){
     field.disabled=editor.readOnly || field.dataset.editorOriginalDisabled==="true";
   }
   const activate=form.querySelector("[data-editor-activate]");
-  if(activate)activate.hidden=!editor.readOnly;
+  if(activate){
+    // Reserve the header action's footprint so switching modes cannot move "Stäng".
+    activate.hidden=false;
+    activate.classList.toggle("editor-activate-placeholder",!editor.readOnly);
+    activate.setAttribute("aria-hidden",editor.readOnly?"false":"true");
+    activate.tabIndex=editor.readOnly?0:-1;
+  }
   const footer=form.querySelector(".editor-actions");
   if(footer)footer.hidden=editor.readOnly;
   updateEditorActions();
@@ -853,7 +865,7 @@ function updateEditorActions(){
     status.dataset.dirty=dirty?"true":"false";
   }
   const undo=form.querySelector("[data-editor-undo]");
-  if(undo)undo.disabled=editor.col==="activities" ? false : !dirty;
+  if(undo)undo.disabled=false; // Always allow returning to Visa without changing layout.
   const save=form.querySelector('.issue-heading-actions button[type="submit"], .editor-actions button[type="submit"]');
   if(save)save.disabled=!dirty&&!!editor.id;
 }
@@ -945,6 +957,7 @@ function openEditor(col, id, defaults = {}) {
     } else footer.prepend(status);
   }
   if(form){
+    if(col!=="activities")prepareEditorModeFields(form);
     editor.initialSnapshot=editorSnapshot(form);
     root.addEventListener("input",updateEditorActions);
     root.addEventListener("change",updateEditorActions);
@@ -955,8 +968,7 @@ function openEditor(col, id, defaults = {}) {
   if (col === "properties") {
     propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
   }
-  // Do not open the iOS keyboard automatically when creating a case.
-  if(id&&col!=="activities")root.querySelector("[data-editor-activate]")?.focus({preventScroll:true});
+  // Preserve scroll and keyboard state when opening any existing record.
 }
 function openPropertyPersonDialog(button) {
   if (!editor || editor.col !== "properties") return;
@@ -1172,19 +1184,17 @@ document.addEventListener("click", (event) =>
     }
     if (b.hasAttribute("data-editor-activate")) {
       if(!editor)return;
-      // For cases, unlocking fields must not move the page or open the iOS keyboard.
+      // Unlock in place without moving the page or opening the iOS keyboard.
       setEditorReadMode(false);
-      if(editor.col!=="activities")
-        editorForm()?.querySelector('input[name="title"],input[name="name"],input[name="number"],select[name="type"]')?.focus();
       return;
     }
     if (b.hasAttribute("data-editor-undo")) {
       if(!editor)return;
-      if(editor.col==="activities"&&!hasUnsavedEditorChanges()){
+      if(!hasUnsavedEditorChanges()){
+        // Undo is always a path back to exactly the same read layout.
         setEditorReadMode(true);
         return;
       }
-      if(!hasUnsavedEditorChanges())return;
       const {col,id,defaults}=editor;
       closeEditor({force:true});
       openEditor(col,id,defaults);
