@@ -1169,7 +1169,6 @@ details .table-wrap {
 /* Dated journal is part of each activity, not a separate legacy comments register. */
 .issue-editor .activity-journal { margin:10px 0; padding:12px; background:#f7faf9; border:1px solid var(--line,#dbe4e0); border-radius:9px; }
 .issue-editor .activity-journal-heading { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:3px 10px; }
-.issue-editor .activity-journal-heading h3 { margin:0 0 9px; }
 .issue-editor .activity-journal-heading span { font-size:11px; color:var(--muted,#65746d); }
 .issue-editor .activity-journal-compose { display:grid; gap:6px; font-size:12px; font-weight:600; }
 .issue-editor .activity-journal-compose textarea { box-sizing:border-box; display:block; width:100%; min-width:0; min-height:72px; font:inherit; font-weight:400; resize:vertical; border:1px solid var(--line,#cbd5d1); border-radius:7px; padding:10px; background:white; }
@@ -1219,7 +1218,6 @@ details .table-wrap {
  .editor .section-title h2 { margin:2px 0; line-height:1.14; font-size:19px; }
  .issue-editor { padding:11px 12px 18px; overflow-x:hidden; }
  .issue-editor .issue-title-heading { font-size:20px; }
- .issue-editor .issue-section { padding:9px 0; }
  .issue-editor .issue-section h3 { font-size:13px; margin-bottom:7px; }
  .issue-editor .issue-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 9px; }
  .issue-editor .issue-title-field { grid-column:1/-1; }
@@ -1340,10 +1338,6 @@ details .table-wrap {
 .issue-editor .activity-journal-compose-row .activity-journal-compose { flex:1; min-width:0; display:block; }
 .issue-editor .activity-journal-compose-row textarea { min-height:46px; height:46px; }
 .issue-editor .activity-journal-compose-row button { flex:none; align-self:stretch; padding:6px 11px; }
-.issue-editor .activity-journal-groups { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.issue-editor .activity-journal-group { min-width:0; }
-.issue-editor .activity-journal-group h4 { font-size:12px; margin:6px 0 4px; }
-.issue-editor .activity-journal-entry { padding:5px 7px; margin:4px 0; }
 .issue-editor .activity-journal-entries { max-height:none; overflow:visible; }
 .issue-editor .activity-journal-group details { margin:3px 0; }
 .issue-editor .activity-journal-group details summary { font-size:11px; }
@@ -1440,7 +1434,6 @@ details .table-wrap {
  .issue-editor .section-title{position:sticky;top:-10px;z-index:2;background:white;align-items:center;padding:7px 0 8px;margin:0 0 7px;}
  .issue-editor .section-title small{font-size:10px;}
  .issue-editor .section-title .issue-title-heading{font-size:18px;}
- .issue-editor .issue-section{padding:7px 0;}
  .issue-editor .issue-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 8px;}
  .issue-editor .issue-field{min-width:0;}
  .issue-editor .issue-field input,.issue-editor .issue-field select,.issue-editor .issue-field textarea{
@@ -1492,7 +1485,6 @@ details .table-wrap {
 .issue-editor .issue-main-section .issue-description,
 .issue-editor .issue-main-section .issue-compact-meta { grid-column:1/-1; }
 .issue-editor .issue-main-section .issue-description { display:grid; margin:0;gap:3px; }
-.issue-editor .issue-main-section .issue-owner-row { grid-column:1/-1; }
 .issue-editor .issue-compact-meta { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px; }
 .issue-editor #edit-form.editor-readonly .issue-main-section .issue-title-field { display:none; }
 .issue-editor #edit-form.editor-readonly .issue-main-section .issue-home-row { margin:0; }
@@ -2164,9 +2156,6 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   min-height:32px;height:auto;padding:5px 8px;border-radius:var(--ui-radius-md);
   font-size:13px;font-weight:600;line-height:1.3;
 }
-.issue-editor #edit-form .issue-mode-field .issue-field-control textarea {
-  min-height:44px;resize:vertical;font-size:13px;
-}
 .issue-editor #edit-form:not(.editor-readonly) .issue-mode-field .issue-field-value {display:none!important;}
 .issue-editor #edit-form.editor-readonly .issue-mode-field .issue-field-control {display:none!important;}
 .issue-editor #edit-form .issue-description-row .issue-mode-field {
@@ -2237,10 +2226,6 @@ body[data-view="overview"] .dashboard-text-link.ui-button:hover{
   .issue-editor #edit-form .issue-history-label {grid-column:1;grid-row:1;}
   .issue-editor #edit-form .issue-history-card .activity-journal-history {grid-column:2;grid-row:1;}
   .issue-editor #edit-form .issue-history-value {grid-column:1;grid-row:2;}
-  .issue-editor #edit-form .issue-cost-edit {grid-column:1;grid-row:2;}
-  .issue-editor #edit-form .issue-enhancing-edit,
-  .issue-editor #edit-form .journal-cost-enhancing {grid-column:2;grid-row:2;}
-  .issue-editor #edit-form .issue-dates-edit {grid-column:1/-1;grid-row:2;}
   .issue-editor #edit-form .issue-history-card .activity-journal-history[open] {
     grid-column:1/-1;grid-row:3;
   }
@@ -2611,7 +2596,6 @@ body[data-view="overview"] .portfolio-panels h3{margin:0 0 var(--ui-space-3);fon
  body[data-view="overview"] .portfolio-heading h2{font-size:16px;}
  body[data-view="overview"] .portfolio-panels{gap:8px;}
  body[data-view="overview"] .portfolio-panels>.dashboard-panel{padding:10px 11px;border-radius:var(--ui-radius-md);}
- body[data-view="overview"] .portfolio-rent-layout{grid-template-columns:minmax(110px,39%) minmax(0,1fr);gap:7px;}
  .portfolio-legend-item{gap:4px;padding:5px 2px;}
  .portfolio-legend-title{font-size:11px;}
  .portfolio-legend-item strong{font-size:10px;}
@@ -2666,8 +2650,6 @@ body[data-view="budget"] .budget-about-body p{margin:5px 0 8px;font-size:12px;li
 body[data-view="budget"] .budget-controls-compact{padding:8px 10px;gap:8px;flex-wrap:wrap;border-radius:var(--ui-radius-md);align-items:center;}
 body[data-view="budget"] .budget-index-compact{flex:1 1 450px;width:auto;min-width:0;gap:5px;}
 body[data-view="budget"] .budget-index-head{display:flex;align-items:center;gap:7px 13px;flex-wrap:wrap;}
-body[data-view="budget"] .budget-index-head>strong{font-size:13px;}
-body[data-view="budget"] .budget-index-published{font-size:11px;color:var(--ui-color-muted);flex:1 1 175px;}
 body[data-view="budget"] .budget-index-head button,body[data-view="budget"] .budget-index-edit button{min-height:31px;height:31px;font-size:11px;padding:4px 9px;}
 body[data-view="budget"] .budget-index-current{font-size:11px;color:var(--ui-color-muted);}
 body[data-view="budget"] .budget-index-edit{display:flex;align-items:center;flex-wrap:wrap;gap:5px 10px;}
@@ -2679,9 +2661,7 @@ body[data-view="budget"] .budget-index-live:not(:empty){font-weight:600;color:va
 body[data-view="budget"] .budget-overview-total{margin:10px 0;font-size:13px;}
 @media(max-width:700px){
  body[data-view="budget"] .budget-controls-compact{align-items:stretch;gap:7px;padding:8px;}
- body[data-view="budget"] .budget-index-compact{flex:auto;}
  body[data-view="budget"] .budget-index-head{gap:4px 8px;}
- body[data-view="budget"] .budget-index-published{flex:1 1 165px;}
  body[data-view="budget"] .budget-index-edit{gap:6px;}
  body[data-view="budget"] .budget-index-manual{width:100%;justify-content:space-between;}
  body[data-view="budget"] .budget-index-edit button{width:100%;}
