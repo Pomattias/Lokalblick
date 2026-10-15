@@ -5,7 +5,7 @@ import { fieldCaption } from "./field-labels.js";
 
 const CATEGORIES = ["Kontor", "Förråd", "Äldreboende", "LSS-boende", "Bostad", "Daglig verksamhet", "Verksamhetslokal", "Övrigt"];
 const money = n => new Intl.NumberFormat("sv-SE", {maximumFractionDigits:0}).format(Number(n)||0) + " kr";
-const field = (caption, control, note="") => '<label class="contract-field">' + esc(fieldCaption('contracts',control,caption)) + control + (note ? '<small>'+esc(note)+'</small>' : '') + '</label>';
+const field = (caption, control, note="") => '<label class="contract-field"><span class="field-name">' + esc(fieldCaption('contracts',control,caption)) + '</span>' + control + (note ? '<small>'+esc(note)+'</small>' : '') + '</label>';
 const display = value => '<span class="contract-readonly">' + esc(value || "–") + '</span>';
 const input = (c, key, type="text", disabled=false, attrs="") =>
   '<input name="'+key+'" type="'+type+'" value="'+esc(c[key]??"")+'" '+attrs+(disabled?" disabled":"")+'>';
