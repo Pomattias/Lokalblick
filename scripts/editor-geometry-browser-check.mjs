@@ -97,6 +97,19 @@ try{
         labelRight:a.right,valueLeft:b.left,fieldHeight:el.getBoundingClientRect().height,
         labelText:name.textContent};
     });
+    const titleGeometry=async()=>page.locator("#edit-form .property-heading-text").evaluate(root=>{
+      const css=node=>{const box=node.getBoundingClientRect(),style=getComputedStyle(node);
+        return {height:box.height,width:box.width,font:parseFloat(style.fontSize),display:style.display};};
+      const visible=sel=>[...root.querySelectorAll(sel)].find(node=>getComputedStyle(node).display!=="none");
+      const title=visible('#editor-title,.property-heading-edit-title input');
+      const address=visible('.property-heading-address,.property-heading-edit-address input');
+      return {wrapper:css(root),title:css(title),address:css(address)};
+    });
+    const titleBefore=await titleGeometry();
+    assert.equal(await page.locator('#edit-form input[name="designation"]').count(),1);
+    assert.equal(await page.locator('#edit-form input[name="address"]').count(),1);
+    assert.equal(await page.locator('#edit-form .property-grid input[name="designation"],#edit-form .property-grid input[name="address"]').count(),0,
+      "Rubrik och adress förekommer inte igen som detaljrader");
     const inlineBefore=await inlineProperty();
     assert.ok(inlineBefore.valueLeft>=inlineBefore.labelRight-1,
       "Fastighetsuppgifter visar etikett till vänster om värdet");
@@ -116,6 +129,15 @@ try{
     assert.ok(activeFrame.width>width-15);
     assert.equal(activeFrame.border,"rgb(23, 123, 93)");
     const after=await state(page,'#edit-form input[name="city"]');
+    const titleAfter=await titleGeometry();
+    for(const key of ["wrapper","title","address"]){
+      near(titleBefore[key].height,titleAfter[key].height,
+        "fastighet "+key+" samma höjd i Visa och Redigera",1);
+      near(titleBefore[key].width,titleAfter[key].width,
+        "fastighet "+key+" samma bredd i Visa och Redigera",2);
+    }
+    near(titleBefore.title.font,titleAfter.title.font,"fastighetsnamnets teckenstorlek",0);
+    near(titleBefore.address.font,titleAfter.address.font,"adressens teckenstorlek",0);
     const contactsAfter=await contactGeometry();
     assert.equal(contactsAfter.length,contactsBefore.length);
     for(let i=0;i<contactsAfter.length;i++){
