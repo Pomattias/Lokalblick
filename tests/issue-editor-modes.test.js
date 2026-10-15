@@ -157,5 +157,5 @@ test("Redigera unlocks the same existing controls without rebuilding or moving t
  assert.equal(allRefs[0],slot);
  assert.equal(allRefs[1],costCard);
  assert.match(app,/form&&id&&!form\.querySelector\("\[data-editor-activate\]"\)/);
- assert.match(app,/if\(editor\.col!=="activities"\)[\s\S]*?\.focus\(\)/);
+ // Entering edit mode never auto-focuses a field, preserving iPhone layout.
 });
