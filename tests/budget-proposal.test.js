@@ -30,7 +30,8 @@ test('SCB parser selects correct 1980 measure, ignores null and post-October val
 });
 test('latest monthly index enters rent calculation and is marked preliminary',()=>{
  const data={indexSeries:[{year:2026,month:9,value:420,seriesBase:'1980'}],budgetPlans:[],activities:[],contracts:[{id:'c',number:'A',start:'2027-01-01',end:'2027-12-31',baseRent:100000,rentBaseIndex:400,rentBaseYear:2025,rentIndexPercent:100}]};
- const rows=calc.budgetRows(data,2027);assert.equal(rows[0].amount,105000);assert.equal(rows[0].status,'Preliminär');
+ const rows=calc.budgetScenarioRows(data,2027);assert.equal(rows[0].amount,105000);assert.equal(rows[0].status,'Preliminär');
+ const ordinary=calc.budgetRows(data,2027)[0];assert.equal(ordinary.status,'Behöver kontroll');
 });
 test('new budget version preserves prior locked snapshot and metadata',()=>{
  vm.runInNewContext(fs.readFileSync('frontend/domain/budget-followup.js','utf8'),ctx);
@@ -43,12 +44,13 @@ test('new budget version preserves prior locked snapshot and metadata',()=>{
  assert.equal(plan.versions[0].snapshot.lockedAt,'2026-10-01');
  assert.throws(()=>ctx.LokalblickBudgetFollowup.beginVersion(plan,'igen','Mattias'),/arbetsbudget/);
 });
-test('manual preliminary index overrides both latest monthly and confirmed October until cleared',()=>{
+test('manual KPI overrides published CPI only within the budget scenario',()=>{
  const data={indexSeries:[{year:2026,month:9,value:420,seriesBase:'1980'}]};
- assert.equal(calc.budgetIndex(data,2027,425).value,425);
- assert.equal(calc.budgetIndex(data,2027,0).value,420);
+ assert.equal(calc.budgetScenarioIndex(data,2027,425).value,425);
+ assert.equal(calc.budgetIndex(data,2027,425).value,420);
  data.indexSeries.push({year:2026,month:10,value:422,seriesBase:'1980'});
- assert.equal(calc.budgetIndex(data,2027,425).value,425);
+ assert.equal(calc.budgetIndex(data,2027,425).value,422);
+ assert.equal(calc.budgetScenarioIndex(data,2027,425).value,425);
 });
 test('locked budget view shows current September separately from missing saved index',async()=>{
  const {budget}=await import('../frontend/v2/views.js');
@@ -93,8 +95,8 @@ test('object exclusion and independent adjustments remain saved in proposal',()=
 });
 test('duplicate preliminary month cannot silently select an index; explicit preliminary value resolves it',()=>{
  const data={indexSeries:[{year:2026,month:9,value:420,seriesBase:'1980'},{year:2026,month:9,value:421,seriesBase:'1980'}]};
- assert.equal(calc.budgetIndex(data,2027).status,'Behöver kontroll');assert.equal(calc.budgetIndex(data,2027).value,0);assert.equal(calc.budgetIndex(data,2027,425).value,425);
- data.indexSeries.push({year:2026,month:10,value:422,seriesBase:'1980'},{year:2026,month:10,value:423,seriesBase:'1980'});assert.equal(calc.budgetIndex(data,2027,425).status,'Behöver kontroll');
+ assert.equal(calc.budgetIndex(data,2027).status,'Behöver kontroll');assert.equal(calc.budgetIndex(data,2027).value,0);assert.equal(calc.budgetScenarioIndex(data,2027,425).value,425);
+ data.indexSeries.push({year:2026,month:10,value:422,seriesBase:'1980'},{year:2026,month:10,value:423,seriesBase:'1980'});assert.equal(calc.budgetScenarioIndex(data,2027,425).status,'Behöver kontroll');
 });
 test('invalid calendar dates and unresolved index block locking instead of silently losing budget rows',()=>{
  const contract={id:'c',baseRent:100000,rentIndexPercent:0,start:'2027-02-29'};
