@@ -676,7 +676,6 @@ const importFieldLabels = {
   rentIndexPercent: "Indexandel hyra",
   additionBaseYear: "Basår tillägg",
   additionIndexPercent: "Indexandel tillägg",
-  annualContractDrift: "Avtalsdrift",
   annualPropertyTax: "Fastighetsskatt",
   unitId: "Verksamhet / område",
   employees: "Antal anställda",
