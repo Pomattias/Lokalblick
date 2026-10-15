@@ -108,7 +108,7 @@ function scopedBudgetRows(data, s, year, view) {
   const activeScope = Boolean(
     s.propertyId || s.unit || s.owner || s.person || s.q,
   );
-  const rows = calc().budgetRows(data, year);
+  const rows = calc().budgetScenarioRows(data, year);
   if (!activeScope) return rows;
   return rows.filter((row) => budgetRowInScope(row, view));
 }
@@ -594,7 +594,11 @@ export function budget(data,s,ui) {
   const total=included.reduce((sum,r)=>sum+r.amount,0);
 
   const known=calc().latestKnownKpi(data,ui.year);
-  const idx=calc().budgetIndex(data,ui.year,plan?.preliminaryIndex);
+  const idx=calc().budgetScenarioIndex(data,ui.year,plan?.preliminaryIndex);
+  const contractRentRows=calc().budgetRows(data,ui.year).filter(row=>
+    row.sourceType==='contract'&&view.contracts.some(c=>c.id===row.sourceId));
+  const ordinaryRentNeedsReview=contractRentRows.some(row=>row.status==='Behöver kontroll');
+  const ordinaryRent=contractRentRows.reduce((sum,row)=>sum+Number(row.amount||0),0);
   const months=['','januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
   const knownMonth=known.year&&known.month?(months[known.month]||'')+' '+known.year:'Månad saknas';
   const usingOwn=Number(plan?.preliminaryIndex)>0&&!locked;
@@ -611,24 +615,26 @@ export function budget(data,s,ui) {
   const formatChange=rentChange>0?'+':rentChange<0?'−':'';
   const rentCompare='<div class="budget-rent-compare" data-budget-rent-compare>'+
     '<div class="budget-rent-metric"><span>Nuvarande hyra '+(ui.year-1)+'</span><strong>'+money(currentRent)+'</strong></div>'+
+    '<div class="budget-rent-metric" data-budget-official><span>Avtalshyra utan scenario '+ui.year+'</span><strong>'+
+    (ordinaryRentNeedsReview?'Behöver kontroll':money(ordinaryRent))+'</strong></div>'+
     '<div class="budget-rent-metric"><span>'+(locked?'Låst hyra ':'Preliminär hyra ')+ui.year+'</span><strong>'+money(plannedRent)+'</strong></div>'+
     '<div class="budget-rent-delta">Förändring: <strong>'+formatChange+money(Math.abs(rentChange))+
     (rentChangePercent===null?'':' · '+(rentChangePercent>0?'+':'')+new Intl.NumberFormat('sv-SE',{maximumFractionDigits:1}).format(rentChangePercent)+' %')+
     '</strong></div></div>';
   const info='<details class="budget-about ui-card ui-card--compact"><summary>Om budgeten <span aria-hidden="true">ⓘ</span></summary>'+
     '<div class="budget-about-body"><p>Hyror hämtas från avtal. Aktiviteter och åtgärder tas med när de är planerade att belasta budgetåret; fleråriga åtgärder använder årsbelopp.</p>'+
-    '<p>Senast fastställda KPI används som utgångspunkt när oktoberindex för budgetåret ännu saknas. Ett eget oktoberindextal ersätter detta i beräkningen. Avtalens olika indexandelar och separat indexerade tillägg respekteras.</p>'+
+    '<p>Ordinarie avtalshyra styrs av fastställt KPI och påverkas aldrig av ett manuellt budgetantagande. Om oktoberindex för budgetåret saknas kan budgetscenariot använda senaste fastställda månadsindex som preliminärt underlag. Ett eget oktoberindextal används bara i budgetscenariot, även om oktober är fastställt. Avtalens indexandelar och separat indexerade tillägg respekteras.</p>'+
     '<p>Hyresjämförelsen visar föregående års beräknade hyreskostnad och budgetårets preliminära kostnad för aktuella avtal, inklusive tillägg och eventuell fastighetsskatt. Låsta budgetar behåller sin beslutad baslinje.</p></div></details>';
   const indexControl='<div class="budget-index-panel budget-index-compact">'+
     '<div class="budget-index-head"><strong>Senaste fastställda KPI</strong>'+
     '<span class="budget-index-published">'+(known.value?indexFormat(known.value)+' · '+esc(knownMonth):'Saknas')+'</span>'+
     '<button type="button" data-budget-index class="ui-button ui-button--compact">Uppdatera SCB</button></div>'+
     (locked?'<div class="budget-index-current">Låst index: <strong>'+(usedValue?indexFormat(usedValue):'saknas')+'</strong></div>':
-      '<div class="budget-index-edit"><label class="budget-index-manual">Eget oktoberindex '+(ui.year-1)+
+      '<div class="budget-index-edit"><label class="budget-index-manual">Scenario · eget oktoberindex '+(ui.year-1)+
       '<input data-preliminary type="number" inputmode="decimal" min="0.01" step="any" placeholder="'+
       (known.value?indexFormat(known.value):'Ange indextal')+'" value="'+(usingOwn?Number(plan.preliminaryIndex):'')+'"></label>'+
       '<button type="button" data-budget-index-reset class="ui-button ui-button--compact">Återgå till KPI</button></div>'+
-      '<small class="budget-index-current" data-budget-index-used>'+(usingOwn?'Eget antagande: ':'Senast kända KPI används: ')+
+      '<small class="budget-index-current" data-budget-index-used>'+(usingOwn?'Budgetscenario med eget KPI: ':'Budgetscenario med käll-KPI: ')+
       '<strong>'+(usedValue?indexFormat(usedValue):'saknas')+'</strong></small>'+
       '<small data-budget-index-live class="budget-index-live" aria-live="polite"></small>')+
     '</div>';
