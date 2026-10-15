@@ -4,6 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import { renderPropertyEditor, attachPropertyMap, updatePropertyOwnerContacts } from "../frontend/v2/property-editor.js";
 import { readEditor } from "../frontend/v2/editor.js";
+import {normalize} from "../frontend/v2/model.js";
 
 const data={
   isDemo:true,
@@ -153,4 +154,22 @@ test("auxiliary map does not destroy the underlying portfolio map",()=>{
   assert.deepEqual(destroyed,["property-editor-map"]);
   service.destroy();
   assert.deepEqual(destroyed,["property-editor-map","portfolio-map"]);
+});
+
+
+test("saving a business contact from the property keeps dated responsibility history",()=>{
+  const original=normalize(structuredClone(data));
+  const first=original.contracts.find(c=>c.id==="a1");
+  assert.equal(first.businessResponsiblePersonId,"business");
+  const updated=structuredClone(original);
+  updated.contracts.find(c=>c.id==="a1").businessResponsiblePersonId="ourPerson";
+  globalThis.LokalblickResponsibility.applyChanges(original,updated,{
+    actor:"Redaktör",fromDate:"2026-10-15"
+  });
+  const history=globalThis.LokalblickResponsibility.history(updated,"contract","a1","business");
+  assert.equal(history.length,2,"Keep old and current contact history");
+  assert.equal(history.find(a=>a.personId==="business").toDate,"2026-10-14");
+  assert.equal(history.find(a=>a.personId==="ourPerson").fromDate,"2026-10-15");
+  assert.equal(updated.contracts.find(c=>c.id==="a1").businessResponsiblePersonId,"ourPerson");
+  assert.ok(updated.auditLog.some(entry=>entry.collection==="assignments"));
 });
