@@ -690,7 +690,7 @@ const sourceKindLabel = (kind) =>
     "core-import": "Grunddata",
     "operational-enrichment": "Fastigheter & aktiviteter",
     "contract-enrichment": "Avtalsberikning",
-    migration: "Migrering",
+    "external-import": "Extern Excelkälla",
   })[kind] || kind || "";
 function reviewCollection(item) {
   if (item.collection) return item.collection;
