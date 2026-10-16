@@ -111,6 +111,25 @@ test("new contract can pick property only when not already bound", () => {
   const next=renderContractEditor(data,{tenantName:"",unitId:""},"");
   assert.match(next,/name="propertyId"/);
 });
+test("contract overview omits repeated references and keeps optional controls in one closed section", () => {
+  const record={...contract,tenantResponsiblePersonId:"person1",responsiblePersonId:"ourP",category:""};
+  const html=renderContractEditor(data,record,"c1");
+  const primary=html.split('<details class="contract-secondary">')[0];
+  assert.doesNotMatch(primary,/ÄNDRA AVTAL|Hyresgäst enligt källa|Verksamhetspart|Vår ansvarige för avtalet|Hyresgästens kontaktperson|Lokalkategori/);
+  assert.equal((primary.match(/Testgatan 1/g)||[]).length,1);
+  assert.doesNotMatch(html,/Kontaktperson A · Vårdbo/);
+  const secondary=html.split('<details class="contract-secondary">')[1].split('</details>')[0];
+  for(const key of ['tenantName','businessPartyId','responsiblePersonId','tenantResponsiblePersonId','number','category']) {
+    assert.match(secondary,new RegExp('name="'+key+'"'));
+    assert.equal((html.match(new RegExp('name="'+key+'"','g'))||[]).length,1);
+  }
+});
+test("distinct agreement and tenant contacts remain in the main overview", () => {
+  const html=renderContractEditor(data,{...contract,tenantResponsiblePersonId:"different",responsiblePersonId:"different"},"c1");
+  const primary=html.split('<details class="contract-secondary">')[0];
+  assert.match(primary,/Vår ansvarige för avtalet/);
+  assert.match(primary,/Hyresgästens kontaktperson/);
+});
 test("unrecognized imported verksamhet survives until explicit reclassification",()=>{
   const html=renderContractEditor(data,{...contract,unitId:"OLD_UNIT"},"c1");
   assert.match(html,/value="OLD_UNIT" selected/);

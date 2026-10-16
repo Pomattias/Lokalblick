@@ -3616,3 +3616,32 @@ body[data-view="properties"] .property-list .property-list-contracts p {margin:0
   body[data-view="properties"] .property-list .property-list-contracts li .text-button {min-height:36px;}
   body[data-view="properties"] .property-list .property-list-relations dl>div {grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);}
 }
+
+/* Contract values share one neutral presentation, including fixed references.
+   Scoped to this editor so Budget and other dialogs keep their current styles. */
+#editor-root .contract-editor #edit-form :is(.contract-readonly,.editor-mode-value) {
+  background:transparent;border-color:transparent;box-shadow:none;
+  color:var(--ui-color-text);font-weight:400!important;
+}
+#editor-root .contract-editor #edit-form .contract-readonly {
+  display:flex;align-items:center;width:100%;min-width:0;
+  min-height:36px;height:36px;max-height:36px;padding:6px 9px;
+  border:1px solid transparent;font:inherit;font-size:13px;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#editor-root .contract-editor .contract-secondary {margin:8px 0 0;}
+#editor-root .contract-editor .contract-secondary>summary {font-size:11px;color:var(--muted);font-weight:500;}
+#editor-root .contract-editor .contract-secondary>.contract-grid {margin-top:8px;}
+@media(max-width:700px) {
+  #editor-root .contract-editor #edit-form :is(
+    .contract-readonly,.editor-mode-value:not([data-mode-kind="textarea"]),
+    input.editor-mode-control:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    select.editor-mode-control:not([multiple])
+  ) {
+    min-height:46px;height:46px;max-height:46px;padding:3px 7px;
+    font-size:16px!important;line-height:1.15;
+  }
+  #editor-root .contract-editor #edit-form :is(.contract-readonly,.editor-mode-value) {
+    white-space:normal;overflow-wrap:anywhere;text-overflow:clip;
+  }
+}

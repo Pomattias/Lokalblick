@@ -85,30 +85,41 @@ export function renderContractEditor(data, c, id, company=false) {
       (term.nextEnd?' · T.o.m. vid nästa förlängning: '+esc(term.nextEnd):'')
     : 'Ange uppsägningstid för beräkning. Förlängning kräver även förlängningsperiod.';
 
+  const tenantContact = field("Hyresgästens kontaktperson",select("tenantResponsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"));
+  const contractContact = field("Vår ansvarige för avtalet",select("responsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"));
+  const distinctTenantContact = c.tenantResponsiblePersonId && c.tenantResponsiblePersonId !== c.businessResponsiblePersonId;
+  const distinctContractContact = c.responsiblePersonId && c.responsiblePersonId !== property.responsiblePersonId;
+  // Keep source and optional relationship controls mounted for the existing save
+  // path. Repeated values belong in a closed section, not the main overview.
+  const additional = '<details class="contract-secondary"><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
+    field("Hyresgäst enligt källa",input(c,"tenantName","text",true))+
+    field("Verksamhetspart",select("businessPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
+    (distinctTenantContact ? "" : tenantContact)+
+    (distinctContractContact ? "" : contractContact)+
+    (id ? field("Avtalsnummer",input(c,"number","text",masterLocked)) : "")+
+    (!category ? field("Lokalkategori",categorySelect) : "")+
+    '</div></details>';
+
   return '<div class="editor-backdrop"></div><aside class="editor contract-editor" aria-labelledby="editor-title">'+
     '<form id="edit-form" data-collection="contracts" data-record-id="'+esc(id||"")+'">'+
-      '<div class="section-title"><div><small>'+(id?'ÄNDRA':'NYTT')+' AVTAL</small>'+
+      '<div class="section-title"><div>'+(!id?'<small>NYTT AVTAL</small>':'')+
         '<h2 id="editor-title">'+esc(propertyReference(property)||"Avtal")+'</h2>'+
         '<small>'+esc(c.number||"Nytt avtal")+'</small></div><button type="button" data-editor-close>Stäng</button></div>'+
       '<section class="contract-section"><h3>Avtalsuppgifter</h3><div class="contract-grid">'+
-        field("Fastighet",(!id&&!c.propertyId)
-          ? select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")
-          : display(propertyReference(property)||"Ej kopplad"))+
-        field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>[x.number,x.name].filter(Boolean).join(" · "),"Välj objekt"))+
+        (!id&&!c.propertyId ? field("Fastighet",select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")) : "")+
+        field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>x.number||x.name||x.id,"Välj objekt"))+
         field("Fastighetsägare",display(ownerName))+
-        field("Hyresgäst enligt källa",input(c,"tenantName","text",true))+
         field("Hyresgäst",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
-        field("Hyresgästens kontaktperson",select("tenantResponsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"))+
-        field("Verksamhetspart",select("businessPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
+        (distinctTenantContact ? tenantContact : "")+
         field("Organisatorisk tillhörighet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj tillhörighet"))+
         field("Fastighetsägarens kontaktperson",display(ownerContact))+
-        field("Verksamhetsansvarig",select("businessResponsiblePersonId",activityPersonOptions,c,x=>x.id,x=>x.name+(x.unitId&&units[x.unitId]?" · "+units[x.unitId]:""),"Ej kopplad"))+
-        field("Vår ansvarige för avtalet",select("responsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"))+
+        field("Verksamhetsansvarig",select("businessResponsiblePersonId",activityPersonOptions,c,x=>x.id,x=>x.name,"Ej kopplad"))+
+        (distinctContractContact ? contractContact : "")+
         field("Vår kontaktperson för fastigheten",display(ourContact))+
-        field("Avtalsnummer",input(c,"number","text",masterLocked))+
-        field("Lokalkategori",categorySelect)+
+        (!id ? field("Avtalsnummer",input(c,"number","text",masterLocked)) : "")+
+        (category ? field("Lokalkategori",categorySelect) : "")+
         field("Area, m²",input(c,"area","number",masterLocked,'min="0" step="any"'))+
-      '</div></section>'+
+      '</div>'+additional+'</section>'+
       contractBusinessControls(data,c)+
       '<section class="contract-section"><h3>Avtalstid</h3><div class="contract-grid">'+
         field("Giltigt fr.o.m.",input(c,"start","date"))+

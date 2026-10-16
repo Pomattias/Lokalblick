@@ -178,6 +178,36 @@ try {
     await toggle.click();
   }
   await page.setViewportSize({width:1440,height:900});
+  await navigate(page,'contracts');
+  await page.locator('#content tr').filter({hasText:'202-2025'}).locator('[data-edit="contracts"]').click();
+  const primary = page.locator('.contract-editor .contract-section').first().locator(':scope > .contract-grid');
+  assert.ok(!(await primary.innerText()).includes('Hyresgäst enligt källa'));
+  assert.ok(!(await primary.innerText()).includes('Verksamhetspart'));
+  assert.ok(!(await primary.innerText()).includes('Vår ansvarige för avtalet'));
+  assert.ok(!(await page.locator('.contract-editor .section-title').innerText()).includes('ÄNDRA AVTAL'));
+  for(const width of [1440,390]) {
+    await page.setViewportSize({width,height:900});
+    const appearance = selector => page.locator(selector).first().evaluate(element=>{
+      const css=getComputedStyle(element);
+      return Object.fromEntries(['backgroundColor','color','fontSize','fontWeight','height','padding','borderColor','lineHeight'].map(key=>[key,css[key]]));
+    });
+    assert.deepEqual(await appearance('.contract-editor .contract-readonly'),
+      await appearance('.contract-editor [data-mode-field="unitId"]'),'Fixed and editable values have the same read appearance');
+    assert.ok(await noOverflow(page));
+    await page.screenshot({path:path.join(artifacts,`contract-detail-${width}.png`),fullPage:true});
+  }
+  const savedContract = () => page.evaluate(()=>JSON.parse(localStorage.getItem('lokalblick-public-demo-v1')).contracts.find(contract=>contract.number==='202-2025'));
+  const before = await savedContract();
+  await page.getByRole('button',{name:'Redigera',exact:true}).click();
+  await page.locator('#edit-form [name="noticePeriodMonths"]').fill(String(Number(before.noticePeriodMonths)+1));
+  await page.locator('#edit-form [type="submit"]').click();
+  await page.waitForSelector('#edit-form',{state:'detached'});
+  const after = await savedContract();
+  for(const key of ['tenantName','tenantPartyId','businessPartyId','tenantResponsiblePersonId','responsiblePersonId','objectId','unitId']) {
+    assert.deepEqual(after[key],before[key],'Simplifying the display must preserve '+key);
+  }
+  await page.setViewportSize({width:1440,height:900});
+  await navigate(page,'properties');
   await page.getByRole('searchbox',{name:'Sök',exact:true}).fill('201-2025');
   await page.getByRole('searchbox',{name:'Sök',exact:true}).dispatchEvent('change');
   assert.deepEqual(await names(page),['Centrum 5']);
