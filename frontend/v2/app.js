@@ -1,5 +1,6 @@
 import {businessList} from './business-editor.js';
 import {activityJournalHtml,appendActivityNote} from "./activity-journal.js";
+import {applyIssueViewMode} from "./issue-mode.js";
 import {editorSnapshot,editorHasUnsavedChanges} from "./editor-safety.js";
 import {relationshipView,bindRelationshipView} from "./relationships.js";
 import {
@@ -770,30 +771,7 @@ function setEditorReadMode(readOnly){
   editor.readOnly=Boolean(readOnly);
   form.classList.toggle("editor-readonly",editor.readOnly);
   form.classList.toggle("editor-editing",!editor.readOnly);
-  if(editor.col==="activities"){
-    // Same cards and grid in both modes. Only reveal/hide the control in each slot.
-    form.querySelectorAll(".issue-mode-field").forEach(slot=>{
-      const value=slot.querySelector(".issue-field-value");
-      const control=slot.querySelector(".issue-field-control");
-      if(value)value.hidden=!editor.readOnly;
-      if(control)control.hidden=editor.readOnly;
-    });
-    const title=form.querySelector(".issue-title-heading");
-    const titleControl=form.querySelector(".issue-edit-title");
-    if(title)title.hidden=!editor.readOnly;
-    if(titleControl)titleControl.hidden=editor.readOnly;
-    form.querySelectorAll(".issue-history-card").forEach(card=>{
-      const value=card.querySelector(".issue-history-value");
-      if(value)value.hidden=!editor.readOnly;
-      card.querySelectorAll(".issue-history-edit").forEach(control=>control.hidden=editor.readOnly);
-      const indicator=card.querySelector(".journal-cost-enhancing");
-      if(indicator)indicator.hidden=!editor.readOnly;
-    });
-    const save=form.querySelector("[data-issue-save]");
-    const undo=form.querySelector("[data-editor-undo]");
-    if(save)save.hidden=editor.readOnly;
-    if(undo)undo.hidden=editor.readOnly;
-  }
+  if(editor.col==="activities")applyIssueViewMode(form,editor.readOnly);
   for(const field of form.querySelectorAll("input, select, textarea, button")){
     if(field.matches("[data-activity-journal-note],[data-activity-journal-save],[data-editor-close],[data-editor-activate],[data-editor-tab]"))continue;
     if(field.dataset.editorOriginalDisabled===undefined)
