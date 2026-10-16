@@ -119,7 +119,7 @@ test("journal read and edit share the same second row on mobile",()=>{
  assert.ok(fragment.includes(".issue-cost-edit,"));
  assert.ok(fragment.includes(".issue-dates-edit"));
  assert.ok(fragment.includes("grid-row:2"));
- assert.ok(fragment.includes("min-height:52px"),"description display and textarea reserve same height");
+ assert.ok(fragment.includes("min-height:60px"),"description display and textarea reserve same height");
 });
 
 
@@ -177,8 +177,8 @@ test("Siri-inspired fade stays outside the green mobile editing outline",()=>{
   const end=css.indexOf("}",start);
   assert.ok(start>=0&&end>start,"editing outline must exist");
   const frame=css.slice(start,end);
-  assert.match(frame,/right:5px;/);
-  assert.match(frame,/left:5px;/);
+  assert.match(frame,/right:max\(5px,env\(safe-area-inset-right,0px\)\);/);
+  assert.match(frame,/left:max\(5px,env\(safe-area-inset-left,0px\)\);/);
   assert.match(frame,/border:3px solid #177b5d;/);
   assert.match(frame,/box-shadow:/);
   assert.match(frame,/rgba\(81,148,247,/,"soft blue outside glow");
