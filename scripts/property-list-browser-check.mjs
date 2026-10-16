@@ -50,10 +50,35 @@ async function open(base) {
 const navigate = (page,view) => page.locator(`.sidebar [data-view="${view}"]`).evaluate(button=>button.click());
 const names = page => page.locator('tbody[data-row-group]:visible .property-list-summary td:first-child').allTextContents();
 const noOverflow = page => page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
+const layout = page => page.locator('body').evaluate(body=>[body,...body.querySelectorAll('*')].map(element=>{
+  const css=getComputedStyle(element), rect=element.getBoundingClientRect();
+  return {tag:element.tagName,x:rect.x,y:rect.y,width:rect.width,height:rect.height,
+    style:['display','color','backgroundColor','fontFamily','fontSize','fontWeight','lineHeight','padding','borderColor'].map(key=>css[key])};
+}));
+async function matchingPixels(pairs) {
+  const page=await browser.newPage();
+  try {
+    return await page.evaluate(async pairs=>{
+      const pixels=async encoded=>{
+        const bitmap=await createImageBitmap(new Blob([Uint8Array.from(atob(encoded),char=>char.charCodeAt(0))],{type:'image/png'}));
+        const canvas=new OffscreenCanvas(bitmap.width,bitmap.height),context=canvas.getContext('2d');
+        context.drawImage(bitmap,0,0);
+        return {width:bitmap.width,height:bitmap.height,data:context.getImageData(0,0,bitmap.width,bitmap.height).data};
+      };
+      return Promise.all(pairs.map(async pair=>{
+        const [a,b]=await Promise.all(pair.map(pixels));
+        // Chromium can round antialiased colors by one channel level. Layout
+        // and computed styles are compared exactly, independently of pixels.
+        return a.width===b.width&&a.height===b.height&&a.data.every((value,index)=>Math.abs(value-b.data[index])<=1);
+      }));
+    },pairs.map(pair=>pair.map(buffer=>buffer.toString('base64'))));
+  } finally {await page.close();}
+}
 
 async function budgetEvidence(base,label) {
   const {page,errors} = await open(base);
   const screenshots = [];
+  const layouts = [];
   // Start from the changed list as well, to catch table-state leaking into Budget.
   await navigate(page,'properties');
   const expander = page.locator('[data-row-toggle]').first();
@@ -69,6 +94,7 @@ async function budgetEvidence(base,label) {
     await page.setViewportSize({width,height:900});
     await page.mouse.move(0,0);
     assert.ok(await noOverflow(page),'Budget must fit at '+width);
+    layouts.push(await layout(page));
     screenshots.push(await page.screenshot({path:path.join(artifacts,`${label}-budget-${width}.png`),fullPage:true}));
   }
   const manual = page.locator('[data-preliminary]');
@@ -89,6 +115,7 @@ async function budgetEvidence(base,label) {
   for(const width of [1440,390]) {
     await page.setViewportSize({width,height:900});
     await page.mouse.move(0,0);
+    layouts.push(await layout(page));
     screenshots.push(await page.screenshot({path:path.join(artifacts,`${label}-budget-locked-${width}.png`),fullPage:true}));
   }
   await page.locator('.budget-danger-zone summary').click();
@@ -115,7 +142,7 @@ async function budgetEvidence(base,label) {
   const plans = await page.evaluate(()=>JSON.parse(localStorage.getItem('lokalblick-public-demo-v1')).budgetPlans);
   assert.deepEqual(errors,[]);
   await page.close();
-  return {screenshots,text,revisedText,plans};
+  return {screenshots,layouts,text,revisedText,plans};
 }
 
 try {
@@ -185,6 +212,10 @@ try {
   assert.ok(!(await primary.innerText()).includes('Verksamhetspart'));
   assert.ok(!(await primary.innerText()).includes('Vår ansvarige för avtalet'));
   assert.ok(!(await page.locator('.contract-editor .section-title').innerText()).includes('ÄNDRA AVTAL'));
+  assert.deepEqual(await page.locator('[data-contract-section]').evaluateAll(sections=>sections.map(section=>section.dataset.contractSection)),
+    ['identity','economics','dates','contacts']);
+  assert.ok(!(await page.locator('[data-contract-rent-terms]').getAttribute('open')));
+  assert.ok(await page.locator('[data-contract-section="economics"] [name="area"] + .editor-mode-value').isVisible());
   for(const width of [1440,390]) {
     await page.setViewportSize({width,height:900});
     const appearance = selector => page.locator(selector).first().evaluate(element=>{
@@ -192,13 +223,14 @@ try {
       return Object.fromEntries(['backgroundColor','color','fontSize','fontWeight','height','padding','borderColor','lineHeight'].map(key=>[key,css[key]]));
     });
     assert.deepEqual(await appearance('.contract-editor .contract-readonly'),
-      await appearance('.contract-editor [data-mode-field="unitId"]'),'Fixed and editable values have the same read appearance');
+      await appearance('.contract-editor [data-mode-field="tenantPartyId"]'),'Fixed and editable values have the same read appearance');
     assert.ok(await noOverflow(page));
     await page.screenshot({path:path.join(artifacts,`contract-detail-${width}.png`),fullPage:true});
   }
   const savedContract = () => page.evaluate(()=>JSON.parse(localStorage.getItem('lokalblick-public-demo-v1')).contracts.find(contract=>contract.number==='202-2025'));
   const before = await savedContract();
   await page.getByRole('button',{name:'Redigera',exact:true}).click();
+  await page.locator('[data-contract-notice-terms]>summary').click();
   await page.locator('#edit-form [name="noticePeriodMonths"]').fill(String(Number(before.noticePeriodMonths)+1));
   await page.locator('#edit-form [type="submit"]').click();
   await page.waitForSelector('#edit-form',{state:'detached'});
@@ -233,8 +265,10 @@ try {
     assert.deepEqual(current.text,reference.text,'Budget text must remain identical');
     assert.deepEqual(current.revisedText,reference.revisedText,'Budget revision and final-cost text must remain identical');
     assert.deepEqual(current.plans,reference.plans,'Budget calculations and persisted plans must remain identical');
-    current.screenshots.forEach((shot,index)=>assert.ok(shot.equals(reference.screenshots[index]),'Budget screenshot differs: '+index));
-    console.log('PASS: Budget pixels, text and persisted plans identical to baseline, including scenario, lock, revision, final cost and reload.');
+    assert.deepEqual(current.layouts,reference.layouts,'Budget layout and computed styles must remain identical');
+    const matches=await matchingPixels(current.screenshots.map((shot,index)=>[shot,reference.screenshots[index]]));
+    matches.forEach((matches,index)=>assert.ok(matches,'Budget screenshot differs: '+index));
+    console.log('PASS: Budget layout, styles, text and persisted plans identical to baseline; screenshots match within antialias rounding, including scenario, lock, revision, final cost and reload.');
   }
   console.log('PASS: property numeric sort, grouped expansion/filtering, keyboard, editor save, retained state, scoped contracts and compact mobile.');
   console.log('Screenshots: '+artifacts);

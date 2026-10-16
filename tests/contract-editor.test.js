@@ -114,24 +114,45 @@ test("new contract can pick property only when not already bound", () => {
 test("contract overview omits repeated references and keeps optional controls in one closed section", () => {
   const record={...contract,tenantResponsiblePersonId:"person1",responsiblePersonId:"ourP",category:""};
   const html=renderContractEditor(data,record,"c1");
-  const primary=html.split('<details class="contract-secondary">')[0];
+  const primary=html.split('data-contract-section="identity">')[1].split('</section>')[0];
   assert.doesNotMatch(primary,/ÄNDRA AVTAL|Hyresgäst enligt källa|Verksamhetspart|Vår ansvarige för avtalet|Hyresgästens kontaktperson|Lokalkategori/);
-  assert.equal((primary.match(/Testgatan 1/g)||[]).length,1);
+  assert.equal((html.match(/Testgatan 1/g)||[]).length,1);
   assert.doesNotMatch(html,/Kontaktperson A · Vårdbo/);
-  const secondary=html.split('<details class="contract-secondary">')[1].split('</details>')[0];
-  for(const key of ['tenantName','businessPartyId','responsiblePersonId','tenantResponsiblePersonId','number','category']) {
+  const secondary=html.split('data-contract-context>')[1].split('<section')[0]+
+    html.split('data-contract-contact-roles>')[1].split('</details>')[0];
+  for(const key of ['tenantName','businessPartyId','responsiblePersonId','tenantResponsiblePersonId','category']) {
     assert.match(secondary,new RegExp('name="'+key+'"'));
     assert.equal((html.match(new RegExp('name="'+key+'"','g'))||[]).length,1);
   }
 });
-test("distinct agreement and tenant contacts remain in the main overview", () => {
+test("distinct agreement and tenant contacts remain in the final contact section", () => {
   const html=renderContractEditor(data,{...contract,tenantResponsiblePersonId:"different",responsiblePersonId:"different"},"c1");
-  const primary=html.split('<details class="contract-secondary">')[0];
-  assert.match(primary,/Vår ansvarige för avtalet/);
-  assert.match(primary,/Hyresgästens kontaktperson/);
+  const primary=html.split('data-contract-section="identity">')[1].split('</section>')[0];
+  assert.doesNotMatch(primary,/Vår ansvarige för avtalet|Hyresgästens kontaktperson/);
+  const contacts=html.split('data-contract-section="contacts">')[1];
+  assert.match(contacts,/Vår ansvarige för avtalet/);
+  assert.match(contacts,/Hyresgästens kontaktperson/);
 });
 test("unrecognized imported verksamhet survives until explicit reclassification",()=>{
   const html=renderContractEditor(data,{...contract,unitId:"OLD_UNIT"},"c1");
   assert.match(html,/value="OLD_UNIT" selected/);
   assert.match(html,/tidigare värde/);
+});
+
+
+test("agreement identity, economics and dates precede all contacts without duplicate controls", () => {
+  const html=renderContractEditor(data,contract,"c1");
+  assert.deepEqual([...html.matchAll(/data-contract-section="([^"]+)"/g)].map(match=>match[1]),
+    ["identity","economics","dates","contacts"]);
+  const identity=html.split('data-contract-section="identity">')[1].split('</section>')[0];
+  assert.ok(identity.indexOf('name="number"')<identity.indexOf('name="tenantPartyId"'));
+  const economics=html.split('data-contract-section="economics">')[1].split('</section>')[0];
+  assert.match(economics,/Hyra \d{4}, kr\/år/);
+  assert.match(economics,/name="area"/);
+  assert.match(economics,/data-contract-rent-terms><summary>/);
+  const beforeContacts=html.split('data-contract-section="contacts">')[0];
+  assert.doesNotMatch(beforeContacts,/name="(?:responsiblePersonId|tenantResponsiblePersonId|businessResponsiblePersonId)"/);
+  for(const key of ['number','tenantPartyId','area','start','end','baseRent','rentBaseYear','noticePeriodMonths','renewalPeriodMonths'])
+    assert.equal((html.match(new RegExp('name="'+key+'"','g'))||[]).length,1,key);
+  assert.match(renderContractEditor(data,{propertyId:'p1'},""),/data-contract-rent-terms open/);
 });

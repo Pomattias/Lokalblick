@@ -89,69 +89,70 @@ export function renderContractEditor(data, c, id, company=false) {
   const contractContact = field("Vår ansvarige för avtalet",select("responsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"));
   const distinctTenantContact = c.tenantResponsiblePersonId && c.tenantResponsiblePersonId !== c.businessResponsiblePersonId;
   const distinctContractContact = c.responsiblePersonId && c.responsiblePersonId !== property.responsiblePersonId;
-  // Keep source and optional relationship controls mounted for the existing save
-  // path. Repeated values belong in a closed section, not the main overview.
-  const additional = '<details class="contract-secondary"><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
+  const identity = '<section class="contract-section" data-contract-section="identity"><h3>Avtal</h3><div class="contract-grid">'+
+    (!id&&!c.propertyId ? field("Fastighet",select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")) : "")+
+    field("Avtalsnummer",input(c,"number","text",masterLocked))+
+    field("Hyresgäst",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
+    field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>x.number||x.name||x.id,"Välj objekt"))+
+    field("Fastighetsägare",display(ownerName))+
+    '</div>'+documentLink+'</section>';
+
+  const rentTerms = '<details class="contract-secondary" data-contract-rent-terms'+(!id?' open':'')+'><summary>Hyresvillkor och beräkning</summary><div class="contract-grid">'+
+    field("Bashyra, kr/år",input(c,"baseRent","number",false,'min="0" step="any"'))+
+    field("Basår",input(c,"rentBaseYear","number",false,'min="1900" step="1"'))+
+    adjustmentControls(c,"rent")+
+    field("Bastal KPI",input(c,"rentBaseIndex","number",false,'min="0" step="any"'),"Lämna tomt för fastställt KPI för basåret")+
+    '</div><details class="contract-additions"'+(Number(c.baseAdditions)>0?' open':'')+'><summary>Tillägg <span>'+money(totals.addition.amount)+'/år</span></summary><div class="contract-grid">'+
+    field("Tillägg, kr/år",input(c,"baseAdditions","number",false,'min="0" step="any"'))+
+    field("Tillägg basår",input(c,"additionBaseYear","number",false,'min="1900" step="1"'))+
+    adjustmentControls(c,"addition")+
+    field("Bastal KPI tillägg",input(c,"additionBaseIndex","number",false,'min="0" step="any"'),"Lämna tomt för KPI för tilläggets basår")+
+    '</div></details><div class="contract-grid contract-tax-field">'+
+    field("Fastighetsskatt, kr/år",input(c,"annualPropertyTax","number",false,'min="0" step="any"'))+
+    '</div><p class="contract-help">Basår är KPI-basår; bashyran avser följande hyresår. Min/max tillämpas enligt avtal. Beräkningen använder senast sparade värden.</p></details>';
+  const rentValue = totals.rent.status==="Behöver kontroll" && totals.rent.amount<=0 ? "Behöver kontroll" : money(totals.rent.amount);
+  const economics = '<section class="contract-section" data-contract-section="economics"><h3>Hyra och yta</h3><div class="contract-grid">'+
+    field("Hyra "+new Date().getFullYear()+", kr/år",display(rentValue))+
+    field("Area, m²",input(c,"area","number",masterLocked,'min="0" step="any"'))+
+    (totals.addition.amount || totals.tax ? field("Total årskostnad, kr",display(money(annualTotal))) : "")+
+    '</div>'+(missing.length?'<p class="rent-needs-review">Behöver kontroll: '+esc(missing.join(' · '))+'</p>':'')+
+    rentTerms+'</section>';
+
+  const dates = '<section class="contract-section" data-contract-section="dates"><h3>Avtalstid</h3><div class="contract-grid">'+
+    field("Giltigt fr.o.m.",input(c,"start","date"))+
+    field("Giltigt t.o.m.",input(c,"end","date"))+
+    field("Säg upp senast",display(term.noticeBy || "Ej beräknat"))+
+    '</div><details class="contract-secondary" data-contract-notice-terms'+(!id?' open':'')+'><summary>Uppsägning och förlängning</summary><div class="contract-grid">'+
+    field("Uppsägningstid, månader",input(c,"noticePeriodMonths","number",false,'min="0" step="1"'))+
+    field("Förlängningstid, månader",input(c,"renewalPeriodMonths","number",false,'min="0" step="1"'))+
+    '</div><p class="contract-note">'+lastNotice+'</p><small class="contract-help">Beräknat från senast sparade villkor. Faktisk uppsägning behöver registreras innan förlängning påverkar budget.</small></details></section>';
+
+  // Supplementary source and relationship fields stay mounted for FormData,
+  // but do not interrupt the agreement's identity, economics and dates.
+  const additional = '<details class="contract-secondary" data-contract-context><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
+    field("Organisatorisk tillhörighet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj tillhörighet"))+
+    field("Lokalkategori",categorySelect)+
     field("Hyresgäst enligt källa",input(c,"tenantName","text",true))+
     field("Verksamhetspart",select("businessPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
-    (distinctTenantContact ? "" : tenantContact)+
-    (distinctContractContact ? "" : contractContact)+
-    (id ? field("Avtalsnummer",input(c,"number","text",masterLocked)) : "")+
-    (!category ? field("Lokalkategori",categorySelect) : "")+
-    '</div></details>';
+    '</div>'+contractBusinessControls(data,c)+
+    (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+'</details>';
 
+  const extraContacts = (!distinctTenantContact ? tenantContact : "")+(!distinctContractContact ? contractContact : "");
+  const contacts = '<section class="contract-section" data-contract-section="contacts"><h3>Kontaktpersoner</h3><div class="contract-grid">'+
+    field("Vår kontaktperson för fastigheten",display(ourContact))+
+    field("Verksamhetsansvarig",select("businessResponsiblePersonId",activityPersonOptions,c,x=>x.id,x=>x.name,"Ej kopplad"))+
+    field("Fastighetsägarens kontaktperson",display(ownerContact))+
+    (distinctTenantContact ? tenantContact : "")+
+    (distinctContractContact ? contractContact : "")+
+    '</div>'+(extraContacts?'<details class="contract-secondary" data-contract-contact-roles><summary>Fler kontaktroller</summary><div class="contract-grid">'+extraContacts+'</div></details>':'')+
+    responsibilityHtml(data,'contract',c.id)+'</section>';
+
+  const heading = property.designation || (property.address ? "Beteckning saknas" : "Nytt avtal");
   return '<div class="editor-backdrop"></div><aside class="editor contract-editor" aria-labelledby="editor-title">'+
     '<form id="edit-form" data-collection="contracts" data-record-id="'+esc(id||"")+'">'+
-      '<div class="section-title"><div>'+(!id?'<small>NYTT AVTAL</small>':'')+
-        '<h2 id="editor-title">'+esc(propertyReference(property)||"Avtal")+'</h2>'+
-        '<small>'+esc(c.number||"Nytt avtal")+'</small></div><button type="button" data-editor-close>Stäng</button></div>'+
-      '<section class="contract-section"><h3>Avtalsuppgifter</h3><div class="contract-grid">'+
-        (!id&&!c.propertyId ? field("Fastighet",select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")) : "")+
-        field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>x.number||x.name||x.id,"Välj objekt"))+
-        field("Fastighetsägare",display(ownerName))+
-        field("Hyresgäst",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
-        (distinctTenantContact ? tenantContact : "")+
-        field("Organisatorisk tillhörighet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj tillhörighet"))+
-        field("Fastighetsägarens kontaktperson",display(ownerContact))+
-        field("Verksamhetsansvarig",select("businessResponsiblePersonId",activityPersonOptions,c,x=>x.id,x=>x.name,"Ej kopplad"))+
-        (distinctContractContact ? contractContact : "")+
-        field("Vår kontaktperson för fastigheten",display(ourContact))+
-        (!id ? field("Avtalsnummer",input(c,"number","text",masterLocked)) : "")+
-        (category ? field("Lokalkategori",categorySelect) : "")+
-        field("Area, m²",input(c,"area","number",masterLocked,'min="0" step="any"'))+
-      '</div>'+additional+'</section>'+
-      contractBusinessControls(data,c)+
-      '<section class="contract-section"><h3>Avtalstid</h3><div class="contract-grid">'+
-        field("Giltigt fr.o.m.",input(c,"start","date"))+
-        field("Giltigt t.o.m.",input(c,"end","date"))+
-        field("Uppsägningstid, månader",input(c,"noticePeriodMonths","number",false,'min="0" step="1"'))+
-        field("Förlängningstid, månader",input(c,"renewalPeriodMonths","number",false,'min="0" step="1"'))+
-      '</div><p class="contract-note">'+lastNotice+'</p>'+
-      '<small class="contract-help">Beräknat från senast sparade villkor. Faktisk uppsägning behöver registreras innan förlängning påverkar budget.</small></section>'+
-      '<section class="contract-section"><h3>Hyra och avtalad justering</h3>'+
-      '<details class="contract-help"><summary>Om beräkningen</summary><p>Basår är KPI-basår; bashyran avser följande hyresår. Min/max tillämpas enligt avtal.</p></details><div class="contract-grid">'+
-        field("Bashyra, kr/år",input(c,"baseRent","number",false,'min="0" step="any"'))+
-        field("Basår",input(c,"rentBaseYear","number",false,'min="1900" step="1"'))+
-        adjustmentControls(c,"rent")+
-        field("Bastal KPI",input(c,"rentBaseIndex","number",false,'min="0" step="any"'),"Lämna tomt för fastställt KPI för basåret")+
-      '</div>'+
-      '<details class="contract-additions"'+((Number(c.baseAdditions)>0)?' open':'')+'>'+
-        '<summary>Tillägg <span>'+money(totals.addition.amount)+'/år</span></summary><div class="contract-grid">'+
-          field("Tillägg, kr/år",input(c,"baseAdditions","number",false,'min="0" step="any"'))+
-          field("Tillägg basår",input(c,"additionBaseYear","number",false,'min="1900" step="1"'))+
-          adjustmentControls(c,"addition")+
-          field("Bastal KPI tillägg",input(c,"additionBaseIndex","number",false,'min="0" step="any"'),"Lämna tomt för KPI för tilläggets basår")+
-        '</div></details>'+
-      '<div class="contract-grid contract-tax-field">'+
-        field("Fastighetsskatt, kr/år",input(c,"annualPropertyTax","number",false,'min="0" step="any"'))+
-      '</div>'+
-      '<div class="contract-rent-total"><span>Beräknad årskostnad '+new Date().getFullYear()+'</span>'+
-        '<strong>'+money(annualTotal)+'</strong>'+
-        '<small>Hyra '+money(totals.rent.amount)+' · Tillägg '+money(totals.addition.amount)+' · Fastighetsskatt '+money(totals.tax)+'</small>'+
-        '<small>'+(missing.length?'Behöver kontroll: '+esc(missing.join(' · ')):'Utifrån senast sparade värden')+'</small></div>'+
-        documentLink+
-      '</section>'+
-      (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+
-      responsibilityHtml(data,'contract',c.id)+'<div class="actions editor-actions">'+
-      '<button type="submit" class="primary">Spara ändring</button></div></form></aside>';
+    '<div class="section-title"><div><h2 id="editor-title">'+esc(heading)+'</h2>'+
+    (property.address?'<small>'+esc(property.address)+'</small>':'')+
+    '</div><button type="button" data-editor-close>Stäng</button></div>'+
+    identity+economics+dates+additional+contacts+
+    '<div class="actions editor-actions"><button type="submit" class="primary">Spara ändring</button></div></form></aside>';
 }
