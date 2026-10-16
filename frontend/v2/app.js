@@ -1,3 +1,4 @@
+import {bindSmartTables, readSmartTableState, restoreSmartTableState} from "./smart-table.js";
 import {isoDateTime} from "./date-format.js";
 import {businessList} from './business-editor.js';
 import {recurringCostPanel,openRecurringCostDialog} from "./recurring-costs-ui.js";
@@ -58,6 +59,8 @@ let data,
   pendingPlanSelection = null,
   busy = false,
   switchingView = false;
+bindSmartTables(document);
+let propertyTableState;
 const selection = { unit: "", owner: "", person: "", q: "", propertyId: "" };
 const ui = {
   view: "overview",
@@ -554,6 +557,8 @@ function placeViewActions() {
   fallback.hidden=Boolean(slot)||!visible;
 }
 function render() {
+  const propertyTable = content.querySelector("table[data-row-groups]");
+  if (propertyTable) propertyTableState = readSmartTableState(propertyTable);
   resetViewActionPlacement();
   document.body.dataset.view=ui.view;
   const filterState=filterPresentation(ui.view,selection,ui.contractId,ui.showScopedFilters);
@@ -615,6 +620,8 @@ function render() {
       year:new Date().getFullYear(),
     });
   }
+  const nextPropertyTable = content.querySelector("table[data-row-groups]");
+  if (nextPropertyTable && ui.view === "properties") restoreSmartTableState(nextPropertyTable, propertyTableState);
   if(ui.view==='objects')content.innerHTML=objectList(data,selection);
   if(ui.view==='businesses')content.innerHTML=businessList(data);
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
@@ -912,6 +919,7 @@ function updateEditorActions(){
 }
 function closeEditor({force=false}={}){
   if(editor&&!force&&hasUnsavedEditorChanges()&&!window.confirm("Du har osparade ändringar. Stäng utan att spara och kasta ändringarna?"))return false;
+  const returnFocus = editor?.propertyListFocus;
   if (propertyMapCleanup) {
     propertyMapCleanup();
     propertyMapCleanup = null;
@@ -921,6 +929,11 @@ function closeEditor({force=false}={}){
   if(root)root.innerHTML = "";
   editor = null;
   document.body.classList.remove("editing");
+  if (returnFocus && ui.view === "properties") {
+    [...content.querySelectorAll('.property-list [data-edit]')]
+      .find(button => button.dataset.edit === returnFocus.collection && button.dataset.id === returnFocus.id)
+      ?.focus({preventScroll:true});
+  }
   return true;
 }
 
@@ -957,6 +970,7 @@ function openEditor(col, id, defaults = {}) {
   pendingPlanSelection=null;
   const result = editorHtml(data, col, id, transport.company(), defaults);
   editor = { col, id, defaults:clone(defaults), record: result.record };
+  if (document.activeElement?.closest('.property-list')) editor.propertyListFocus = {collection:col,id};
   const root = document.querySelector("#editor-root");
   root.innerHTML = result.html;
   // New records open immediately in editing mode; existing records open in Visa.
@@ -1574,18 +1588,6 @@ document.addEventListener("click", (event) =>
       });
   }),
 );
-// V1-style table interaction acts on existing DOM rows, without changing source data.
-function refreshSmartTable(table) {
-  const inputs=[...table.querySelectorAll("[data-column-filter]")];
-  const tbody=table.tBodies[0];
-  if(!tbody)return;
-  const rows=[...tbody.rows].filter(row=>!row.querySelector(".empty"));
-  const normalize=value=>String(value||"").toLocaleLowerCase("sv").trim();
-  rows.forEach(row=>{
-    row.hidden=!inputs.every(input=>!normalize(input.value) ||
-      normalize(row.cells[Number(input.dataset.columnFilter)]?.textContent).includes(normalize(input.value)));
-  });
-}
 document.addEventListener("input",event=>{
   if(event.target.matches("[data-review-search]")) {
     const input=event.target;
@@ -1597,31 +1599,6 @@ document.addEventListener("input",event=>{
       : reviewCandidateChoices(data,item,input.value);
     return;
   }
-  if(!event.target.matches("[data-column-filter]"))return;
-  const table=event.target.closest("table[data-smart-table]");
-  if(table)refreshSmartTable(table);
-});
-document.addEventListener("click",event=>{
-  const toggle=event.target.closest("[data-toggle-column-filters]");
-  if(toggle){
-    const filterRow=toggle.closest(".compact-data-table")?.querySelector(".column-filters");
-    if(filterRow){filterRow.hidden=!filterRow.hidden;toggle.setAttribute("aria-expanded",String(!filterRow.hidden));}
-    return;
-  }
-  const sort=event.target.closest("[data-column-sort]");
-  if(!sort)return;
-  const table=sort.closest("table[data-smart-table]");
-  if(!table?.tBodies[0])return;
-  const index=Number(sort.dataset.columnSort), dir=sort.dataset.direction==="asc"?"desc":"asc";
-  table.querySelectorAll("[data-column-sort]").forEach(b=>{b.dataset.direction="";b.removeAttribute("aria-sort");});
-  sort.dataset.direction=dir;
-  sort.closest("th")?.setAttribute("aria-sort",dir==="asc"?"ascending":"descending");
-  const collator=new Intl.Collator("sv-SE",{numeric:true,sensitivity:"base"});
-  const tbody=table.tBodies[0];
-  [...tbody.rows].filter(row=>!row.querySelector(".empty")).sort((a,b)=>{
-    const av=a.cells[index]?.textContent?.trim()||"", bv=b.cells[index]?.textContent?.trim()||"";
-    return (dir==="asc"?1:-1)*collator.compare(av,bv);
-  }).forEach(row=>tbody.appendChild(row));
 });
 document.addEventListener("change", (event) =>
   run(async () => {

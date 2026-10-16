@@ -26,8 +26,12 @@ export const units = {
 export const calc = () => globalThis.LokalblickCalculations;
 const edit = (col, id, label = "Ändra") =>
   `<button data-edit="${esc(col)}" data-id="${esc(id)}">${label}</button>`;
-const table = (head, rows, interactive = false, heading = "") =>
-  `<div class="table-wrap${interactive?" compact-data-table":""}">${interactive?`<div class="compact-table-heading"><strong>${esc(heading)}</strong><span>${rows.length} poster</span><button type="button" data-toggle-column-filters aria-label="Visa kolumnfilter" title="Visa kolumnfilter">⚑</button></div>`:""}<table${interactive?' data-smart-table="1"':""}><thead><tr>${head.map((x,i) => `<th scope="col">${interactive && x ? `<button type="button" class="column-sort" data-column-sort="${i}" aria-label="Sortera på ${esc(x)}">${esc(x)} <span aria-hidden="true">↕</span></button>` : x}</th>`).join("")}</tr>${interactive?`<tr class="column-filters" hidden>${head.map((x,i)=>`<th>${x && i<head.length-1 ? `<input type="search" data-column-filter="${i}" aria-label="Filtrera ${esc(x)}" placeholder="Filtrera" autocomplete="off">`:""}</th>`).join("")}</tr>`:""}</thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${head.length}" class="empty">Inga poster i aktuellt urval.</td></tr>`}</tbody></table></div>`;
+const table = (head, rows, interactive = false, heading = "", grouped = false) => {
+  const mobileSort = grouped ? `<label class="property-list-sort">Sortera<select data-table-sort aria-label="Sortera fastigheter">${head.slice(0,-1).map((label,index)=>["asc","desc"].map(direction=>`<option value="${index}:${direction}">${esc(label)} · ${direction === "asc" ? "stigande" : "fallande"}</option>`).join("")).join("")}</select></label>` : "";
+  const empty = `<tr><td colspan="${head.length}" class="empty">Inga ${grouped ? "fastigheter" : "poster"} i aktuellt urval.</td></tr>`;
+  const bodies = grouped ? rows.join("") + `<tbody data-table-empty${rows.length ? " hidden" : ""}>${empty}</tbody>` : `<tbody>${rows.length ? rows.join("") : empty}</tbody>`;
+  return `<div class="table-wrap${interactive?" compact-data-table":""}${grouped?" property-list":""}">${interactive?`<div class="compact-table-heading"><strong>${esc(heading)}</strong><span${grouped?' data-table-count aria-live="polite"':''}>${rows.length} ${grouped?"fastigheter":"poster"}</span><button type="button" data-toggle-column-filters aria-label="Visa kolumnfilter" title="Visa kolumnfilter"${grouped?' aria-expanded="false"':''}>${grouped?"Kolumnfilter":"⚑"}</button></div>`:""}${mobileSort}<table${interactive?' data-smart-table="1"':""}${grouped?' data-row-groups aria-label="Fastigheter"':''}><thead><tr>${head.map((x,i) => `<th scope="col">${interactive && x ? `<button type="button" class="column-sort" data-column-sort="${i}" aria-label="Sortera på ${esc(x)}">${esc(x)} <span aria-hidden="true">↕</span></button>` : x}</th>`).join("")}</tr>${interactive?`<tr class="column-filters" hidden>${head.map((x,i)=>`<th${grouped?` data-label="${esc(x)}"`:""}>${x && i<head.length-1 ? `<input type="search" data-column-filter="${i}" aria-label="Filtrera ${esc(x)}" placeholder="Filtrera" autocomplete="off">`:""}</th>`).join("")}</tr>`:""}</thead>${bodies}</table></div>`;
+};
 const row = (cells) =>
   `<tr>${cells.map((x, i) => `<td${i === 0 ? ' class="primary-cell"' : ""}>${x}</td>`).join("")}</tr>`;
 const badge = (x) =>
@@ -300,6 +304,38 @@ function activityRows(data, items) {
     ]);
   });
 }
+// Presentation only: current responsibility links and the existing cost calculation
+// remain authoritative. A shared role can have more than one current person.
+function contactNames(data, type, record, role, fallback) {
+  const model = globalThis.LokalblickResponsibility;
+  const links = model.current(data, type, record.id, role);
+  const ids = links.length ? links.map(link => link.personId)
+    : model.history(data, type, record.id, role).length ? [] : [fallback];
+  return [...new Set(ids.filter(Boolean).map(id => personLabel(data, id)))].join(", ") || "Ej fördelat";
+}
+function propertyListGroup(data, p, contracts, year) {
+  const title = propertyDesignation(p) || "Beteckning saknas";
+  const detailId = "property-relations-" + encodeURIComponent(p.id);
+  const totalContracts = data.contracts.filter(c => c.propertyId === p.id).length;
+  const subset = contracts.length !== totalContracts;
+  const area = contracts.reduce((sum, c) => sum + (Number(c.area) || 0), 0);
+  const cost = calc().propertyAnnualCost(data, p.id, year);
+  const ourContact = contactNames(data, "property", p, "our", p.responsiblePersonId);
+  const ownerContact = contactNames(data, "property", p, "owner", p.ownerResponsiblePersonId);
+  const contractContact = c => globalThis.LokalblickResponsibility.history(data,"contract",c.id,"our").length || c.responsiblePersonId
+    ? contactNames(data,"contract",c,"our",c.responsiblePersonId) : ourContact;
+  const contacts = `<section class="property-list-contacts"><h3>Kontaktpersoner</h3><dl><div><dt>Vår ansvarige</dt><dd>${esc(ourContact)}</dd></div><div><dt>Fastighetsägarens kontaktperson</dt><dd>${esc(ownerContact)}</dd></div></dl></section>`;
+  const agreements = `<section class="property-list-contracts"><h3>Avtal${subset ? ` · ${contracts.length} av ${totalContracts} i aktuellt urval` : ` · ${contracts.length}`}</h3>${contracts.length ? `<ul>${contracts.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || "Avtalsnummer saknas")}</button><small>${esc(units[c.unitId] || c.use || "Verksamhet saknas")}</small></div><dl><div><dt>Vår ansvarige för avtalet</dt><dd>${esc(contractContact(c))}</dd></div><div><dt>Verksamhetsansvarig</dt><dd>${esc(contactNames(data,"contract",c,"business",c.businessResponsiblePersonId))}</dd></div></dl></li>`).join("")}</ul>` : `<p>${totalContracts ? "Inga avtal i aktuellt urval." : "Inga avtal kopplade till fastigheten."}</p>`}</section>`;
+  return `<tbody data-row-group="${esc(p.id)}"><tr class="property-list-summary">
+    <td class="primary-cell"><button type="button" class="text-button" data-edit="properties" data-id="${esc(p.id)}">${esc(title)}</button></td>
+    <td>${esc(propertyAddress(p) || "Adress saknas")}<small class="property-list-owner">${esc(propertyOwnerLabel(data,p))}</small></td>
+    <td><span class="property-list-mobile-label">Vår ansvarige: </span>${esc(ourContact)}</td>
+    <td data-sort-value="${contracts.length}">${num(contracts.length)} avtal${subset?`<small>av ${num(totalContracts)} totalt</small>`:""}</td>
+    <td data-sort-value="${area}">${num(area)} m²</td>
+    <td data-sort-value="${cost.annualCost}"><span title="Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder. Avser hela fastigheten.">${money(cost.annualCost)}</span>${cost.needsReview?`<small class="rent-needs-review">${cost.needsReview} avtal behöver kontroll</small>`:""}${cost.preliminary?`<small>${cost.preliminary} preliminära index</small>`:""}</td>
+    <td><button type="button" class="property-list-toggle" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj avtal och ansvariga för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button></td>
+  </tr><tr data-group-detail hidden><td colspan="7"><div id="${esc(detailId)}" class="property-list-relations" role="region" aria-label="Avtal och ansvariga för ${esc(title)}">${contacts}${agreements}</div></td></tr></tbody>`;
+}
 export function overview(data, s, ui) {
   const v = scope(data, s);
   const title = s.propertyId
@@ -315,21 +351,10 @@ export function overview(data, s, ui) {
   if (ui.perspective === "Fastigheter") {
     body = table(
       ["Fastighet", "Adress", "Ansvarig hos oss", "Avtal", "Area", `Årskostnad ${ui.year}`, ""],
-      v.properties.map((p) => {
-        const cs = v.contracts.filter((c) => c.propertyId === p.id);
-        return row([
-          esc(propertyDesignation(p) || "–"),
-          `${propertyAddressCell(p)}<small>${esc(propertyOwnerLabel(data, p))}</small>`,
-          esc(personLabel(data, p.responsiblePersonId)),
-          num(cs.length) + " avtal",
-          num(cs.reduce((sum, c) => sum + (Number(c.area) || 0), 0)) + " m²",
-          (() => {
-            const calculated=calc().propertyAnnualCost(data,p.id,ui.year);
-            return `<span title="Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder">${money(calculated.annualCost)}</span>${calculated.needsReview ? `<small class="rent-needs-review">${calculated.needsReview} avtal behöver kontroll</small>` : ""}${calculated.preliminary ? `<small>${calculated.preliminary} preliminära index</small>` : ""}`;
-          })(),
-          edit("properties", p.id),
-        ]);
-      }),
+      v.properties.map(p => propertyListGroup(data, p, v.contracts.filter(c => c.propertyId === p.id), ui.year)),
+      true,
+      "Fastigheter",
+      true,
     );
   } else if (ui.perspective === "Avtal")
     body = table(
