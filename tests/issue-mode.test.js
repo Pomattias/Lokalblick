@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { applyIssueViewMode } from "../frontend/v2/issue-mode.js";
+import { editorSnapshot } from "../frontend/v2/editor-safety.js";
 
 class Element {
   constructor(){this.hidden=false;this.single=new Map();this.many=new Map();}
@@ -72,4 +73,24 @@ test("empty optional slots do not break toggling",()=>{
  f.many.set(".issue-history-card",[new Element()]);
  assert.doesNotThrow(()=>applyIssueViewMode(f,true));
  assert.doesNotThrow(()=>applyIssueViewMode(f,false));
+});
+
+test("changing presentation does not create unsaved edits or lose journal draft",()=>{
+ const {form}=mockIssueForm();
+ form.dataset={manualGeoSelected:""};
+ const title={name:"title",type:"text",tagName:"INPUT",value:"Ventilation"};
+ const cost={name:"estimatedCostTkr",type:"number",tagName:"INPUT",value:"3200"};
+ const enhancing={name:"enhancingToggle",type:"checkbox",tagName:"INPUT",value:"Ja",checked:true};
+ const date={name:"startDate",type:"date",tagName:"INPUT",value:"2026-09-01"};
+ const records=[title,cost,enhancing,date];
+ form.many.set("input[name], select[name], textarea[name]",records);
+ const before=editorSnapshot(form);
+ applyIssueViewMode(form,true);
+ assert.equal(editorSnapshot(form),before);
+ applyIssueViewMode(form,false);
+ assert.equal(editorSnapshot(form),before);
+ cost.value="3250";
+ assert.notEqual(editorSnapshot(form),before);
+ assert.equal(title.value,"Ventilation");
+ assert.equal(enhancing.checked,true);
 });
