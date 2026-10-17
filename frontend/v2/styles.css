@@ -3682,3 +3682,91 @@ body[data-view="map"] .map-property-card .context-metrics {flex-basis:100%;}
   #editor-root .record-workspace .context-metrics {flex-basis:100%;}
   #editor-root .record-workspace .context-filters :is(input,select) {font-size:16px;}
 }
+
+/* Task-first issue detail. Installed outside Budget only; keep original fields. */
+#editor-root .compact-issue #edit-form {padding-bottom:12px;}
+#editor-root .compact-issue #edit-form .issue-heading {align-items:flex-start;gap:8px;margin:0 0 8px;padding:0 0 8px;border-bottom:1px solid var(--line);}
+#editor-root .compact-issue #edit-form .issue-heading-text {min-width:0;}
+#editor-root .compact-issue #edit-form .issue-heading-text h2 {font-size:19px;line-height:1.25;margin:0 0 6px;}
+#editor-root .compact-issue #edit-form .issue-heading-actions {gap:4px;}
+#editor-root .compact-issue #edit-form .issue-heading-text>.issue-edit-title {margin-bottom:6px;}
+#editor-root .compact-issue #edit-form .issue-chips {display:flex;flex-wrap:wrap;gap:5px;}
+#editor-root .compact-issue #edit-form .issue-chip {display:flex;flex-direction:row;align-items:center;gap:5px;width:auto;min-width:0;margin:0;padding:3px 7px;border:1px solid var(--line);border-radius:20px;background:#f4f7f5;}
+#editor-root .compact-issue #edit-form .issue-chip[data-attention="high"] {background:#fff5dd;border-color:#e4c776;}
+#editor-root .compact-issue #edit-form .issue-chip[data-attention="urgent"] {background:#fff0ed;border-color:#d6a196;}
+#editor-root .compact-issue #edit-form .issue-chip .issue-field-label {font-size:10px;color:var(--muted);white-space:nowrap;}
+#editor-root .compact-issue #edit-form .issue-chip .issue-field-value {display:block;width:var(--issue-chip-size);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:24px;height:24px;max-height:24px;padding:3px 0;font-size:12px;line-height:18px;}
+#editor-root .compact-issue #edit-form .issue-chip .issue-field-control {min-width:0;}
+#editor-root .compact-issue #edit-form .issue-chip select {width:var(--issue-chip-size);min-height:24px;height:24px;max-height:24px;padding:2px 4px;font-size:12px;border-radius:12px;}
+#editor-root .compact-issue #edit-form.editor-editing .issue-chip .issue-field-value {display:none;}
+#editor-root .compact-issue #edit-form .issue-main-section {padding:0;margin:0;border:0;}
+#editor-root .compact-issue #edit-form .issue-main-section>.issue-grid {display:flex;flex-direction:column;gap:6px;}
+#editor-root .compact-issue #edit-form .issue-home-row {display:block;margin:0;padding:0;min-height:24px;}
+#editor-root .compact-issue #edit-form .issue-property-reference {display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;width:100%;min-width:0;min-height:24px;padding:0;border:0;background:transparent;}
+#editor-root .compact-issue #edit-form .issue-property-reference :is(button,strong,span) {font-size:12px;font-weight:400;line-height:1.4;}
+#editor-root .compact-issue #edit-form .issue-property-reference button {padding:3px 0;min-height:28px;white-space:normal;text-align:left;}
+#editor-root .compact-issue #edit-form .issue-description-row .issue-mode-field {display:block!important;margin:0;padding:0;}
+#editor-root .compact-issue #edit-form .issue-description-row .issue-field-label {display:block;}
+#editor-root .compact-issue #edit-form .issue-description-row .issue-field-value {display:block;min-height:40px;height:auto;max-height:none;margin:0;padding:3px 0;overflow:visible;white-space:pre-wrap;font-size:13px;line-height:1.4;}
+#editor-root .compact-issue #edit-form .issue-description-row textarea {min-height:56px;height:56px;max-height:none;padding:5px 6px;line-height:1.4;}
+#editor-root .compact-issue #edit-form.editor-editing .issue-description-row .issue-field-value {display:none;}
+#editor-root .compact-issue #edit-form.editor-editing .issue-description-row .issue-expand-text {display:none;}
+#editor-root .compact-issue #edit-form .issue-text-collapsed {display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden!important;}
+#editor-root .compact-issue #edit-form [hidden].issue-text-collapsed {display:none!important;}
+#editor-root .compact-issue #edit-form .issue-expand-text {padding:4px 0;font-size:12px;min-height:30px;}
+#editor-root .compact-issue #edit-form .issue-focus-grid {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:6px 0;padding:6px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+#editor-root .compact-issue #edit-form .issue-focus-grid .issue-owner-row {grid-column:auto;margin:0;padding:0;min-width:0;}
+#editor-root .compact-issue #edit-form .issue-focus-grid .issue-mode-field {display:flex;flex-direction:column;align-items:stretch;gap:3px;margin:0;padding:0;}
+#editor-root .compact-issue #edit-form .issue-focus-grid .issue-field-label {font-size:11px;color:var(--muted);}
+#editor-root .compact-issue #edit-form .issue-focus-grid :is(.issue-field-value,.issue-field-control select) {display:block;min-height:32px;height:32px;max-height:32px;padding:5px 0;font-size:14px;line-height:22px;}
+#editor-root .compact-issue #edit-form.editor-editing .issue-focus-grid .issue-field-value {display:none;}
+#editor-root .compact-issue #edit-form .issue-history-card {margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;min-width:0;}
+#editor-root .compact-issue #edit-form .issue-history-card-row {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 6px;align-items:center;min-height:0;padding:0;}
+#editor-root .compact-issue #edit-form .issue-history-label {grid-area:1/1;font-size:11px;color:var(--muted);}
+#editor-root .compact-issue #edit-form .issue-history-value {grid-area:2/1 / 3/-1;min-height:32px;height:32px;max-height:32px;padding:5px 0;font-size:14px;line-height:22px;}
+#editor-root .compact-issue #edit-form .issue-history-edit {grid-area:2/1 / 3/-1;margin:0;}
+#editor-root .compact-issue #edit-form .issue-history-card-row>.activity-journal-history {grid-area:1/2;margin:0;}
+#editor-root .compact-issue #edit-form .issue-history-card-row>.activity-journal-history[open] {grid-area:3/1 / 4/-1;}
+#editor-root .compact-issue #edit-form .activity-journal-history>summary {justify-content:flex-start;font-size:11px;min-height:24px;padding:2px 0;}
+#editor-root .compact-issue #edit-form .issue-cost-edit {display:flex;align-items:center;flex-direction:row;gap:5px;min-height:32px;height:32px;}
+#editor-root .compact-issue #edit-form .issue-cost-edit input {min-height:32px;height:32px;max-height:32px;padding:4px 5px;}
+#editor-root .compact-issue #edit-form .issue-cost-terms {grid-column:1/-1;font-size:11px;}
+#editor-root .compact-issue #edit-form .issue-cost-terms>summary {min-height:28px;padding:4px 0;}
+#editor-root .compact-issue #edit-form .issue-cost-terms :is(.journal-cost-enhancing,.issue-enhancing-edit) {margin:4px 0;font-size:11px;}
+#editor-root .compact-issue #edit-form .issue-focus-timing {margin:0 0 6px;}
+#editor-root .compact-issue #edit-form .issue-dates-edit {display:grid;grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr);gap:4px;align-items:center;min-height:32px;height:32px;}
+#editor-root .compact-issue #edit-form .issue-dates-edit label {min-width:0;margin:0;}
+#editor-root .compact-issue #edit-form .issue-dates-edit input {width:100%;min-width:0;min-height:32px;height:32px;max-height:32px;padding:3px;}
+#editor-root .compact-issue #edit-form .issue-visual-planner {margin:0;padding:0;border:0;background:transparent;}
+#editor-root .compact-issue #edit-form .issue-visual-planner>summary {font-size:11px;padding:5px 0;min-height:28px;}
+#editor-root .compact-issue #edit-form .activity-journal {margin:6px 0;padding:8px 0!important;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;}
+#editor-root .compact-issue #edit-form .activity-journal-heading {margin:0 0 4px;}
+#editor-root .compact-issue #edit-form .activity-journal-heading h3 {font-size:13px;margin:0;}
+#editor-root .compact-issue #edit-form .activity-journal-heading>span {font-size:11px;}
+#editor-root .compact-issue #edit-form .activity-journal-groups {display:block;margin:0;}
+#editor-root .compact-issue #edit-form .activity-journal-group {padding:0;margin:0;}
+#editor-root .compact-issue #edit-form .activity-journal-entry {padding:6px 8px;margin:4px 0;border-radius:0;background:#f6f8f7;}
+#editor-root .compact-issue #edit-form .activity-journal-entry-meta {font-size:10px;line-height:1.4;}
+#editor-root .compact-issue #edit-form .activity-journal-entry p {margin:3px 0;font-size:12px;line-height:1.4;}
+#editor-root .compact-issue #edit-form :is(.issue-note-compose,.issue-older-notes)>summary {font-size:12px;padding:6px 0;min-height:30px;}
+#editor-root .compact-issue #edit-form .activity-journal-compose-row {margin:4px 0 8px;gap:6px;}
+#editor-root .compact-issue #edit-form .activity-journal-compose textarea {min-height:54px;padding:6px;}
+#editor-root .compact-issue #edit-form .issue-extra {margin:6px 0;padding:6px 0;border-top:1px solid var(--line);}
+#editor-root .compact-issue #edit-form .issue-extra>summary {font-size:12px;font-weight:500;min-height:32px;padding:6px 0;}
+#editor-root .compact-issue #edit-form .issue-extra-fields {display:grid;gap:6px;margin:6px 0;}
+#editor-root .compact-issue #edit-form .issue-extra :is(.issue-section,.property-section) {margin:6px 0;padding:6px 0;}
+#editor-root .compact-issue #edit-form .issue-extra .issue-compact-meta {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+#editor-root .compact-issue #edit-form .issue-extra .issue-mode-field {display:flex;flex-direction:column;gap:3px;min-width:0;}
+@media(max-width:700px) {
+  #editor-root .compact-issue {padding:12px;}
+  #editor-root .compact-issue #edit-form .issue-heading {display:flex;flex-direction:column;gap:6px;}
+  #editor-root .compact-issue #edit-form .issue-heading-text {width:100%;}
+  #editor-root .compact-issue #edit-form .issue-heading-actions {align-self:flex-end;}
+  #editor-root .compact-issue #edit-form .issue-chip {padding:2px 7px;}
+  #editor-root .compact-issue #edit-form .issue-chip :is(.issue-field-value,select) {min-height:30px;height:30px;max-height:30px;font-size:16px!important;line-height:24px!important;}
+  #editor-root .compact-issue #edit-form .issue-heading-text h2 {font-size:18px!important;line-height:1.25!important;}
+  #editor-root .compact-issue #edit-form .issue-property-reference button {font-size:12px;}
+  #editor-root .compact-issue #edit-form .issue-description-row .issue-field-value {line-height:1.4!important;}
+  #editor-root .compact-issue #edit-form .issue-focus-grid :is(.issue-field-value,select),
+  #editor-root .compact-issue #edit-form .issue-history-value {font-size:16px!important;}
+}

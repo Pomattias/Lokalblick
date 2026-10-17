@@ -194,7 +194,8 @@ try{
         select:info(root.querySelector("select"))
       };
     });
-    // Every issue card occupies the same physical row in Visa and Redigera.
+    // Primary issue controls keep their dimensions in both modes; read descriptions
+    // may expand naturally while the edit textarea keeps a bounded height.
     // This catches layout drift that a mere CSS substring assertion misses.
     const issueSnapshot=async()=>page.locator("#edit-form").evaluate(form=>{
       const box=(selector)=>{
@@ -203,12 +204,12 @@ try{
         const r=el.getBoundingClientRect();
         return {width:r.width,height:r.height};
       };
-      const read=form.querySelector(".issue-compact-meta .issue-field-value");
-      const edit=form.querySelector(".issue-compact-meta .issue-field-control select");
+      const read=form.querySelector(".issue-chips .issue-field-value");
+      const edit=form.querySelector(".issue-chips .issue-field-control select");
       const style=el=>el?{font:parseFloat(getComputedStyle(el).fontSize),
         weight:parseInt(getComputedStyle(el).fontWeight,10)}:null;
       return {
-        compact:box(".issue-compact-meta .issue-mode-field"),
+        compact:box(".issue-chips .issue-mode-field"),
         cost:box(".issue-history-card-row:has(.issue-cost-edit)"),
         dates:box(".issue-history-card-row:has(.issue-dates-edit)"),
         description:box(".issue-description-row"),
@@ -243,7 +244,7 @@ try{
       if(!beforeIssue[kind]||!afterIssue[kind])continue;
       near(beforeIssue[kind].width,afterIssue[kind].width,
         "ärende "+kind+" bredd",2);
-      near(beforeIssue[kind].height,afterIssue[kind].height,
+      if(kind!=="description")near(beforeIssue[kind].height,afterIssue[kind].height,
         "ärende "+kind+" höjd",2);
     }
     if(beforeIssue.read&&afterIssue.edit){
@@ -271,7 +272,7 @@ try{
     assert.deepEqual(errors,[],"Inga sidfel");
     await context.close();
   }
-  console.log("PASS: identisk visa/redigera-layout, grön kant och stabil font/höjd vid fokus (mobil+desktop)");
+  console.log("PASS: stabila kärnfält och chips i visa/redigera, grön kant och stabil font/höjd vid fokus (mobil+desktop)");
 }catch(error){
   console.error(error);
   process.exitCode=1;

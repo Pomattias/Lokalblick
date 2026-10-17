@@ -12,6 +12,7 @@
     "setup:company": "node scripts/setup-company.mjs",
     "test:browser": "node scripts/browser-check.mjs",
     "test:property-browser": "node scripts/property-list-browser-check.mjs",
+    "test:issue-browser": "node scripts/compact-issue-browser-check.mjs",
     "test:editor-browser": "node scripts/editor-geometry-browser-check.mjs",
     "test:budget-browser": "node scripts/integration-browser-check.mjs",
     "test:integration-browser": "node scripts/integration-browser-check.mjs",

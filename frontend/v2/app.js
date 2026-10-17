@@ -1,3 +1,4 @@
+import {mountCompactIssue,compactIssueJournal,toggleIssueText} from "./compact-issue.js";
 import {portfolioScope} from "./portfolio-context.js";
 import {propertyPopup} from "./context-ui.js";
 import {mountWorkspace,recordBreadcrumb} from "./record-workspace.js";
@@ -902,7 +903,7 @@ function setEditorReadMode(readOnly){
       if(field.matches("[data-context-new-issue]"))field.disabled=!canEdit();
       continue;
     }
-    if(field.matches("[data-activity-journal-note],[data-activity-journal-save],[data-editor-close],[data-editor-activate],[data-editor-tab]"))continue;
+    if(field.matches("[data-activity-journal-note],[data-activity-journal-save],[data-issue-expand],[data-editor-close],[data-editor-activate],[data-editor-tab]"))continue;
     if(field.dataset.editorOriginalDisabled===undefined)
       field.dataset.editorOriginalDisabled=field.disabled?"true":"false";
     field.disabled=editor.readOnly || field.dataset.editorOriginalDisabled==="true";
@@ -1056,6 +1057,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
     if(navigation.tab)editor.workspace?.setTab(navigation.tab);
     form.querySelector(':scope > .section-title')?.insertAdjacentHTML('beforebegin',recordBreadcrumb(data,col,result.record,trail));
   }
+  if(col==="activities"&&ui.view!=="budget")mountCompactIssue(root,{isNew:!id});
   if(form){
     if(col!=="activities")prepareEditorModeFields(form);
     editor.initialSnapshot=editorSnapshot(form);
@@ -1238,6 +1240,7 @@ document.addEventListener("click", (event) =>
     }
     const b = event.target.closest("button");
     if (!b || b.disabled) return;
+    if(b.hasAttribute("data-issue-expand")){toggleIssueText(b);return;}
     if(b.dataset.contextRecord){
       openEditor(b.dataset.contextRecord,b.dataset.id,{}, {fromCurrent:!!editor,tab:b.dataset.contextTargetTab});return;
     }
@@ -1285,6 +1288,7 @@ document.addEventListener("click", (event) =>
       });
       const panel=document.querySelector("#edit-form .activity-journal");
       if(panel)panel.outerHTML=activityJournalHtml(data,id,{editable:true});
+      compactIssueJournal(editorForm());
       if(editor?.id)setEditorReadMode(editor.readOnly);
       updateEditorActions();
       return;
@@ -1294,6 +1298,8 @@ document.addEventListener("click", (event) =>
       openEditor("activities",id);
       const journal=document.querySelector("#edit-form #activity-journal");
       if(journal){
+        const compose=journal.querySelector('.issue-note-compose');
+        if(compose)compose.open=true;
         journal.scrollIntoView({behavior:"smooth",block:"nearest"});
         journal.querySelector("[data-activity-journal-note]")?.focus({preventScroll:true});
       }
