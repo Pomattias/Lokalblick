@@ -29,7 +29,7 @@ try{
     server.once("error",reject);
     server.once("exit",n=>reject(Error("Testserver avslutades: "+n)));
   });
-  browser=await chromium.launch({headless:true,args:["--no-sandbox","--disable-dev-shm-usage"]});
+  browser=await chromium.launch({executablePath:process.env.LOKALBLICK_CHROMIUM_PATH||undefined,headless:true,args:["--no-sandbox","--disable-dev-shm-usage"]});
   for(const width of [390,1280]){
     const context=await browser.newContext({
       viewport:{width,height:844},isMobile:width===390,hasTouch:width===390,deviceScaleFactor:width===390?3:1
@@ -44,6 +44,7 @@ try{
     await page.locator("[data-edit=properties]").first().click();
     const form=page.locator("#editor-root #edit-form");
     await form.waitFor();
+    await page.locator("[data-context-tab=info]").click();
     assert.ok(await form.evaluate(el=>el.classList.contains("editor-readonly")));
     assert.equal(await page.locator("body.editor-frame-active").count(),0,"Visa får inte visa grön kant");
     const propertyTitle=page.locator("#edit-form #editor-title");

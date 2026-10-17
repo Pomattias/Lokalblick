@@ -48,6 +48,10 @@
       return controller;
     },
 
+    getView() {
+      return handle&&adapter?.getView?adapter.getView(handle):null;
+    },
+
     update(points) {
       const provider = requireAdapter();
       if (!handle) return;

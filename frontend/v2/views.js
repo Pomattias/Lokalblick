@@ -1,3 +1,4 @@
+import {rentalTotals,tenantName,recordContext,isOpenIssue} from "./portfolio-context.js";
 import {isoDate} from "./date-format.js";
 import {fieldCaption} from "./field-labels.js";
 import {portfolioDashboard, buildPortfolioInsights} from "./portfolio-dashboard.js";
@@ -57,7 +58,7 @@ const organizationLabel = (data, id) =>
   data.organizations.find((x) => x.id === id)?.name || id || "";
 const propertyOwnerLabel = (data, property) =>
   organizationLabel(data, property?.ownerPartyId);
-export function filters(data, s, dashboardMode) {
+export function filters(data, s, dashboardMode, presentation = {}) {
   const owners = new Map();
   data.contracts.forEach((c) => {
     const p = data.properties.find((x) => x.id === c.propertyId) || {};
@@ -74,7 +75,7 @@ export function filters(data, s, dashboardMode) {
     return `<label class="filter-chip${selected?' is-selected':''}"><span class="filter-caption">${esc(caption)}</span><span class="filter-value" aria-hidden="true">${esc(selected?selectedName:caption)}</span><select aria-label="${esc(caption)}" data-filter="${key}">${options(items,value,label,selected,caption)}</select></label>`;
   };
   const modeButtons = dashboardMode !== undefined ? [["person","Medarbetare"],["unit","Verksamhet"],["owner","Fastighetsägare"]].map(([key,label]) => `<button type="button" class="filter-chip dashboard-mode-button${dashboardMode===key?" active":""}" data-dashboard-mode="${key}" aria-pressed="${dashboardMode===key}">${label}</button>`).join("") : null;
-  return `<div class="filters${modeButtons!==null?" dashboard-mode-filters":""}">${modeButtons!==null?modeButtons:chip('person','Ansvarig',internalPeople(data),x=>x.id,x=>x.name,s.person)+chip('unit','Verksamhet',Object.entries(units),x=>x[0],x=>x[1],s.unit)+chip('owner','Fastighetsägare',[...owners],x=>x[0],x=>x[1],s.owner)}<div class="ui-search-action-row"><label class="search ui-search"><span class="visually-hidden">Sök</span><svg class="ui-search-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.6"></circle><path d="m16 16 5 5"></path></svg><input data-filter="q" type="search" value="${esc(s.q)}" placeholder="Adress, avtal eller verksamhet"></label><div class="ui-filter-actions-slot"></div></div></div>`;
+  return `<div class="filters${modeButtons!==null?" dashboard-mode-filters":""}">${modeButtons!==null?modeButtons:chip('person',presentation.personLabel||'Ansvarig',internalPeople(data),x=>x.id,x=>x.name,s.person)+chip('unit','Verksamhet',Object.entries(units),x=>x[0],x=>x[1],s.unit)+chip('owner','Fastighetsägare',[...owners],x=>x[0],x=>x[1],s.owner)}<div class="ui-search-action-row"><label class="search ui-search"><span class="visually-hidden">${esc(presentation.searchLabel||"Sök")}</span><svg class="ui-search-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.6"></circle><path d="m16 16 5 5"></path></svg><input data-filter="q"${presentation.searchView?` data-portfolio-search-view="${esc(presentation.searchView)}"`:""} type="search" value="${esc(s.q)}" placeholder="${esc(presentation.placeholder||"Adress, avtal eller verksamhet")}"></label><div class="ui-filter-actions-slot"></div></div></div>`;
 }
 // Treat the cadastral designation and street address as independent values.
 export const propertyDesignation = property => String(property?.designation || "").trim();
@@ -164,14 +165,14 @@ function summaryCards(cards) {
     .join("")}</div>`;
 }
 export function summary(data, s, year, ui = {}) {
-  const view = scope(data, s);
+  const view = ui.portfolioView || scope(data, s);
   const perspective =
     ui.view === "contracts" ? "Avtal"
     : ui.view === "overview" ? "Fastigheter"
     : ui.view === "properties" ? "Fastigheter"
     : ui.view === "activities" ? "Ärenden"
     : ui.perspective || "Fastigheter";
-  const rent = rentMetrics(data, view.contracts, year);
+  const rent = ui.portfolioView ? rentalTotals(data,view.contracts,year) : rentMetrics(data, view.contracts, year);
   if (ui.view === "overview") {
     const insights=buildPortfolioInsights(data,s,year,ui.dashboardMode||"");
     return summaryCards([
@@ -232,7 +233,7 @@ export function summary(data, s, year, ui = {}) {
       ["Fastigheter", num(view.properties.length)],
       ["Avtal", num(view.contracts.length)],
       ["Total hyra " + year, money(rent.rent)],
-      ["Hyra / kvm", rent.area > 0 ? money(rent.rentPerSqm) : "–"],
+      ["Hyra / kvm", rent.area > 0 && rent.rentPerSqm!==null ? money(rent.rentPerSqm) : "–"],
     ]);
   }
 
@@ -241,7 +242,7 @@ export function summary(data, s, year, ui = {}) {
       ["Avtal", num(view.contracts.length)],
       ["Area", num(rent.area) + " m²"],
       ["Total hyra " + year, money(rent.rent)],
-      ["Hyra / kvm", rent.area > 0 ? money(rent.rentPerSqm) : "–"],
+      ["Hyra / kvm", rent.area > 0 && rent.rentPerSqm!==null ? money(rent.rentPerSqm) : "–"],
     ]);
   }
 
@@ -263,7 +264,7 @@ function contractComponentLabel(v) {
     ? `<span title="${esc(v.status + " · " + v.source)}">${money(v.amount)}</span>`
     : "–";
 }
-function contractRows(data, contracts, year) {
+function contractRows(data, contracts, year, portfolio = false) {
   return contracts.map(c=>{
     const p=(data.properties||[]).find(p=>p.id===c.propertyId)||{};
     const v=calc().annualValues(c,year,0,data.indexSeries);
@@ -273,11 +274,11 @@ function contractRows(data, contracts, year) {
     return row([
       esc(propertyDesignation(p) || "–"),
       propertyAddressCell(p),
-      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||"Avtalsnummer saknas")}</strong></button>`,
+      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||"Avtalsnummer saknas")}</strong></button><small>${esc(tenantName(data,c))}</small>`,
       num(area),
       contractComponentLabel(v.rent),
       contractComponentLabel(v.addition),
-      area&&total&&complete?money(total/area):"–",
+      portfolio ? area&&v.rent.status!=="Behöver kontroll"?money(v.rent.amount/area):"–" : area&&total&&complete?money(total/area):"–",
       esc(c.end||"–"),
       esc(c.noticePeriodMonths==null||c.noticePeriodMonths===""?"–":c.noticePeriodMonths+" mån"),
       `<button class="table-pencil" data-edit="contracts" data-id="${esc(c.id)}" aria-label="Redigera avtal ${esc(c.number||c.id)}" title="Redigera">✎</button>`
@@ -313,13 +314,14 @@ function contactNames(data, type, record, role, fallback) {
     : model.history(data, type, record.id, role).length ? [] : [fallback];
   return [...new Set(ids.filter(Boolean).map(id => personLabel(data, id)))].join(", ") || "Ej fördelat";
 }
-function propertyListGroup(data, p, contracts, year) {
+function propertyListGroup(data, p, contracts, year, portfolioView) {
   const title = propertyDesignation(p) || "Beteckning saknas";
   const detailId = "property-relations-" + encodeURIComponent(p.id);
   const totalContracts = data.contracts.filter(c => c.propertyId === p.id).length;
   const subset = contracts.length !== totalContracts;
   const area = contracts.reduce((sum, c) => sum + (Number(c.area) || 0), 0);
-  const cost = calc().propertyAnnualCost(data, p.id, year);
+  const cost = portfolioView ? rentalTotals(data,contracts,year) : calc().propertyAnnualCost(data, p.id, year);
+  const openCount=portfolioView ? recordContext(data,'properties',p.id,{},{},false,portfolioView).issues.filter(isOpenIssue).length : 0;
   const ourContact = contactNames(data, "property", p, "our", p.responsiblePersonId);
   const ownerContact = contactNames(data, "property", p, "owner", p.ownerResponsiblePersonId);
   const contractContact = c => globalThis.LokalblickResponsibility.history(data,"contract",c.id,"our").length || c.responsiblePersonId
@@ -327,17 +329,17 @@ function propertyListGroup(data, p, contracts, year) {
   const contacts = `<section class="property-list-contacts"><h3>Kontaktpersoner</h3><dl><div><dt>Vår ansvarige</dt><dd>${esc(ourContact)}</dd></div><div><dt>Fastighetsägarens kontaktperson</dt><dd>${esc(ownerContact)}</dd></div></dl></section>`;
   const agreements = `<section class="property-list-contracts"><h3>Avtal${subset ? ` · ${contracts.length} av ${totalContracts} i aktuellt urval` : ` · ${contracts.length}`}</h3>${contracts.length ? `<ul>${contracts.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || "Avtalsnummer saknas")}</button><small>${esc(units[c.unitId] || c.use || "Verksamhet saknas")}</small></div><dl><div><dt>Vår ansvarige för avtalet</dt><dd>${esc(contractContact(c))}</dd></div><div><dt>Verksamhetsansvarig</dt><dd>${esc(contactNames(data,"contract",c,"business",c.businessResponsiblePersonId))}</dd></div></dl></li>`).join("")}</ul>` : `<p>${totalContracts ? "Inga avtal i aktuellt urval." : "Inga avtal kopplade till fastigheten."}</p>`}</section>`;
   return `<tbody data-row-group="${esc(p.id)}"><tr class="property-list-summary">
-    <td class="primary-cell"><button type="button" class="text-button" data-edit="properties" data-id="${esc(p.id)}">${esc(title)}</button></td>
+    <td class="primary-cell"><button type="button" class="text-button" data-edit="properties" data-id="${esc(p.id)}">${esc(title)}</button>${openCount?`<small><button type="button" class="text-button" data-context-record="properties" data-id="${esc(p.id)}" data-context-target-tab="issues">${openCount} öppna ärenden</button></small>`:""}</td>
     <td>${esc(propertyAddress(p) || "Adress saknas")}<small class="property-list-owner">${esc(propertyOwnerLabel(data,p))}</small></td>
     <td><span class="property-list-mobile-label">Vår ansvarige: </span>${esc(ourContact)}</td>
     <td data-sort-value="${contracts.length}">${num(contracts.length)} avtal${subset?`<small>av ${num(totalContracts)} totalt</small>`:""}</td>
     <td data-sort-value="${area}">${num(area)} m²</td>
-    <td data-sort-value="${cost.annualCost}"><span title="Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder. Avser hela fastigheten.">${money(cost.annualCost)}</span>${cost.needsReview?`<small class="rent-needs-review">${cost.needsReview} avtal behöver kontroll</small>`:""}${cost.preliminary?`<small>${cost.preliminary} preliminära index</small>`:""}</td>
+    <td data-sort-value="${portfolioView?cost.rent:cost.annualCost}"><span title="${portfolioView?"Avtalshyra för avtalen i aktuellt urval":"Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder. Avser hela fastigheten."}">${money(portfolioView?cost.rent:cost.annualCost)}</span>${cost.needsReview?`<small class="rent-needs-review">${cost.needsReview} avtal behöver kontroll</small>`:""}${cost.preliminary?`<small>${cost.preliminary} preliminära index</small>`:""}</td>
     <td><button type="button" class="property-list-toggle" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj avtal och ansvariga för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button></td>
   </tr><tr data-group-detail hidden><td colspan="7"><div id="${esc(detailId)}" class="property-list-relations" role="region" aria-label="Avtal och ansvariga för ${esc(title)}">${contacts}${agreements}</div></td></tr></tbody>`;
 }
 export function overview(data, s, ui) {
-  const v = scope(data, s);
+  const v = ui.portfolioView || scope(data, s);
   const title = s.propertyId
     ? propertyLabel(data, s.propertyId)
     : "Aktuellt urval";
@@ -350,16 +352,16 @@ export function overview(data, s, ui) {
   let body = "";
   if (ui.perspective === "Fastigheter") {
     body = table(
-      ["Fastighet", "Adress", "Ansvarig hos oss", "Avtal", "Area", `Årskostnad ${ui.year}`, ""],
-      v.properties.map(p => propertyListGroup(data, p, v.contracts.filter(c => c.propertyId === p.id), ui.year)),
+      ["Fastighet", "Adress", "Ansvarig hos oss", "Avtal", "Area", `${ui.portfolioView?"Årshyra":"Årskostnad"} ${ui.year}`, ""],
+      v.properties.map(p => propertyListGroup(data, p, v.contracts.filter(c => c.propertyId === p.id), ui.year, ui.portfolioView)),
       true,
       "Fastigheter",
       true,
     );
   } else if (ui.perspective === "Avtal")
     body = table(
-      ["Fastighet", "Adress", "Avtal", "Kvm", `Hyra ${ui.year}`, `Tillägg ${ui.year}`, "Kr/kvm", "Avtal t.o.m.", "Uppsägning", ""],
-      contractRows(data, v.contracts, ui.year),
+      ["Fastighet", "Adress", "Avtal", "Kvm", `Hyra ${ui.year}`, `Tillägg ${ui.year}`, ui.portfolioView?"Årshyra/m²":"Kr/kvm", "Avtal t.o.m.", "Uppsägning", ""],
+      contractRows(data, v.contracts, ui.year, Boolean(ui.portfolioView)),
       true,
       "Avtal",
     );
@@ -380,7 +382,7 @@ export function overview(data, s, ui) {
     ({Fastigheter:"Fastigheter",Avtal:"Avtal","Ärenden":"Aktiviteter"}[ui.perspective]||title) : title;
   const perspectiveTabs=ui.hidePerspectiveTabs ? "" :
     `<div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>`;
-  return `<div class="section-title"><h2>${esc(header)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div>${perspectiveTabs}${typeButtons}${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
+  return `<div class="section-title"><h2>${esc(header)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div>${perspectiveTabs}${ui.issueFilterToolbar||""}${typeButtons}${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
 }
 function contractIndexBreakdown(c, name, v, rawShare) {
   const amount = v.status === "Behöver kontroll" && v.amount <= 0

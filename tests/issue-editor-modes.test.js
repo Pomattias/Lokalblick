@@ -123,11 +123,11 @@ test("Redigera unlocks the same existing controls without rebuilding or moving t
    }
  };
  const editor={id:"a1",col:"activities",readOnly:true};
- let notifications=0;
+ let notifications=0,allowed=true;
  const mode=new Function("editorForm","editor","updateEditorActions",
-   "syncEditorFrame","prepareEditorModeFields","refreshEditorModeFields",
+   "syncEditorFrame","prepareEditorModeFields","refreshEditorModeFields","canEdit",
    app.slice(a,b)+";return setEditorReadMode;"
- )(()=>form,editor,()=>notifications++,()=>{},()=>{},()=>{});
+ )(()=>form,editor,()=>notifications++,()=>{},()=>{},()=>{},()=>allowed);
  mode(true);
  assert.equal(value.hidden,false);
  assert.equal(control.hidden,true);
@@ -156,6 +156,13 @@ test("Redigera unlocks the same existing controls without rebuilding or moving t
  assert.equal(notifications,3);
  assert.equal(allRefs[0],slot);
  assert.equal(allRefs[1],costCard);
+ allowed=false;
+ mode(false);
+ assert.equal(editor.readOnly,true,"Read-only connections cannot unlock records");
+ assert.equal(edit.disabled,true);
+ assert.equal(note.disabled,true,"Journal writes require edit permission");
+ assert.equal(select.disabled,true);
+ assert.equal(close.disabled,false);
  assert.match(app,/form&&id&&!form\.querySelector\("\[data-editor-activate\]"\)/);
  // Entering edit mode never auto-focuses a field, preserving iPhone layout.
 });

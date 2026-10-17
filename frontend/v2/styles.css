@@ -3638,3 +3638,47 @@ body[data-view="properties"] .property-list .property-list-contracts p {margin:0
     white-space:normal;overflow-wrap:anywhere;text-overflow:clip;
   }
 }
+
+/* Related records use the original editors and fields. Budget is excluded. */
+#editor-root .record-workspace [data-context-panel][hidden] {display:none!important;}
+#editor-root .context-breadcrumb {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;}
+#editor-root .record-workspace .context-tabs {display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line);margin:8px 0 14px;padding-bottom:6px;}
+#editor-root .record-workspace .context-tabs button {padding:8px 10px;font-size:12px;background:transparent;border-color:transparent;color:var(--ink);}
+#editor-root .record-workspace .context-tabs button.active {background:#edf4f1;border-color:#c4d7ce;font-weight:600;}
+#editor-root .record-workspace:not([data-context-tab="info"]) [data-editor-activate] {display:none;}
+#editor-root .record-workspace .context-scope {display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:12px;color:var(--muted);}
+#editor-root .record-workspace .context-toolbar {display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0;}
+#editor-root .record-workspace .context-toolbar label {max-width:260px;}
+#editor-root .record-workspace .context-filters,body[data-view="activities"] .portfolio-issue-filters {display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
+#editor-root .record-workspace .context-filters label {flex:1 1 140px;min-width:0;font-size:12px;}
+#editor-root .record-workspace .context-filters :is(input,select) {width:100%;min-height:38px;}
+#editor-root .record-workspace .context-summary {display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);padding:10px 0;}
+#editor-root .record-workspace :is(.context-object,[data-context-panel="issues"]) h3 {margin:16px 0 6px;font-size:13px;}
+:is(#editor-root .record-workspace,.map-property-card) .context-contract-card {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 14px;text-align:left;width:100%;min-width:0;background:#fff;border:1px solid var(--line,#d7e1dc);border-radius:6px;padding:10px;margin:6px 0;color:var(--ink,#183b2d);font:inherit;}
+:is(#editor-root .record-workspace,.map-property-card) .context-contract-card:hover {background:#f4f8f6;border-color:#8aa99b;}
+:is(#editor-root .record-workspace,.map-property-card) .context-contract-name {display:flex;flex-direction:column;gap:3px;flex:1 1 150px;min-width:0;font-size:13px;overflow-wrap:anywhere;}
+:is(#editor-root .record-workspace,.map-property-card) .context-contract-name>span {font-size:12px;font-weight:400;}
+:is(#editor-root .record-workspace,.map-property-card) .context-metrics {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;flex:1 1 270px;}
+:is(#editor-root .record-workspace,.map-property-card) .context-metrics>span {display:flex;flex-direction:column;gap:3px;font-size:12px;}
+:is(#editor-root .record-workspace,.map-property-card) .context-metrics small {color:var(--muted,#64766c);font-size:10px;font-weight:400;}
+:is(#editor-root .record-workspace,.map-property-card) .context-metrics strong {font-weight:500;}
+:is(#editor-root .record-workspace,.map-property-card) .context-issue-list {padding:0;margin:0;list-style:none;}
+:is(#editor-root .record-workspace,.map-property-card) .context-issue-list li {padding:8px 0;border-bottom:1px solid var(--line,#d7e1dc);display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
+:is(#editor-root .record-workspace,.map-property-card) .context-issue-list .text-button {text-align:left;white-space:normal;min-height:32px;overflow-wrap:anywhere;}
+:is(#editor-root .record-workspace,.map-property-card) :is(.context-count,.context-empty,.context-issue-list small) {color:var(--muted,#64766c);font-size:12px;margin:6px 0;}
+:is(#editor-root .record-workspace,.map-property-card) .context-overdue {color:#a84828;}
+body[data-view="map"] .portfolio-map-popup .leaflet-popup-content-wrapper {border-radius:8px;}
+body[data-view="map"] .portfolio-map-popup .leaflet-popup-content {width:min(360px,calc(100vw - 76px))!important;max-height:min(440px,50dvh);overflow:auto;margin:18px 16px 12px;}
+body[data-view="map"] .map-property-card {font:13px/1.4 var(--ui-font-family,system-ui,sans-serif);color:var(--ink,#183b2d);}
+body[data-view="map"] .map-property-card header {padding-right:12px;}
+body[data-view="map"] .map-property-card header .text-button {font-size:16px;font-weight:600;padding:0;min-height:32px;text-align:left;}
+body[data-view="map"] .map-property-card header small {display:block;color:var(--muted);}
+body[data-view="map"] .map-property-card h3 {margin:14px 0 4px;font-size:13px;}
+body[data-view="map"] .map-property-card .context-metrics {flex-basis:100%;}
+@media(max-width:700px) {
+  #editor-root .record-workspace .context-tabs {gap:0;}
+  #editor-root .record-workspace .context-tabs button {font-size:11px;padding:10px 7px;flex:1 1 auto;}
+  #editor-root .record-workspace .context-contract-card {padding:9px;}
+  #editor-root .record-workspace .context-metrics {flex-basis:100%;}
+  #editor-root .record-workspace .context-filters :is(input,select) {font-size:16px;}
+}

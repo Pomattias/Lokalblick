@@ -70,9 +70,9 @@ test("Direct Avtal and Aktiviteter pages share the existing records and edit act
   assert.doesNotMatch(filtered,/Takbyte/);
 });
 
-test("No changes to editor lifecycle or interactive Planera timeline",()=>{
+test("Property navigation opens the shared workspace and preserves the interactive Planera timeline",()=>{
   assert.match(app,/ui\.view === "overview"\)\s*content\.innerHTML = dashboard/);
-  assert.match(app,/ui\.view = "properties";\s*ui\.perspective = "Fastigheter";/);
+  assert.match(app,/openEditor\("properties",property\.dataset\.dashboardProperty\)/);
   assert.match(app,/ui\.view === "contracts" \? "contracts"/);
   const plan=planning(data,selection,{year:2027,planningMode:"timeline",timelineSpan:1,issueType:"Alla",unassigned:false,unassignedHome:false});
   assert.match(plan,/data-plan-issue="i1"/);

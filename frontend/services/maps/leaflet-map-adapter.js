@@ -8,6 +8,7 @@
   function addPoints(handle, points) {
     handle.markers.clearLayers();
     const bounds = [];
+    handle.pointMarkers=new Map();
 
     (points || []).filter(validPoint).forEach(function(point) {
       let marker;
@@ -39,18 +40,39 @@
 
       if (point.popupHtml) {
         marker.bindPopup(point.popupHtml, {
-          closeButton: false,
+          closeButton: Boolean(handle.interactivePopups),
+          ...(handle.interactivePopups?{minWidth:230,maxWidth:360,className:"portfolio-map-popup"}:{}),
           autoPanPadding: [24, 24]
         });
-        marker.on("mouseover", function() { this.openPopup(); });
-        marker.on("mouseout", function() { this.closePopup(); });
+        if(!handle.interactivePopups){
+          marker.on("mouseover", function() { this.openPopup(); });
+          marker.on("mouseout", function() { this.closePopup(); });
+        }
         marker.on("click", function() {
           this.openPopup();
-          if (typeof handle.onPointClick === "function") handle.onPointClick(point);
+          if (!handle.interactivePopups&&typeof handle.onPointClick === "function") handle.onPointClick(point);
         });
       }
 
       marker.addTo(handle.markers);
+      handle.pointMarkers.set(point.id,marker);
+      if(handle.interactivePopups){
+        handle.map.whenReady(function(){
+          const element=marker.getElement();
+          if(!element)return;
+          element.setAttribute("tabindex","0");element.setAttribute("role","button");
+          element.setAttribute("aria-label",point.designation||point.address||"Fastighet");
+          element.addEventListener("keydown",function(event){
+            if(event.key!=="Enter"&&event.key!==" ")return;
+            event.preventDefault();event.stopPropagation();marker.openPopup();
+          });
+        });
+        marker.on("popupopen",function(){
+          handle.openPointId=point.id;
+          fitPopup(handle,marker);
+        });
+        marker.on("popupclose",function(){if(handle.openPointId===point.id)handle.openPointId=null;});
+      }
       bounds.push([Number(point.latitude), Number(point.longitude)]);
     });
 
@@ -64,6 +86,12 @@
         handle.fallbackCenter.zoom
       );
     }
+  }
+
+  function fitPopup(handle,marker) {
+    const popup=marker.getPopup();
+    popup.options.maxHeight=Math.max(100,Math.min(440,handle.map.getSize().y-100));
+    popup.update();
   }
 
   const adapter = {
@@ -121,10 +149,18 @@
         map: map,
         markers: L.layerGroup().addTo(map),
         fallbackCenter: fallbackCenter,
+        interactivePopups:Boolean(options.interactivePopups),
         onPointClick: typeof options.onPointClick === "function" ? options.onPointClick : null
       };
 
+      if(handle.interactivePopups)map.on("resize",function(){
+        for(const marker of handle.pointMarkers.values())if(marker.isPopupOpen())fitPopup(handle,marker);
+      });
       addPoints(handle, options.points || []);
+      if(options.initialView){
+        map.setView(options.initialView.center,options.initialView.zoom);
+        handle.pointMarkers.get(options.initialView.openPointId)?.openPopup();
+      }
 
       // An editor can position one selected building without editing the full
       // property-map layer. Click or drag only changes pending form values.
@@ -151,6 +187,11 @@
       }
       handle.resizeTimer = setTimeout(function() { map.invalidateSize(); }, 0);
       return handle;
+    },
+
+    getView(handle) {
+      const center=handle.map.getCenter();
+      return {center:[center.lat,center.lng],zoom:handle.map.getZoom(),openPointId:handle.openPointId};
     },
 
     update(handle, points) {

@@ -1,0 +1,67 @@
+import {recordContext,isOpenIssue} from './portfolio-context.js';
+import {contextTabs,contextContracts,contextIssueFilters,contextIssues} from './context-ui.js';
+import {esc} from './views.js';
+
+export function mountWorkspace(root,{data,collection,id,selection,source,canEdit,saved={}}) {
+  if(!id||!['properties','contracts'].includes(collection))return null;
+  const form=root.querySelector('#edit-form'),aside=root.querySelector('.editor');
+  const heading=form.querySelector(':scope > .section-title');
+  if(collection==='contracts'){
+    const contract=data().contracts.find(row=>row.id===id),property=data().properties.find(row=>row.id===contract?.propertyId);
+    const title=heading.querySelector('h2');
+    if(property&&title)title.innerHTML=`<button type="button" class="text-button" data-context-record="properties" data-id="${esc(property.id)}">${esc(title.textContent)}</button>`;
+  }
+  const state={tab:collection==='properties'?'contracts':'info',status:'open',person:'',q:'',period:'all',all:false,...saved};
+  const info=document.createElement('section');info.dataset.contextPanel='info';
+  for(const node of [...form.children])if(node!==heading)info.appendChild(node);
+  form.appendChild(info);
+  aside.classList.add('record-workspace');
+  const scopeBanner=document.createElement('div');scopeBanner.className='context-scope';
+  heading.after(scopeBanner);
+  const tabs=document.createElement('div');scopeBanner.after(tabs);
+  const contracts=document.createElement('section');contracts.dataset.contextPanel='contracts';
+  contracts.innerHTML='<div class="context-toolbar"><label>Avtal<select data-context-filter="period"><option value="all">Alla avtal i urvalet</option><option value="current">Gällande avtal</option><option value="other">Avslutade och framtida</option></select></label></div><div data-context-results="contracts"></div>';
+  if(collection==='properties')form.appendChild(contracts);
+  const issues=document.createElement('section');issues.dataset.contextPanel='issues';
+  issues.innerHTML=`<div class="context-toolbar"><button type="button" data-context-new-issue${canEdit?'':' disabled'}>Nytt ärende</button></div>${contextIssueFilters(data(),state)}<div data-context-results="issues"></div>`;
+  form.appendChild(issues);
+  function setTab(tab) {
+    state.tab=['info','issues',...(collection==='properties'?['contracts']:[])].includes(tab)?tab:'info';
+    aside.dataset.contextTab=state.tab;
+    for(const panel of form.querySelectorAll('[data-context-panel]'))panel.hidden=panel.dataset.contextPanel!==state.tab;
+    for(const button of tabs.querySelectorAll('[data-context-tab]')){
+      const active=button.dataset.contextTab===state.tab;
+      button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+      button.setAttribute('aria-controls',`context-${collection}-${encodeURIComponent(id)}-${button.dataset.contextTab}`);
+    }
+    for(const panel of form.querySelectorAll('[data-context-panel]'))panel.id=`context-${collection}-${encodeURIComponent(id)}-${panel.dataset.contextPanel}`;
+  }
+  function refresh() {
+    const current=data(),context=recordContext(current,collection,id,selection,source,state.all);
+    const openCount=context.issues.filter(isOpenIssue).length;
+    tabs.innerHTML=contextTabs(collection,openCount);
+    scopeBanner.innerHTML=collection==='properties'&&context.totalContracts!==context.contracts.length
+      ?`<span>${context.contracts.length} av ${context.totalContracts} avtal i urvalet</span><button type="button" class="text-button" data-context-show-all>Visa hela fastigheten</button>`
+      :state.all?'<span>Hela fastigheten</span><button type="button" class="text-button" data-context-show-all>Återgå till urvalet</button>':'';
+    if(collection==='properties')contracts.querySelector('[data-context-results]').innerHTML=contextContracts(current,context,state,new Date().getFullYear());
+    issues.querySelector('[data-context-results]').innerHTML=contextIssues(current,context,state);
+    contracts.querySelector('select').value=state.period;
+    setTab(state.tab);
+  }
+  refresh();
+  if(saved.openDetails)for(const [index,detail] of [...form.querySelectorAll('details')].entries())detail.open=saved.openDetails.includes(index);
+  aside.scrollTop=saved.scroll||0;
+  return {state,setTab,refresh,apply(key,value){state[key]=value;refresh();},
+    capture:()=>({...state,scroll:aside.scrollTop,openDetails:[...form.querySelectorAll('details')].flatMap((detail,index)=>detail.open?[index]:[])})};
+}
+
+export function recordBreadcrumb(data,collection,record,trail=[]) {
+  const link=(kind,id,label)=>`<button type="button" class="text-button" data-context-record="${kind}" data-id="${esc(id)}">${esc(label)}</button>`;
+  const contract=collection==='contracts'?record:data.contracts.find(row=>row.id===record.contractId);
+  const object=(data.objects||[]).find(row=>row.id===record.objectId);
+  const property=data.properties.find(row=>row.id===(contract?.propertyId||object?.propertyId||record.propertyId));
+  const back=trail.length?'<button type="button" class="text-button" data-context-back>← Tillbaka</button>':'';
+  const propertyLink=collection==='activities'&&property?link('properties',property.id,property.designation||property.address):'';
+  const contractLink=collection==='activities'&&contract?link('contracts',contract.id,'Avtal '+contract.number):'';
+  return back||propertyLink||contractLink?`<nav class="context-breadcrumb" aria-label="Tillbaka och sammanhang">${[back,propertyLink,contractLink].filter(Boolean).join('<span aria-hidden="true">›</span>')}</nav>`:'';
+}

@@ -29,6 +29,7 @@ async function open(base) {
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>{
     const NativeDate = Date;
+    window.__NativeDate=NativeDate;
     window.Date = class extends NativeDate {
       constructor(...args) {super(...(args.length?args:['2026-10-16T12:00:00Z']));}
       static now() {return NativeDate.parse('2026-10-16T12:00:00Z');}
@@ -48,7 +49,7 @@ async function open(base) {
   return {page,errors};
 }
 const navigate = (page,view) => page.locator(`.sidebar [data-view="${view}"]`).evaluate(button=>button.click());
-const names = page => page.locator('tbody[data-row-group]:visible .property-list-summary td:first-child').allTextContents();
+const names = page => page.locator('tbody[data-row-group]:visible .property-list-summary td:first-child > button').allTextContents();
 const noOverflow = page => page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 const layout = page => page.locator('body').evaluate(body=>[body,...body.querySelectorAll('*')].map(element=>{
   const css=getComputedStyle(element), rect=element.getBoundingClientRect();
@@ -73,6 +74,95 @@ async function matchingPixels(pairs) {
       }));
     },pairs.map(pair=>pair.map(buffer=>buffer.toString('base64'))));
   } finally {await page.close();}
+}
+
+async function contextNavigationEvidence(base) {
+  const {page,errors}=await open(base);
+  // Leaflet measures animation time with new Date(); Budget uses separate fixed-clock pages.
+  await page.evaluate(()=>{window.Date=window.__NativeDate;});
+  await navigate(page,'map');
+  const marker=page.locator('#property-map [role="button"][aria-label="Centrum 5"]');
+  await marker.focus();await page.keyboard.press('Enter');
+  const popup=page.locator('.map-property-card');
+  await popup.waitFor();
+  assert.equal(await page.locator('#edit-form').count(),0,'First marker click only opens information');
+  assert.equal(await popup.locator('.context-contract-card').count(),2);
+  assert.ok((await popup.innerText()).includes('Årshyra/m²'));
+  await page.mouse.move(0,0);
+  assert.ok(await popup.isVisible(),'Information remains open away from the marker');
+  const mapState=()=>page.evaluate(()=>window.LokalblickMapService.getView());
+  await page.waitForFunction(()=>{const r=document.querySelector('.leaflet-popup').getBoundingClientRect(),m=document.querySelector('#property-map').getBoundingClientRect();return r.top>=m.top&&r.bottom<=m.bottom;});
+  await page.waitForFunction(()=>{const snapshot=JSON.stringify(window.LokalblickMapService.getView());if(snapshot!==window.__mapSnapshot){window.__mapSnapshot=snapshot;window.__mapStableSince=performance.now();return false;}return performance.now()-window.__mapStableSince>120;});
+  const before=await mapState();
+  await page.screenshot({path:path.join(artifacts,'map-popup-desktop.png'),fullPage:true});
+  await popup.locator('.context-contract-card').first().click();
+  assert.equal(await page.locator('.editor').count(),1);
+  assert.equal(await page.locator('.record-workspace').getAttribute('data-context-tab'),'info');
+  await page.locator('[data-context-tab=issues]').click();
+  const firstIssue=page.locator('[data-context-panel=issues] [data-context-record=activities]').first();
+  await firstIssue.click();
+  assert.equal(await page.locator('#edit-form').getAttribute('data-collection'),'activities');
+  assert.equal(await page.locator('.editor').count(),1,'Related records replace one workspace');
+  await page.locator('[data-context-back]').click();
+  assert.equal(await page.locator('.record-workspace').getAttribute('data-context-tab'),'issues','Back restores the contract tab');
+  await page.locator('#editor-title [data-context-record=properties]').click();
+  assert.equal(await page.locator('.record-workspace').getAttribute('data-context-tab'),'contracts');
+  await page.locator('[data-context-back]').click();
+  assert.equal(await page.locator('.record-workspace').getAttribute('data-context-tab'),'issues');
+  await page.keyboard.press('Escape');
+  assert.ok(await popup.isVisible());
+  assert.deepEqual(await mapState(),before,'Opening and closing records retains map position and popup');
+  await popup.locator('[data-context-record=activities]').first().click();
+  assert.equal(await page.locator('#edit-form').getAttribute('data-collection'),'activities');
+  await page.keyboard.press('Escape');
+  await popup.locator('header [data-context-record=properties]').click();
+  await page.locator('[data-context-tab=issues]').click();
+  await page.locator('[data-context-new-issue]').click();
+  assert.equal(await page.locator('[name=issueHome]').inputValue(),'property:DEMO-201');
+  await page.keyboard.press('Escape');
+  assert.ok(await popup.isVisible());
+  await navigate(page,'properties');
+  const search=page.getByRole('searchbox',{name:'Sök fastigheter eller avtal',exact:true});
+  await search.fill('201-2025');await search.dispatchEvent('change');
+  await navigate(page,'activities');
+  assert.equal(await page.getByRole('searchbox',{name:'Sök ärenden',exact:true}).inputValue(),'','Search is local to its working view');
+  assert.ok(await page.locator('#content [data-edit=activities]').count()>1);
+  await navigate(page,'map');
+  assert.equal(await page.locator('#property-map [role=button][aria-label="Centrum 5"]').count(),1);
+  assert.equal(await page.locator('#property-map [role=button][aria-label="Hamnen 4"]').count(),0);
+  await page.locator('#property-map [role=button][aria-label="Centrum 5"]').click();
+  assert.equal(await popup.locator('.context-contract-card').count(),1,'Map contracts follow the same query as the property list');
+  await popup.locator('header [data-context-record=properties]').click();
+  assert.ok((await page.locator('.context-scope').innerText()).includes('1 av 2'));
+  await page.locator('[data-context-show-all]').click();
+  assert.equal(await page.locator('[data-context-panel=contracts] .context-contract-card').count(),2);
+  await page.locator('[data-context-show-all]').click();
+  assert.equal(await page.locator('[data-context-panel=contracts] .context-contract-card').count(),1);
+  await page.keyboard.press('Escape');
+  for(const width of [390,320,667]){
+    await page.setViewportSize({width,height:844});
+    await page.evaluate(()=>window.LokalblickMapService.invalidateSize());
+    await page.locator('#property-map [role=button][aria-label="Centrum 5"]').click();
+    await popup.waitFor();
+    await page.waitForFunction(()=>getComputedStyle(document.querySelector('.leaflet-popup')).opacity==='1');
+    const rect=await popup.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right};});
+    assert.ok(rect.left>=0&&rect.right<=width,'Popup stays inside viewport at '+width);
+    assert.ok(await noOverflow(page));
+    await page.screenshot({path:path.join(artifacts,`map-popup-${width}.png`),fullPage:true});
+    await popup.locator('header [data-context-record=properties]').click();
+    assert.ok(await noOverflow(page));
+    await page.screenshot({path:path.join(artifacts,`property-workspace-${width}.png`),fullPage:true});
+    await page.locator('[data-context-tab=issues]').click();
+    await page.keyboard.press('Escape');
+  }
+  await page.setViewportSize({width:1440,height:900});
+  await navigate(page,'contracts');
+  await navigate(page,'map');
+  assert.ok(await popup.isVisible(),'Map popup is restored when returning to the map');
+  assert.deepEqual(errors,[]);
+  assert.equal(await page.locator('#notice.error').count(),0,'Navigation must not produce caught application errors');
+  await page.close();
+  console.log('PASS: map first click, record links, context tabs, issue home, back navigation, independent search, subset totals, persistent map and mobile popup.');
 }
 
 async function budgetEvidence(base,label) {
@@ -173,6 +263,7 @@ try {
   // Saving through the existing editor must retain table filters, sort and expansion.
   await page.getByRole('button',{name:'Hamnen 4',exact:true}).click();
   assert.ok(await page.locator('#edit-form.editor-readonly').count());
+  await page.locator('[data-context-tab=info]').click();
   await page.getByRole('button',{name:'Redigera',exact:true}).click();
   await page.locator('#edit-form [name="city"]').fill('Testort');
   await page.locator('#edit-form [type="submit"]').click();
@@ -240,15 +331,15 @@ try {
   }
   await page.setViewportSize({width:1440,height:900});
   await navigate(page,'properties');
-  await page.getByRole('searchbox',{name:'Sök',exact:true}).fill('201-2025');
-  await page.getByRole('searchbox',{name:'Sök',exact:true}).dispatchEvent('change');
+  await page.getByRole('searchbox',{name:'Sök fastigheter eller avtal',exact:true}).fill('201-2025');
+  await page.getByRole('searchbox',{name:'Sök fastigheter eller avtal',exact:true}).dispatchEvent('change');
   assert.deepEqual(await names(page),['Centrum 5']);
   await toggle.click();
   assert.equal(await group.locator('[data-group-detail] [data-edit="contracts"]').count(),1);
   assert.ok((await group.locator('[data-group-detail]').innerText()).includes('1 av 2 i aktuellt urval'));
   // The extracted interactions must still work for the existing ordinary lists.
-  await page.getByRole('searchbox',{name:'Sök',exact:true}).fill('');
-  await page.getByRole('searchbox',{name:'Sök',exact:true}).dispatchEvent('change');
+  await page.getByRole('searchbox',{name:'Sök fastigheter eller avtal',exact:true}).fill('');
+  await page.getByRole('searchbox',{name:'Sök fastigheter eller avtal',exact:true}).dispatchEvent('change');
   for(const [view,heading,filter] of [['contracts','Avtal','201-2025'],['activities','Aktivitet','Ventilation']]) {
     await navigate(page,view);
     await page.getByRole('button',{name:'Sortera på '+heading,exact:true}).click();
@@ -259,6 +350,7 @@ try {
   }
   assert.deepEqual(errors,[]);
   await page.close();
+  await contextNavigationEvidence(base);
   const current = await budgetEvidence(base,'current');
   if(baseline) {
     const reference = await budgetEvidence(await serve(path.resolve(baseline),8795),'reference');
