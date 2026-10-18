@@ -1,4 +1,4 @@
-import {rentalTotals,tenantName,recordContext,isOpenIssue} from "./portfolio-context.js";
+import {rentalTotals,tenantName,recordContext,isOpenIssue,contractPhase} from "./portfolio-context.js";
 import {isoDate} from "./date-format.js";
 import {fieldCaption} from "./field-labels.js";
 import {portfolioDashboard, buildPortfolioInsights} from "./portfolio-dashboard.js";
@@ -317,7 +317,7 @@ function contactNames(data, type, record, role, fallback) {
 function propertyListGroup(data, p, contracts, year, portfolioView) {
   const title = propertyDesignation(p) || "Beteckning saknas";
   const detailId = "property-relations-" + encodeURIComponent(p.id);
-  const totalContracts = data.contracts.filter(c => c.propertyId === p.id).length;
+  const totalContracts = data.contracts.filter(c => c.propertyId === p.id&&(!portfolioView||contractPhase(data,c)==='current')).length;
   const subset = contracts.length !== totalContracts;
   const area = contracts.reduce((sum, c) => sum + (Number(c.area) || 0), 0);
   const cost = portfolioView ? rentalTotals(data,contracts,year) : calc().propertyAnnualCost(data, p.id, year);
@@ -326,8 +326,8 @@ function propertyListGroup(data, p, contracts, year, portfolioView) {
   const ownerContact = contactNames(data, "property", p, "owner", p.ownerResponsiblePersonId);
   const contractContact = c => globalThis.LokalblickResponsibility.history(data,"contract",c.id,"our").length || c.responsiblePersonId
     ? contactNames(data,"contract",c,"our",c.responsiblePersonId) : ourContact;
-  const contacts = `<section class="property-list-contacts"><h3>Kontaktpersoner</h3><dl><div><dt>Vår ansvarige</dt><dd>${esc(ourContact)}</dd></div><div><dt>Fastighetsägarens kontaktperson</dt><dd>${esc(ownerContact)}</dd></div></dl></section>`;
-  const agreements = `<section class="property-list-contracts"><h3>Avtal${subset ? ` · ${contracts.length} av ${totalContracts} i aktuellt urval` : ` · ${contracts.length}`}</h3>${contracts.length ? `<ul>${contracts.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || "Avtalsnummer saknas")}</button><small>${esc(units[c.unitId] || c.use || "Verksamhet saknas")}</small></div><dl><div><dt>Vår ansvarige för avtalet</dt><dd>${esc(contractContact(c))}</dd></div><div><dt>Verksamhetsansvarig</dt><dd>${esc(contactNames(data,"contract",c,"business",c.businessResponsiblePersonId))}</dd></div></dl></li>`).join("")}</ul>` : `<p>${totalContracts ? "Inga avtal i aktuellt urval." : "Inga avtal kopplade till fastigheten."}</p>`}</section>`;
+  const contacts = `<section class="property-list-contacts"><h3>Kontaktpersoner</h3><dl>${portfolioView?"":`<div><dt>Vår ansvarige</dt><dd>${esc(ourContact)}</dd></div>`}<div><dt>Fastighetsägarens kontaktperson</dt><dd>${esc(ownerContact)}</dd></div></dl></section>`;
+  const agreements = `<section class="property-list-contracts"><h3>Avtal${subset ? ` · ${contracts.length} av ${totalContracts} i aktuellt urval` : ` · ${contracts.length}`}</h3>${contracts.length ? `<ul>${contracts.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || "Avtalsnummer saknas")}</button><small>${esc(portfolioView?tenantName(data,c):units[c.unitId] || c.use || "Verksamhet saknas")}</small></div><dl>${portfolioView?"":`<div><dt>Vår ansvarige för avtalet</dt><dd>${esc(contractContact(c))}</dd></div>`}<div><dt>Verksamhetsansvarig</dt><dd>${esc(contactNames(data,"contract",c,"business",c.businessResponsiblePersonId))}</dd></div></dl></li>`).join("")}</ul>` : `<p>${totalContracts ? "Inga avtal i aktuellt urval." : "Inga avtal kopplade till fastigheten."}</p>`}</section>`;
   return `<tbody data-row-group="${esc(p.id)}"><tr class="property-list-summary">
     <td class="primary-cell"><button type="button" class="text-button" data-edit="properties" data-id="${esc(p.id)}">${esc(title)}</button>${openCount?`<small><button type="button" class="text-button" data-context-record="properties" data-id="${esc(p.id)}" data-context-target-tab="issues">${openCount} öppna ärenden</button></small>`:""}</td>
     <td>${esc(propertyAddress(p) || "Adress saknas")}<small class="property-list-owner">${esc(propertyOwnerLabel(data,p))}</small></td>
@@ -358,14 +358,23 @@ export function overview(data, s, ui) {
       "Fastigheter",
       true,
     );
-  } else if (ui.perspective === "Avtal")
+  } else if (ui.perspective === "Avtal") {
     body = table(
       ["Fastighet", "Adress", "Avtal", "Kvm", `Hyra ${ui.year}`, `Tillägg ${ui.year}`, ui.portfolioView?"Årshyra/m²":"Kr/kvm", "Avtal t.o.m.", "Uppsägning", ""],
       contractRows(data, v.contracts, ui.year, Boolean(ui.portfolioView)),
       true,
-      "Avtal",
+      ui.portfolioView?"Gällande avtal":"Avtal",
     );
-  else
+    if(ui.portfolioView){
+      const history=(v.allContracts||[]).filter(contract=>contractPhase(data,contract)!=='current');
+      if(history.length)body+=`<details class="portfolio-contract-history"><summary>Tidigare och kommande avtal · ${history.length}</summary>${table(
+        ["Fastighet","Objekt","Avtal","Hyresgäst","Registrerad avtalstid"],
+        history.map(contract=>{
+          const property=data.properties.find(row=>row.id===contract.propertyId),object=(data.objects||[]).find(row=>row.id===contract.objectId);
+          return `<tr><td>${esc(propertyReference(property||{}))}</td><td>${esc(object?.number||object?.name||'–')}</td><td><button type="button" class="text-button" data-edit="contracts" data-id="${esc(contract.id)}">${esc(contract.number||'Nummer saknas')}</button></td><td>${esc(tenantName(data,contract))}</td><td>${esc(contract.start||'Start saknas')} – ${esc(contract.end||'Tills vidare')}</td></tr>`;
+        }),true,"Tidigare och kommande avtal")}</details>`;
+    }
+  } else
     body = table(
       ["Aktivitet", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", ""],
       activityRows(

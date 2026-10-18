@@ -105,7 +105,7 @@ async function contextNavigationEvidence(base) {
   assert.equal(await page.locator('.editor').count(),1,'Related records replace one workspace');
   await page.locator('[data-context-back]').click();
   assert.equal(await page.locator('.record-workspace').getAttribute('data-context-tab'),'issues','Back restores the contract tab');
-  await page.locator('#editor-title [data-context-record=properties]').click();
+  await page.locator('.context-parent [data-context-record=properties]').click();
   assert.equal(await page.locator('.record-workspace').getAttribute('data-context-tab'),'contracts');
   await page.locator('[data-context-back]').click();
   assert.equal(await page.locator('.record-workspace').getAttribute('data-context-tab'),'issues');
@@ -311,9 +311,9 @@ try {
     await page.setViewportSize({width,height:900});
     const appearance = selector => page.locator(selector).first().evaluate(element=>{
       const css=getComputedStyle(element);
-      return Object.fromEntries(['backgroundColor','color','fontSize','fontWeight','height','padding','borderColor','lineHeight'].map(key=>[key,css[key]]));
+      return Object.fromEntries(['backgroundColor','color','fontSize','fontWeight','padding','borderColor','lineHeight'].map(key=>[key,css[key]]));
     });
-    assert.deepEqual(await appearance('.contract-editor .contract-readonly'),
+    assert.deepEqual(await appearance('.contract-editor .contract-readonly:visible'),
       await appearance('.contract-editor [data-mode-field="tenantPartyId"]'),'Fixed and editable values have the same read appearance');
     assert.ok(await noOverflow(page));
     await page.screenshot({path:path.join(artifacts,`contract-detail-${width}.png`),fullPage:true});

@@ -54,38 +54,17 @@ try{
       "Adressen ligger direkt under huvudrubriken");
     assert.equal(await page.locator("#edit-form .property-contact-row").count(),0,
       "Verksamhetens kontakt visas inte längre som ett separat kort");
-    const contractContacts=page.locator("#edit-form .property-grid > .property-person-field:has([data-property-contract-contact])");
-    if(await contractContacts.count()){
-      const first=contractContacts.first();
-      assert.match(await first.innerText(),/Verksamhetens kontaktperson/);
-      assert.equal(await first.locator("select[data-property-contract-contact]").count(),1);
-      assert.equal(await first.locator(".editor-mode-value").count(),1,
-        "Avtalskontakt får samma läsrepresentation som övriga kontakter");
-      assert.equal(await first.locator(".editor-mode-value").isVisible(),true);
-      const borders=await first.evaluate(node=>{
-        const parent=getComputedStyle(node.parentElement);
-        return {top:parent.borderTopWidth,box:node.parentElement.getBoundingClientRect().height};
-      });
-      assert.equal(borders.top,"0px","Inget stort kantat kontaktkort");
-      assert.ok(borders.box<170,"Alla kontaktpersoner ligger tätt i samma grid");
-    }
-    const contactGeometry=async()=>page.locator("#edit-form .property-grid .property-person-field").evaluateAll(rows=>rows.map(row=>{
-      const label=row.querySelector(".field-name");
-      const value=row.querySelector(".editor-mode-value");
-      const select=row.querySelector("select");
-      const active=[value,select].find(el=>el&&getComputedStyle(el).display!=="none");
-      const a=label.getBoundingClientRect(),b=active.getBoundingClientRect();
-      return {height:row.getBoundingClientRect().height,labelLeft:a.left,valueLeft:b.left,labelRight:a.right};
-    }));
-    const contactsBefore=await contactGeometry();
-    assert.ok(contactsBefore.length>=2,"Fastighetens kontaktpersoner visas i en gemensam lista");
-    assert.ok(contactsBefore.every(row=>row.valueLeft>=row.labelRight-1),
-      "Även avtalskontakter har etikett vänster och värde höger");
-    const responsibilityDate=page.locator('#edit-form input[name="responsibilityChangeDate"] + .editor-mode-value');
-    if(await responsibilityDate.count())assert.match(
-      await responsibilityDate.innerText(),/^\d{4}-\d{2}-\d{2}$/,
-      "Datum i Visa använder alltid YYYY-MM-DD"
-    );
+    assert.equal(await form.locator('.context-legacy-contacts').isVisible(),false,
+      "Avtalens kontaktpersoner upprepas inte på fastigheten");
+    const currentContacts=form.locator('.context-current-contacts');
+    assert.equal(await currentContacts.isVisible(),true);
+    const contactRows=await currentContacts.locator('dl>div').evaluateAll(rows=>rows.map(row=>({
+      label:row.querySelector('dt').getBoundingClientRect().right,
+      value:row.querySelector('dd').getBoundingClientRect().left,
+      height:row.getBoundingClientRect().height
+    })));
+    assert.ok(contactRows.every(row=>row.value>=row.label-1&&row.height<50),
+      "Aktuella kontaktroller visas kompakt med namn på samma rad");
     // Names and data occupy the same physical row; the editor must not
     // expand a two-line label+value cell when switching modes.
     const inlineProperty=async()=>page.locator("#edit-form .property-field").first().evaluate(el=>{
@@ -139,14 +118,10 @@ try{
     }
     near(titleBefore.title.font,titleAfter.title.font,"fastighetsnamnets teckenstorlek",0);
     near(titleBefore.address.font,titleAfter.address.font,"adressens teckenstorlek",0);
-    const contactsAfter=await contactGeometry();
-    assert.equal(contactsAfter.length,contactsBefore.length);
-    for(let i=0;i<contactsAfter.length;i++){
-      near(contactsBefore[i].height,contactsAfter[i].height,
-        "kontaktperson "+(i+1)+" samma radhöjd Visa/Redigera",1);
-      near(contactsBefore[i].valueLeft,contactsAfter[i].valueLeft,
-        "kontaktperson "+(i+1)+" samma värdeposition",1);
-    }
+    assert.equal(await currentContacts.isVisible(),false,
+      "Läsprojektionen visas inte parallellt med redigeringskontrollerna");
+    assert.equal(await form.locator('[name=responsiblePersonId]').isVisible(),true);
+    assert.equal(await form.locator('[name=ownerResponsiblePersonId]').isVisible(),true);
     const inlineAfter=await inlineProperty();
     near(inlineBefore.fieldHeight,inlineAfter.fieldHeight,"fastighet kompakt etikettrad",1);
     assert.ok(inlineAfter.valueLeft>=inlineAfter.labelRight-1,

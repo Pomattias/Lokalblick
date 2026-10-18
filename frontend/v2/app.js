@@ -990,7 +990,7 @@ function redrawFormPlanning(form) {
   if(text)text.textContent="Välj startmånad och därefter slutmånad. Perioden sparas med ärendet.";
 }
 function openEditor(col, id, defaults = {}, navigation = {}) {
-  if (!canEdit() && (!id||!["properties","contracts","activities"].includes(col)||ui.view==="budget")) return;
+  if (!canEdit() && (!id||!["properties","objects","contracts","activities"].includes(col)||ui.view==="budget")) return;
   const previous=editor;
   const trail=navigation.trail|| (navigation.fromCurrent&&previous?[...(previous.trail||[]),{
     col:previous.col,id:previous.id,selection:previous.selection,source:previous.source,
@@ -1052,7 +1052,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
       controls.appendChild(status);
     } else footer.prepend(status);
   }
-  if(form&&id&&ui.view!=="budget"){
+  if(form&&ui.view!=="budget"){
     editor.workspace=mountWorkspace(root,{data:()=>data,collection:col,id,selection:editor.selection,source:editor.source,canEdit:canEdit(),saved:navigation.saved});
     if(navigation.tab)editor.workspace?.setTab(navigation.tab);
     form.querySelector(':scope > .section-title')?.insertAdjacentHTML('beforebegin',recordBreadcrumb(data,col,result.record,trail));
@@ -1256,7 +1256,7 @@ document.addEventListener("click", (event) =>
     }
     if(b.hasAttribute("data-context-show-all")&&editor?.workspace){editor.workspace.apply('all',!editor.workspace.state.all);return;}
     if(b.hasAttribute("data-context-new-issue")&&editor){
-      const home=editor.col==="contracts"?{scopeType:"contract",contractId:editor.id}:{scopeType:"property",propertyId:editor.id};
+      const home=editor.col==="contracts"?{scopeType:"contract",contractId:editor.id}:editor.col==="objects"?{scopeType:"object",objectId:editor.id}:{scopeType:"property",propertyId:editor.id};
       openEditor("activities","",{...home,status:activityChoices(data,"status")[0]?.value||"Nytt",planningYear:new Date().getFullYear(),includeInBudget:"Ja",budgetCategory:"Ej budget"},{fromCurrent:true});return;
     }
     if (b.hasAttribute("data-dashboard-mode")) {

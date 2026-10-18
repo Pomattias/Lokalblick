@@ -65,3 +65,33 @@ test('map popup follows selection, links real records and escapes names',()=>{
   assert.doesNotMatch(html,/data-id="i4"|data-id="c2"/);
   assert.equal(rentalTotals(data,[{...data.contracts[0],area:0}],2026).rentPerSqm,null);
 });
+
+test('current portfolio counts one period per object and keeps historical issue homes',()=>{
+  const data=fixture(),year=Number(globalThis.LokalblickResponsibility.today().slice(0,4));
+  data.contracts[0].start=(year-1)+'-01-01';data.contracts[0].end=(year+1)+'-12-31';
+  data.contracts.push({...data.contracts[0],id:'past',number:'Tidigare',start:(year-4)+'-01-01',end:(year-2)+'-12-31'},
+    {...data.contracts[0],id:'future',number:'Kommande',start:(year+2)+'-01-01',end:(year+4)+'-12-31'});
+  data.activities.push({id:'old-open',title:'Kvarstående fel',contractId:'past',status:'Pågår'});
+  const before=JSON.stringify(data),legacy=scope(data,{}),view=portfolioScope(data,{unit:'VARDBO'});
+  assert.deepEqual(view.contracts.map(row=>row.id),['c']);
+  assert.equal(view.allContracts.length,3);
+  assert.equal(rentalTotals(data,view.contracts,year).area,100);
+  assert.ok(view.items.some(item=>item.record.id==='old-open'));
+  const property=recordContext(data,'properties','p',{unit:'VARDBO'});
+  assert.ok(property.issues.some(issue=>issue.id==='old-open'));
+  const object=recordContext(data,'objects','o');
+  assert.equal(object.property.id,'p');assert.equal(object.object.id,'o');
+  assert.equal(object.contracts.length,1);assert.equal(object.allContracts.length,3);
+  assert.ok(!object.primary.some(issue=>issue.id==='i5'));
+  assert.deepEqual(scope(data,{}),legacy);assert.equal(JSON.stringify(data),before);
+});
+
+test('ended objects do not inflate current totals; undated contracts remain discoverable',()=>{
+  const data=fixture(),year=Number(globalThis.LokalblickResponsibility.today().slice(0,4));
+  data.objects[0].end=(year-1)+'-12-31';
+  const view=portfolioScope(data);
+  assert.deepEqual(view.contracts.map(row=>row.id),['c2']);
+  assert.equal(view.allContracts.length,2);
+  assert.ok(recordContext(data,'properties','p').issues.some(issue=>issue.id==='i'));
+  assert.equal(recordContext(data,'contracts','c').allContracts[0].id,'c');
+});
