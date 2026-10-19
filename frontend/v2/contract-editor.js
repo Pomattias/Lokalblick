@@ -59,10 +59,10 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
   const owner=(data.organizations||[]).find(org=>org.id===property.ownerPartyId);
   const ownerName=owner?.name||property.owner||"Ej angiven på fastigheten";
   const masterLocked=Boolean(id&&!data.isDemo);
-  const category=chosenCategory(c.category);
+  const category=presentation.portfolio?String(c.category||'').trim():chosenCategory(c.category);
   const choices=CATEGORIES.includes(category)||!category?CATEGORIES:[...CATEGORIES,category];
   const categorySelect='<select name="category"'+(masterLocked?' disabled':'')+'>'+
-    options(choices, x=>x, x=>x===category&&!CATEGORIES.includes(x)?x+' (tidigare kategori)':x,category,'Välj kategori')+'</select>';
+    options(choices, x=>x, x=>!presentation.portfolio&&x===category&&!CATEGORIES.includes(x)?x+' (tidigare kategori)':x,category,'Välj kategori')+'</select>';
   const people=data.people||[];
   const ownerContact=people.find(p=>p.id===property.ownerResponsiblePersonId)?.name||"Ej angiven";
   const ourContact=people.find(p=>p.id===property.responsiblePersonId)?.name||"Ej angiven";
@@ -131,6 +131,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
     '</div><details class="contract-secondary" data-contract-notice-terms'+(!id?' open':'')+'><summary>Uppsägning och förlängning</summary><div class="contract-grid">'+
     field("Uppsägningstid, månader",input(c,"noticePeriodMonths","number",false,'min="0" step="1"'))+
     field("Förlängningstid, månader",input(c,"renewalPeriodMonths","number",false,'min="0" step="1"'))+
+    (presentation.portfolio?field('Uppsagd den',input(c,'terminatedOn','date',company&&!!id))+field('Uppsägningsorsak',input(c,'terminationReason','text',company&&!!id)):"")+
     '</div><p class="contract-note">'+lastNotice+'</p><small class="contract-help">Beräknat från senast sparade villkor. Faktisk uppsägning behöver registreras innan förlängning påverkar budget.</small></details></section>';
 
   // Supplementary source and relationship fields stay mounted for FormData,
@@ -140,6 +141,12 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
     field("Lokalkategori",categorySelect)+
     field("Hyresgäst enligt källa",input(c,"tenantName","text",true))+
     field("Verksamhetspart",select("businessPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
+    (presentation.portfolio?
+      field('Användning',input(c,'use','text',company&&!!id))+
+      field('Antal medarbetare',input(c,'employees','number',false,'min="0" step="any"'))+
+      field('Lägenhetsyta, m²',input(c,'apartmentArea','number',false,'min="0" step="any"'))+
+      field('Kommentar verksamhet','<textarea name="businessComment" rows="2">'+esc(c.businessComment||'')+'</textarea>')+
+      field('Länk till huvudkontrakt',input(c,'contractDocumentUrl')):"")+
     '</div>'+contractBusinessControls(data,c)+
     (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+'</details>';
 

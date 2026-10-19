@@ -23,6 +23,7 @@
       ["objectId","_objectId",true],["propertyId","_propertyId",true],["businessPartyId","_businessPartyId",true],["businessResponsiblePersonId","_businessResponsiblePersonId",true],["responsiblePersonId","_responsiblePersonId",true],
       ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["tenantName","Hyresgäst enligt källa"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
       ["start","Start"],["end","Slut"],["moveInDate","Inflyttning"],["moveOutDate","Utflyttning"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
+      ["terminatedOn","Uppsagd den"],["terminationReason","Uppsägningsorsak"],["businessComment","Kommentar verksamhet"],
       ["baseRent","Bashyra"],["baseAdditions","Bastillägg"],["rentBaseYear","Hyra basår"],["rentBaseIndex","Hyra bastal (KPI)"],["rentIndexPercent","Hyra uppräkning %"],["additionBaseYear","Tillägg basår"],["additionBaseIndex","Tillägg bastal (KPI)"],["additionIndexPercent","Tillägg uppräkning %"],
       ["rentAdjustmentMethod","Hyra justeringsregel"],["rentAnnualPercent","Hyra fast årlig uppräkning %"],["rentMinPercent","Hyra minsta uppräkning %"],["rentMaxPercent","Hyra högsta uppräkning %"],["rentLimitBasis","Hyra min/max gäller"],
         ["additionAdjustmentMethod","Tillägg justeringsregel"],["additionAnnualPercent","Tillägg fast årlig uppräkning %"],["additionMinPercent","Tillägg minsta uppräkning %"],["additionMaxPercent","Tillägg högsta uppräkning %"],["additionLimitBasis","Tillägg min/max gäller"],
@@ -63,7 +64,12 @@
   SCHEMAS.forEach(function(schema) { schema.fields = schema.columns.map(function(column){ return column[0]; }); });
 
   SCHEMAS.find(s=>s.key==='contracts').columns.push(['tenantPartyId','_tenantPartyId',true],['tenantResponsiblePersonId','_tenantResponsiblePersonId',true]);
-  SCHEMAS.find(s=>s.key==='contracts').labelAliases={tenantName:['Hyresgäst']};
+  SCHEMAS.find(s=>s.key==='contracts').labelAliases={
+    tenantName:['Hyresgäst'],use:['Användning'],category:['Lokalkategori (LEB)'],
+    employees:['Antal medarbetare (viss+ heltid)','Antal medarbetare (viss + heltid)','Antal medarbetare','Antal anställda'],
+    apartmentArea:['Lägenheter (yta)','Lägenhetsyta, m²'],
+    contractDocumentUrl:['Länk avtal (Huvudkontrakt)','Länk till huvudkontrakt']
+  };
   SCHEMAS.find(s=>s.key==='contracts').display.push('Hyresgäst','Hyresgästens kontaktperson');
   // Compatibility-only data: preserved for older imports and calculations,
   // but not written as parallel visible business sheets in model v5.
@@ -82,14 +88,14 @@
 
   // One set of user-facing names, shared by forms, workbook headers and mapping.
   const FRONTEND_LABELS = {
-    contracts:{start:"Giltigt fr.o.m.",end:"Giltigt t.o.m.",moveInDate:"Inflyttningsdatum",moveOutDate:"Utflyttningsdatum",area:"Area, m²",noticePeriodMonths:"Uppsägningstid, månader",renewalPeriodMonths:"Förlängningstid, månader",baseRent:"Bashyra, kr/år",baseAdditions:"Tillägg, kr/år",rentBaseYear:"Basår",rentIndexPercent:"Indexuppräkning, %",additionBaseYear:"Tillägg basår",additionIndexPercent:"Indexuppräkning tillägg, %",annualPropertyTax:"Fastighetsskatt, kr/år"},
+    contracts:{start:"Giltigt fr.o.m.",end:"Giltigt t.o.m.",moveInDate:"Inflyttningsdatum",moveOutDate:"Utflyttningsdatum",area:"Area, m²",noticePeriodMonths:"Uppsägningstid, månader",renewalPeriodMonths:"Förlängningstid, månader",baseRent:"Bashyra, kr/år",baseAdditions:"Tillägg, kr/år",rentBaseYear:"Basår",rentIndexPercent:"Indexuppräkning, %",additionBaseYear:"Tillägg basår",additionIndexPercent:"Indexuppräkning tillägg, %",annualPropertyTax:"Fastighetsskatt, kr/år",use:"Användning",employees:"Antal medarbetare",apartmentArea:"Lägenhetsyta, m²",contractDocumentUrl:"Länk till huvudkontrakt"},
     activities:{title:"Ärendenamn",responsiblePersonId:"Ansvarig",startDate:"Fr.o.m.",endDate:"T.o.m.",planningYear:"Planeringsår",estimatedCost:"Bedömd kostnad, kr"}
   };
   SCHEMAS.concat([ACTIVITY_SCHEMA]).forEach(function(schema){
     schema.labelAliases=schema.labelAliases||{};
     schema.columns.forEach(function(column){
       const label=FRONTEND_LABELS[schema.key]?.[column[0]];
-      if(label&&label!==column[1]){schema.labelAliases[column[0]]=[column[1]];column[1]=label;}
+      if(label&&label!==column[1]){schema.labelAliases[column[0]]=[column[1],...(schema.labelAliases[column[0]]||[])];column[1]=label;}
     });
   });
   function fieldLabel(collection,field,fallback){

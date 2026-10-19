@@ -237,7 +237,7 @@ export class LokalblickRepository {
     for(const collection of ['properties','objects','contracts','activities','orders'])for(const row of data[collection]||[]){
       for(const [field,value] of Object.entries(row)){
         if(value==null||value==='')continue;
-        if(/^(?:start|end|.*Date|orderedAt|paidAt|completedAt)$/.test(field))parseDate(value);
+        if(/^(?:start|end|.*Date|orderedAt|paidAt|completedAt|terminatedOn)$/.test(field))parseDate(value);
         if(numberField(field)&&typeof value!=='number')throw TypeError('Ogiltigt tal i '+collection+'.'+field);
       }
       if(row.start&&row.end&&parseDate(row.end)<parseDate(row.start)||row.startDate&&row.endDate&&parseDate(row.endDate)<parseDate(row.startDate))throw TypeError('T.o.m. måste vara efter fr.o.m.');

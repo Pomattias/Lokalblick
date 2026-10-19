@@ -75,7 +75,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = [], options={})
       const sourceTarget=options.reviewed?({objektsnummerforvaltningsobjekt:'properties.sourceId',postadress:'properties.address',lokalytakvm:'contracts.area',avtalsid:'contracts.number'})[h]:'';
       const target=rule?.target || sourceTarget || contextualTarget || aliases[h] || aliases[fieldName(header)] || candidate?.target || (options.reviewed?'@unmapped':'@extra');
       const date1904=Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904);
-      const format=profileFormat(matrix.slice(headerIndex+1).map((r,ri)=>sheet[XLSX.utils.encode_cell({r:start+headerIndex+1+ri,c:index+(sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0)})]).filter(Boolean),{target,header:String(header),date1904},XLSX);
+      const format=profileFormat(matrix.slice(headerIndex+1).map((r,ri)=>sheet[XLSX.utils.encode_cell({r:start+headerIndex+1+ri,c:index+(sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0)})]).filter(Boolean),{target,header:String(header),date1904,emptyMarkers:options.reviewed},XLSX);
       const formatSample=(value,cell)=>{
         if(format.type==='text'&&typeof value==='number'&&/^0{2,}$/.test(cell?.z||''))return XLSX.utils.format_cell(cell);
         if(format.type==='date'&&value!==''){try{return parseDate(value,XLSX,date1904);}catch{}}
@@ -85,7 +85,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = [], options={})
       const examples=values.slice(0,3).map(value=>formatSample(value));
       return {header:String(header),index,target,collection:rule?.collection || (target.startsWith('@')?inferred:target.split('.')[0]),
         transform:(rule?.transform==='text'?'auto':rule?.transform) || (norm(header)==='manadshyra'?'monthly':'auto'),
-        examples,samples,format,date1904,reason:contextualTarget&&!rule?'Avtalssammanhang och kolumnens betydelse används för förslaget.':'',filled:values.length,missing:matrix.slice(headerIndex+1).length-values.length,
+        examples,samples,format,date1904,emptyMarkers:options.reviewed,reason:contextualTarget&&!rule?'Avtalssammanhang och kolumnens betydelse används för förslaget.':'',filled:values.length,missing:matrix.slice(headerIndex+1).length-values.length,
         approved:Boolean(rule),identity:!dateField(target.split('.')[1]||'')&&!numberField(target.split('.')[1]||'')&&(rule?.identity ?? /\.(?:id|sourceId|number|designation|email|orderReference)$/.test(target))};
     }).filter(Boolean);
     return {name,sheetKey,fileName:source?.fileName,fingerprint:source?.fingerprint,signature,headerIndex,headerRow:start+headerIndex+1,startColumn:sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0,columns,rowCount:matrix.slice(headerIndex+1).filter(r=>r.some(present)).length,inferred};

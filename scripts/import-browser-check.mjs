@@ -8,8 +8,8 @@ const require=createRequire(import.meta.url),artifacts='/tmp/lokalblick-simple-i
 const server=spawn(process.execPath,['backend/server.mjs'],{env:{...process.env,LOKALBLICK_PORT:'8805'}});let browser;
 function file(name,sheets){const workbook=XLSX.utils.book_new();for(const [sheet,rows] of sheets)XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(rows),sheet);return {name,bytes:[...XLSX.write(workbook,{type:'buffer',bookType:'xlsx'})]};}
 const files=[file('syntetiska-avtal.xlsx',[
- ['Lokallista',[['Förvaltningsobjekt','Gatuadress','Avtalsnummer','Area','Årshyra','Fr.o.m.','T.o.m.','Specialvillkor','Internt kostnadsställe'],['P-1','Testgatan 1','A-1',425,120000,'2025-01-01','2028-12-31','FÅR INTE IMPORTERAS','K-42']]],
- ['Lokalbestånd',[['Objektsnummer / Förvaltningsobjekt','Avtalsnummer','Ort'],['P-1','A-1','Malmö']]],
+ ['Lokallista',[['Förvaltningsobjekt','Gatuadress','Avtalsnummer','Area','Årshyra','Fr.o.m.','T.o.m.','Specialvillkor','Internt kostnadsställe','Uppsagd den','Uppsägningsorsak','Användning'],['P-1','Testgatan 1','A-1',425,120000,'2025-01-01','2028-12-31','FÅR INTE IMPORTERAS','K-42','2027-04-30','Avveckling','Träffpunkt']]],
+ ['Lokalbestånd',[['Objektsnummer / Förvaltningsobjekt','Avtalsnummer','Ort','Kommentar verksamhet','Antal medarbetare (viss+ heltid)','Lokalkategori (LEB)','Lägenheter (yta)','Länk avtal (Huvudkontrakt)'],['P-1','A-1','Malmö','Kommunal primärvård.','12,5','KP Kontor- och personallokaler','245,5','https://example.invalid/A-1.pdf']]],
 ]),file('syntetiska-personer.xlsx',[
  ['Personer',[['Namn','E-post','Telefon'],['Anna Lind','anna.lind@example.invalid','0700000001'],['Annan Person','annalind@example.invalid','0700000002']]],
 ])];
@@ -18,6 +18,7 @@ try{
  browser=await chromium.launch({headless:true,executablePath:process.env.LOKALBLICK_CHROMIUM_PATH||undefined,args:['--no-sandbox','--disable-dev-shm-usage']});
  const page=await browser.newPage({viewport:{width:1280,height:950}}),errors=[];
  page.on('pageerror',error=>errors.push(error.message));
+ page.on('dialog',dialog=>dialog.type()==='beforeunload'?dialog.accept():dialog.type()==='prompt'&&dialog.message().includes('Ange ditt namn')?dialog.accept('Importtest'):dialog.dismiss());
  await page.route('https://**/*',route=>{
   const url=route.request().url();
   if(url.includes('xlsx'))return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(require.resolve('xlsx/dist/xlsx.full.min.js'))});
@@ -32,7 +33,7 @@ try{
  const choose=async(key,search,target)=>{await page.locator(`[data-preview-map="${key}"]`).evaluate(node=>{for(let parent=node.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;});await page.locator(`[data-preview-map="${key}"]`).click();await page.locator('[data-field-search]').fill(search);await page.locator(`[data-target="${target}"]`).click();};
  await open();
  assert.equal(await page.locator('[data-existing],[data-preview-collection],[data-extra]').count(),0);
- assert.equal(await page.locator('[data-preview-map]').count(),15);
+ assert.equal(await page.locator('[data-preview-map]').count(),23);
  assert.equal(await page.locator('[data-apply]').isDisabled(),true);
  assert.ok(!(await page.locator('.import-mapping-dialog').innerText()).includes('Kompletterande information'));
  await page.screenshot({path:`${artifacts}/pending-1280.png`});
@@ -52,8 +53,10 @@ try{
  const loaded=()=>page.evaluate(()=>LokalblickDataService.load());
  const first=await loaded();assert.equal(first.properties.length,1);assert.equal(first.contracts.length,1);assert.equal(first.people.length,2);
  assert.equal(first.contracts[0].costCenterPremises,'K-42');assert.equal(first.contracts[0].baseRent,120000);assert.equal(first.contracts[0].end,'2028-12-31');
+ const fields={terminatedOn:'2027-04-30',terminationReason:'Avveckling',use:'Träffpunkt',businessComment:'Kommunal primärvård.',employees:12.5,category:'KP Kontor- och personallokaler',apartmentArea:245.5,contractDocumentUrl:'https://example.invalid/A-1.pdf'};
+ for(const [field,value] of Object.entries(fields))assert.equal(first.contracts[0][field],value,field);
  assert.ok(!JSON.stringify(first).includes('FÅR INTE IMPORTERAS'));assert.deepEqual(first.contracts[0].supplemental,[]);
- await page.reload();await navigate();assert.equal((await loaded()).contracts.length,1);
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('#content > *').first().waitFor();await navigate();assert.equal((await loaded()).contracts.length,1);
  await open();assert.equal(await page.locator('[data-column-group="pending"]').count(),0);assert.equal(await page.locator('[data-apply]').isEnabled(),true);
  assert.ok((await page.locator('[data-import-result]').innerText()).includes('Oförändrade'));
  await page.locator('[data-apply]').click();await page.locator('.import-mapping-dialog').waitFor({state:'detached'});await page.locator('.import-progress-dialog').waitFor({state:'detached'});
@@ -61,6 +64,24 @@ try{
  // Cancelling a changed choice never persists its new rules or values.
  await open();await choose('0:8','kommentar','contracts.comment');await page.locator('[data-cancel]').click();
  assert.deepEqual(await loaded(),again);
+ // The agreement keeps the imported source values and edits each real field once.
+ await page.locator('.sidebar [data-view="contracts"]').evaluate(button=>button.click());await page.locator('[data-open-contract]').first().click();
+ const form=page.locator('#edit-form');await form.waitFor();
+ await form.locator('[data-contract-context]>summary').click();await form.locator('[data-contract-notice-terms]>summary').click();
+ for(const [field,value] of Object.entries(fields)){
+  assert.equal(await form.locator(`[name="${field}"]`).count(),1,field);
+  assert.equal(await form.locator(`[name="${field}"]`).inputValue(),String(value),field);
+ }
+ assert.equal(await form.locator('.contract-document a').getAttribute('href'),fields.contractDocumentUrl);
+ for(const width of [390,1280]){await page.setViewportSize({width,height:950});assert.ok(await form.evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:`${artifacts}/agreement-fields-${width}.png`});}
+ await form.locator('[data-editor-activate]').click();
+ await form.locator('[name="businessComment"]').fill('Kompletterad verksamhetskommentar.');await form.locator('[name="employees"]').fill('13.5');await form.locator('[name="terminatedOn"]').fill('2027-05-31');
+ await form.locator('[type="submit"]').click();
+ assert.deepEqual(await form.locator(':invalid').evaluateAll(nodes=>nodes.map(node=>({name:node.name,value:node.value,message:node.validationMessage}))),[],'Native agreement controls remain valid');
+ await page.waitForFunction(()=>!document.querySelector('#edit-form')||document.querySelector('#notice.error'));
+ assert.equal(await form.count(),0,await page.locator('#notice').innerText());
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('#content > *').first().waitFor();
+ const edited=(await loaded()).contracts[0];assert.equal(edited.businessComment,'Kompletterad verksamhetskommentar.');assert.equal(edited.employees,13.5);assert.equal(edited.terminatedOn,'2027-05-31');assert.equal(edited.category,fields.category);assert.equal(edited.contractDocumentUrl,fields.contractDocumentUrl);
  // After city completion the progress dialog describes saving, even if storage waits.
  const isolated=await browser.newContext({viewport:{width:390,height:900}}),cityPage=await isolated.newPage();
  await cityPage.route('https://**/*',route=>{
@@ -80,5 +101,5 @@ try{
  assert.equal(await cityPage.evaluate(async()=>(await LokalblickDataService.load()).properties.length),1);
  await isolated.close();
  assert.deepEqual(errors,[]);
- console.log('PASS: one review, searchable direct fields, independent exclusions on recognized sheets, no supplemental data, mobile fit, saved choices, distinct people, idempotent reimport, cancellation and reload.');
+ console.log('PASS: one review, direct fields, exclusions, all highlighted agreement fields, native detail edits, mobile fit, source categories and links, saved choices, distinct people, idempotent reimport, cancellation and reload.');
 }finally{await browser?.close();server.kill('SIGTERM');}

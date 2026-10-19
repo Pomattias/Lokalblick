@@ -1,10 +1,11 @@
 // Conservative local interpretation. Identity columns never become numbers or dates.
-export const dateField=field=>/^(start|end|.*Date|orderedAt|paidAt|completedAt)$/.test(field);
+export const dateField=field=>/^(start|end|.*Date|orderedAt|paidAt|completedAt|terminatedOn)$/.test(field);
 export const numberField=field=>field!=='areaType'&&/^(usedArea|costSharePercent|area|baseRent|baseAdditions|annual|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|estimatedCost|orderedCost|finalCost|planningYear|planningQuarter|planningMonth|startYear|endYear|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|preliminaryCost|investmentThreshold|rentSurchargeRate|cost|year|period|actual|budget|allocation|noticePeriod|renewalPeriod|rentBase|additionBase|rentIndexPercent|additionIndexPercent)/.test(field);
 const identityField=field=>/^(id|.*Id|number|orderReference|phone|email|ekotObject|costCenter.*)$/.test(field);
 const currencyField=field=>/^(baseRent|baseAdditions|annual.*|estimatedCost|orderedCost|finalCost|investmentThreshold|cost|preliminaryCost|budget|budgetInvestigation|budgetExecution|budgetFurnishing|actual)$/.test(field);
 const currencyHint=text=>/\b(?:kr|sek|tkr|mkr)\b|hyra|kostnad|belopp/i.test(text);
 const moneyScale=(value,header)=>typeof value==='string'&&/kr|sek|kronor/i.test(value)?1:/\bmkr\b/i.test(header)?1000000:/\btkr\b|tusen\s*(?:kr|kronor)/i.test(header)?1000:1;
+const emptyMarker=(value,column)=>column.emptyMarkers&&/^[–—-]$/.test(String(value??'').trim())&&(dateField(column.target?.split('.')[1]||'')||numberField(column.target?.split('.')[1]||''));
 export function parseNumber(value) {
  if(typeof value==='number'&&Number.isFinite(value))return value;
  let s=String(value??'').trim(),negative=false;
@@ -31,6 +32,7 @@ export function parseDate(value,XLSX,date1904=false) {
 }
 export function interpretCell(cell,column,XLSX) {
  let value=cell?.v??'',field=column.target?.split('.')[1]||'';
+ if(emptyMarker(value,column))return '';
  if(/DocumentUrl$/.test(field))return cell?.l?.Target||value;
  if(column.transform==='text'||identityField(field))return typeof value==='number'&&/^0{2,}$/.test(cell.z||'')?XLSX.utils.format_cell({...cell,t:cell.t||'n'}):String(value);
  if(!field){if(column.format?.type==='date')return parseDate(value,XLSX,column.date1904);if(['currency','number'].includes(column.format?.type))return parseNumber(value)*(column.format.type==='currency'?moneyScale(value,column.header||''):1);return String(value);}
@@ -46,7 +48,7 @@ export function interpretCell(cell,column,XLSX) {
  return String(value);
 }
 export function profileFormat(cells,column,XLSX) {
- const field=column.target?.split('.')[1]||'',values=cells.filter(c=>c?.v!==''&&c?.v!=null);
+ const field=column.target?.split('.')[1]||'',values=cells.filter(c=>c?.v!==''&&c?.v!=null&&!emptyMarker(c.v,column));
  const identityHint=!field&&/(?:^id$|nummer|(?:^|[ _])id$|kod|telefon|postnr)/i.test(column.header||'');
  let type=identityField(field)||identityHint?'text':dateField(field)?'date':numberField(field)?(currencyField(field)?'currency':'number'):field?'text':null;
  if(!type&&values.length){

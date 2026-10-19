@@ -48,3 +48,14 @@ test('source refresh uses the same priority rules and never freezes untouched ma
  const accepted=normalize(await repo.refreshSource());assert.equal(accepted.contracts.find(c=>c.id==='c').area,200);
  const reopened=await new LokalblickRepository({sourceAdapter:repo.sourceAdapter,dataPath}).initialize();assert.equal(normalize(await reopened.bootstrap()).contracts.find(c=>c.id==='c').area,200);
 });
+test('additional agreement fields persist through approved import and restart, with valid termination dates',async t=>{
+ const {repo,dataPath}=await setup(t),base=await repo.bootstrap(),data=proposed(base);
+ const fields={terminatedOn:'2027-06-30',terminationReason:'Avveckling',use:'Träffpunkt',businessComment:'Kommunal primärvård.',employees:12.5,category:'KP Kontor- och personallokaler',apartmentArea:245.5,contractDocumentUrl:'https://example.invalid/a.pdf'};
+ Object.assign(data.contracts.find(c=>c.id==='c2'),fields);
+ const invalid=structuredClone(data);invalid.contracts.find(c=>c.id==='c2').terminatedOn='2027-02-29';
+ await assert.rejects(repo.previewImport({data:invalid,baseRevision:base.workspaceRevision,report:{fileName:'fel.xlsx'}}),/datum/);
+ assert.equal((await repo.bootstrap()).contracts.length,1);
+ const preview=await repo.previewImport({data,baseRevision:base.workspaceRevision,report:{fileName:'syntetiskt.xlsx'}});await repo.applyImport({previewId:preview.previewId});
+ const reopened=await new LokalblickRepository({sourceAdapter,dataPath}).initialize(),saved=await reopened.bootstrap();
+ for(const [field,value] of Object.entries(fields))assert.equal(saved.contracts.find(c=>c.id==='c2')[field],value,field);
+});
