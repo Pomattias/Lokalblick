@@ -1073,15 +1073,6 @@ details .table-wrap {
   max-height:90vh;
   box-sizing:border-box;
 }
-.import-mapping-dialog .mapping-table { max-height:none; }
-.import-mapping-dialog .mapping-table th:first-child { width:34%; }
-.import-mapping-dialog .mapping-table th:nth-child(2) { width:42%; }
-.import-mapping-dialog .mapping-table small { max-width:none; }
-
-.import-mapping-dialog .sheet-preview table { width:max-content; min-width:100%; }
-.import-mapping-dialog .sheet-preview th, .import-mapping-dialog .sheet-preview td { width:260px; min-width:260px; max-width:320px; overflow-wrap:anywhere; }
-.import-mapping-dialog .sheet-preview th:first-child { width:150px; min-width:150px; position:sticky; left:0; background:var(--surface, #fff); z-index:1; }
-.import-mapping-dialog .sheet-preview .column-targets { background:#f3f6fa; }
 
 /* Gemensam kompakt mobilram. Verktyg nås via Mer. */
 .more-menu { display:grid; gap:10px; max-width:520px; }
@@ -3856,6 +3847,48 @@ body:not([data-view="budget"]) #editor-root .contract-editor #edit-form.editor-r
 body:not([data-view="budget"]) .contract-editor #edit-form.editor-editing .contract-term-caption {display:block;margin-bottom:4px;}
 body:not([data-view="budget"]) .contract-editor #edit-form.editor-editing .contract-term .contract-field>.field-name {display:block;font-size:11px;margin-bottom:2px;}
 body:not([data-view="budget"]) .contract-editor #edit-form.editor-editing .contract-term input {width:100%;min-width:0;}
+/* Reviewed Excel columns stay vertical; no parallel free-form data fields. */
+body:not([data-view="budget"]) .followup-dialog.import-dialog.import-mapping-dialog {width:min(960px,calc(100vw - 24px));max-width:calc(100vw - 24px);padding:18px;}
+body:not([data-view="budget"]) .import-mapping-dialog :is(h2,h3,p) {margin:6px 0 10px;}
+body:not([data-view="budget"]) .import-selection-status {font-size:12px;font-weight:600;}
+body:not([data-view="budget"]) .import-column-groups>details {border-block-start:1px solid var(--line);padding-block:5px;}
+body:not([data-view="budget"]) .import-column-sheet {margin:10px 0;}
+body:not([data-view="budget"]) .import-column-sheet h3 {font-size:12px;overflow-wrap:anywhere;}
+body:not([data-view="budget"]) .import-column-sheet h3 small {font-weight:400;color:var(--muted);margin-left:6px;}
+body:not([data-view="budget"]) .import-column-row {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);gap:8px 14px;border-top:1px solid var(--line);padding:9px 0;font-size:12px;}
+body:not([data-view="budget"]) .import-column-row>* {min-width:0;overflow-wrap:anywhere;}
+body:not([data-view="budget"]) .import-column-row small {display:block;font-size:11px;color:var(--muted);margin-top:3px;}
+body:not([data-view="budget"]) .import-column-choice {display:flex;flex-wrap:wrap;align-content:start;gap:5px;}
+body:not([data-view="budget"]) .import-column-choice>small {flex-basis:100%;}
+body:not([data-view="budget"]) .import-column-choice button {font-size:12px;min-height:30px;padding:4px 8px;white-space:normal;text-align:left;}
+body:not([data-view="budget"]) .import-column-choice .import-target {flex:1 1 150px;border-color:var(--accent);}
+body:not([data-view="budget"]) .import-column-row[data-column-state="pending"] .import-target {border-style:dashed;}
+body:not([data-view="budget"]) .import-column-row[data-column-state="ignored"] {color:var(--muted);}
+body:not([data-view="budget"]) .import-column-choice [aria-pressed="true"] {background:var(--soft);}
+body:not([data-view="budget"]) .import-column-choice label {flex-basis:100%;font-size:11px;}
+body:not([data-view="budget"]) .import-column-choice select {width:100%;min-width:0;}
+body:not([data-view="budget"]) .import-result {border-top:1px solid var(--line);padding:10px 0;}
+body:not([data-view="budget"]) .import-result-table {overflow:auto;}
+body:not([data-view="budget"]) .import-result table {width:100%;font-size:12px;}
+body:not([data-view="budget"]) .import-result table {display:table;border-collapse:collapse;}
+body:not([data-view="budget"]) .import-result thead {display:table-header-group;}
+body:not([data-view="budget"]) .import-result tbody {display:table-row-group;}
+body:not([data-view="budget"]) .import-result tr {display:table-row;}
+body:not([data-view="budget"]) .import-result :is(td,th) {display:table-cell;}
+body:not([data-view="budget"]) .import-result :is(td,th) {padding:5px;text-align:right;}
+body:not([data-view="budget"]) .import-result :is(td,th):first-child {text-align:left;}
+body:not([data-view="budget"]) .import-review-actions {position:sticky;bottom:-18px;background:var(--paper);border-top:1px solid var(--line);padding:10px 0;margin-top:10px;}
+body:not([data-view="budget"]) .import-field-picker {width:min(480px,calc(100vw - 24px));max-width:calc(100vw - 24px);padding:16px;}
+body:not([data-view="budget"]) .import-field-picker input {width:100%;}
+body:not([data-view="budget"]) .import-field-results {display:grid;gap:3px;max-height:50vh;overflow:auto;margin:10px 0;}
+body:not([data-view="budget"]) .import-field-results button {text-align:left;white-space:normal;padding:7px 9px;font-size:12px;}
+body:not([data-view="budget"]) .import-field-results [aria-pressed="true"] {background:var(--soft);border-color:var(--accent);}
+@media(max-width:600px) {
+  body:not([data-view="budget"]) .import-column-row {grid-template-columns:minmax(0,1fr);gap:4px;}
+  body:not([data-view="budget"]) .followup-dialog.import-dialog.import-mapping-dialog {padding:12px;}
+  body:not([data-view="budget"]) .import-review-actions {bottom:-12px;}
+  body:not([data-view="budget"]) .import-result :is(td,th) {font-size:10px;padding:4px 2px;}
+}
 @media(max-width:360px) {
   body:not([data-view="budget"]) .ui-action-heading:not(.issue-heading) {grid-template-columns:minmax(0,1fr);}
   body:not([data-view="budget"]) .ui-action-heading:not(.issue-heading)>.ui-heading-actions {justify-self:end;}

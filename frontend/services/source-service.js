@@ -1596,7 +1596,7 @@
     applyCityToProperties:applyCityToProperties,
     prepareImportWorkbook:prepareImportWorkbook,
     discardPreparedImport(){source.pendingImport=null;},
-    async prepareMapping(data, selectedSheets) {
+    async prepareMapping(data, selectedSheets, options={}) {
       if(!source.pendingImport)throw Error("Välj Excel-filen på nytt.");
       const engine=await import('./import-engine.js');
       const pending=source.pendingImport;
@@ -1607,7 +1607,7 @@
         pending.preparedWorkbooks ||= new Map();
         pending.preparedWorkbooks.set(JSON.stringify([...selectedSheets].sort()),engine.readImportSource(pending.files[0],names,XLSX));
       }
-      return {workbook,profiles:engine.profileWorkbook(workbook,this.schemas,XLSX,data?.importMappings||[]),
+      return {workbook,profiles:engine.profileWorkbook(workbook,this.schemas,XLSX,data?.importMappings||[],options),
         fingerprint:combined.fingerprint,fileName:pending.fileName,fileCount:pending.files?.length||1,
         known:workbook.__importSources.some(s=>{const single={SheetNames:[s.sheetName],Sheets:{[s.sheetName]:workbook.Sheets[s.sheetKey]}};return Boolean(window.LokalblickMigrationAdapter?.detect(single)||window.LokalblickOperationalEnrichmentAdapter?.detect(single)||window.LokalblickProject2027Adapter?.detect(single)||window.LokalblickContractEnrichmentAdapter?.detect(single));})};
     },

@@ -48,7 +48,7 @@ import {
   reviewCandidateChoices,
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
-import { mapImport, previewImport } from "./import-mapping.js";
+import { previewImport } from "./import-mapping.js";
 import { fieldHistory } from "./field-history.js";
 import { planActivityPeriod, planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
 import { attachPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
@@ -1157,17 +1157,14 @@ async function sourceAction(action) {
         if (progress.message) notice(progress.message);
       });
       const selectedSheets = await chooseImportSheets(prepared);
-      const mappingPrepared = await globalThis.LokalblickSourceService.prepareMapping(base, selectedSheets);
-      const mapping = await mapImport(mappingPrepared, globalThis.LokalblickSourceService.schemas);
       progressDialog = showImportProgress(prepared.fileName, selectedSheets);
-      if(mapping.existing) result = await transport.importPrepared(base, selectedSheets, (progress) => {
-        updateImportProgress(progressDialog, progress);
-        if (progress.message) notice(progress.message + (progress.counts ? " " + importCountLabel(progress.counts) : ""));
-      });
+      updateImportProgress(progressDialog,{message:"Läser valda kolumner och föreslår fält…"});
+      await new Promise(resolve=>setTimeout(resolve,0));
+      const mappingPrepared = await globalThis.LokalblickSourceService.prepareMapping(base, selectedSheets,{reviewed:true});
       if(progressDialog?.open)progressDialog.close();
       progressDialog?.remove();progressDialog=null;
-      result = await previewImport(mappingPrepared, mapping, base,
-        globalThis.LokalblickSourceService.schemas, actor(), result);
+      result = await previewImport(mappingPrepared, base,
+        globalThis.LokalblickSourceService.schemas, actor());
 
       const missingCity =
         globalThis.LokalblickSourceService?.cityImportStatus?.(result.data)
@@ -1179,12 +1176,16 @@ async function sourceAction(action) {
         progressDialog = null;
         cityResult = await askMissingCity(result.data);
         result.data = cityResult.data;
-        progressDialog = showImportProgress(prepared.fileName, selectedSheets);
       }
 
       const cityWarning = cityResult.skipped
         ? " " + cityResult.skipped + " fastigheter saknar fortfarande ort och geokodas inte förrän ort kompletterats."
         : "";
+      progressDialog = showImportProgress(prepared.fileName, selectedSheets);
+      progressDialog.querySelector('h2').textContent="Sparar import";
+      progressDialog.querySelector('.import-progress-hint').textContent="Resultatet sparas i arbetsytan. Exceloriginalet ändras inte.";
+      updateImportProgress(progressDialog,{message:"Sparar godkända uppgifter och kopplingar…"});
+      await new Promise(resolve=>setTimeout(resolve,0));
       const retained = transport.company()?{data:await transport.commitImport(result),mode:"connected"}:await retainImportedData(
         result.data, transport,
         globalThis.LokalblickViewBridge,
