@@ -17,7 +17,7 @@ export function editorDisplayValue(control) {
     // ISO dates are the common app format; never localize to DD/MM/YYYY.
     // Native date inputs already expose their canonical value as YYYY-MM-DD.
   }
-  return (control.type==="date"?isoDate(text):text)||"–";
+  return (control.type==="date"?isoDate(text):text)||control.dataset?.emptyLabel||"–";
 }
 export function prepareEditorModeFields(form) {
   if(!form||form.dataset.collection==="activities")return 0;

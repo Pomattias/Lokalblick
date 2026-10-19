@@ -54,7 +54,7 @@ function chosenCategory(raw) {
   return current;
 }
 
-export function renderContractEditor(data, c, id, company=false) {
+export function renderContractEditor(data, c, id, company=false, presentation={}) {
   const property=(data.properties||[]).find(p=>p.id===c.propertyId)||{};
   const owner=(data.organizations||[]).find(org=>org.id===property.ownerPartyId);
   const ownerName=owner?.name||property.owner||"Ej angiven på fastigheten";
@@ -111,16 +111,22 @@ export function renderContractEditor(data, c, id, company=false) {
     field("Fastighetsskatt, kr/år",input(c,"annualPropertyTax","number",false,'min="0" step="any"'))+
     '</div><p class="contract-help">Basår är KPI-basår; bashyran avser följande hyresår. Min/max tillämpas enligt avtal. Beräkningen använder senast sparade värden.</p></details>';
   const rentValue = totals.rent.status==="Behöver kontroll" && totals.rent.amount<=0 ? "Behöver kontroll" : money(totals.rent.amount);
+  const rentPerSqm=totals.rent.status==='Behöver kontroll'?'Behöver kontroll':Number(c.area)>0?money(totals.rent.amount/Number(c.area)):'Ej beräknat';
   const economics = '<section class="contract-section" data-contract-section="economics"><h3>Hyra och yta</h3><div class="contract-grid">'+
     field("Hyra "+new Date().getFullYear()+", kr/år",display(rentValue))+
     field("Area, m²",input(c,"area","number",masterLocked,'min="0" step="any"'))+
+    (presentation.portfolio?field('Årshyra, kr/m²','<span class="contract-readonly" data-contract-rent-per-sqm>'+esc(rentPerSqm)+'</span>'):"")+
     (totals.addition.amount || totals.tax ? field("Total årskostnad, kr",display(money(annualTotal))) : "")+
     '</div>'+(missing.length?'<p class="rent-needs-review">Behöver kontroll: '+esc(missing.join(' · '))+'</p>':'')+
     rentTerms+'</section>';
 
-  const dates = '<section class="contract-section" data-contract-section="dates"><h3>Avtalstid</h3><div class="contract-grid">'+
-    field("Giltigt fr.o.m.",input(c,"start","date"))+
-    field("Giltigt t.o.m.",input(c,"end","date"))+
+  const period=presentation.portfolio
+    ? '<div class="contract-term" data-contract-term role="group" aria-label="Hyrestid"><span class="field-name contract-term-caption" aria-hidden="true">Hyrestid</span><div class="contract-term-values">'+
+      field('Fr.o.m.',input(c,'start','date',false,'aria-label="Hyrestid fr.o.m." data-empty-label="Ej angivet"'))+
+      '<span class="contract-term-separator" aria-hidden="true">–</span>'+
+      field('T.o.m.',input(c,'end','date',false,'aria-label="Hyrestid t.o.m." data-empty-label="Tills vidare"'))+'</div></div>'
+    : field("Giltigt fr.o.m.",input(c,"start","date"))+field("Giltigt t.o.m.",input(c,"end","date"));
+  const dates = '<section class="contract-section" data-contract-section="dates"><h3>Avtalstid</h3><div class="contract-grid">'+period+
     field("Säg upp senast",display(term.noticeBy || "Ej beräknat"))+
     '</div><details class="contract-secondary" data-contract-notice-terms'+(!id?' open':'')+'><summary>Uppsägning och förlängning</summary><div class="contract-grid">'+
     field("Uppsägningstid, månader",input(c,"noticePeriodMonths","number",false,'min="0" step="1"'))+

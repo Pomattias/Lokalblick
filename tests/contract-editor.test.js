@@ -156,3 +156,15 @@ test("agreement identity, economics and dates precede all contacts without dupli
     assert.equal((html.match(new RegExp('name="'+key+'"','g'))||[]).length,1,key);
   assert.match(renderContractEditor(data,{propertyId:'p1'},""),/data-contract-rent-terms open/);
 });
+
+test('compact agreement shows annual lease rent per square metre and retains one pair of date controls',()=>{
+  const c={...contract,area:100,baseRent:120000,rentAdjustmentMethod:'none',baseAdditions:18000,additionAdjustmentMethod:'none',annualPropertyTax:9000};
+  const html=renderContractEditor(data,c,c.id,false,{portfolio:true});
+  const expected=new Intl.NumberFormat('sv-SE',{maximumFractionDigits:0}).format(1200)+' kr';
+  assert.ok(html.includes('data-contract-rent-per-sqm>'+expected+'</span>'));
+  assert.match(html,/data-contract-term role="group" aria-label="Hyrestid"/);
+  assert.equal((html.match(/name="start"/g)||[]).length,1);
+  assert.equal((html.match(/name="end"/g)||[]).length,1);
+  assert.doesNotMatch(renderContractEditor(data,c,c.id),/data-contract-rent-per-sqm|data-contract-term/,'Legacy Budget editor remains unchanged');
+  assert.match(renderContractEditor(data,{...c,area:0},c.id,false,{portfolio:true}),/data-contract-rent-per-sqm>Ej beräknat<\/span>/);
+});

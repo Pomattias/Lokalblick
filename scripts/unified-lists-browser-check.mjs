@@ -45,7 +45,8 @@ try {
     assert.equal(await pencil.locator('svg').count(),1);
     assert.equal(await pencil.innerText(),'');assert.ok(await pencil.getAttribute('aria-label'));
     await pencil.click();await page.locator('#edit-form.editor-editing').waitFor();
-    assert.equal(await page.locator('[data-editor-activate] svg').count(),1);
+    assert.equal(await page.locator('[data-editor-activate]').textContent(),'Redigera');
+    assert.equal(await page.locator('[data-editor-activate] svg').count(),0);
     await page.locator('[data-editor-undo]').click();
     await page.locator('#edit-form.editor-readonly').waitFor();await page.keyboard.press('Escape');
     for(const width of [390,320,667]){
