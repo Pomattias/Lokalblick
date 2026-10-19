@@ -84,10 +84,11 @@ LEB/Excel är master för källdata. Backend äger Lokalblicks kompletteringar o
 
 All företagsdata, filer och hemligheter ska ligga utanför GitHub och Vercels publika demomiljö. Den gamla V1-vyn kan inte längre väljas.
 
-### Ny fristående app: Lokalblick Lokaler
+### Ren datamodell i den befintliga appen
 
-Den rena modellen för fastigheter, objekt, avtal, ärenden och personkopplingar
-finns under `frontend/lokaler/`. Öppna `/frontend/lokaler/index.html` för den nya
-webbappen och anslut en lokal Excel-arbetsbok, eller kör `npm run lokaler` för
-lokal SQLite-lagring. Den tidigare appen och Budget är oförändrade.
+Förstasidan, kartan och arbetsflödena i `frontend/v2` används med den nya rena
+modellen i `frontend/lokaler`. Granskad Excelimport fördelar källrader till
+fastigheter, objekt, avtal, personer och personkopplingar. Kör `npm run lokaler`
+för lokal SQLite-lagring, eller anslut en lokal Excel-arbetsbok i webbappen.
+Den separata prototypens startsida leder nu till den befintliga appen.
 Se [startguide och datamodell](START-LOKALER.md).

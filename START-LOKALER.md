@@ -1,152 +1,138 @@
-# Lokalblick Lokaler – ny app med lokal lagring
+# Lokalblick – tidigare app, ren datamodell och lokal lagring
 
-Den nya appen är fristående från den tidigare appen. Den tidigare appens Budget,
-CSS, datamodell och API ändras inte. Ingen data migreras eller konverteras från
-äldre Lokalblick-filer. Den nya appen börjar med tomma register.
+Förstasidan, kartan, listorna och arbetsflödena i `frontend/v2` används fortsatt.
+Den separata prototypens gränssnitt är avvecklat. Dess adress
+`/frontend/lokaler/index.html` leder till den befintliga appen.
 
-## Starta
+Den nya datamodellen och lagringen finns i `frontend/lokaler` och
+`backend/lokaler`. Befintliga Budgetvyer och beräkningsfunktioner är oförändrade.
+Ingen äldre databas migreras. Nya Excelunderlag fördelas till den nya modellen
+vid granskad import. Redan anslutna äldre arbetsfiler fortsätter använda sitt
+befintliga flöde; de konverteras inte automatiskt.
 
-Installera **Node.js 24 LTS** och kör följande i projektmappen:
+## Läs in Excelunderlag i webbappen
+
+Om du har en tidigare arbetsyta öppen väljer du först **Ny ren arbetsyta**.
+Den anslutna äldre filen ändras inte.
+
+1. Öppna **Datakällor → Läs in underlag**. Flera filer/flikar kan väljas samtidigt.
+2. Kontrollera varje kolumns målfält. Välj **Importera inte** direkt för sådant
+   som ska lämnas utanför. Uppgifterna sparas inte som kompletterande extrafält.
+3. För namnkolumner väljs personrollen, exempelvis fastighetsägarens kontakt
+   eller avtalets hyresgästkontakt. E-post/PersonID kan kopplas till respektive
+   namnkolumn. Om enbart namn finns måste du bekräfta att kolumnens namn
+   identifierar unika personer. Ett namn med flera möjliga personer kräver ID.
+4. Kontrollera resultatet per register. Identifierare, datatyper och kopplingar
+   som inte går att fastställa måste rättas före import. Värdekonflikter skyddas
+   och kan granskas; tomma fält kompletteras. Inget sparas före **Genomför import**.
+5. I webbappen sparas resultatet lokalt i webbläsarens databas. Välj
+   **Skapa Lokalblick-data / Spara som Lokalblick-data** för en arbetsbok på datorn.
+   Återimport kompletterar samma arbetsyta och skapar inte nya kopior av redan
+   identifierade fastigheter, objekt, avtal, personer eller kopplingar.
+
+**Anslut Lokalblick-data** öppnar den nya arbetsboken eller en tidigare
+Lokalblick-arbetsfil. Formatet identifieras när filen öppnas. Den nya arbetsboken
+läses och skrivs direkt i Chrome/Edge på dator. Den nya lagringens registerdata
+skickas inte till ett centralt lagrings-API när Excel används i webbläsaren.
+Karttjänster och övriga befintliga integrationer har samma arbetssätt som tidigare.
+
+Webbläsarens lokala databas är knuten till webbadressen och webbläsarprofilen.
+Exportera en arbetsbok för säkerhetskopiering och för att flytta arbetsytan.
+Filkopplingen kan återupptas efter omladdning när webbläsaren behåller behörigheten;
+annars behöver filen anslutas igen. Använd bara en redigerare åt gången för Excel.
+
+## Kör med lokal SQLite-databas
+
+Installera **Node.js 24 LTS**, öppna projektmappen och kör:
 
 ```sh
 npm ci
 npm run lokaler
 ```
 
-Öppna **http://127.0.0.1:8790**. En ny SQLite-databas skapas i
-`local-data/lokaler.sqlite`. Appen binder endast till datorns loopback-adress;
-den är avsedd för en användare på den datorn, inte publik fleranvändardrift.
+Öppna **http://127.0.0.1:8790**. Det är den tidigare appens gränssnitt, anslutet
+till den nya databasen `local-data/lokaler.sqlite`. Import och redigering sparas
+direkt och atomärt i databasen. Inga verksamhetsdata publiceras på Vercel.
+Servern binder endast till loopback-adressen och är avsedd för användning på datorn.
 
-För Excel som arbetsfil:
+För samma app med Excel som serverns arbetsfil:
 
 ```sh
 npm run lokaler:excel
 ```
 
-Då skapas/öppnas `local-data/lokaler.xlsx`. Samma app och datakontroller används.
-Excel-filen är den beständiga lagringen; ingen parallell databasfil skapas.
-Tabellerna läses till en tillfällig SQL-modell i minnet medan appen körs.
-Varje sparning skriver arbetsboken via en tillfällig fil och behåller föregående
-version som `lokaler.xlsx.bak`.
+Arbetsfilen är då `local-data/lokaler.xlsx`. En tillfällig SQL-modell i minnet
+validerar kopplingarna. Vid sparning ersätts Excel-filen via en temporär fil och
+föregående version behålls som `.xlsx.bak`. Ingen parallell SQLite-fil skapas.
 
-Välj annan fil eller port med miljövariablerna `LOKALER_FILE` och `LOKALER_PORT`.
-Lagring väljs med `LOKALER_STORAGE=sqlite` eller `excel`. Exempel i bash:
+Fil och port kan väljas med `LOKALER_FILE` och `LOKALER_PORT`. Exempel i bash:
 
 ```sh
-LOKALER_FILE=/sokvag/lokaler.sqlite npm run lokaler
-LOKALER_FILE=/sokvag/lokaler.xlsx npm run lokaler:excel
+LOKALER_FILE=/sokvag/mina-lokaler.sqlite npm run lokaler
+LOKALER_FILE=/sokvag/mina-lokaler.xlsx npm run lokaler:excel
 ```
 
-I PowerShell: sätt exempelvis `$env:LOKALER_FILE='C:\Lokaler\lokaler.xlsx'`
-före startkommandot. En datafil används av en appinstans i taget. Stäng med
-Ctrl+C. Om en process avslutas abrupt kan en `.lock`-fil bli kvar; ta endast bort
-låset när ingen appinstans använder datafilen.
+I PowerShell sätts exempelvis `$env:LOKALER_FILE='C:\Lokaler\lokaler.xlsx'`
+före startkommandot. Stoppa med Ctrl+C. En datafil används av en serverinstans i
+taget. Efter en avbruten process kan en `.lock`-fil finnas kvar; ta bara bort den
+när ingen instans använder filen. En databas av annat format avvisas och lämnas orörd.
 
-## Excel och säkerhetskopior
+## Uppgifterna lagras en gång
 
-Under **Lagring → Hämta Excel-kopia / mall** kan du exportera alla tabeller eller
-en tom mall. Detta byter inte arbetsfil eller lagringsläge. För att fortsätta
-arbeta med en exporterad fil: stoppa appen och starta Excel-läget med den filen
-som `LOKALER_FILE`. Detta är ett utbyte i den nya modellen, ingen automatisk
-konvertering av gamla kalkylblad.
-
-För manuell Excel-redigering: **stäng appen först**. Behåll flikarnas namn och
-kolumnrubriker. Använd ID-kolumnerna för hänvisningar, inte namn kopierade i varje
-tabell. Datum anges som `ÅÅÅÅ-MM-DD` eller riktiga Excel-datum; tomma datum förblir
-tomma. Använd värden, inte formler. Excel-läsningen har en gräns på 15 MB,
-50 000 rader per tabell och en tidsgräns på 30 sekunder. Ogiltiga filer lämnas
-orörda och ger ett felmeddelande i terminalen vid start.
-
-Om arbetsboken ändras externt medan appen körs avvisas sparningen. Starta om
-appen för att läsa filen. Excel ska inte användas för samtidig redigering.
-För större mängder data rekommenderas databasläget; Excel-läget skriver hela
-arbetsboken vid varje ändring.
-
-Säkerhetskopiera hela `local-data`-mappen när appen är **stängd**, eller hämta en
-Excel-kopia från appen. SQLite kan ha tillhörande `-wal`/`-shm`-filer medan den
-körs; kopiera inte enbart `.sqlite`-filen då. En `.bak` ersätter inte fristående
-säkerhetskopiering. Datafiler ska inte läggas i Git eller publiceras på Vercel.
-
-## Ren datamodell
-
-| Tabell | Äger informationen |
+| Register | Innehåll |
 | --- | --- |
-| Fastigheter | FastighetsID, namn, populärnamn, adress, fastighetsägare via PartID |
-| Objekt | ObjektID, FastighetsID, benämning, yta, antal lägenheter, giltighetstid |
-| Avtal | AvtalsID, ObjektID, exakt avtalsnummer, hyresgästens PartID, årshyra, hyrestid och avtalsvillkor |
-| Ärenden | ÄrendeID, antingen FastighetsID eller ObjektID, namn, beskrivning, status, prioritet, kostnad, tidplan, noteringar |
-| Beställningar | BeställningsID, ÄrendeID, namn, belopp, status |
-| Personer | PersonID, namn, e-post, telefon |
-| Parter | PartID, organisationsnamn |
-| Personkopplingar | KopplingsID, PersonID, roll, ett mål-ID och giltighetstid |
-| Objektförändringar | Föregångarens och efterföljarens ObjektID för delning/sammanslagning |
+| Fastigheter | FastighetsID, namn, populärnamn, adress, ort, ägarens PartID och kartposition |
+| Objekt | ObjektID, FastighetsID, benämning, ytor, antal lägenheter och giltighetstid |
+| Avtal | AvtalsID, ObjektID, exakt avtalsnummer, hyresgästens PartID, hyra, period och ekonomivillkor |
+| Personer | PersonID, namn, e-post, telefon och eventuell part |
+| Personkopplingar | PersonID, roll, ett mål-ID och giltighetstid |
+| Ärenden | ÄrendeID, antingen FastighetsID eller ObjektID, ansvar via personkoppling, beskrivning, status, kostnad och tidplan |
+| Beställningar | BeställningsID, ÄrendeID, belopp, beställare och uppföljning |
+| Objektförändringar | Föregångare/efterföljare vid delning och sammanslagning |
 
-ID:n skapas automatiskt. Ett eget stabilt ID kan anges vid nyregistrering under
-**Ange eget ID**. ID ändras inte när en post redigeras. Avtalsnummer är ett eget
-fält: `9(1)`, `91` och `91,1` är olika nummer, och en cell delas aldrig på komma.
+Budgetplaner, indexserier, granskningsärenden, kolumnval och ändringshistorik
+ligger som arbetsytemetadata, inte som dubblerade fastighets- eller personregister.
+Befintliga vyer får en beräknad läsvy med de fältnamn de behöver. Exempelvis
+visas objektets yta på avtalet utan att ytan sparas i Avtal. Avtalets fastighet
+härleds från ObjektID. Samordnare hämtas från fastigheten, eller för en
+beställning från ärendet, om egen aktuell koppling saknas.
 
-- Yta och antal lägenheter lagras bara på objektet. Fastigheten summerar unika,
-  giltiga objekt, även vakanta. Okänd yta visas som okänd, och ofullständig summa
-  markeras. Avtal visar objektets yta och beräknar årshyra/m² utan egen ytlagring.
-- Ett objekt kan ha ett avtal per tidsperiod. Datumgränser är inkluderande;
-  ett nytt avtal börjar tidigast dagen efter föregående slutdatum. En tom
-  datumgräns är öppen. Avtal måste rymmas inom objektets angivna giltighetstid.
-- Fastighetsägarens kontakter knyts till fastigheten. Hyresgästens och
-  verksamhetens kontakter knyts till avtalet. Samordnare kan knytas till
-  fastighet, avtal, ärende och beställning.
-- Samordnare ärvs vid läsning: avtal/ärende → fastighet, beställning → ärende →
-  fastighet. En egen aktuell samordnare går före en ärvd. Personuppgifter
-  kopieras aldrig till ärenden eller beställningar. Saknas samordnare visas `–`.
-- Alla personkopplingar har valfria datumgränser. Nuvarande kopplingar visas
-  direkt; historiska och kommande visas när användaren öppnar fördjupningen.
-  Vid byte avslutas tidigare samordnarperiod innan nästa börjar.
-- Delning/sammanslagning: avsluta tidigare objekt, skapa nya ID:n och koppla
-  föregångare/efterföljare. Perioderna ska vara åtskilda och fastigheten densamma.
+ID:n jämförs exakt. Skiljetecken tas inte bort och avtalsnummer delas aldrig
+på komma: `9(1)`, `91` och `91,1` är olika nummer. Ett nytt objekt identifieras
+med ObjektID, eller inom en fastighet via en tydlig avtals-/objektidentitet.
+Oklarheter ska rättas i granskningen. Personer matchas med ID/e-post, alternativt
+med uttryckligen bekräftad unik namnkolumn. Samma person kan ha flera kopplingar.
 
-Registrera parter/personer först om de behövs, därefter fastighet, objekt och
-avtal. Ärenden skapas från fastighet/objekt eller Ärenden. Beställningar skapas
-från ärendet. Register kan redigeras; historik bevaras genom tidsperioder. Denna
-första version har ingen radering, karta, budget eller separat planeringssida.
-Den nya appen använder bara den nya Excel-mallen, inte äldre importunderlag.
+Tomma objektdatum lämnas tomma. Avtals- och kontaktperioder får inte överlappa
+på ett otillåtet sätt. Historik visas genom befintliga fördjupningar. Importen
+hittar inte på indexvillkor, datum eller ekonomiska regler som saknas i underlaget.
 
-## Verifiera
+## Arbetsbok och säkerhetskopior
+
+Den nya arbetsboken har separata registerflikar med ID-kopplingar. Fliken
+**Arbetsyta** är teknisk metadata för befintliga funktioner; redigera den genom
+appen. För manuell Excel-redigering ska appen stängas först. Behåll ID:n,
+kolumnrubriker och fliknamn. I arbetsboken används värden, inte formler.
+
+Direkt anslutning till den nya arbetsboken har gränsen 15 MB och en worker med
+30 sekunders tidsgräns. Även konverteringen i granskningsdialogen körs i en lokal worker med tidsgräns;
+äldre kolumnkontroller avbryts när nya val görs. En granskad import hanterar högst 20 000 datarader åt
+gången. Dela större underlag. Underlagen ändras inte av importen.
+
+Säkerhetskopiera hela `local-data` när servern är stängd, eller hämta en Excel-kopia
+från det lokala API:t `/api/lokaler/workbook`. Kopiera inte bara SQLite-filen
+medan servern körs eftersom journalfiler kan behövas. Webbläsarläget kan inte
+skapa en automatisk `.bak` bredvid en fil utan åtkomst till dess mapp; gör egna kopior.
+
+## Kontroller
 
 ```sh
-node --test tests/lokaler.test.js
-npm run test:lokaler-browser
 npm test
+npm run test:lokaler-browser
+npm run test:property-browser -- --baseline=/sokvag/till/orord-basversion
 ```
 
-Webbläsartestet använder Chromium (`LOKALBLICK_CHROMIUM_PATH` kan ändra sökväg)
-och tillfälliga syntetiska data. Det provar registrering från browser till API,
-lagring, personarv, export och mobilvyer i båda lagringslägena. Ingen skarp
-arbetsfil används.
-
-Den nya appens statiska version finns under `/frontend/lokaler/index.html`.
-Utan ansluten lagring visas ett **skrivskyddat exempel med fiktiva data**.
-Anslut en lokal Excel-arbetsbok från webbsidan för att registrera egna uppgifter,
-eller använd den lokala servern för Excel/databas.
-
-## Använd webbsidan med en lokal Excel-fil
-
-I den publicerade nya appen: välj **Skapa Excel** för en ny tom arbetsbok, eller
-**Öppna Excel** för en arbetsbok i den nya modellen. Detta kräver **Chrome eller
-Edge på dator** och att du godkänner filåtkomsten i webbläsarens filväljare.
-Filen läses och skrivs direkt i webbläsaren; innehållet skickas inte till API,
-Vercel eller någon databas. Excel-biblioteket levereras med appen och bearbetar
-arbetsboken i en worker med 30 sekunders tidsgräns så att gränssnittet inte låser sig.
-
-Efter omladdning väljer du **Öppna Excel** igen. Filåtkomsten återansluts inte
-utan ditt val. Appen använder inte localStorage för verksamhetsdata. Gör egna
-säkerhetskopior via **Lagring → Hämta Excel-kopia**. Webbläsarläget kan inte skapa
-en automatisk `.bak` bredvid arbetsboken med endast åtkomst till den valda filen.
-Det lokala serverläget ovan har automatisk `.bak` för Excel.
-
-Redigera inte arbetsboken samtidigt i flera flikar eller i Excel. Externa
-ändringar kontrolleras före sparning och stoppar överskrivning, men filformatet
-har ingen databaslåsning mellan olika program. Använd endast en redigerare åt
-gången. En ny arbetsbok skrivs inte över en befintlig fil med innehåll.
-
-En databas på datorn används via den lokala servern, inte genom att publicera
-databasfilen på webben. På mobil kan den publicerade appens fiktiva exempel
-visas; direkt åtkomst till lokala filer stöds inte av alla mobilwebbläsare.
+Tester använder syntetiska underlag och tillfälliga databaser. Flödestestet
+verifierar förstasidan, import, återimport, redigering, omladdning och mobilvyer
+för SQLite, Excel via server och Excel direkt i webbläsaren. Budgetjämförelsen
+kontrollerar innehåll, layout och sparade planer mot basversionen.

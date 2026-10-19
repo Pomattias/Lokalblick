@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS contacts (
  agreement_id TEXT REFERENCES agreements(id) ON DELETE RESTRICT,
  issue_id TEXT REFERENCES issues(id) ON DELETE RESTRICT,
  order_id TEXT REFERENCES orders(id) ON DELETE RESTRICT,
- valid_from TEXT, valid_to TEXT,
+ valid_from TEXT, valid_to TEXT, cancelled INTEGER NOT NULL DEFAULT 0 CHECK(cancelled IN (0,1)),
  CHECK((property_id IS NOT NULL) + (agreement_id IS NOT NULL) + (issue_id IS NOT NULL) + (order_id IS NOT NULL) = 1),
  CHECK(role <> 'owner' OR property_id IS NOT NULL),
  CHECK(role NOT IN ('tenant','business') OR agreement_id IS NOT NULL),
@@ -79,7 +79,7 @@ WHEN EXISTS (SELECT 1 FROM agreements a WHERE a.id <> NEW.id AND a.object_id = N
  AND coalesce(NEW.valid_from, '0000-01-01') <= coalesce(a.valid_to, '9999-12-31'))
 BEGIN SELECT RAISE(ABORT, 'Objektet har redan ett avtal under perioden.'); END;
 CREATE TRIGGER IF NOT EXISTS contact_overlap_insert BEFORE INSERT ON contacts
-WHEN EXISTS (SELECT 1 FROM contacts c WHERE c.role = NEW.role
+WHEN NEW.cancelled = 0 AND EXISTS (SELECT 1 FROM contacts c WHERE c.cancelled = 0 AND c.role = NEW.role
  AND c.property_id IS NEW.property_id AND c.agreement_id IS NEW.agreement_id
  AND c.issue_id IS NEW.issue_id AND c.order_id IS NEW.order_id
  AND (NEW.role = 'coordinator' OR c.person_id = NEW.person_id)
@@ -87,10 +87,13 @@ WHEN EXISTS (SELECT 1 FROM contacts c WHERE c.role = NEW.role
  AND coalesce(NEW.valid_from, '0000-01-01') <= coalesce(c.valid_to, '9999-12-31'))
 BEGIN SELECT RAISE(ABORT, 'Personkopplingen överlappar en befintlig koppling. Avsluta den tidigare perioden först.'); END;
 CREATE TRIGGER IF NOT EXISTS contact_overlap_update BEFORE UPDATE ON contacts
-WHEN EXISTS (SELECT 1 FROM contacts c WHERE c.id <> NEW.id AND c.role = NEW.role
+WHEN NEW.cancelled = 0 AND EXISTS (SELECT 1 FROM contacts c WHERE c.cancelled = 0 AND c.id <> NEW.id AND c.role = NEW.role
  AND c.property_id IS NEW.property_id AND c.agreement_id IS NEW.agreement_id
  AND c.issue_id IS NEW.issue_id AND c.order_id IS NEW.order_id
  AND (NEW.role = 'coordinator' OR c.person_id = NEW.person_id)
  AND coalesce(c.valid_from, '0000-01-01') <= coalesce(NEW.valid_to, '9999-12-31')
  AND coalesce(NEW.valid_from, '0000-01-01') <= coalesce(c.valid_to, '9999-12-31'))
 BEGIN SELECT RAISE(ABORT, 'Personkopplingen överlappar en befintlig koppling. Avsluta den tidigare perioden först.'); END;
+CREATE TABLE IF NOT EXISTS workspace (
+ key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL CHECK(json_valid(value))
+) STRICT;

@@ -1,169 +1,63 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, mkdir, readFile } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import { chromium } from 'playwright';
-import { LocalStore } from '../backend/lokaler/store.js';
-import { createServer } from '../backend/lokaler/server.mjs';
-import { readWorkbook, writeWorkbook } from '../backend/lokaler/workbook.js';
-const artifacts = '/tmp/lokalblick-lokaler-check';
-await mkdir(artifacts, { recursive: true });
-const browser = await chromium.launch({ executablePath: process.env.LOKALBLICK_CHROMIUM_PATH || '/usr/bin/chromium', headless: true, args: ['--no-sandbox'] });
-const errors = [];
-async function scenario(mode) {
- const dir = await mkdtemp(path.join(os.tmpdir(), 'lokaler-browser-'));
- const store = await LocalStore.open({ file: path.join(dir, mode === 'excel' ? 'data.xlsx' : 'data.sqlite'), mode: mode === 'browser-excel' ? 'sqlite' : mode });
- const server = createServer(store);
- await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
- const base = 'http://127.0.0.1:' + server.address().port;
- const page = await browser.newPage({ viewport: { width: 1440, height: 940 } });
- page.on('pageerror', error => errors.push(error.message));
- page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
- page.on('requestfailed', request => errors.push(request.url() + ': ' + request.failure()?.errorText));
- await page.addInitScript(() => {
-  const NativeDate = Date;
-  window.Date = class extends NativeDate { constructor(...args) { super(...(args.length ? args : ['2026-10-19T12:00:00Z'])); } static now() { return NativeDate.parse('2026-10-19T12:00:00Z'); } };
- });
- const navigate = async table => {
-  await page.locator('nav a').filter({ hasText: new RegExp('^' + ({ properties: 'Fastigheter', objects: 'Objekt', agreements: 'Avtal', issues: 'Ärenden', orders: 'Beställningar', people: 'Personer', parties: 'Parter', storage: 'Lagring' })[table] + '$') }).click();
-  await page.locator('nav a[aria-current=page]').waitFor();
+import {mkdtemp,rm,mkdir,readFile} from 'node:fs/promises';
+import path from 'node:path';import os from 'node:os';import {createRequire} from 'node:module';
+import {chromium} from 'playwright';import XLSX from 'xlsx';
+import {LocalStore} from '../backend/lokaler/store.js';import {createServer} from '../backend/lokaler/server.mjs';import {readWorkbook} from '../backend/lokaler/workbook.js';
+const require=createRequire(import.meta.url),artifacts='/tmp/lokalblick-clean-import-check';await mkdir(artifacts,{recursive:true});
+const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([
+ ['FastighetsID','Fastighetsbeteckning','Gatuadress','Ort','ObjektID','Area','Antal lägenheter','Avtalsnummer','Hyresgäst','Årshyra','Samordnare','Hyresgästens kontaktperson','Hyra justeringsregel','Ovidkommande'],
+ ['F1','Eken 1','Testgatan 1','Malmö','O1',100,2,'9(1)','Fiktiv hyresgäst',100000,'Anna Test','Kim Test','none','Sparas inte'],
+ ['F1','Eken 1','Testgatan 1','Malmö','O2',50,1,'91','Fiktiv hyresgäst',50000,'Anna Test','Kim Test','none','Sparas inte'],
+ ['F2','Björken 1','Testgatan 2','Malmö','O3',80,0,'91,1','Fiktiv hyresgäst',80000,'Anna Test','Kim Test','none','Sparas inte']
+]),'Underlag');const sourceBytes=Array.from(XLSX.write(book,{type:'buffer',bookType:'xlsx'}));
+const browser=await chromium.launch({executablePath:process.env.LOKALBLICK_CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+async function scenario(mode){
+ const dir=await mkdtemp(path.join(os.tmpdir(),'clean-app-')),store=await LocalStore.open({file:path.join(dir,mode==='excel'?'data.xlsx':'data.sqlite'),mode:mode==='browser-excel'?'sqlite':mode}),server=createServer(store);
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base='http://127.0.0.1:'+server.address().port;
+ const page=await browser.newPage({viewport:{width:1440,height:940}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
+ page.on('dialog',dialog=>dialog.type()==='prompt'?dialog.accept('Testare'):dialog.accept());
+ await page.route('https://**/*',async route=>{const url=route.request().url();if(url.endsWith('xlsx.full.min.js'))return route.fulfill({contentType:'text/javascript',body:await readFile(require.resolve('xlsx/dist/xlsx.full.min.js'))});for(const ext of ['js','css'])if(url.endsWith('leaflet.'+ext))return route.fulfill({contentType:ext==='js'?'text/javascript':'text/css',body:await readFile(require.resolve('leaflet/dist/leaflet.'+ext))});return route.abort();});
+ await page.route('**/api/geocode',route=>route.fulfill({status:503,contentType:'application/json',body:'{"ok":false,"code":"GEOCODING_NOT_CONFIGURED","error":"Test"}'}));
+ await page.route('**/api/budget-index?*',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"Test"}'}));
+ if(mode==='browser-excel')await page.route('**/api/runtime-config',route=>route.fulfill({contentType:'text/javascript',body:'window.LokalblickRuntime={};'}));
+ await page.addInitScript(bytes=>{
+  const NativeDate=Date;window.Date=class extends NativeDate{constructor(...args){super(...(args.length?args:['2026-10-19T12:00:00Z']));}static now(){return NativeDate.parse('2026-10-19T12:00:00Z');}};
+  window.showOpenFilePicker=async options=>options?.multiple?[{name:'syntetiskt.xlsx',queryPermission:async()=>'granted',getFile:async()=>new File([new Uint8Array(bytes)],'syntetiskt.xlsx')}]:[await(await navigator.storage.getDirectory()).getFileHandle('clean-data.xlsx')];
+  window.showSaveFilePicker=async()=>await(await navigator.storage.getDirectory()).getFileHandle('clean-data.xlsx',{create:true});
+ },sourceBytes);
+ const nav=async name=>{await page.locator('.sidebar [data-view='+name+']').evaluate(button=>button.click());};
+ const importFile=async()=>{
+  await nav('sources');await page.locator('[data-source=import]').click();await page.locator('[data-import-sheet]').first().waitFor();
+  await page.locator('[data-import-select=all]').click();await page.locator('[data-import-start]').click();
+  await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();
+  const ignore=page.locator('[data-ignore-unmapped]');if(await ignore.count()){await ignore.click();await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();}
+  await page.locator('[data-column-group=mapped]').evaluate(node=>node.open=true);
+  const identities=page.locator('[data-person-identity]');for(let i=0;i<await identities.count();i++){await identities.nth(i).check();await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();}
+  if(await page.locator('.import-mapping-dialog [data-apply]').isDisabled())throw Error(await page.locator('.import-mapping-dialog').innerText());const apply=page.locator('.import-mapping-dialog [data-apply]');assert.equal(await apply.isDisabled(),false,await page.locator('.import-mapping-dialog').innerText());await apply.click();
+  await page.locator('.import-progress-dialog').waitFor({state:'detached'});await page.locator('.import-mapping-dialog').waitFor({state:'detached'});
  };
- const save = async () => {
-  if (mode === 'browser-excel') {
-   await page.locator('#record-form [type=submit]').click();
-   await page.locator('#editor').waitFor({ state: 'hidden' });
-   assert.equal(await page.locator('#form-error').textContent(), '');
-   return;
-  }
-  const [response] = await Promise.all([page.waitForResponse(res => res.url().endsWith('/api/lokaler/changes') && res.request().method() === 'POST'), page.locator('#record-form [type=submit]').click()]);
-  assert.equal(response.status(), 200, await response.text());
-  await page.locator('#editor').waitFor({ state: 'hidden' });
-  assert.equal(await page.locator('#form-error').textContent(), '');
-  assert.equal(await page.locator('#editor').evaluate(node => node.open), false);
+ const persisted=async()=>{
+  if(mode!=='browser-excel')return store.snapshot().data;
+  const bytes=await page.evaluate(async()=>Array.from(new Uint8Array(await(await(await navigator.storage.getDirectory()).getFileHandle('clean-data.xlsx')).getFile().then(file=>file.arrayBuffer()))));return readWorkbook(Buffer.from(bytes));
  };
- const create = async (table, fields) => {
-  await navigate(table); await page.locator('[data-action=create]').click();
-  for (const [key, value] of Object.entries(fields)) await page.locator('#record-form [name=' + key + ']').fill(value);
-  await save();
- };
- const closeDetail = () => page.locator('[data-action=close-detail]').click();
- const currentData = async () => {
-  if (mode !== 'browser-excel') return (await (await fetch(base + '/api/lokaler')).json()).data;
-  const bytes = await page.evaluate(async () => { const dir = await navigator.storage.getDirectory(); const file = await (await dir.getFileHandle('browser-test.xlsx')).getFile(); return Array.from(new Uint8Array(await file.arrayBuffer())); });
-  return readWorkbook(Buffer.from(bytes));
- };
- try {
-  if (mode === 'browser-excel') await page.addInitScript(() => {
-   window.showSaveFilePicker = async () => (await navigator.storage.getDirectory()).getFileHandle('browser-test.xlsx', { create: true });
-   window.showOpenFilePicker = async () => [await (await navigator.storage.getDirectory()).getFileHandle('browser-test.xlsx')];
-  });
-  await page.goto(base + (mode === 'browser-excel' ? '/?demo=1' : ''));
-  if (mode === 'browser-excel') { await page.locator('[data-action=new-excel]').click(); await page.locator('.demo-note').waitFor({ state: 'hidden' }); }
-  await page.getByRole('heading', { name: 'Fastigheter', exact: true }).waitFor();
-  assert.equal(await page.locator('.demo-note').count(), 0);
-  await create('parties', { name: 'Fiktiv organisation' });
-  await create('people', { name: 'Fiktiv samordnare', email: 'samordnare@example.invalid' });
-  await create('people', { name: 'Fiktiv ärendeansvarig' });
-  let state = await currentData();
-  await navigate('properties'); await page.locator('[data-action=create]').click();
-  await page.locator('[name=name]').fill('Testfastigheten');
-  await page.locator('[name=popular_name]').fill('Exempelhuset');
-  await page.locator('[name=address]').fill('Fiktiv väg 1');
-  await page.locator('[name=owner_party_id]').selectOption(state.parties[0].id); await save();
-  await page.locator('#rows a').first().click();
-  await page.locator('[data-action=child][data-table=objects]').click();
-  await page.locator('[name=name]').fill('Testlokal');
-  await page.locator('[name=area]').fill('250');
-  await page.locator('[name=apartment_count]').fill('2'); await save();
-  assert.match(await page.locator('#detail').innerText(), /250 m²/);
-  await page.locator('[data-action=contact]').click();
-  await page.locator('[name=person_id]').selectOption(state.people[0].id); await save();
-  await closeDetail(); await page.locator('[data-action=expand]').click();
-  assert.equal(await page.locator('.expanded').count(), 1);
-  await page.locator('.expanded a').first().click();
-  await page.locator('[data-action=child][data-table=agreements]').click();
-  await page.locator('[name=number]').fill('91,1');
-  await page.locator('[name=tenant_party_id]').selectOption(state.parties[0].id);
-  await page.locator('[name=annual_rent]').fill('200000');
-  await page.locator('[name=valid_from]').fill('2026-01-01');
-  await page.locator('[name=valid_to]').fill('2029-12-31');
-  assert.equal(await page.locator('#record-form [name=area]').count(), 0); await save();
-  await closeDetail(); await navigate('agreements');
-  await page.locator('#rows a').filter({ hasText: 'Avtal 91,1' }).click();
-  assert.match(await page.locator('#detail').innerText(), /800/);
-  assert.match(await page.locator('#detail').innerText(), /2026-01-01 – 2029-12-31/);
-  assert.equal(await page.locator('#detail summary').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).fontSize === '12px')), true);
-  await closeDetail(); await navigate('properties'); await page.locator('#rows a').first().click();
-  await page.locator('[data-action=child][data-table=issues]').click();
-  await page.locator('[name=title]').fill('Utred belysning');
-  await page.locator('[name=description]').fill('Fiktiv beskrivning');
-  await page.locator('[name=target_kind]').selectOption('objects');
-  assert.equal(await page.locator('[name=title]').inputValue(), 'Utred belysning');
-  state = await currentData();
-  await page.locator('[name=target_id]').selectOption(state.objects[0].id);
-  await page.locator('[name=priority]').selectOption('high');
-  await page.locator('[name=status]').selectOption('ongoing');
-  await page.locator('[name=estimated_cost]').fill('45000');
-  await page.locator('[name=planned_from]').fill('2026-11-01');
-  await page.locator('[name=planned_to]').fill('2026-11-30');
-  await page.locator('[name=notes]').fill('Fiktiv notering'); await save();
-  await page.locator('#detail a').filter({ hasText: 'Utred belysning' }).click();
-  assert.match(await page.locator('#detail').innerText(), /Via fastigheten/);
-  assert.equal(await page.locator('#detail .chip.high').count(), 1);
-  await page.locator('[data-action=child][data-table=orders]').click();
-  await page.locator('[name=title]').fill('Inventera belysningen');
-  await page.locator('[name=amount]').fill('5000'); await save();
-  await page.locator('#detail a').filter({ hasText: 'Inventera belysningen' }).click();
-  assert.match(await page.locator('#detail').innerText(), /Fiktiv samordnare/);
-  await closeDetail(); await navigate('issues'); await page.locator('#rows a').first().click();
-  await page.locator('#detail summary').filter({ hasText: 'Personkopplingar' }).click();
-  await page.locator('[data-action=contact]').click();
-  await page.locator('[name=person_id]').selectOption(state.people[1].id); await save();
-  await closeDetail(); await navigate('orders'); await page.locator('#rows a').first().click();
-  assert.match(await page.locator('#detail').innerText(), /Fiktiv ärendeansvarig/);
-  assert.match(await page.locator('#detail').innerText(), /Via ärendet/);
-  await closeDetail(); await navigate('properties');
-  await page.locator('[name=q]').fill('Hittas inte'); assert.equal(await page.locator('#rows tbody').count(), 0);
-  await page.locator('[name=q]').fill('Testfastigheten'); assert.equal(await page.locator('#rows tbody').count(), 1);
-  await page.locator('[name=q]').fill('');
-  await page.screenshot({ path: path.join(artifacts, mode + '-desktop.png'), fullPage: true });
-  await page.setViewportSize({ width: 390, height: 844 });
-  for (const table of ['properties', 'objects', 'agreements', 'issues', 'people', 'orders', 'storage']) {
-   await navigate(table); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, table + ': no overflow');
-  }
-  await navigate('issues'); await page.locator('#rows a').first().click();
-  await page.screenshot({ path: path.join(artifacts, mode + '-mobile-issue.png'), fullPage: true });
-  assert.equal(await page.locator('#detail').evaluate(node => node.scrollWidth <= node.clientWidth), true);
-  await page.locator('[data-action=edit]').first().click();
-  assert.equal(await page.locator('#editor').evaluate(node => node.scrollWidth <= node.clientWidth), true);
-  await page.locator('[data-action=close-editor]').first().click(); await closeDetail();
-  await page.reload();
-  if (mode === 'browser-excel') { await page.locator('[data-action=open-excel]').click(); await page.locator('.demo-note').waitFor({ state: 'hidden' }); await navigate('issues'); }
-  await page.locator('#rows').waitFor();
-  assert.match(await page.locator('#rows').innerText(), /Utred belysning/);
-  const final = await currentData();
-  assert.equal(final.properties.length, 1); assert.equal(final.objects.length, 1); assert.equal(final.agreements.length, 1);
-  assert.equal(final.contacts.length, 2); assert.equal(final.orders[0].person_id, undefined);
-  if (mode === 'browser-excel') assert.equal(store.snapshot().data.properties.length, 0, 'Browser Excel does not send records to the API');
-  if (mode === 'excel') assert.equal((await readWorkbook(await readFile(store.file))).agreements[0].number, '91,1');
-  if (mode === 'browser-excel') {
-   await page.locator('#rows a').first().click(); await page.locator('[data-action=edit]').first().click();
-   await page.locator('[name=title]').fill('Skall inte skrivas över');
-   const external = structuredClone(final); external.properties[0].name = 'Extern ändring';
-   const bytes = Array.from(await writeWorkbook(external));
-   await page.evaluate(async bytes => {
-    const handle = await (await navigator.storage.getDirectory()).getFileHandle('browser-test.xlsx');
-    const writer = await handle.createWritable(); await writer.write(new Uint8Array(bytes)); await writer.close();
-   }, bytes);
-   await page.locator('#record-form [type=submit]').click();
-   await page.locator('#form-error').filter({ hasText: 'utanför appen' }).waitFor();
-   const preserved = await currentData(); assert.equal(preserved.properties[0].name, 'Extern ändring'); assert.equal(preserved.issues[0].title, 'Utred belysning');
-   await page.locator('[data-action=close-editor]').first().click();
-  }
-  console.log(mode + (mode === 'browser-excel' ? ': browser → worker → local workbook → rendered response; no record upload' : ': browser → API → local file → rendered response verified'));
- } finally {
-  await page.close(); await new Promise(resolve => server.close(resolve)); await store.close(); await rm(dir, { recursive: true, force: true });
- }
+ try{
+  await page.goto(base);await page.locator('[data-dashboard-mode]').first().waitFor();
+  await importFile();
+  if(mode==='browser-excel'){await page.locator('[data-source=create]').first().click();await page.getByText('clean-data.xlsx',{exact:false}).first().waitFor();}
+  let data=await persisted();assert.equal(data.properties.length,2);assert.equal(data.objects.length,3);assert.equal(data.agreements.length,3);assert.equal(data.people.length,2);assert.equal(data.contacts.length,5);assert.equal(data.workspace.importReview.length,0);
+  assert.ok(!JSON.stringify(data).includes('Sparas inte'));assert.deepEqual(data.agreements.map(a=>a.number),['9(1)','91','91,1']);
+  await importFile();data=await persisted();assert.equal(data.agreements.length,3);assert.equal(data.contacts.length,5);
+  await nav('overview');await page.locator('[data-dashboard-mode]').first().waitFor();await page.screenshot({path:path.join(artifacts,mode+'-overview.png'),fullPage:true});
+  await nav('contracts');await page.locator('[data-open-contract]').first().click();const form=page.locator('#edit-form');const agreementId=await form.getAttribute('data-record-id');await form.locator('[data-editor-activate]').click();await form.locator('[name=businessComment]').evaluate(node=>{for(let parent=node.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;});await form.locator('[name=businessComment]').fill('Verifierad kommentar');await form.locator('[type=submit]').click();await form.waitFor({state:'detached'});
+  data=await persisted();assert.equal(data.agreements.find(row=>row.id===agreementId).business_comment,'Verifierad kommentar');assert.ok(data.agreements.every(a=>a.area===undefined));
+  await nav('objects');await page.locator('[data-edit=objects]').first().click();await form.locator('[data-context-tab=info]').click();await form.locator('[data-editor-activate]').click();assert.equal(await form.locator('[name=rooms]').count(),0);const objectId=await form.getAttribute('data-record-id');await form.locator('[name=area]').fill('125');await form.locator('[type=submit]').click();await form.waitFor({state:'detached'});
+  data=await persisted();assert.equal(data.objects.find(row=>row.id===objectId).area,125);
+  await page.reload();await page.locator('#content > *').first().waitFor();await nav('properties');assert.match(await page.locator('#content').innerText(),/Eken 1/);
+  await page.setViewportSize({width:390,height:900});for(const view of ['overview','properties','contracts','activities','map','sources']){await nav(view);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,view+' mobile overflow');}
+  await page.screenshot({path:path.join(artifacts,mode+'-mobile.png'),fullPage:true});assert.deepEqual(errors,[]);
+  if(mode==='browser-excel')assert.equal(store.snapshot().data.properties.length,0,'Browser Excel never uploads records to the API');
+  console.log(mode+': original overview, reviewed import, reimport, editors, persistence and mobile passed');
+ }catch(error){await page.screenshot({path:path.join(artifacts,mode+'-failure.png'),fullPage:true});throw error;}
+ finally{await page.close();await new Promise(resolve=>server.close(resolve));await store.close();await rm(dir,{recursive:true,force:true});}
 }
-try { await scenario('sqlite'); await scenario('excel'); await scenario('browser-excel'); assert.deepEqual(errors, []); console.log('Screenshots: ' + artifacts); }
-finally { await browser.close(); }
+try{for(const mode of process.env.LOKALBLICK_TEST_MODE?[process.env.LOKALBLICK_TEST_MODE]:['sqlite','excel','browser-excel'])await scenario(mode);console.log('Screenshots: '+artifacts);}finally{await browser.close();}

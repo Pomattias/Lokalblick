@@ -121,6 +121,7 @@ test('lokalt API: lagring till svar, export, inga öppna CORS-anrop och versions
  const server = createServer(store); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
  const base = 'http://127.0.0.1:' + server.address().port;
  try {
+  const health=await fetch(base+'/api/health');assert.equal(health.status,200);assert.equal(typeof(await health.json()).geocoding.configured,'boolean');
   const response = await fetch(base + '/api/lokaler/changes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 0, operations: fixtures() }) });
   assert.equal(response.status, 200); assert.equal((await response.json()).data.properties.length, 1);
   assert.equal((await (await fetch(base + '/api/lokaler')).json()).version, 1);
@@ -130,7 +131,7 @@ test('lokalt API: lagring till svar, export, inga öppna CORS-anrop och versions
   assert.equal((await fetch(base + '/api/lokaler/changes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 0, operations: fixtures() }) })).status, 409);
   const exported = await fetch(base + '/api/lokaler/workbook'); assert.equal(exported.status, 200);
   assert.equal((await readWorkbook(Buffer.from(await exported.arrayBuffer()))).people.length, 2);
-  const html = await fetch(base + '/'); assert.match(await html.text(), /Lokalblick · Lokaler/);
+  const html = await fetch(base + '/frontend/lokaler/'); assert.match(await html.text(), /<title>Lokalblick<\/title>/);
   assert.equal((await fetch(base + '/api/not-a-route')).status, 404);
  } finally { await new Promise(resolve => server.close(resolve)); }
 }));
@@ -144,4 +145,18 @@ test('en tidigare eller annan databas öppnas inte och förblir orörd', async (
   await assert.rejects(LocalStore.open({ file }), /ny tom fil/);
   assert.deepEqual(await readFile(file), before);
  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('hela den rena arbetsytan och Budgetmetadata sparas atomärt med versionsskydd', async () => withStore(async (store, dir, reopen) => {
+ await store.mutate(fixtures(),0);
+ const input=store.snapshot().data;input.workspace={budgetPlans:[{year:2027,locked:true,rows:[{id:'B',amount:1234}]}],currentUser:{name:'Testare'}};
+ await store.replace(input,1);const saved=store.snapshot();
+ const bad=structuredClone(input);bad.objects[0].property_id='saknas';
+ await assert.rejects(store.replace(bad,2),/hänvisar/);assert.deepEqual(store.snapshot(),saved);
+ await assert.rejects(store.replace(input,1),/ändrats/);
+ const reopened=await reopen();assert.deepEqual(reopened.snapshot().data.workspace,input.workspace);
+}));
+test('långa Budgetanteckningar med emoji överlever verklig Excel-serialisering', async () => {
+ const data=emptyData();data.workspace={budgetPlans:[{year:2027,notes:'text😀'.repeat(12000)}]};
+ const loaded=await readWorkbook(await writeWorkbook(data));assert.deepEqual(loaded.workspace,data.workspace);
 });

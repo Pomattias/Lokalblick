@@ -30,7 +30,7 @@ try{
  const navigate=()=>page.locator('.sidebar [data-view="sources"]').evaluate(button=>button.click());
  await navigate();
  const open=async()=>{await page.locator('[data-source="import"]').click();await page.locator('[data-import-select="all"]').click();await page.locator('[data-import-start]').click();await page.locator('[data-preview-map]').first().waitFor();};
- const choose=async(key,search,target)=>{await page.locator(`[data-preview-map="${key}"]`).evaluate(node=>{for(let parent=node.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;});await page.locator(`[data-preview-map="${key}"]`).click();await page.locator('[data-field-search]').fill(search);await page.locator(`[data-target="${target}"]`).click();};
+ const choose=async(key,search,target)=>{await page.locator(`[data-preview-map="${key}"]`).evaluate(node=>{for(let parent=node.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;});await page.locator(`[data-preview-map="${key}"]`).click();await page.locator('[data-field-search]').fill(search);await page.locator(`[data-target="${target}"]`).click();await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();};
  await open();
  assert.equal(await page.locator('[data-existing],[data-preview-collection],[data-extra]').count(),0);
  assert.equal(await page.locator('[data-preview-map]').count(),28);
@@ -66,11 +66,13 @@ try{
  const first=await loaded();assert.equal(first.properties.length,1);assert.equal(first.contracts.length,1);assert.equal(first.people.length,3);
  assert.equal(first.organizations.length,1);assert.equal(first.organizations[0].name,'Testbolaget AB');assert.equal(first.properties[0].ownerPartyId,first.organizations[0].id);
  assert.equal(first.assignments.length,2);assert.equal(first.contracts[0].tenantResponsiblePersonId,first.people.find(person=>person.name==='Anna Lind').id);assert.equal(first.contracts[0].responsiblePersonId,first.people.find(person=>person.name==='Johan Ek').id);
- assert.equal(first.objects[0].area,425);assert.equal(first.contracts[0].area,undefined);assert.equal(first.objects[0].start||'','');assert.equal(first.objects[0].end||'','');
+ assert.equal(first.objects[0].area,425);assert.equal(first.contracts[0].area,425);assert.equal(first.objects[0].start||'','');assert.equal(first.objects[0].end||'','');
  assert.equal(first.contracts[0].costCenterPremises,'K-42');assert.equal(first.contracts[0].baseRent,120000);assert.equal(first.contracts[0].end,'2028-12-31');
  const fields={terminatedOn:'2027-04-30',terminationReason:'Avveckling',use:'Träffpunkt',businessComment:'Kommunal primärvård.',employees:12.5,category:'KP Kontor- och personallokaler',apartmentArea:245.5,contractDocumentUrl:'https://example.invalid/A-1.pdf'};
  for(const [field,value] of Object.entries(fields))assert.equal(first.contracts[0][field],value,field);
- assert.ok(!JSON.stringify(first).includes('FÅR INTE IMPORTERAS'));assert.deepEqual(first.contracts[0].supplemental,[]);
+ assert.ok(!JSON.stringify(first).includes('FÅR INTE IMPORTERAS'));assert.equal(first.contracts[0].supplemental,undefined);
+ const canonical=()=>page.evaluate(()=>new Promise((resolve,reject)=>{const request=indexedDB.open('lokalblick-clean-workspace',1);request.onsuccess=()=>{const db=request.result,tx=db.transaction('workspace','readonly'),read=tx.objectStore('workspace').get('current');read.onsuccess=()=>resolve(read.result.data);read.onerror=()=>reject(read.error);tx.oncomplete=()=>db.close();};request.onerror=()=>reject(request.error);}));
+ assert.equal((await canonical()).agreements[0].area,undefined);assert.equal((await canonical()).objects[0].apartment_area,245.5);
  await page.reload({waitUntil:'domcontentloaded'});await page.locator('#content > *').first().waitFor();await navigate();assert.equal((await loaded()).contracts.length,1);
  await open();assert.equal(await page.locator('[data-column-group="pending"]').count(),0);assert.equal(await page.locator('[data-apply]').isEnabled(),true);
  assert.ok((await page.locator('[data-import-result]').innerText()).includes('Oförändrade'));
@@ -103,7 +105,7 @@ try{
  await page.locator('.sidebar [data-view="objects"]').evaluate(button=>button.click());await page.locator('[data-edit="objects"]').first().click();
  await form.locator('[data-context-tab="info"]').click();await form.locator('[data-editor-activate]').click();await form.locator('[name="area"]').fill('500');await form.locator('[type="submit"]').click();await form.waitFor({state:'detached'});
  await page.reload({waitUntil:'domcontentloaded'});await page.locator('#content > *').first().waitFor();
- const resized=await loaded();assert.equal(resized.objects[0].area,500);assert.equal(resized.contracts[0].area,undefined);assert.equal(resized.objects[0].start||'','');assert.equal(resized.objects[0].end||'','');
+ const resized=await loaded();assert.equal(resized.objects[0].area,500);assert.equal(resized.contracts[0].area,500);assert.equal((await canonical()).agreements[0].area,undefined);assert.equal(resized.objects[0].start||'','');assert.equal(resized.objects[0].end||'','');
  await page.locator('.sidebar [data-view="contracts"]').evaluate(button=>button.click());await page.locator('[data-open-contract]').first().click();assert.equal(await form.locator('[data-object-area]').innerText(),'500');await form.locator('[data-editor-close]').click();
  // After city completion the progress dialog describes saving, even if storage waits.
  const isolated=await browser.newContext({viewport:{width:390,height:900}}),cityPage=await isolated.newPage();
@@ -114,8 +116,11 @@ try{
  await cityPage.goto('http://127.0.0.1:8805/v2/index.html');
  await cityPage.locator('.sidebar [data-view="sources"]').evaluate(button=>button.click());
  await cityPage.locator('[data-source="import"]').click();await cityPage.locator('[data-import-start]').click();await cityPage.locator('[data-ignore-unmapped]').click();
- await cityPage.locator('[data-column-group="mapped"]').evaluate(node=>node.open=true);await cityPage.locator('[data-ignore-column="1:2"]').click();
- await cityPage.evaluate(()=>{const bridge=LokalblickViewBridge,save=bridge.save;bridge.save=(...args)=>new Promise((resolve,reject)=>{window.releaseImportSave=()=>Promise.resolve(save(...args)).then(resolve,reject);});});
+ await cityPage.locator('.import-mapping-dialog[aria-busy=false]').waitFor();await cityPage.locator('[data-column-group="mapped"]').evaluate(node=>node.open=true);await cityPage.locator('[data-ignore-column="1:2"]').click();
+ await cityPage.locator('.import-mapping-dialog[aria-busy=false]').waitFor();
+ const cityIdentities=cityPage.locator('[data-person-identity]');for(let i=0;i<await cityIdentities.count();i++)await cityIdentities.nth(i).check();
+ await cityPage.locator('[data-apply]:not([disabled])').waitFor();
+ await cityPage.evaluate(()=>{const open=indexedDB.open.bind(indexedDB);indexedDB.open=(name,...args)=>{const request=open(name,...args);if(name==='lokalblick-clean-workspace')Object.defineProperty(request,'onsuccess',{set(handler){request.addEventListener('success',event=>{window.releaseImportSave=()=>handler.call(request,event);},{once:true});}});return request;};});
  await cityPage.locator('[data-apply]').click();await cityPage.locator('[data-city-value]').fill('Malmö');await cityPage.locator('[data-city-apply]').click();
  await cityPage.waitForFunction(()=>typeof window.releaseImportSave==='function');
  assert.equal(await cityPage.locator('.import-progress-dialog h2').innerText(),'Sparar import');

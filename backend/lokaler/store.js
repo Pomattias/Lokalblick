@@ -29,6 +29,13 @@ export class LocalStore {
     if ((appId !== 0 && appId !== 0x4c4b4c32) || (populated && appId !== 0x4c4b4c32)) throw Error('Filen är inte den nya Lokalblick-databasen. Välj en ny tom fil; äldre databaser konverteras inte.');
    }
    db.exec(schema);
+   for (const [table, spec] of Object.entries(tables)) {
+    const existing = new Set(db.prepare('PRAGMA table_info(' + table + ')').all().map(row => row.name));
+    for (const f of spec.fields) if (!existing.has(f.key)) {
+     const type = ['number','coordinate'].includes(f.type) ? 'REAL' : ['integer','boolean'].includes(f.type) ? 'INTEGER' : 'TEXT';
+     db.exec('ALTER TABLE ' + table + ' ADD COLUMN ' + f.key + ' ' + type + (f.type === 'ref' ? ' REFERENCES ' + f.table + '(id)' : ''));
+    }
+   }
    if (mode === 'sqlite') db.exec('PRAGMA application_id = 0x4c4b4c32');
    db.exec('CREATE TABLE IF NOT EXISTS store_meta (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL) STRICT; INSERT OR IGNORE INTO store_meta VALUES (1,0);');
    if (mode === 'sqlite') {
@@ -42,6 +49,7 @@ export class LocalStore {
      db.exec('BEGIN');
      try {
       for (const table of keys) for (const record of data[table]) store.insert(table, normalize(table, record));
+      store.setWorkspace(data.workspace || {});
       store.validateGraph();
       db.exec('COMMIT');
      } catch (error) { db.exec('ROLLBACK'); throw error; }
@@ -69,11 +77,30 @@ export class LocalStore {
  snapshot() {
   return { version: this.db.prepare('SELECT version FROM store_meta WHERE id=1').get().version,
    storage: { mode: this.mode, file: path.basename(this.file) },
-   data: Object.fromEntries(keys.map(table => [table, this.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()])) };
+   data: { ...Object.fromEntries(keys.map(table => [table, this.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all().map(row => { for (const f of tables[table].fields) if (row[f.key] != null) { if (f.type === 'json') row[f.key] = JSON.parse(row[f.key]); if (f.type === 'boolean') row[f.key] = Boolean(row[f.key]); } return row; })])), workspace: Object.fromEntries(this.db.prepare('SELECT key,value FROM workspace').all().map(row => [row.key,JSON.parse(row.value)])) } };
  }
  insert(table, row) {
   const fields = ['id', ...tables[table].fields.map(f => f.key)];
-  this.db.prepare(`INSERT INTO ${table} (${fields.join(',')}) VALUES (${fields.map(() => '?').join(',')})`).run(...fields.map(key => row[key] ?? null));
+  this.db.prepare(`INSERT INTO ${table} (${fields.join(',')}) VALUES (${fields.map(() => '?').join(',')})`).run(...fields.map(key => this.encode(table, key, row[key])));
+ }
+ encode(table, key, value) { const f = tables[table].fields.find(f => f.key === key); return value == null ? null : f?.type === 'json' ? JSON.stringify(value) : f?.type === 'boolean' ? Number(value) : value; }
+ setWorkspace(workspace) { this.db.exec('DELETE FROM workspace'); const insert = this.db.prepare('INSERT INTO workspace VALUES (?,?)'); for (const [key,value] of Object.entries(workspace)) insert.run(key,JSON.stringify(value)); }
+ replace(input, expectedVersion) {
+  const work = this.queue.then(async () => {
+   if (expectedVersion !== this.snapshot().version) throw new ConflictError('Data har ändrats. Läs om före sparning.');
+   const data = { ...Object.fromEntries(keys.map(table => [table,(input[table] || []).map(row => normalize(table,row))])), workspace: input.workspace || {} };
+   validateData(data);
+   this.db.exec('BEGIN IMMEDIATE');
+   try {
+    for (const table of [...keys].reverse()) this.db.exec('DELETE FROM ' + table);
+    for (const table of keys) for (const record of data[table]) this.insert(table,record);
+    this.setWorkspace(data.workspace);
+    this.db.exec('UPDATE store_meta SET version=version+1 WHERE id=1');
+    if (this.mode === 'excel') await this.persistWorkbook();
+    this.db.exec('COMMIT'); return this.snapshot();
+   } catch (error) { this.db.exec('ROLLBACK'); throw error; }
+  });
+  this.queue = work.catch(() => {}); return work;
  }
  validateGraph() { validateData(this.snapshot().data); }
 
@@ -95,7 +122,7 @@ export class LocalStore {
     if (existing && operation.create) throw new ConflictError('ID finns redan. Välj det befintliga registret eller ett annat ID.');
     if (existing) {
      const fields = tables[table].fields.map(f => f.key);
-     this.db.prepare(`UPDATE ${table} SET ${fields.map(key => key + '=?').join(',')} WHERE id=?`).run(...fields.map(key => row[key]), row.id);
+     this.db.prepare(`UPDATE ${table} SET ${fields.map(key => key + '=?').join(',')} WHERE id=?`).run(...fields.map(key => this.encode(table, key, row[key])), row.id);
     } else this.insert(table, row);
    }
    this.validateGraph();

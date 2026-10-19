@@ -34,7 +34,7 @@ const internalPeople = (data) =>
 const generated =
   /^(?:id|sourceId|sourceSheet|sourceRow|enrichment|derived|calculated|rentPerSqm|rentCalculation|additionCalculation|rentIndexCurrent|additionIndexCurrent|rentIndexYear|additionIndexYear|provenance|createdAt|createdBy|updatedAt|updatedBy)/;
 const numeric =
-  /^(?:usedArea|costSharePercent|area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|rentAnnualPercent|additionAnnualPercent|rentMinPercent|rentMaxPercent|additionMinPercent|additionMaxPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths|investmentThreshold|rentSurchargeRate)/;
+  /^(?:usedArea|costSharePercent|apartmentCount|area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|rentAnnualPercent|additionAnnualPercent|rentMinPercent|rentMaxPercent|additionMinPercent|additionMaxPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths|investmentThreshold|rentSurchargeRate)/;
 const group = (key) =>
   /^media/.test(key)
     ? "Media"
@@ -98,6 +98,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
         fieldLabels[key] || label.replace(/^_/, ""),
       ]),
   );
+  if(data.cleanModel&&col==='objects'){fields.delete('number');fields.delete('rooms');fields.delete('employees');fields.delete('users');fields.set('apartmentCount','Antal lägenheter');}
   Object.keys(relations)
     .filter((k) => record[k] != null)
     .forEach((k) => {

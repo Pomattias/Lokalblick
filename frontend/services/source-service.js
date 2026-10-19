@@ -1599,6 +1599,7 @@
     canonicalizeModel:canonicalizeModel,
     diffData:diffData,
     connect:connect,
+    connectHandle:readHandle,
     reconnect:reconnect,
     createFile:createFile,
     cityImportStatus:cityImportStatus,

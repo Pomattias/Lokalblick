@@ -1,3 +1,4 @@
+import { withCleanWorkspace } from '../lokaler/workspace-transport.js';
 import { normalize, clone } from "./model.js";
 const metadataKeys = [
   "budgetPlans",
@@ -17,7 +18,7 @@ export function createTransport() {
     window.LokalblickDataService.mode === "company-api" ||
     window.LokalblickDataService.mode === "m365-api";
   let responsibilityBaseline;
-  return {
+  return withCleanWorkspace({
     company,
     async load() {
       const loaded=normalize(await window.LokalblickDataService.load());responsibilityBaseline=clone(loaded);return loaded;
@@ -111,5 +112,5 @@ export function createTransport() {
       }
       return normalize(await source().reconnect());
     },
-  };
+  });
 }

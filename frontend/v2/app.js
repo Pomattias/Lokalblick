@@ -1,3 +1,5 @@
+import { createCleanEvaluator } from '../lokaler/import-worker-client.js';
+import { importSchemas, cleanProfiles } from '../lokaler/import-model.js';
 import {bindEditActions,decorateEditActions} from './edit-actions.js';
 import {mountCompactIssue,compactIssueJournal,toggleIssueText} from "./compact-issue.js";
 import {portfolioScope} from "./portfolio-context.js";
@@ -523,6 +525,7 @@ async function switchToDemo() {
         ? "Koppla bort den anslutna Excel-filen och visa syntetisk demodata? Excel-filen på disken påverkas inte."
         : "Visa syntetisk demodata i stället för den nuvarande arbetsytan?";
   if (!window.confirm(promptText)) return;
+  transport.leaveClean?.();
   if(status.connected)await globalThis.LokalblickSourceService.disconnect();
   await globalThis.LokalblickViewBridge?.clear?.();
   const demo=globalThis.LokalblickDemoDataService;
@@ -728,7 +731,7 @@ async function mutation(change, { automatic = false, manualPositionIds = [], res
         ? "Sparat till backend"
         : transport.status().dirty
           ? "Ändring registrerad – spara till Excel när du är klar."
-          : "Demodata sparad",
+          : transport.cleanActive()?"Sparat i lokal datamodell":"Demodata sparad",
     );
     render();
   } catch (error) {
@@ -1136,9 +1139,10 @@ function approveReplace() {
   );
 }
 async function sourceAction(action) {
-  if (["connect", "refresh", "blank"].includes(action) && !approveReplace())
+  if (["connect", "refresh", "blank", "new-clean"].includes(action) && !approveReplace())
     return;
   let result;
+  if(action === "new-clean")data=await transport.startClean();
   if (action === "connect") {
     data = await transport.connect();
     await globalThis.LokalblickViewBridge?.clear?.();
@@ -1165,8 +1169,11 @@ async function sourceAction(action) {
       const mappingPrepared = await globalThis.LokalblickSourceService.prepareMapping(base, selectedSheets,{reviewed:true});
       if(progressDialog?.open)progressDialog.close();
       progressDialog?.remove();progressDialog=null;
+      const cleanImport = !transport.company() && (data.isDemo || transport.cleanActive());
+      if(cleanImport)mappingPrepared.profiles=cleanProfiles(mappingPrepared);
       result = await previewImport(mappingPrepared, base,
-        globalThis.LokalblickSourceService.schemas, actor());
+        cleanImport?importSchemas:globalThis.LokalblickSourceService.schemas, actor(),
+        cleanImport?createCleanEvaluator(mappingPrepared.workbook,transport.canonical(),{fileName:mappingPrepared.fileName,actor:data.isDemo?'Excelimport':actor()}):null);
 
       const missingCity =
         globalThis.LokalblickSourceService?.cityImportStatus?.(result.data)
@@ -1188,7 +1195,7 @@ async function sourceAction(action) {
       progressDialog.querySelector('.import-progress-hint').textContent="Resultatet sparas i arbetsytan. Exceloriginalet ändras inte.";
       updateImportProgress(progressDialog,{message:"Sparar godkända uppgifter och kopplingar…"});
       await new Promise(resolve=>setTimeout(resolve,0));
-      const retained = transport.company()?{data:await transport.commitImport(result),mode:"connected"}:await retainImportedData(
+      const retained = result.clean?{data:await transport.cleanImport(result),mode:transport.status().connected?'connected':'staged'}:transport.company()?{data:await transport.commitImport(result),mode:"connected"}:await retainImportedData(
         result.data, transport,
         globalThis.LokalblickViewBridge,
         globalThis.LokalblickSourceService,

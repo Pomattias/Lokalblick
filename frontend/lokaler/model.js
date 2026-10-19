@@ -1,3 +1,4 @@
+import { workspaceKeys } from './view-fields.js';
 // One model is used by the local SQL store, Excel store and user interface.
 export const roles = { owner: 'Fastighetsägarens kontakt', coordinator: 'Samordnare', tenant: 'Hyresgästens kontakt', business: 'Verksamhetens kontakt' };
 export const statuses = { open: 'Öppet', ongoing: 'Pågår', done: 'Klart', draft: 'Utkast', ordered: 'Beställd' };
@@ -14,10 +15,25 @@ export const tables = {
  contacts: { label: 'Personkopplingar', singular: 'Personkoppling', prefix: 'KOP', fields: [field('person_id', 'Person', 'ref', { table: 'people', required: true }), field('role', 'Roll', 'select', { values: roles, required: true }), field('property_id', 'Fastighet', 'ref', { table: 'properties' }), field('agreement_id', 'Avtal', 'ref', { table: 'agreements' }), field('issue_id', 'Ärende', 'ref', { table: 'issues' }), field('order_id', 'Beställning', 'ref', { table: 'orders' }), field('valid_from', 'Giltigt fr.o.m.', 'date'), field('valid_to', 'Giltigt t.o.m.', 'date')] },
  object_links: { label: 'Objektförändringar', singular: 'Objektförändring', prefix: 'AND', fields: [field('predecessor_id', 'Tidigare objekt', 'ref', { table: 'objects', required: true }), field('successor_id', 'Nytt objekt', 'ref', { table: 'objects', required: true })] }
 };
+// Explicit additions preserve the existing overview, map and financial terms.
+const additions = {
+ parties: [['kind','Typ'],['owner_class','Ägarklass']],
+ people: [['party_id','Part','ref',{table:'parties'}],['job_title','Befattning']],
+ properties: [['city','Ort'],['kind','Typ'],['latitude','Latitud','coordinate'],['longitude','Longitud','coordinate'],['geo_source','Geokälla'],['geo_confirmed_at','Geobekräftad'],['geo_confirmed_by','Geobekräftad av']],
+ objects: [['apartment_area','Lägenhetsyta, m²','number'],['common_area','Gemensam yta, m²','number'],['category','Objektkategori'],['usage','Verksamhetstyp'],['unit_id','Organisatorisk tillhörighet']],
+ agreements: [['annual_additions','Bastillägg, kr/år','number'],['annual_property_tax','Fastighetsskatt, kr/år','number'],['rent_base_year','Hyra basår','integer'],['rent_base_index','Hyra bastal KPI','number'],['rent_index_percent','Hyra indexandel, %','number'],['rent_adjustment_method','Hyra justeringsregel'],['rent_annual_percent','Hyra årlig uppräkning, %','number'],['rent_min_percent','Hyra minsta uppräkning, %','number'],['rent_max_percent','Hyra högsta uppräkning, %','number'],['rent_limit_basis','Hyra min/max gäller'],['addition_base_year','Tillägg basår','integer'],['addition_base_index','Tillägg bastal KPI','number'],['addition_index_percent','Tillägg indexandel, %','number'],['addition_adjustment_method','Tillägg justeringsregel'],['addition_annual_percent','Tillägg årlig uppräkning, %','number'],['addition_min_percent','Tillägg minsta uppräkning, %','number'],['addition_max_percent','Tillägg högsta uppräkning, %','number'],['addition_limit_basis','Tillägg min/max gäller'],['notice_months','Uppsägningstid, månader','integer'],['renewal_months','Förlängningstid, månader','integer'],['notice_by','Säg upp senast','date'],['move_in','Inflyttning','date'],['move_out','Utflyttning','date'],['comment','Kommentar'],['cost_center','Kostnadsställe lokaler']],
+ issues: [['kind','Typ'],['category','Kategori'],['final_cost','Slutkostnad','number'],['ordered_cost','Beställd kostnad','number'],['planning_year','Planeringsår','integer'],['planning_quarter','Planeringskvartal','integer'],['planning_month','Planeringsmånad','integer'],['include_in_budget','Ingår i budget'],['budget_category','Budgetkategori'],['value_increasing','Värdehöjande','boolean'],['journal','Journal','json']],
+ orders: [['ordered_by','Beställd av','ref',{table:'people'}],['ordered_at','Beställd datum','date'],['final_cost','Slutkostnad','number'],['supplier','Leverantör']]
+};
+additions.parties.push(['investment_rule','Investeringsregel'],['investment_threshold','Investeringsgräns, kr','number'],['rent_surcharge_rate','Hyrespåslag, %','number']);
+additions.issues.push(['action_kind','Åtgärdens karaktär'],['standard_enhancing','Standardhöjande','boolean'],['rent_surcharge_start','Hyrespåslag från','date'],['phase','Fas'],['unit_id','Organisatorisk tillhörighet']);
+additions.orders.push(['reference','Beställningsreferens'],['delivery','Leverans'],['completed_at','Utförd','date'],['payment_status','Betalstatus'],['paid_at','Betald','date'],['invoice_comment','Fakturakommentar'],['owner_pays','Betalas av fastighetsägaren']);
+additions.contacts = [['cancelled','Makulerad','boolean',{default:false}]];
+for (const [table, fields] of Object.entries(additions)) tables[table].fields.push(...fields.map(args => field(...args)));
 export const idLabels = { parties: 'PartID', people: 'PersonID', properties: 'FastighetsID', objects: 'ObjektID', agreements: 'AvtalsID', issues: 'ÄrendeID', orders: 'BeställningsID', contacts: 'KopplingsID', object_links: 'FörändringsID' };
-export const emptyData = () => Object.fromEntries(Object.keys(tables).map(key => [key, []]));
+export const emptyData = () => ({ ...Object.fromEntries(Object.keys(tables).map(key => [key, []])), workspace: {} });
 export const today = () => new Date().toLocaleDateString('sv-SE');
-export const active = (row, date = today()) => (!row.valid_from || row.valid_from <= date) && (!row.valid_to || row.valid_to >= date);
+export const active = (row, date = today()) => !row.cancelled && (!row.valid_from || row.valid_from <= date) && (!row.valid_to || row.valid_to >= date);
 export const find = (data, table, id) => data[table]?.find(row => row.id === id);
 export const title = (row) => row?.name || row?.title || row?.number || row?.id || '–';
 export const propertyId = (data, table, row) => {
@@ -62,15 +78,19 @@ export function normalize(table, input, id) {
  const allowed = new Set(['id', ...spec.fields.map(field => field.key)]);
  for (const key of Object.keys(input)) if (!allowed.has(key)) throw Error(`Fältet ${key} finns inte i ${spec.label}.`);
  const output = { id: id || input.id };
- if (typeof output.id !== 'string' || !/^[^\u0000-\u001f/\\?#]{1,100}$/u.test(output.id)) throw Error('ID måste vara 1–100 tecken utan kontrolltecken, /, bakstreck, ? eller #.');
+ if (typeof output.id !== 'string' || !/^[^\u0000-\u001f\u007f]{1,100}$/u.test(output.id)) throw Error('ID måste vara 1–100 tecken utan kontrolltecken.');
  for (const f of spec.fields) {
   let value = input[f.key] ?? f.default ?? null;
   if (typeof value === 'string') value = value.trim() || null;
   if (f.required && value == null) throw Error(`${f.label} måste fyllas i.`);
   if (value != null) {
-   if (['number', 'integer'].includes(f.type)) {
+   if (f.type === 'json') {
+    if (typeof value === 'string') { try { value = JSON.parse(value); } catch { throw Error(f.label + ' måste vara giltig JSON.'); } }
+    if (!Array.isArray(value)) throw Error(f.label + ' måste vara en lista.');
+   } else if (f.type === 'boolean') { value = value === true || value === 1 || value === 'Ja';
+   } else if (['number', 'integer', 'coordinate'].includes(f.type)) {
     if (typeof value === 'string') value = Number(value.replace(/\s/g, '').replace(',', '.'));
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || (f.type === 'integer' && !Number.isInteger(value))) throw Error(`${f.label} måste vara ett positivt tal eller noll.`);
+    if (typeof value !== 'number' || !Number.isFinite(value) || (f.type !== 'coordinate' && value < 0) || (f.type === 'integer' && !Number.isInteger(value))) throw Error(`${f.label} måste vara ett positivt tal eller noll.`);
    } else {
     if (typeof value !== 'string' || value.length > 20000) throw Error(`${f.label} måste vara text, högst 20 000 tecken.`);
     if (f.type === 'date' && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value + 'T00:00:00Z')) || new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) !== value)) throw Error(`${f.label} måste vara ett giltigt datum.`);
@@ -80,6 +100,7 @@ export function normalize(table, input, id) {
   }
   output[f.key] = value;
  }
+ if (table === 'properties' && (output.latitude != null && Math.abs(output.latitude) > 90 || output.longitude != null && Math.abs(output.longitude) > 180)) throw Error('Ogiltiga koordinater.');
  if (output.valid_from && output.valid_to && output.valid_from > output.valid_to) throw Error('Slutdatum kan inte vara före startdatum.');
  if (output.planned_from && output.planned_to && output.planned_from > output.planned_to) throw Error('Tidplanens slutdatum kan inte vara före startdatum.');
  if (table === 'issues' && ['property_id', 'object_id'].filter(key => output[key]).length !== 1) throw Error('Välj antingen Fastighet eller Objekt för ärendet.');
@@ -93,6 +114,7 @@ export function normalize(table, input, id) {
 
 // Shared validation for SQL and browser Excel. Derived values are never stored.
 export function validateData(data) {
+ for (const key of Object.keys(data.workspace || {})) if (!workspaceKeys.includes(key)) throw Error('Okänt arbetsytefält: ' + key);
  const indexes = {};
  for (const [table, spec] of Object.entries(tables)) {
   if (!Array.isArray(data[table])) throw Error(`Tabellen ${spec.label} saknas.`);
@@ -127,7 +149,7 @@ export function validateData(data) {
   }
  };
  periods(data.agreements, row => row.object_id, 'Objektet har redan ett avtal under perioden.');
- periods(data.contacts, row => JSON.stringify([row.role, row.property_id, row.agreement_id, row.issue_id, row.order_id, row.role === 'coordinator' ? null : row.person_id]), 'Personkopplingen överlappar en befintlig koppling. Avsluta den tidigare perioden först.');
+ periods(data.contacts.filter(row=>!row.cancelled), row => JSON.stringify([row.role, row.property_id, row.agreement_id, row.issue_id, row.order_id, row.role === 'coordinator' ? null : row.person_id]), 'Personkopplingen överlappar en befintlig koppling. Avsluta den tidigare perioden först.');
  for (const agreement of data.agreements) {
   const object = indexes.objects.get(agreement.object_id);
   if (object.valid_from && (!agreement.valid_from || agreement.valid_from < object.valid_from) || object.valid_to && (!agreement.valid_to || agreement.valid_to > object.valid_to)) throw Error('Avtalets period måste rymmas inom objektets giltighetstid.');
