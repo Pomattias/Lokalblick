@@ -1,5 +1,5 @@
 import {issueCaption,collectionCaption} from './field-labels.js';
-import {fieldCatalog,prepareMappedImport,retargetColumn} from '../services/import-engine.js';
+import {fieldCatalog,prepareMappedImport,retargetColumn,mappingConflicts} from '../services/import-engine.js';
 import {personRole,contactPart,contactFields} from '../services/import-person-links.js';
 import {esc} from './views.js';
 
@@ -38,6 +38,7 @@ function chooseField(fields,current) {
 }
 export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}) {
   const fields=fieldCatalog(schemas,true);
+  const duplicates=mappingConflicts(mapping.profiles),duplicateKeys=new Set(duplicates.flatMap(group=>group.columns.map(column=>group.profileIndex+':'+column.columnIndex)));
   const all=mapping.profiles.flatMap(profile=>profile.columns),unmapped=all.filter(pending).length,included=all.filter(selected).length;
   const reviews=(result.data.importReview||[]).filter(row=>row.status==='pending');
   const problems=new Map(),uncertainRows=new Set();
@@ -55,34 +56,35 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
     const preferenceKey=[collection,field,profile.fileName||prepared.fileName].map(value=>String(value||'').trim().toLocaleLowerCase('sv')).join('|');
     const canPrioritize=selected(column)&&!personRole(column.target)&&!contactPart(column.target)&&!['id','sourceId','objectId','propertyId','contractId','activityId'].includes(field)&&(conflicts.length||preferences[preferenceKey]);
     const examples=column.samples||column.examples||[];
-    return `<div class="import-column-row" data-import-column="${key}" data-column-state="${pending(column)?'pending':selected(column)?'mapped':'ignored'}">
+    return `<div class="import-column-row" data-import-column="${key}" data-column-state="${duplicateKeys.has(key)?'conflict':pending(column)?'pending':selected(column)?'mapped':'ignored'}">
       <div class="import-column-name"><strong>${esc(column.header)}</strong><small>${esc(column.filled??0)} ifyllda · ${formatHtml(column)}</small>${column.identity&&selected(column)?'<small>Används för att identifiera och koppla poster.</small>':''}</div>
       <div class="import-column-examples"><span>${esc(examples.find(value=>String(value??'').trim())??'–')}</span>${examples.length?`<details><summary>Visa exempel</summary>${examples.map((value,index)=>`<small>Rad ${(profile.headerRow||1)+index+1}: ${esc(value===''?'Tomt':value)}</small>`).join('')}</details>`:''}</div>
       <div class="import-column-choice"><button type="button" class="import-target" data-preview-map="${key}" aria-label="Välj fält för ${esc(column.header)}">${esc(names.get(column.target)||'Välj fält…')}</button><button type="button" data-ignore-column="${key}" aria-pressed="${column.target==='@ignore'}">${column.target==='@ignore'?'Ångra bortval':'Importera inte'}</button>
-      <small>${pending(column)?'Behöver kopplas eller väljas bort':selected(column)?changes.length+' fältändringar · '+conflicts.length+' avvikelser':'Importeras inte'}</small>
+      <small${duplicateKeys.has(key)?' role="alert"':''}>${duplicateKeys.has(key)?'Dubbelkoppling: välj ett annat fält eller Importera inte':pending(column)?'Behöver kopplas eller väljas bort':selected(column)?changes.length+' fältändringar · '+conflicts.length+' avvikelser':'Importeras inte'}</small>
       ${personRole(column.target)?`<small>Skapar eller återanvänder en person och kopplar till denna roll. Koppla e-post, person-ID och kontaktdatum via Välj fält på motsvarande kolumner. Saknade datum lämnas tomma.</small><label><input type="checkbox" data-person-identity="${key}"${column.personIdentity==='name'?' checked':''}> Jag bekräftar att namnen i denna kolumn identifierar unika personer</label><label><input type="checkbox" data-person-shared="${key}"${column.shared?' checked':''}> Delat ansvar i denna roll</label>`:''}
       ${canPrioritize?`<label>Vid avvikelse<select aria-label="Berikningsregel för ${esc(column.header)}" data-column-rule="${key}"><option value="">Komplettera tomma fält, granska konflikter</option><option value="accept">Använd denna källa vid avvikelse</option><option value="reject">Behåll befintliga värden vid avvikelse</option></select></label>${preferences[preferenceKey]?'<small>Sparad kolumnregel</small>':''}`:''}</div>
     </div>`;
   };
-  const groups=[['pending','Behöver väljas',pending],['mapped','Föreslagna kopplingar',selected],['ignored','Importeras inte',column=>column.target==='@ignore']];
+  const groups=[['conflict','Dubbelkopplingar',(_column,key)=>duplicateKeys.has(key)],['pending','Behöver väljas',pending],['mapped','Föreslagna kopplingar',(column,key)=>selected(column)&&!duplicateKeys.has(key)],['ignored','Importeras inte',column=>column.target==='@ignore']];
   return `<h2>2. Kontrollera import</h2><p>${esc(prepared.fileName)}. Välj ett befintligt fält eller Importera inte. Valet gäller hela kolumnen, även i igenkända underlag.</p>
     <p class="import-selection-status" role="status">${included} kolumner läses in · ${all.length-included-unmapped} väljs bort${unmapped?' · '+unmapped+' behöver väljas':''}</p>
+    ${duplicates.length?`<div data-mapping-conflicts role="alert"><strong>Rätta dubbelkopplingarna före import</strong>${duplicates.map(group=>`<p>${esc(mapping.profiles[group.profileIndex].name)}: ${esc(group.columns.map(column=>column.header).join(' och '))} är kopplade till ${esc(fieldLabel(fields.find(field=>field.target===group.target)||{label:group.target}))}. Välj vilket fält varje kolumn ska fylla.</p>`).join('')}</div>`:''}
     <div class="import-column-groups">${groups.map(([group,label,test])=>{
-      const count=all.filter(test).length;if(!count)return '';
-      return `<details data-column-group="${group}"${group==='pending'||group==='mapped'&&!unmapped?' open':''}><summary>${label} (${count})</summary>${group==='pending'?'<p>Vi hittade inget säkert fält för dessa kolumner. Välj var de hör hemma eller välj bort dem.</p><button type="button" data-ignore-unmapped>Importera inte dessa kolumner</button>':''}${mapping.profiles.map((profile,pi)=>{
-        const columns=profile.columns.map((column,ci)=>({column,ci})).filter(({column})=>test(column));
+      const count=mapping.profiles.reduce((total,profile,pi)=>total+profile.columns.filter((column,ci)=>test(column,pi+':'+ci)).length,0);if(!count)return '';
+      return `<details data-column-group="${group}"${group==='conflict'||group==='pending'||group==='mapped'&&!unmapped&&!duplicates.length?' open':''}><summary>${label} (${count})</summary>${group==='pending'?'<p>Vi hittade inget säkert fält för dessa kolumner. Välj var de hör hemma eller välj bort dem.</p><button type="button" data-ignore-unmapped>Importera inte dessa kolumner</button>':''}${mapping.profiles.map((profile,pi)=>{
+        const columns=profile.columns.map((column,ci)=>({column,ci})).filter(({column,ci})=>test(column,pi+':'+ci));
         return columns.length?`<section class="import-column-sheet"><h3>${esc(profile.fileName||prepared.fileName)} · ${esc(profile.name)} <small>${profile.rowCount} rader</small></h3>${columns.map(({column,ci})=>rowHtml(profile,pi,column,ci)).join('')}</section>`:'';
       }).join('')}</details>`;
     }).join('')}</div>
     <section class="import-result" data-import-result><h3>Resultat${unmapped?' för valda kolumner':''}</h3>${result.report.tables?.length?`<div class="import-result-table"><table aria-label="Resultat per tabell"><thead><tr><th>Register</th><th>Nya</th><th>Kompletteras</th><th>Oförändrade</th><th>Granskas</th></tr></thead><tbody>${result.report.tables.map(table=>`<tr><th>${esc(collectionCaption({key:table.collection,sheet:table.label}))}</th><td>${table.created}</td><td>${table.updated}</td><td>${table.unchanged??0}</td><td>${table.review}</td></tr>`).join('')}</tbody></table></div>`:'<p>Inga nya eller ändrade poster.</p>'}${result.report.consolidation?`<small>${result.report.consolidation.files} filer · ${result.report.consolidation.sheets} flikar · ${result.report.consolidation.uniqueRecords} identifierade poster · ${result.report.consolidation.mergedOccurrences} återkommande kopplingar sammanförda.</small>`:''}</section>
     ${problems.size?`<details class="import-problems"><summary>Rader som behöver bättre identitet eller koppling (${uncertainRows.size})</summary><p>Om nödvändiga identifierare väljs bort kan poster inte kopplas säkert. Dessa rader stannar i granskningsunderlaget.</p>${[...problems.values()].map(problem=>`<p>${esc(problem.source||prepared.fileName)} · ${esc(problem.sheet)} · ${esc(collectionCaption(schemas.find(schema=>schema.key===problem.collection)||{sheet:problem.collection}))}: ${esc(problem.reason)} (${problem.count})</p>`).join('')}</details>`:''}
     <p>Tomma fält kompletteras. Manuellt verifierade värden skyddas och avvikelser kan granskas. Inget sparas innan du genomför importen.</p><p data-import-error role="alert"></p>
-    <div class="actions import-review-actions"><button type="button" data-cancel>Avbryt</button><button type="button" data-apply class="primary-action"${unmapped||!included?' disabled':''}>Genomför import</button></div>`;
+    <div class="actions import-review-actions"><button type="button" data-cancel>Avbryt</button><button type="button" data-apply class="primary-action"${unmapped||!included||duplicates.length?' disabled':''}>Genomför import</button></div>`;
 }
 export async function previewImport(prepared,base,schemas,actor) {
   const mapping={profiles:reviewProfiles(prepared.profiles,schemas)},fields=fieldCatalog(schemas,true);
   const draft=structuredClone(base);draft.importFieldPreferences ||= {};
-  const context={fingerprint:prepared.fingerprint,fileName:prepared.fileName,schemas,actor,strictColumns:true,personLinks:true,objectAreas:true};
+  const context={fingerprint:prepared.fingerprint,fileName:prepared.fileName,schemas,actor,strictColumns:true,personLinks:true,objectAreas:true,allowMappingConflicts:true};
   const evaluate=()=>prepareMappedImport(prepared.workbook,mapping.profiles.map(profile=>({...profile,columns:profile.columns.map(column=>pending(column)?{...column,target:'@ignore'}:column)})),draft,context,window.XLSX);
   const d=dialog('<p role="status">Kontrollerar valda kolumner…</p>','import-mapping-dialog');
   return new Promise((resolve,reject)=>{
@@ -117,6 +119,7 @@ export async function previewImport(prepared,base,schemas,actor) {
           if(!result)throw Error('Kontrollera kolumnvalen innan importen genomförs.');
           if(mapping.profiles.some(profile=>profile.columns.some(pending)))throw Error('Välj fält eller Importera inte för alla kolumner.');
           if(!mapping.profiles.some(profile=>profile.columns.some(selected)))throw Error('Välj minst ett fält att läsa in.');
+          if(mappingConflicts(mapping.profiles).length)throw Error('Rätta dubbelkopplingarna innan importen genomförs.');
           result.report.actor=actor;close();resolve(result);
         }
       }catch(error){fail(error);}

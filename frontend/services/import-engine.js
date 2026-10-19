@@ -28,7 +28,18 @@ export function fieldCatalog(schemas,reviewed=false) {
   const legacyRelations=['sourceId','objectId','propertyId','contractId','activityId','organizationId','ownerPartyId','responsiblePersonId','personId','targetType','targetId','tenantPartyId','tenantResponsiblePersonId','businessId'];
   const reviewedLabels={costCenterPremises:'Kostnadsställe lokaler',costCenterOperations:'Kostnadsställe drift'};
   return schemas.flatMap(s => s.columns.filter(([k,,hidden]) => !(reviewed&&s.key==='contracts'&&k==='area') && (!hidden || legacyRelations.includes(k) || reviewed&&Object.hasOwn(labels,k)) && !/^(geo|enrichment)/.test(k))
-    .map(([field,label]) => ({target:s.key+'.'+field,collection:s.key,field,aliases:[...(s.labelAliases?.[field]||[]),...(reviewed&&reviewedLabels[field]?[label]:[])],label:s.sheet+' → '+(reviewed&&reviewedLabels[field]|| (label.startsWith('_')?labels[field]||label:label))})));
+    .map(([field,label]) => ({target:s.key+'.'+field,collection:s.key,field,aliases:[...(s.labelAliases?.[field]||[]),...(reviewed&&reviewedLabels[field]?[label]:[]),...(reviewed&&s.key==='properties'&&field==='sourceId'?['Källans identifierare','Förvaltningsobjekt']:[])],label:s.sheet+' → '+(reviewed&&s.key==='properties'&&field==='sourceId'?'Fastighets-ID i underlaget':reviewed&&reviewedLabels[field]|| (label.startsWith('_')?labels[field]||label:label))})));
+}
+export function mappingConflicts(profiles,personLinks=true){
+  return profiles.flatMap((profile,profileIndex)=>{
+    const targets=new Map();
+    for(const [columnIndex,column] of profile.columns.entries()){
+      if(column.target.startsWith('@')||personLinks&&personRole(column.target))continue;
+      if(!targets.has(column.target))targets.set(column.target,[]);
+      targets.get(column.target).push({columnIndex,header:column.header});
+    }
+    return [...targets].filter(([,columns])=>columns.length>1).map(([target,columns])=>({profileIndex,target,columns}));
+  });
 }
 export function profileWorkbook(workbook, schemas, XLSX, saved = [], options={}) {
   const fields = fieldCatalog(schemas,options.reviewed);
@@ -73,7 +84,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = [], options={})
       if(/^(?:id|identifierare|kallansidentifierare)$/.test(h)&&fields.some(f=>f.target===inferred+'.sourceId'))contextualTarget=inferred+'.sourceId';
       // Recognized source captions are still only suggestions: every column
       // goes through the same reviewed mapping, including explicit exclusions.
-      const sourceTarget=options.reviewed?({objektsnummerforvaltningsobjekt:'properties.sourceId',postadress:'properties.address',lokalytakvm:'contracts.area',avtalsid:'contracts.number'})[h]:'';
+      const sourceTarget=options.reviewed?({objektsnummerforvaltningsobjekt:'properties.sourceId',postadress:'properties.address',lokalytakvm:'contracts.area',avtalsid:'contracts.number',...(inferred==='contracts'?{kostnadsstalle:'contracts.costCenterPremises'}:{})})[h]:'';
       let target=rule?.target || sourceTarget || contextualTarget || aliases[h] || aliases[fieldName(header)] || candidate?.target || (options.reviewed?'@unmapped':'@extra');
       const contact=contactPart(target);
       if(contact&&rule?.contactHeader){
@@ -150,6 +161,7 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
   context={objectAreas:context.strictColumns,...context};
   if(context.strictColumns){
     if(profiles.some(profile=>{const targets=new Set([...fieldCatalog(context.schemas,true),...(context.personLinks?contactFields(profile):[])].map(field=>field.target));return profile.columns.some(column=>column.target!=='@ignore'&&!targets.has(column.target));}))throw Error('Välj ett befintligt fält eller Importera inte för varje kolumn.');
+    if(!context.allowMappingConflicts&&mappingConflicts(profiles,Boolean(context.personLinks)).length)throw Error('Flera kolumner är kopplade till samma fält. Rätta dubbelkopplingarna innan importen genomförs.');
   }
   const started=Date.now(),data=copy(base), changes=[], decisions=[];
   if(context.objectAreas)globalThis.LokalblickObjectModel?.adoptAreas(data);
@@ -159,6 +171,10 @@ export function prepareMappedImport(workbook, profiles, base, context, XLSX) {
   const rows=[], targets=new Set(fieldCatalog(context.schemas,context.strictColumns).map(f=>f.target)), indexes=new Map();
   const indexFor=collection=>{if(!indexes.has(collection)){data[collection] ||= [];indexes.set(collection,globalThis.LokalblickImportRules.createIndex(data[collection]));}return indexes.get(collection);};
   const byId=(collection,id)=>indexFor(collection).lookup('id',id).find(r=>r.id===id);
+  const resolveReview=(id,recordId)=>{
+    const previous=data.importReview.find(review=>review.id===id&&review.status==='pending');
+    if(previous)Object.assign(previous,{status:'resolved',recordId,resolvedAt:at,resolvedBy:context.actor,resolutionReason:'Posten identifierades vid ny import med rättade kolumnval'});
+  };
 
   for(const profile of profiles){
     const fileName=profile.fileName||context.fileName,sourceId='source:'+(profile.fingerprint||context.fingerprint);
@@ -269,6 +285,9 @@ if(!(data.contracts||[]).some(c=>norm(c.number)===norm(number)))expanded.get('co
         const parents={businessId:'businesses',personId:'people',tenantPartyId:'organizations',propertyId:'properties',objectId:'objects',contractId:'contracts',activityId:'activities',organizationId:'organizations',ownerPartyId:'organizations',responsiblePersonId:'people',...(context.strictColumns?{businessPartyId:'organizations',tenantResponsiblePersonId:'people',businessResponsiblePersonId:'people',ownerResponsiblePersonId:'people',orderedByPersonId:'people'}:{})};
         for(const [field,parent] of Object.entries(parents)){
           if(!present(group.values[field]))continue;
+          // Resolve the owner's name only after the property's own identity
+          // succeeds. A missing or ambiguous owner must not discard a property.
+          if(context.strictColumns&&collection==='properties'&&field==='ownerPartyId')continue;
           const value=group.values[field];
           const parentFields=['id','sourceId','designation','address','number','name','title',...(context.strictColumns&&parent==='people'?['email']:[])];
           const values=[...new Set(parentFields.flatMap(k=>indexFor(parent).lookup(k,value)))];
@@ -285,6 +304,9 @@ if(!(data.contracts||[]).some(c=>norm(c.number)===norm(number)))expanded.get('co
         }
         if(collection==='objects'&&!group.values.propertyId)group.errors.push('Objektet saknar fastighetskoppling');
         if(collection==='contracts'&&group.values.objectId){const obj=byId('objects',group.values.objectId);if(obj){if(group.values.propertyId&&group.values.propertyId!==obj.propertyId)group.errors.push('Objektet och avtalet pekar på olika fastigheter');else group.values.propertyId=obj.propertyId;}}
+        // A stable source ID identifies a property across sheets. Designation
+        // and address enrich it; they are not extra mandatory identity keys.
+        if(context.strictColumns&&collection==='properties'&&present(group.values.sourceId)&&!group.identity.includes('id'))group.identity=['sourceId'];
         let match=group.errors.length?{kind:'D',reason:group.errors.join('; ')}:identify(data[collection],group.values,collection,group.identity,indexFor(collection));
         if(context.strictColumns&&collection==='people'&&present(group.values.email)&&!group.errors.length){
           const email=String(group.values.email).trim().toLowerCase(),hits=indexFor(collection).lookup('email',email).filter(person=>String(person.email||'').trim().toLowerCase()===email);
@@ -292,6 +314,7 @@ if(!(data.contracts||[]).some(c=>norm(c.number)===norm(number)))expanded.get('co
         }
         if(override?.recordId&&!group.errors.length){const chosen=byId(collection,override.recordId);if(chosen)match={kind:'A',record:chosen,reason:'Manuellt vald koppling'};}
         if(override?.parentId){group.values[collection==='orders'?'activityId':'propertyId']=override.parentId;}
+        if(context.strictColumns&&match.kind==='C'&&present(group.values.id)&&byId(collection,group.values.id))match={kind:'B',reason:'Identifieraren finns redan med en annan koppling',candidates:[byId(collection,group.values.id)]};
         if(match.kind==='C'&&['contracts','orders'].includes(collection)&&!group.values[collection==='contracts'?'propertyId':'activityId'])match={kind:'B',reason:'Hemvist saknas: välj rätt '+(collection==='contracts'?'fastighet':'aktivitet')};
         const entry={source:fileName,sourceId,sheet:profile.name,row:r+1,collection,classification:match.kind,reason:match.reason,values:group.values,candidates:(match.candidates||[]).map(copy),extras:group.extras,origins:group.origins};
         decisions.push(entry);
@@ -302,11 +325,30 @@ if(!(data.contracts||[]).some(c=>norm(c.number)===norm(number)))expanded.get('co
         }
         let record=match.record;
         const beforeAssignment=['assignments','contractBusinesses'].includes(collection)&&record?copy(record):null;
-        if(!record){record={id:crypto.randomUUID(),provenance:{}};data[collection].push(record);counts.created++;}
+        if(!record){record={id:context.strictColumns&&group.values.id||crypto.randomUUID(),provenance:{}};data[collection].push(record);counts.created++;}
         else counts.matched++;
         rowRecords[collection]=record.id;
         entry.recordId=record.id;
         record.provenance ||= {};
+        if(context.strictColumns&&collection==='properties'&&present(group.values.ownerPartyId)){
+          const value=String(group.values.ownerPartyId).trim(),origin=group.origins.ownerPartyId;
+          const exactId=byId('organizations',value),candidates=exactId?[exactId]:indexFor('organizations').lookup('name',value).filter(party=>globalThis.LokalblickBusinessModel.key(party.name)===globalThis.LokalblickBusinessModel.key(value));
+          const reviewId=[sourceId,profile.name,r+1,'owner'].join('|');
+          if(candidates.length>1){
+            const reason='Flera parter har samma ägarnamn. Välj fastighetsägare i fastighetsformuläret';
+            if(!data.importReview.some(review=>review.id===reviewId))data.importReview.push({id:reviewId,kind:'invalid-import-field',status:'pending',collection,recordId:record.id,field:'ownerPartyId',source:fileName,sheet:profile.name,row:r+1,reason,provenance:origin});
+            decisions.push({...entry,classification:'D',field:'ownerPartyId',reason});counts.unresolved++;delete group.values.ownerPartyId;
+          }else{
+            let party=candidates[0];
+            if(!party){
+              party={id:crypto.randomUUID(),name:value,type:'owner',provenance:{name:{...origin,value},type:{...origin,value:'owner',decision:'derived-owner-role'}}};
+              data.organizations.push(party);indexFor('organizations').update(party);counts.created++;
+              for(const field of ['name','type'])changes.push({collection:'organizations',recordId:party.id,field,from:'',to:party[field],provenance:party.provenance[field]});
+            }
+            decisions.push({source:fileName,sourceId,sheet:profile.name,row:r+1,collection:'organizations',recordId:party.id,classification:candidates.length?'A':'C',reason:'Fastighetsägare identifierad genom ID eller exakt partnamn'});
+            group.values.ownerPartyId=party.id;resolveReview(reviewId,record.id);
+          }
+        }
         for(const [field,value] of Object.entries(group.values)){
           group.origins[field] ||= {source:fileName,sourceId,sheet:profile.name,row:r+1,at,value,decision:'derived-relation',inputs:Object.values(group.origins).map(o=>o.cell).filter(Boolean),confirmedBy:context.actor,actorVerified:false};
           const current=record[field];
@@ -339,6 +381,7 @@ if(!(data.contracts||[]).some(c=>norm(c.number)===norm(number)))expanded.get('co
           }
         }
         indexFor(collection).update(record);
+        resolveReview(sourceId+'|'+profile.name+'|'+(r+1)+'|'+collection,record.id);
         record.supplemental ||= [];
         for(const extra of group.extras){
           if(!record.supplemental.some(x=>x.label===extra.label&&equal(x.value,extra.value)&&x.provenance?.sourceId===sourceId)){record.supplemental.push(extra);counts.preserved++;}
@@ -368,7 +411,8 @@ if(!(data.contracts||[]).some(c=>norm(c.number)===norm(number)))expanded.get('co
   counts.fields=changes.length;
   counts.propertiesAfter=(data.properties||[]).length;counts.contractsAfter=(data.contracts||[]).length;
   for(const registered of data.sourceRegistry.filter(s=>profiles.some(p=>'source:'+(p.fingerprint||context.fingerprint)===s.id))) {
-    if(!registered.rows){const own=decisions.filter(d=>d.sourceId===registered.id);Object.assign(registered,{rows:profiles.filter(p=>'source:'+(p.fingerprint||context.fingerprint)===registered.id).reduce((n,p)=>n+p.rowCount,0),matched:own.filter(d=>d.classification==='A').length,created:own.filter(d=>d.classification==='C').length,review:own.filter(d=>['B','D'].includes(d.classification)).length});}
+    const own=decisions.filter(d=>d.sourceId===registered.id);
+    Object.assign(registered,{rows:profiles.filter(p=>'source:'+(p.fingerprint||context.fingerprint)===registered.id).reduce((n,p)=>n+p.rowCount,0),matched:own.filter(d=>d.classification==='A').length,created:own.filter(d=>d.classification==='C').length,review:data.importReview.filter(review=>review.status==='pending'&&(review.sourceId===registered.id||review.provenance?.sourceId===registered.id)).length});
   }
   const identified=decisions.filter(d=>d.recordId&&!['B','D'].includes(d.classification));
   const uniqueRecords=new Set(identified.map(d=>d.collection+'|'+d.recordId)).size;

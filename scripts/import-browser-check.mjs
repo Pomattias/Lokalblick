@@ -9,7 +9,7 @@ const server=spawn(process.execPath,['backend/server.mjs'],{env:{...process.env,
 function file(name,sheets){const workbook=XLSX.utils.book_new();for(const [sheet,rows] of sheets)XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(rows),sheet);return {name,bytes:[...XLSX.write(workbook,{type:'buffer',bookType:'xlsx'})]};}
 const files=[file('syntetiska-avtal.xlsx',[
  ['Lokallista',[['Förvaltningsobjekt','Gatuadress','Avtalsnummer','Area','Årshyra','Fr.o.m.','T.o.m.','Specialvillkor','Internt kostnadsställe','Uppsagd den','Uppsägningsorsak','Användning','Hyresgästens kontaktperson','Kontaktens e-post','Avtalsansvarig','Ansvarigs e-post'],['P-1','Testgatan 1','A-1',425,120000,'2025-01-01','2028-12-31','FÅR INTE IMPORTERAS','K-42','2027-04-30','Avveckling','Träffpunkt','Anna Lind','anna.lind@example.invalid','Johan Ek','johan@example.invalid']]],
- ['Lokalbestånd',[['Objektsnummer / Förvaltningsobjekt','Avtalsnummer','Ort','Kommentar verksamhet','Antal medarbetare (viss+ heltid)','Lokalkategori (LEB)','Lägenheter (yta)','Länk avtal (Huvudkontrakt)'],['P-1','A-1','Malmö','Kommunal primärvård.','12,5','KP Kontor- och personallokaler','245,5','https://example.invalid/A-1.pdf']]],
+ ['Lokalbestånd',[['Objektsnummer / Förvaltningsobjekt','Avtalsnummer','Ort','Kommentar verksamhet','Antal medarbetare (viss+ heltid)','Lokalkategori (LEB)','Lägenheter (yta)','Länk avtal (Huvudkontrakt)','Fastighetsägare'],['P-1','A-1','Malmö','Kommunal primärvård.','12,5','KP Kontor- och personallokaler','245,5','https://example.invalid/A-1.pdf','Testbolaget AB']]],
 ]),file('syntetiska-personer.xlsx',[
  ['Personer',[['Namn','E-post','Telefon'],['Anna Lind','anna.lind@example.invalid','0700000001'],['Annan Person','annalind@example.invalid','0700000002']]],
 ])];
@@ -33,7 +33,7 @@ try{
  const choose=async(key,search,target)=>{await page.locator(`[data-preview-map="${key}"]`).evaluate(node=>{for(let parent=node.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;});await page.locator(`[data-preview-map="${key}"]`).click();await page.locator('[data-field-search]').fill(search);await page.locator(`[data-target="${target}"]`).click();};
  await open();
  assert.equal(await page.locator('[data-existing],[data-preview-collection],[data-extra]').count(),0);
- assert.equal(await page.locator('[data-preview-map]').count(),27);
+ assert.equal(await page.locator('[data-preview-map]').count(),28);
  assert.equal(await page.locator('[data-apply]').isDisabled(),true);
  assert.ok(!(await page.locator('.import-mapping-dialog').innerText()).includes('Kompletterande information'));
  await page.screenshot({path:`${artifacts}/pending-1280.png`});
@@ -44,6 +44,14 @@ try{
  await choose('0:14','ansvarig hos oss','contracts.responsiblePersonId');
  await choose('0:15','Avtalsansvarig e-post','contact.14.email');
  assert.equal(await page.locator('[data-apply]').isEnabled(),true);
+ // A saved or manually chosen duplicate identifier cannot slip through as a
+ // seemingly successful partial import; it must be corrected in this dialog.
+ await choose('0:8','fastighets-id','properties.sourceId');
+ assert.equal(await page.locator('[data-apply]').isDisabled(),true);
+ assert.ok((await page.locator('[data-mapping-conflicts]').innerText()).includes('Förvaltningsobjekt och Internt kostnadsställe'));
+ assert.equal(await page.locator('[data-column-group="conflict"]').getAttribute('open'),'');
+ await page.setViewportSize({width:390,height:950});assert.ok(await page.locator('.import-mapping-dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:`${artifacts}/duplicate-identifier-390.png`});
+ await choose('0:8','kostnadsställe','contracts.costCenterPremises');assert.equal(await page.locator('[data-mapping-conflicts]').count(),0);assert.equal(await page.locator('[data-apply]').isEnabled(),true);
  await page.locator('[data-column-group="mapped"]').evaluate(node=>node.open=true);
  for(const width of [1280,390,320]){
   await page.setViewportSize({width,height:950});
@@ -56,6 +64,7 @@ try{
  await page.locator('.import-progress-dialog').waitFor({state:'detached'});
  const loaded=()=>page.evaluate(()=>LokalblickDataService.load());
  const first=await loaded();assert.equal(first.properties.length,1);assert.equal(first.contracts.length,1);assert.equal(first.people.length,3);
+ assert.equal(first.organizations.length,1);assert.equal(first.organizations[0].name,'Testbolaget AB');assert.equal(first.properties[0].ownerPartyId,first.organizations[0].id);
  assert.equal(first.assignments.length,2);assert.equal(first.contracts[0].tenantResponsiblePersonId,first.people.find(person=>person.name==='Anna Lind').id);assert.equal(first.contracts[0].responsiblePersonId,first.people.find(person=>person.name==='Johan Ek').id);
  assert.equal(first.objects[0].area,425);assert.equal(first.contracts[0].area,undefined);assert.equal(first.objects[0].start||'','');assert.equal(first.objects[0].end||'','');
  assert.equal(first.contracts[0].costCenterPremises,'K-42');assert.equal(first.contracts[0].baseRent,120000);assert.equal(first.contracts[0].end,'2028-12-31');
@@ -115,5 +124,5 @@ try{
  assert.equal(await cityPage.evaluate(async()=>(await LokalblickDataService.load()).properties.length),1);
  await isolated.close();
  assert.deepEqual(errors,[]);
- console.log('PASS: direct role choices for several name columns, shared person identity, canonical object area, blank dates, object editing, idempotent reimport, saved mappings, reload, native agreement fields, exclusions and mobile fit.');
+ console.log('PASS: duplicate identifiers block apply and are corrected in place, owner names become linked parties, multiple person roles, canonical object area, blank dates, object editing, idempotent reimport, reload and mobile fit.');
 }finally{await browser?.close();server.kill('SIGTERM');}

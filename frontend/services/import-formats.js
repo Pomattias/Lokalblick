@@ -5,7 +5,10 @@ const identityField=field=>/^(id|.*Id|number|orderReference|phone|email|ekotObje
 const currencyField=field=>/^(baseRent|baseAdditions|annual.*|estimatedCost|orderedCost|finalCost|investmentThreshold|cost|preliminaryCost|budget|budgetInvestigation|budgetExecution|budgetFurnishing|actual)$/.test(field);
 const currencyHint=text=>/\b(?:kr|sek|tkr|mkr)\b|hyra|kostnad|belopp/i.test(text);
 const moneyScale=(value,header)=>typeof value==='string'&&/kr|sek|kronor/i.test(value)?1:/\bmkr\b/i.test(header)?1000000:/\btkr\b|tusen\s*(?:kr|kronor)/i.test(header)?1000:1;
-const emptyMarker=(value,column)=>column.emptyMarkers&&/^[–—-]$/.test(String(value??'').trim())&&(dateField(column.target?.split('.')[1]||'')||numberField(column.target?.split('.')[1]||''));
+const emptyMarker=(value,column)=>column.emptyMarkers&&(
+ /^[–—-]$/.test(String(value??'').trim())&&(dateField(column.target?.split('.')[1]||'')||numberField(column.target?.split('.')[1]||''))||
+ /^(end|toDate)$/.test(column.target?.split('.')[1]||'')&&/^tills\s*vidare$/i.test(String(value??'').trim())
+);
 export function parseNumber(value) {
  if(typeof value==='number'&&Number.isFinite(value))return value;
  let s=String(value??'').trim(),negative=false;
