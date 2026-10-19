@@ -131,7 +131,7 @@ function legend(rows,dimension) {
     '<span class="portfolio-legend-dot" style="background:'+COLORS[index%COLORS.length]+'"></span>'+
     '<span class="portfolio-legend-details"><span class="portfolio-legend-title">'+esc(item.name)+'</span>'+
     '<small>'+fmt(item.contracts)+' avtal · '+fmt(item.area)+' m²</small>'+
-    '<small>'+fmt(item.activities)+' aktiviteter · '+money(item.cost)+'</small></span>'+
+    '<small>'+fmt(item.activities)+(item.activities===1?' ärende':' ärenden')+' · '+money(item.cost)+'</small></span>'+
     '<strong class="portfolio-legend-money">'+money(item.rent)+'</strong></button>';
   const base=visible.map(entry).join("");
   const more=tail.length?'<details class="portfolio-more"><summary>Visa alla ('+tail.length+' till)</summary>'+
@@ -142,7 +142,7 @@ function legend(rows,dimension) {
 function bars(rows, dimension, property=false) {
   const shown=rows.filter(x=>Number(x.activities)>0).sort((a,b)=>b.cost-a.cost||b.activities-a.activities).slice(0,8);
   const maximum=Math.max(1,...shown.map(x=>Math.max(0,Number(x.cost)||0)));
-  if(!shown.length)return '<p class="portfolio-empty">Inga aktiviteter i urvalet.</p>';
+  if(!shown.length)return '<p class="portfolio-empty">Inga ärenden i urvalet.</p>';
   return shown.map(x=>{
     const attrs=property?groupAttrs("property",x.key):dimension?groupAttrs(dimension,x.key):"";
     const content='<span class="portfolio-bar-name">'+esc(x.name)+'</span>'+
@@ -168,9 +168,9 @@ export function portfolioDashboard(data,selection,year,mode=""){
   const title=a.lens?"Fördelning per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.lens]):"Hela lokalbeståndet";
   const ringTitle=a.selected?"Årshyra per fastighet":"Årshyra per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.dimension]);
   const chartDimension=a.selected?"property":a.dimension;
-  const barTitle=(a.selected?"Aktiviteter per typ":a.lens?"Aktiviteter per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.lens]):"Aktiviteter per typ")+" · kr och antal";
+  const barTitle=(a.selected?"Ärenden per typ":a.lens?"Ärenden per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.lens]):"Ärenden per typ")+" · kr och antal";
   const barRows=a.selected||!a.lens?a.activityTypes:a.groups;
-  const shortcuts=[["properties","Fastigheter",a.view.properties.length],["contracts","Avtal",a.view.contracts.length],["activities","Aktiviteter",a.view.items.length],["plan","Planera","›"]]
+  const shortcuts=[["properties","Fastigheter",a.view.properties.length],["contracts","Avtal",a.view.contracts.length],["activities","Ärenden",a.view.items.length],["plan","Planera","›"]]
     .map(([view,label,value])=>'<button type="button" class="portfolio-shortcut ui-button ui-button--compact" data-view="'+view+'">'+label+' <strong>'+(typeof value==="number"?fmt(value):value)+'</strong></button>').join("");
   return '<div class="dashboard-intro portfolio-heading"><div><h2>Portföljöversikt</h2><p>'+esc(title)+'</p></div><span class="dashboard-year ui-label">År '+esc(year)+'</span></div>'+
     (a.selected?'<div class="portfolio-breadcrumb"><strong>'+esc(selectedLabel)+'</strong><button type="button" data-dashboard-clear>Visa hela fördelningen ×</button></div>':'')+
@@ -180,11 +180,11 @@ export function portfolioDashboard(data,selection,year,mode=""){
       '<section class="dashboard-panel ui-card"><h3>'+esc(barTitle)+'</h3>'+
       '<p class="portfolio-metric-note">Bedömd totalkostnad · samtliga år</p>'+
       '<div class="portfolio-bar-list">'+bars(barRows,a.selected||!a.lens?"":a.dimension)+'</div>'+
-      '<button type="button" data-view="activities" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa aktiviteter ›</button></section>'+
+      '<button type="button" data-view="activities" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa ärenden ›</button></section>'+
       '<section class="dashboard-panel ui-card"><h3>'+(a.lens&&!a.selected?'Avtal och yta per '+({person:'medarbetare',unit:'verksamhet',owner:'fastighetsägare'}[a.lens]):'Avtal och ytor')+'</h3><div class="portfolio-cost-list">'+propertyCosts(a.lens&&!a.selected?a.groups:a.properties,a.lens&&!a.selected?a.lens:'property')+'</div>'+
       '<button type="button" data-view="contracts" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa avtal ›</button></section>'+
       '<section class="dashboard-panel ui-card"><h3>Att bevaka</h3>'+
-      '<div class="dashboard-fact"><span>Aktiviteter utan ansvarig</span><strong>'+fmt(a.unassigned)+'</strong></div>'+
+      '<div class="dashboard-fact"><span>Ärenden utan ansvarig</span><strong>'+fmt(a.unassigned)+'</strong></div>'+
       '<div class="dashboard-fact"><span>Avtal att kontrollera</span><strong>'+fmt(a.review)+'</strong></div>'+
       '<div class="dashboard-fact"><span>Fastigheter / avtal</span><strong>'+fmt(a.view.properties.length)+' / '+fmt(a.view.contracts.length)+'</strong></div>'+
       '<button type="button" data-view="plan" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Öppna Planera ›</button></section>'+

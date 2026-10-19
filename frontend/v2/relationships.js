@@ -5,7 +5,7 @@ const tables=[
  {id:"objects",name:"Objekt",x:314,y:12,fields:["id","propertyId","number","name","area","unitId"]},
  {id:"contracts",name:"Avtal",x:616,y:12,fields:["id","propertyId","objectId","responsiblePersonId","businessResponsiblePersonId","tenantResponsiblePersonId"]},
  {id:"contractBusinesses",name:"AvtalVerksamhet",x:918,y:12,fields:["id","contractId","businessId","fromDate","toDate","usedArea"]},
- {id:"activities",name:"Aktiviteter",x:12,y:320,fields:["id","propertyId","contractId","responsiblePersonId","title","estimatedCost"]},
+ {id:"activities",name:"Ärenden",x:12,y:320,fields:["id","propertyId","contractId","responsiblePersonId","title","estimatedCost"]},
  {id:"orders",name:"Beställningar",x:314,y:320,fields:["id","activityId","orderedByPersonId","orderedAt","orderedCost","finalCost"]},
  {id:"people",name:"Personer",x:616,y:320,fields:["id","organizationId","name","role","email","phone"]},
  {id:"businesses",name:"Verksamheter",x:918,y:320,fields:["id","organizationId","sourceId","name","type","unitId"]},
@@ -17,7 +17,7 @@ const links=[
  {a:"contracts",af:"propertyId",b:"properties",bf:"id",rule:"Avtalsnummer används vid matchning av avtal. Fastighets-ID kopplas via propertyMap.",source:"source-service.js · mergePrimaryData"},
  {a:"activities",af:"propertyId",b:"properties",bf:"id",rule:"Projekt 2027: entydig adressmatchning ger hemvist på befintlig fastighet; importen skapar inte fastigheter.",source:"project-2027-adapter.js"},
  {a:"activities",af:"contractId",b:"contracts",bf:"id",rule:"Projekt 2027: entydig kombination av fastighet och verksamhetsnamn kan ge avtalskoppling.",source:"project-2027-adapter.js"},
- {a:"orders",af:"activityId",b:"activities",bf:"id",rule:"Beställningar kopplas till aktivitetens interna ID.",source:"source-service.js · Beställningar"},
+ {a:"orders",af:"activityId",b:"activities",bf:"id",rule:"Beställningar kopplas till ärendets interna ID.",source:"source-service.js · Beställningar"},
  {a:"activities",af:"responsiblePersonId",b:"people",bf:"id",rule:"Projekt 2027 matchar ansvarig mot en unik person. Oklara namn mappas inte automatiskt.",source:"project-2027-adapter.js"},
  {a:"properties",af:"responsiblePersonId",b:"people",bf:"id",rule:"Vår ansvarige för fastigheten. Aktuellt person-ID speglas från giltig ansvarshistorik.",source:"responsibility-model.js · normalize"},
  {a:"properties",af:"ownerResponsiblePersonId",b:"people",bf:"id",rule:"Fastighetsägarens kontaktperson. Ansvarsroll owner i historiken.",source:"responsibility-model.js · normalize"},
@@ -27,7 +27,7 @@ const links=[
  {a:"assignments",af:"personId",b:"people",bf:"id",rule:"Historiska och aktuella ansvarskopplingar pekar på Personer.id. Roll och giltighetsdatum avgör vilket ansvar som gäller.",source:"responsibility-model.js · history/current"},
  {a:"assignments",af:"targetId",b:"properties",bf:"id",rule:"Endast när assignments.targetType = property. targetId är en polymorf referens, inte en generell främmande nyckel.",source:"responsibility-model.js · types"},
  {a:"assignments",af:"targetId",b:"contracts",bf:"id",rule:"Endast när assignments.targetType = contract. targetId pekar då på Avtal.id.",source:"responsibility-model.js · types"},
- {a:"assignments",af:"targetId",b:"activities",bf:"id",rule:"Endast när assignments.targetType = activity. targetId pekar då på Aktiviteter.id.",source:"responsibility-model.js · types"},
+ {a:"assignments",af:"targetId",b:"activities",bf:"id",rule:"Endast när assignments.targetType = activity. targetId pekar då på Ärenden.id.",source:"responsibility-model.js · types"},
 
  {a:"contractBusinesses",af:"contractId",b:"contracts",bf:"id",rule:"AvtalVerksamhet binder ett avtal till en verksamhet via avtalets id.",source:"source-service.js · AvtalVerksamhet"},
  {a:"contractBusinesses",af:"businessId",b:"businesses",bf:"id",rule:"AvtalVerksamhet refererar verksamhetens interna id.",source:"source-service.js · AvtalVerksamhet"}

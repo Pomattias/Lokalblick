@@ -1,10 +1,10 @@
+import {bindEditActions,decorateEditActions} from './edit-actions.js';
 import {mountCompactIssue,compactIssueJournal,toggleIssueText} from "./compact-issue.js";
 import {portfolioScope} from "./portfolio-context.js";
 import {propertyPopup} from "./context-ui.js";
 import {mountWorkspace,recordBreadcrumb} from "./record-workspace.js";
 import {bindSmartTables, readSmartTableState, restoreSmartTableState} from "./smart-table.js";
 import {isoDateTime} from "./date-format.js";
-import {businessList} from './business-editor.js';
 import {recurringCostPanel,openRecurringCostDialog} from "./recurring-costs-ui.js";
 import {activityJournalHtml,appendActivityNote} from "./activity-journal.js";
 import {editorSnapshot,editorHasUnsavedChanges} from "./editor-safety.js";
@@ -64,12 +64,12 @@ let data,
   busy = false,
   switchingView = false;
 bindSmartTables(document);
-let propertyTableState;
+const listTableStates=new Map();
 let mapViewState;
 let mapScopeKey;
-const searches={properties:"",contracts:"",activities:""};
+const searches={properties:"",objects:"",contracts:"",activities:""};
 const issueFilters={status:"open",person:""};
-const isPortfolioView=()=>["properties","contracts","activities","map"].includes(ui.view);
+const isPortfolioView=()=>["properties","objects","contracts","activities","map"].includes(ui.view);
 const portfolioLocal=()=>({view:ui.view==="map"?"properties":ui.view,q:searches[ui.view==="map"?"properties":ui.view]||"",...(ui.view==="activities"?{...issueFilters,type:ui.issueType}:{})});
 const recordSource=()=>ui.view==="activities"?{}:isPortfolioView()?portfolioLocal():{};
 const selection = { unit: "", owner: "", person: "", q: "", propertyId: "" };
@@ -89,11 +89,10 @@ const ui = {
 };
 const labels = {
   overview: "Översikt",
-  businesses:"Verksamheter",
-  properties: "Fastighet",
+  properties: "Fastigheter",
   objects: "Objekt",
   contracts: "Avtal",
-  activities: "Aktiviteter",
+  activities: "Ärenden",
   plan: "Planera",
   budget: "Budget",
   map: "Karta",
@@ -103,6 +102,7 @@ const labels = {
   more: "Mer",
   datamodel: "Datamodell",
 };
+bindEditActions(document,()=>ui.view!=="budget");
 const actor = () =>
   data.currentUser?.name ||
   data.currentUser?.displayName ||
@@ -555,7 +555,6 @@ function placeViewActions() {
   const actionSelectors={
     plan:".plan-mobile-actions [data-new-issue]",
     objects:".section-title > [data-new-object]",
-    businesses:".section-title > [data-edit='businesses'][data-id='']",
     people:".section-title > div > [data-edit][data-id='']"
   };
   if(actionSelectors[ui.view]){
@@ -568,8 +567,7 @@ function placeViewActions() {
   fallback.hidden=Boolean(slot)||!visible;
 }
 function render() {
-  const propertyTable = content.querySelector("table[data-row-groups]");
-  if (propertyTable) propertyTableState = readSmartTableState(propertyTable);
+  for(const table of content.querySelectorAll("table[data-list-key]"))listTableStates.set(table.dataset.listKey,readSmartTableState(table));
   resetViewActionPlacement();
   document.body.dataset.view=ui.view;
   const filterState=filterPresentation(ui.view,selection,ui.contractId,ui.showScopedFilters);
@@ -597,9 +595,13 @@ function render() {
   const local=portfolioLocal();
   const portfolioView=isPortfolioView()?portfolioScope(data,selection,local):null;
   const viewUi=portfolioView?{...ui,portfolioView}:ui;
-  const searchLabels={properties:'Sök fastigheter eller avtal',map:'Sök fastigheter eller avtal',contracts:'Sök avtal eller hyresgäst',activities:'Sök ärenden'};
+  const searchLabels={properties:'Sök fastigheter eller avtal',map:'Sök fastigheter eller avtal',contracts:'Sök avtal eller hyresgäst',objects:'Sök objekt, fastighet eller avtal',activities:'Sök ärenden'};
   filterArea.innerHTML = filterState.show ? filters(data, portfolioView?{...selection,q:local.q}:selection, ui.view === "overview" ? ui.dashboardMode : undefined,
-    portfolioView?{personLabel:'Fastighetsansvarig',searchLabel:searchLabels[ui.view],searchView:local.view,placeholder:searchLabels[ui.view]}:{}) : "";
+    portfolioView?{personLabel:'Fastighetsansvarig',searchLabel:searchLabels[ui.view],searchView:local.view,placeholder:searchLabels[ui.view],contextFilters:ui.view==="activities"?[
+      {key:'type',caption:'Typ',selected:ui.issueType,items:[{id:'Alla',label:'Alla typer'},...[...new Set([...activityChoices(data,'type').map(row=>row.value),...(data.activities||[]).map(row=>row.type).filter(Boolean)])].map(value=>({id:value,label:value}))]},
+      {key:'status',caption:'Status',selected:issueFilters.status,items:[{id:'open',label:'Öppna'},{id:'all',label:'Alla statusar'},{id:'closed',label:'Avslutade'}]},
+      {key:'person',caption:'Ärendeansvarig',selected:issueFilters.person,items:data.people.map(row=>({id:row.id,label:row.name}))}
+    ]:[]}:{}) : "";
   filterArea.hidden = !filterState.show;
   document.querySelector("#summary").innerHTML = ["sources", "people", "businesses", "settings", "more", "datamodel"].includes(
     ui.view,
@@ -633,16 +635,14 @@ function render() {
     const perspective={properties:"Fastigheter",contracts:"Avtal",activities:"Ärenden"}[ui.view];
     content.innerHTML = overview(data, selection, {
       ...viewUi,
-      issueFilterToolbar:ui.view==="activities"?`<div class="portfolio-issue-filters"><label>Status<select data-portfolio-issue="status"><option value="open" ${issueFilters.status==="open"?"selected":""}>Öppna</option><option value="all" ${issueFilters.status==="all"?"selected":""}>Alla</option><option value="closed" ${issueFilters.status==="closed"?"selected":""}>Avslutade</option></select></label><label>Ärendeansvarig<select data-portfolio-issue="person"><option value="">Alla ärendeansvariga</option>${data.people.map(person=>`<option value="${esc(person.id)}" ${issueFilters.person===person.id?"selected":""}>${esc(person.name)}</option>`).join("")}</select></label></div>`:"",
+      hideIssueTypeButtons:true,
       perspective,
       hidePerspectiveTabs:true,
       year:new Date().getFullYear(),
     });
   }
-  const nextPropertyTable = content.querySelector("table[data-row-groups]");
-  if (nextPropertyTable && ui.view === "properties") restoreSmartTableState(nextPropertyTable, propertyTableState);
-  if(ui.view==='objects')content.innerHTML=objectList(data,selection);
-  if(ui.view==='businesses')content.innerHTML=businessList(data);
+  if(ui.view==='objects')content.innerHTML=objectList(data,selection,viewUi);
+  for(const table of content.querySelectorAll("table[data-list-key]"))restoreSmartTableState(table,listTableStates.get(table.dataset.listKey));
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
   if (ui.view === "budget") content.innerHTML = budget(data, selection, ui) + recurringCostPanel(data, ui.year, scope(data, selection), canEdit());
   if (ui.view === "budget") bindBudget();
@@ -650,7 +650,7 @@ function render() {
   if (ui.view === "datamodel") { content.innerHTML = relationshipView(data); bindRelationshipView(data); }
   if (ui.view === "settings") content.innerHTML = activityOptionSettings(data)+economicSettings(data, ui);
   if (ui.view === "people") content.innerHTML = organization(data);
-  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","businesses","activities","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
+  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","activities","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
     content.innerHTML =
       '<div class="section-title map-heading"><h2>Fastigheter i aktuellt urval</h2></div><div id="property-map" aria-label="Fastigheter på karta"></div><p class="map-help">Välj en markör för avtal, nyckeltal och öppna ärenden. Välj sedan en länk för detaljer.</p>';
@@ -692,6 +692,10 @@ function render() {
   document.querySelector("#add").textContent =
     ui.view==="activities" ? "Nytt ärende" : "Lägg till";
   placeViewActions();
+  if(ui.view!=="budget"){
+    decorateEditActions(document);
+    if(!canEdit())content.querySelectorAll("[data-edit-mode=edit]").forEach(button=>button.disabled=true);
+  }
 }
 async function mutation(change, { automatic = false, manualPositionIds = [], responsibilityDate } = {}) {
   if (busy) throw Error("En ändring sparas redan");
@@ -1001,7 +1005,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
     (document.activeElement?.closest('.property-list')?{collection:col,id}:null);
   if(editor&&!closeEditor())return;
   pendingPlanSelection=null;
-  const result = editorHtml(data, col, id, transport.company(), defaults);
+  const result = editorHtml(data, col, id, transport.company(), defaults,{portfolio:ui.view!=="budget"});
   editor = { col, id, defaults:clone(defaults), record: result.record,trail,
     selection:clone(navigation.selection||previous?.selection||selection),
     source:clone(navigation.source||previous?.source||recordSource()),returnFocus,propertyListFocus };
@@ -1054,7 +1058,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
   }
   if(form&&ui.view!=="budget"){
     editor.workspace=mountWorkspace(root,{data:()=>data,collection:col,id,selection:editor.selection,source:editor.source,canEdit:canEdit(),saved:navigation.saved});
-    if(navigation.tab)editor.workspace?.setTab(navigation.tab);
+    if(navigation.tab||navigation.editing)editor.workspace?.setTab(navigation.tab||'info');
     form.querySelector(':scope > .section-title')?.insertAdjacentHTML('beforebegin',recordBreadcrumb(data,col,result.record,trail));
   }
   if(col==="activities"&&ui.view!=="budget")mountCompactIssue(root,{isNew:!id});
@@ -1064,7 +1068,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
     root.addEventListener("input",updateEditorActions);
     root.addEventListener("change",updateEditorActions);
     updateEditorActions();
-    if(id)setEditorReadMode(true);
+    if(id)setEditorReadMode(!(navigation.editing&&ui.view!=="budget"));
   }
   document.body.classList.add("editing");
   if (col === "properties"&&(!editor.workspace||editor.workspace.state.tab==="info")) {
@@ -1396,7 +1400,7 @@ document.addEventListener("click", (event) =>
     if (b.dataset.tool) document.getElementById(b.dataset.tool)?.click();
     if (b.dataset.view) {
       pendingPlanSelection=null;
-      ui.view = b.dataset.view;
+      ui.view = b.dataset.view==="businesses"?"contracts":b.dataset.view;
       ui.showScopedFilters = false;
       if (ui.view==="properties")ui.perspective="Fastigheter";
       if (ui.view==="contracts")ui.perspective="Avtal";
@@ -1479,7 +1483,7 @@ document.addEventListener("click", (event) =>
         }));
       return;
     }
-    if (b.hasAttribute("data-edit")) openEditor(b.dataset.edit, b.dataset.id);
+    if (b.hasAttribute("data-edit")) openEditor(b.dataset.edit, b.dataset.id,{}, {editing:b.dataset.editMode==="edit"});
     if (b.hasAttribute("data-editor-close")) closeEditor();
     if (b.dataset.editorTab) {
       document
@@ -1728,7 +1732,7 @@ document.addEventListener("change", (event) =>
       return;
     }
     if (x.dataset.contextFilter&&editor?.workspace) {editor.workspace.apply(x.dataset.contextFilter,x.value);return;}
-    if (x.dataset.portfolioIssue) {issueFilters[x.dataset.portfolioIssue]=x.value;render();return;}
+    if (x.dataset.portfolioIssue) {if(x.dataset.portfolioIssue==='type')ui.issueType=x.value||'Alla';else issueFilters[x.dataset.portfolioIssue]=x.value||(x.dataset.portfolioIssue==='status'?'open':'');render();return;}
     if(x.dataset.portfolioSearchView){
       const sourceView=x.dataset.portfolioSearchView;
       searches[sourceView]=x.value;
@@ -1773,7 +1777,7 @@ document.addEventListener("change", (event) =>
     if (x.dataset.activityYearAmount) {
       await mutation(d => {
         const activity = d.activities.find(a => String(a.id) === String(x.dataset.activityYearAmount));
-        if (!activity) throw Error("Aktiviteten saknas");
+        if (!activity) throw Error(ui.view==="budget"?"Aktiviteten saknas":"Ärendet saknas");
         const year = Number(x.dataset.allocationYear);
         if (!Number.isInteger(year) || year < 2000 || year > 2200) throw Error("Ogiltigt budgetår");
 
@@ -1848,7 +1852,7 @@ document.addEventListener("submit", (event) => {
   if (event.target.id !== "edit-form") return;
   event.preventDefault();
   run(async () => {
-    if(editor?.readOnly)throw Error("Tryck på Redigera innan du ändrar och sparar.");
+    if(editor?.readOnly)throw Error(ui.view==="budget"?"Tryck på Redigera innan du ändrar och sparar.":"Aktivera redigering med pennan innan du sparar.");
     const next = readEditor(event.target, editor.record),
       col = editor.col,
       id = editor.id,

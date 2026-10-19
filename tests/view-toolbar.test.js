@@ -75,12 +75,6 @@ test("actions survive rerender and move to the search row or context fallback", 
   assert.equal(local[0].parent,toolbar);
 
   helpers.resetViewActionPlacement();
-  view="businesses";local=[new FakeNode("business")];
-  helpers.placeViewActions();
-  assert.match(lastSelector,/businesses/);
-  assert.equal(local[0].parent,toolbar);
-
-  helpers.resetViewActionPlacement();
   view="people";local=[new FakeNode("person"),new FakeNode("organization"),new FakeNode("assignment")];
   helpers.placeViewActions();
   assert.match(lastSelector,/data-edit/);

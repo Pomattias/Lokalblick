@@ -27,14 +27,15 @@ export const units = {
 export const calc = () => globalThis.LokalblickCalculations;
 const edit = (col, id, label = "Ändra") =>
   `<button data-edit="${esc(col)}" data-id="${esc(id)}">${label}</button>`;
-const table = (head, rows, interactive = false, heading = "", grouped = false) => {
-  const mobileSort = grouped ? `<label class="property-list-sort">Sortera<select data-table-sort aria-label="Sortera fastigheter">${head.slice(0,-1).map((label,index)=>["asc","desc"].map(direction=>`<option value="${index}:${direction}">${esc(label)} · ${direction === "asc" ? "stigande" : "fallande"}</option>`).join("")).join("")}</select></label>` : "";
-  const empty = `<tr><td colspan="${head.length}" class="empty">Inga ${grouped ? "fastigheter" : "poster"} i aktuellt urval.</td></tr>`;
-  const bodies = grouped ? rows.join("") + `<tbody data-table-empty${rows.length ? " hidden" : ""}>${empty}</tbody>` : `<tbody>${rows.length ? rows.join("") : empty}</tbody>`;
-  return `<div class="table-wrap${interactive?" compact-data-table":""}${grouped?" property-list":""}">${interactive?`<div class="compact-table-heading"><strong>${esc(heading)}</strong><span${grouped?' data-table-count aria-live="polite"':''}>${rows.length} ${grouped?"fastigheter":"poster"}</span><button type="button" data-toggle-column-filters aria-label="Visa kolumnfilter" title="Visa kolumnfilter"${grouped?' aria-expanded="false"':''}>${grouped?"Kolumnfilter":"⚑"}</button></div>`:""}${mobileSort}<table${interactive?' data-smart-table="1"':""}${grouped?' data-row-groups aria-label="Fastigheter"':''}><thead><tr>${head.map((x,i) => `<th scope="col">${interactive && x ? `<button type="button" class="column-sort" data-column-sort="${i}" aria-label="Sortera på ${esc(x)}">${esc(x)} <span aria-hidden="true">↕</span></button>` : x}</th>`).join("")}</tr>${interactive?`<tr class="column-filters" hidden>${head.map((x,i)=>`<th${grouped?` data-label="${esc(x)}"`:""}>${x && i<head.length-1 ? `<input type="search" data-column-filter="${i}" aria-label="Filtrera ${esc(x)}" placeholder="Filtrera" autocomplete="off">`:""}</th>`).join("")}</tr>`:""}</thead>${bodies}</table></div>`;
+const table = (head, rows, interactive = false, heading = "", grouped = false, presentation = {}) => {
+  const portfolio=Boolean(presentation.key),noun=presentation.noun||'poster';
+  const mobileSort = grouped||portfolio ? `<label class="property-list-sort${portfolio?' table-sort':''}">Sortera<select data-table-sort aria-label="Sortera ${portfolio?noun:'fastigheter'}">${head.map((label,index)=>label?["asc","desc"].map(direction=>`<option value="${index}:${direction}">${esc(label)} · ${direction === "asc" ? "stigande" : "fallande"}</option>`).join(""):'').join("")}</select></label>` : "";
+  const empty = `<tr${portfolio&&!grouped?` data-table-empty${rows.length?' hidden':''}`:''}><td colspan="${head.length}" class="empty">Inga ${portfolio?noun:grouped?'fastigheter':'poster'} i aktuellt urval.</td></tr>`;
+  const bodies = grouped ? rows.join("") + `<tbody data-table-empty${rows.length ? " hidden" : ""}>${empty}</tbody>` : `<tbody>${rows.length?rows.join('')+(portfolio?empty:''):empty}</tbody>`;
+  return `<div class="table-wrap${interactive?" compact-data-table":""}${grouped?" property-list":""}${portfolio?' portfolio-list':''}">${interactive?`<div class="compact-table-heading"><strong>${esc(heading)}</strong><span${grouped||portfolio?' data-table-count aria-live="polite"':''}>${rows.length} ${portfolio?noun:grouped?"fastigheter":"poster"}</span><button type="button" data-toggle-column-filters aria-label="Visa kolumnfilter" title="Visa kolumnfilter"${grouped||portfolio?' aria-expanded="false"':''}>${grouped||portfolio?"Kolumnfilter":"⚑"}</button></div>`:""}${mobileSort}<table${interactive?' data-smart-table="1"':''}${portfolio?` data-list-key="${esc(presentation.key)}" data-table-noun="${esc(noun)}"`:''}${grouped?' data-row-groups aria-label="Fastigheter"':''}><thead><tr>${head.map((x,i) => `<th scope="col">${interactive && x ? `<button type="button" class="column-sort" data-column-sort="${i}" aria-label="Sortera på ${esc(x)}">${esc(x)} <span aria-hidden="true">↕</span></button>` : x}</th>`).join("")}</tr>${interactive?`<tr class="column-filters" hidden>${head.map((x,i)=>`<th${grouped||portfolio?` data-label="${esc(x)}"`:""}>${x && i<head.length-1 ? `<input type="search" data-column-filter="${i}" aria-label="Filtrera ${esc(x)}" placeholder="Filtrera" autocomplete="off">`:""}</th>`).join("")}</tr>`:""}</thead>${bodies}</table></div>`;
 };
-const row = (cells) =>
-  `<tr>${cells.map((x, i) => `<td${i === 0 ? ' class="primary-cell"' : ""}>${x}</td>`).join("")}</tr>`;
+const row = (cells,sortValues={}) =>
+  `<tr>${cells.map((x, i) => `<td${i === 0 ? ' class="primary-cell"' : ""}${Object.hasOwn(sortValues,i)?` data-sort-value="${esc(sortValues[i])}"`:''}>${x}</td>`).join("")}</tr>`;
 const badge = (x) =>
   `<span class="badge ${/kontroll|Prelim|saknas|Ej /.test(x) ? "warning" : ""}">${esc(x || "–")}</span>`;
 export function options(items, value, label, selected = "", empty = "Alla") {
@@ -69,13 +70,14 @@ export function filters(data, s, dashboardMode, presentation = {}) {
     if (p.ownerPartyId)
       owners.set(p.ownerPartyId, organizationLabel(data, p.ownerPartyId));
   });
-  const chip=(key,caption,items,value,label,selected)=>{
+  const chip=(key,caption,items,value,label,selected,binding='data-filter')=>{
     const name=items.find(item=>String(value(item))===String(selected));
     const selectedName=name?label(name):selected;
-    return `<label class="filter-chip${selected?' is-selected':''}"><span class="filter-caption">${esc(caption)}</span><span class="filter-value" aria-hidden="true">${esc(selected?selectedName:caption)}</span><select aria-label="${esc(caption)}" data-filter="${key}">${options(items,value,label,selected,caption)}</select></label>`;
+    return `<label class="filter-chip${selected?' is-selected':''}"><span class="filter-caption">${esc(caption)}</span><span class="filter-value" aria-hidden="true">${esc(selected?selectedName:caption)}</span><select aria-label="${esc(caption)}" ${binding}="${key}">${options(items,value,label,selected,caption)}</select></label>`;
   };
+  const contextFilters=(presentation.contextFilters||[]).map(filter=>chip(filter.key,filter.caption,filter.items,x=>x.id,x=>x.label,filter.selected,'data-portfolio-issue')).join('');
   const modeButtons = dashboardMode !== undefined ? [["person","Medarbetare"],["unit","Verksamhet"],["owner","Fastighetsägare"]].map(([key,label]) => `<button type="button" class="filter-chip dashboard-mode-button${dashboardMode===key?" active":""}" data-dashboard-mode="${key}" aria-pressed="${dashboardMode===key}">${label}</button>`).join("") : null;
-  return `<div class="filters${modeButtons!==null?" dashboard-mode-filters":""}">${modeButtons!==null?modeButtons:chip('person',presentation.personLabel||'Ansvarig',internalPeople(data),x=>x.id,x=>x.name,s.person)+chip('unit','Verksamhet',Object.entries(units),x=>x[0],x=>x[1],s.unit)+chip('owner','Fastighetsägare',[...owners],x=>x[0],x=>x[1],s.owner)}<div class="ui-search-action-row"><label class="search ui-search"><span class="visually-hidden">${esc(presentation.searchLabel||"Sök")}</span><svg class="ui-search-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.6"></circle><path d="m16 16 5 5"></path></svg><input data-filter="q"${presentation.searchView?` data-portfolio-search-view="${esc(presentation.searchView)}"`:""} type="search" value="${esc(s.q)}" placeholder="${esc(presentation.placeholder||"Adress, avtal eller verksamhet")}"></label><div class="ui-filter-actions-slot"></div></div></div>`;
+  return `<div class="filters${modeButtons!==null?" dashboard-mode-filters":""}">${modeButtons!==null?modeButtons:chip('person',presentation.personLabel||'Ansvarig',internalPeople(data),x=>x.id,x=>x.name,s.person)+chip('unit','Verksamhet',Object.entries(units),x=>x[0],x=>x[1],s.unit)+chip('owner','Fastighetsägare',[...owners],x=>x[0],x=>x[1],s.owner)}${contextFilters}<div class="ui-search-action-row"><label class="search ui-search"><span class="visually-hidden">${esc(presentation.searchLabel||"Sök")}</span><svg class="ui-search-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.6"></circle><path d="m16 16 5 5"></path></svg><input data-filter="q"${presentation.searchView?` data-portfolio-search-view="${esc(presentation.searchView)}"`:""} type="search" value="${esc(s.q)}" placeholder="${esc(presentation.placeholder||"Adress, avtal eller verksamhet")}"></label><div class="ui-filter-actions-slot"></div></div></div>`;
 }
 // Treat the cadastral designation and street address as independent values.
 export const propertyDesignation = property => String(property?.designation || "").trim();
@@ -173,6 +175,12 @@ export function summary(data, s, year, ui = {}) {
     : ui.view === "activities" ? "Ärenden"
     : ui.perspective || "Fastigheter";
   const rent = ui.portfolioView ? rentalTotals(data,view.contracts,year) : rentMetrics(data, view.contracts, year);
+  if(ui.view==='objects')return summaryCards([
+    ['Objekt',num((view.objects||[]).length)],
+    ['Fastigheter',num(view.properties.length)],
+    ['Avtal',num(view.contracts.length)],
+    ['Objektarea',num((view.objects||[]).reduce((sum,object)=>sum+(Number(object.area)||0),0))+' m²'],
+  ]);
   if (ui.view === "overview") {
     const insights=buildPortfolioInsights(data,s,year,ui.dashboardMode||"");
     return summaryCards([
@@ -180,8 +188,8 @@ export function summary(data, s, year, ui = {}) {
       ["Avtal",num(view.contracts.length)+" st"],
       ["Avtalad yta",num(insights.area)+" m²"],
       ["Fastigheter",num(view.properties.length)+" st"],
-      ["Aktiviteter · kr",money(insights.activityCost),"Bedömd totalkostnad, samtliga år"],
-      ["Aktiviteter · antal",num(view.items.length)+" st"],
+      ["Ärenden · kr",money(insights.activityCost),"Bedömd totalkostnad, samtliga år"],
+      ["Ärenden · antal",num(view.items.length)+" st"],
     ]);
   }
 
@@ -282,13 +290,13 @@ function contractRows(data, contracts, year, portfolio = false) {
       esc(c.end||"–"),
       esc(c.noticePeriodMonths==null||c.noticePeriodMonths===""?"–":c.noticePeriodMonths+" mån"),
       `<button class="table-pencil" data-edit="contracts" data-id="${esc(c.id)}" aria-label="Redigera avtal ${esc(c.number||c.id)}" title="Redigera">✎</button>`
-    ]);
+    ],portfolio?{3:area,4:v.rent.amount,5:v.addition.amount,6:area?v.rent.amount/area:0,8:Number(c.noticePeriodMonths)||0}:{});
   });
 }
 export function dashboard(data, selection, year, mode = "") {
   return portfolioDashboard(data, selection, year, mode);
 }
-function activityRows(data, items) {
+function activityRows(data, items, portfolio=false) {
   return items.map(x => {
     const property = propertyById(data, x.propertyId);
     const notes=(data.auditLog||[]).filter(h=>h.collection==="activities"&&String(h.recordId)===String(x.record.id)&&h.action==="Journalanteckning").sort((a,b)=>String(b.at||"").localeCompare(String(a.at||"")));
@@ -302,7 +310,7 @@ function activityRows(data, items) {
       badge(x.record.status),
       money(x.cost),
       edit(x.collection, x.record.id),
-    ]);
+    ],portfolio?{5:x.cost}:{});
   });
 }
 // Presentation only: current responsibility links and the existing cost calculation
@@ -335,7 +343,7 @@ function propertyListGroup(data, p, contracts, year, portfolioView) {
     <td data-sort-value="${contracts.length}">${num(contracts.length)} avtal${subset?`<small>av ${num(totalContracts)} totalt</small>`:""}</td>
     <td data-sort-value="${area}">${num(area)} m²</td>
     <td data-sort-value="${portfolioView?cost.rent:cost.annualCost}"><span title="${portfolioView?"Avtalshyra för avtalen i aktuellt urval":"Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder. Avser hela fastigheten."}">${money(portfolioView?cost.rent:cost.annualCost)}</span>${cost.needsReview?`<small class="rent-needs-review">${cost.needsReview} avtal behöver kontroll</small>`:""}${cost.preliminary?`<small>${cost.preliminary} preliminära index</small>`:""}</td>
-    <td><button type="button" class="property-list-toggle" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj avtal och ansvariga för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button></td>
+    <td>${portfolioView?edit("properties",p.id):""}<button type="button" class="property-list-toggle" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj avtal och ansvariga för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button></td>
   </tr><tr data-group-detail hidden><td colspan="7"><div id="${esc(detailId)}" class="property-list-relations" role="region" aria-label="Avtal och ansvariga för ${esc(title)}">${contacts}${agreements}</div></td></tr></tbody>`;
 }
 export function overview(data, s, ui) {
@@ -357,6 +365,7 @@ export function overview(data, s, ui) {
       true,
       "Fastigheter",
       true,
+      ui.portfolioView?{key:"properties",noun:"fastigheter"}:{},
     );
   } else if (ui.perspective === "Avtal") {
     body = table(
@@ -364,6 +373,7 @@ export function overview(data, s, ui) {
       contractRows(data, v.contracts, ui.year, Boolean(ui.portfolioView)),
       true,
       ui.portfolioView?"Gällande avtal":"Avtal",
+      false,ui.portfolioView?{key:"contracts",noun:"avtal"}:{},
     );
     if(ui.portfolioView){
       const history=(v.allContracts||[]).filter(contract=>contractPhase(data,contract)!=='current');
@@ -372,26 +382,27 @@ export function overview(data, s, ui) {
         history.map(contract=>{
           const property=data.properties.find(row=>row.id===contract.propertyId),object=(data.objects||[]).find(row=>row.id===contract.objectId);
           return `<tr><td>${esc(propertyReference(property||{}))}</td><td>${esc(object?.number||object?.name||'–')}</td><td><button type="button" class="text-button" data-edit="contracts" data-id="${esc(contract.id)}">${esc(contract.number||'Nummer saknas')}</button></td><td>${esc(tenantName(data,contract))}</td><td>${esc(contract.start||'Start saknas')} – ${esc(contract.end||'Tills vidare')}</td></tr>`;
-        }),true,"Tidigare och kommande avtal")}</details>`;
+        }),true,"Tidigare och kommande avtal",false,{key:"contracts-history",noun:"avtal"})}</details>`;
     }
   } else
     body = table(
-      ["Aktivitet", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", ""],
+      ["Ärende", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", ""],
       activityRows(
         data,
         v.items.filter((x) => ui.perspective === "Ärenden" &&
           (selectedType === "Alla" || x.record.type === selectedType)),
+        Boolean(ui.portfolioView),
       ),
       true,
-      "Ärenden",
+      "Ärenden",false,ui.portfolioView?{key:"activities",noun:"ärenden"}:{},
     );
-  const typeButtons = ui.perspective === "Ärenden" ?
+  const typeButtons = ui.perspective === "Ärenden"&&!ui.hideIssueTypeButtons ?
     `<div class="issue-type-filters" aria-label="Filtrera ärenden">${typeChoices.map(type=>`<button type="button" data-issue-type="${esc(type)}" class="${selectedType===type?"active":""}" aria-pressed="${selectedType===type}">${esc(type)}</button>`).join("")}</div>`:"";
   const header=ui.hidePerspectiveTabs && !s.propertyId ?
-    ({Fastigheter:"Fastigheter",Avtal:"Avtal","Ärenden":"Aktiviteter"}[ui.perspective]||title) : title;
+    ({Fastigheter:"Fastigheter",Avtal:"Avtal","Ärenden":"Ärenden"}[ui.perspective]||title) : title;
   const perspectiveTabs=ui.hidePerspectiveTabs ? "" :
     `<div class="tabs">${tabs.map((x) => `<button data-perspective="${x}" class="${ui.perspective === x ? "active" : ""}">${x}</button>`).join("")}</div>`;
-  return `<div class="section-title"><h2>${esc(header)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div>${perspectiveTabs}${ui.issueFilterToolbar||""}${typeButtons}${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year) : ""}`;
+  return `<div class="section-title"><h2>${esc(header)}</h2>${s.propertyId ? "<button data-clear-property>Visa hela urvalet</button>" : ""}</div>${perspectiveTabs}${typeButtons}${body}${ui.contractId ? contractDetail(data, ui.contractId, ui.year,{portfolio:Boolean(ui.portfolioView)}) : ""}`;
 }
 function contractIndexBreakdown(c, name, v, rawShare) {
   const amount = v.status === "Behöver kontroll" && v.amount <= 0
@@ -410,7 +421,7 @@ function contractIndexBreakdown(c, name, v, rawShare) {
   return `<tr><th scope="row">${esc(name)}</th><td>${money(v.base)}</td><td>${esc(basisText)}</td><td>${esc(share)}</td><td>${esc(indexText)}</td><td><strong>${esc(amount)}</strong></td><td>${badge(v.status)}</td></tr>`;
 }
 const indexFormat = v => new Intl.NumberFormat("sv-SE", {maximumFractionDigits:4}).format(Number(v)||0);
-export function contractDetail(data, id, year) {
+export function contractDetail(data, id, year, presentation={}) {
   const c=data.contracts.find((x)=>x.id===id);
   if(!c)return "";
   const p=data.properties.find((x)=>x.id===c.propertyId)||{};
@@ -444,7 +455,7 @@ export function contractDetail(data, id, year) {
 
   <p>${doc.status==="ready"?`<a href="${esc(doc.href)}" target="_blank" rel="noopener noreferrer">${esc(doc.label)}</a>`:esc(doc.label)} <small>${esc(doc.name)}</small></p>
   <h3>Beställningar</h3>
-  ${table(["Aktivitet","Leverantör","Beställt","Utfall","Status",""],orders.map((o)=>{const a=acts.find((x)=>x.id===o.activityId)||{};return row([esc(a.title||o.activityId),esc(o.supplier),money(o.orderedCost),money(o.finalCost),esc(o.paymentStatus||o.completedAt||""),edit("orders",o.id)]);}))}
+  ${table([presentation.portfolio?"Ärende":"Aktivitet","Leverantör","Beställt","Utfall","Status",""],orders.map((o)=>{const a=acts.find((x)=>x.id===o.activityId)||{};return row([esc(a.title||o.activityId),esc(o.supplier),money(o.orderedCost),money(o.finalCost),esc(o.paymentStatus||o.completedAt||""),edit("orders",o.id)]);}))}
   <details><summary>Värdenas ursprung</summary>${table(["Fält","Värde","Källa","Rad"],Object.entries(c.provenance||{}).map(([field,x])=>row([esc(field),esc(x.value),esc(x.source),esc(x.row)])))}</details>
   ${edit("contracts",c.id,"Ändra avtal")}</section>`;
 }
@@ -613,9 +624,18 @@ export const categories = [
   "Driftkostnader",
   "Utredningar",
 ];
-export function objectList(data,s){
-  const view=scope(data,s);
-  return `<div class="section-title"><h2>Objekt i aktuellt urval</h2><button data-new-object>Nytt objekt</button></div>${table(['Objekt','Fastighet','Objektarea','Giltighet','Avtal',''],(view.objects||[]).map(o=>row([esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)+(String(o.id||"").startsWith("OBJ|")&&!o.number?'<small>Kontrollera objektnummer och koppling</small>':''),esc(propertyReference(data.properties.find(p=>p.id===o.propertyId))),num(o.area)+' m²',esc((o.start||'Ej angivet')+' – '+(o.end||'tills vidare')),data.contracts.filter(c=>c.objectId===o.id).map(c=>`<button data-object-contract="${esc(c.id)}">${esc(c.number||c.id)}</button>`).join(' '),edit('objects',o.id)])))}`;
+export function objectList(data,s,ui={}){
+  const view=ui.portfolioView||scope(data,s);
+  const rows=objects=>objects.map(o=>row([
+    `<button type="button" class="text-button" data-edit="objects" data-id="${esc(o.id)}">${esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)}</button>`+(String(o.id||"").startsWith("OBJ|")&&!o.number?'<small>Kontrollera objektnummer och koppling</small>':''),
+    esc(propertyReference(data.properties.find(p=>p.id===o.propertyId))),num(o.area)+' m²',
+    esc((o.start||'Ej angivet')+' – '+(o.end||'tills vidare')),
+    view.contracts.filter(c=>c.objectId===o.id).map(c=>`<button type="button" class="text-button" data-object-contract="${esc(c.id)}">${esc(c.number||c.id)}</button>`).join(' ')||'Inget gällande avtal',
+    edit('objects',o.id)
+  ],ui.portfolioView?{2:Number(o.area)||0}:{}));
+  const list=(objects,key,title)=>table(['Objekt','Fastighet','Objektarea','Giltighet','Avtal',''],rows(objects),true,title,false,ui.portfolioView?{key,noun:'objekt'}:{});
+  const history=ui.portfolioView?(view.allObjects||[]).filter(o=>!view.objects.includes(o)):[];
+  return `<div class="section-title"><h2>Objekt</h2><button data-new-object>Nytt objekt</button></div>${list(view.objects||[],'objects','Gällande objekt')}${history.length?`<details class="portfolio-record-history"><summary>Tidigare och kommande objekt · ${history.length}</summary>${list(history,'objects-history','Tidigare och kommande objekt')}</details>`:''}`;
 }
 export function budget(data,s,ui) {
   const scoped=Boolean(s.propertyId||s.unit||s.owner||s.person||s.q),view=scope(data,s);
@@ -722,7 +742,7 @@ const importFieldLabel = (field,collection) => globalThis.LokalblickSourceServic
 const sourceKindLabel = (kind) =>
   ({
     "core-import": "Grunddata",
-    "operational-enrichment": "Fastigheter & aktiviteter",
+    "operational-enrichment": "Fastigheter & ärenden",
     "contract-enrichment": "Avtalsberikning",
     "external-import": "Extern Excelkälla",
   })[kind] || kind || "";
@@ -810,7 +830,7 @@ function reviewSuggestion(data,x) {
     return {side:"current",title:"Inte en fastighetsbeteckning",detail:"Texten från filen ser ut att vara en kommentar."};
   if(x.field==="ownerPartyId") return {side:"",title:"Kontrollera juridiskt bolag",detail:"Liknande företagsnamn innebär inte att fastighetsägaren är samma juridiska part."};
   if(x.collection==="activities" && ["title","estimatedCost","name"].includes(x.field))
-    return {side:"",title:"Kan vara två skilda aktiviteter",detail:"Jämför källrad och arbetsbeskrivning innan du väljer."};
+    return {side:"",title:"Kan vara två skilda ärenden",detail:"Jämför källrad och arbetsbeskrivning innan du väljer."};
   return null;
 }
 function reviewConflictCard(data,x) {
@@ -871,7 +891,7 @@ function reviewStandardCard(data,x) {
   if(x.kind==='invalid-import-field')return `<article class="review review-card"><h3>Värdet behöver rättas</h3><p>${esc(x.source)} · ${esc(x.provenance?.sheet||'')} · ${esc(x.provenance?.cell||'')}</p><p>${esc(fieldCaption(x.collection,x.field))}: ${esc(x.provenance?.originalValue??'')} · ${esc(x.reason)}</p><p>Rätta värdet i underlaget och läs in på nytt.</p><button data-review="${esc(x.id)}" data-decision="reject">Ignorera detta värde</button></article>`;
   if(x.kind==='mapped-identity')return `<article class="review review-card"><h3>Identifiera importerad post</h3><p>${esc(x.source)} · ${esc(x.sheet)} rad ${esc(x.row)} · ${esc(x.reason)}</p>${importRecordPreview(x.values)}<label>Koppla till befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(data[x.collection]||[]).map(r=>`<option value="${esc(r.id)}">${esc([r.address,r.designation,r.city,r.number,r.tenantName,r.name,r.title,r.area?num(r.area)+' m²':''].filter(Boolean).join(' · '))}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Koppla och berika</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;
   const titles={match:"Matcha importerat avtal",record:"Koppla importerad post",
-    "activity-property":"Koppla aktivitet till fastighet","property-match":"Matcha fastighet via adress",person:"Komplettera person"};
+    "activity-property":"Koppla ärende till fastighet","property-match":"Matcha fastighet via adress",person:"Komplettera person"};
   const isMatch=["record","activity-property","property-match","match"].includes(x.kind);
   const preview=isMatch?`<section class="review-source-record"><strong>Inläst post – ${esc(reviewIncomingSource(x))}</strong>${importRecordPreview(x.record)}</section>`:
     `<p>${esc([x.personName,x.message].filter(Boolean).join(" · "))}</p>`;
@@ -905,7 +925,7 @@ function priorityPanel(data,reviews){
     const key=encodeURIComponent(JSON.stringify([row.collection,row.field,row.source]));
     const prev=[...row.previous].join(" / ");
     return `<div class="source-priority-row">
-      <div><strong>${esc(importFieldLabel(row.field,row.collection))}</strong><small>${row.count} konflikter · ${esc(row.collection==="properties"?"Fastighet":row.collection==="contracts"?"Avtal":row.collection==="objects"?"Objekt":"Aktivitet")}</small></div>
+      <div><strong>${esc(importFieldLabel(row.field,row.collection))}</strong><small>${row.count} konflikter · ${esc(row.collection==="properties"?"Fastighet":row.collection==="contracts"?"Avtal":row.collection==="objects"?"Objekt":"Ärende")}</small></div>
       <label>Prioriterad källa
         <select data-priority-choice="${esc(key)}"><option value="">Välj källa</option>
           <option value="reject">Behåll tidigare (${esc(prev.length>80?"Registrerat i Lokalblick":prev)})</option>
@@ -936,9 +956,9 @@ export function sources(data, transport) {
   ).length;
   const missingResponsible = activities.filter(a=>!a.responsiblePersonId).length;
   const simplifiedQuality = '<section class="detail"><div class="section-title"><h3>Att komplettera</h3><button type="button" data-view="plan">Öppna Planera</button></div><p><strong>' +
-    missingHome + '</strong> aktiviteter utan hemvist · <strong>' +
+    missingHome + '</strong> ärenden utan hemvist · <strong>' +
     missingResponsible + '</strong> utan ansvarig · <strong>' +
-    reviews.length + '</strong> importärenden att granska.</p><small>Komplettera aktivitet och ansvar på ett ställe. Övriga vyer hämtar samma uppgifter.</small></section>';
+    reviews.length + '</strong> importärenden att granska.</p><small>Komplettera ärende och ansvar på ett ställe. Övriga vyer hämtar samma uppgifter.</small></section>';
 
   const allProperties = data.properties || [];
   const hasGeo = p => p.latitude != null && p.longitude != null && p.latitude !== "" && p.longitude !== "" &&
@@ -982,7 +1002,7 @@ export function sources(data, transport) {
       if(String(src.importedAt||"")>String(existing.importedAt))existing.importedAt=src.importedAt;
     }
   });
-  return workingState + simplifiedQuality + priorityPanel(data,reviews) + geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? `<div class="actions"><button data-source="import">Läs in underlag</button></div><p><small>Underlagen läses och granskas lokalt. Godkända uppgifter och historik sparas tillsammans i företagets backend.</small></p>` : `<div class="actions"><button data-source="import">Läs in underlag</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button></div><details><summary>Avancerade filåtgärder</summary><button data-source="blank">Ny tom Lokalblick-data</button><p><small>En tom arbetsfil innehåller ingen tidigare data.</small></p></details><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, aktiviteter, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
+  return workingState + simplifiedQuality + priorityPanel(data,reviews) + geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? `<div class="actions"><button data-source="import">Läs in underlag</button></div><p><small>Underlagen läses och granskas lokalt. Godkända uppgifter och historik sparas tillsammans i företagets backend.</small></p>` : `<div class="actions"><button data-source="import">Läs in underlag</button><button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button></div><details><summary>Avancerade filåtgärder</summary><button data-source="blank">Ny tom Lokalblick-data</button><p><small>En tom arbetsfil innehåller ingen tidigare data.</small></p></details><p><small>Importen läser kända flikar automatiskt. Fastigheter och avtal byggs eller matchas först; därefter berikas de med fastighetsägare, verksamhet, ansvariga, ekonomi, ärenden, beställningar och KPI när uppgifterna finns.</small></p>`}</section>${table(
     ["Källa", "Flik(ar)", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
     [...sourceGroups.values()].map(x =>
       row([

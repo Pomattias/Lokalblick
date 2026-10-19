@@ -22,7 +22,7 @@ test("overall dashboard has no active lens but splits rent by business and activ
  const html=portfolioDashboard(data,selection,2026);
  assert.match(html,/Hela lokalbeståndet/);
  assert.match(html,/Årshyra per verksamhet/);
- assert.match(html,/Aktiviteter per typ/);
+ assert.match(html,/Ärenden per typ/);
  assert.match(html,/data-dashboard-group="VARDBO"/);
  assert.match(html,/data-view="properties"/);
  assert.match(html,/dashboard-bar-row/);
@@ -68,7 +68,7 @@ test("renders data without modifying source records and leaves ordinary dropdown
 
 test("main dashboard reports kronor, agreement counts, floor area and activity totals",()=>{
  const html=summary(data,selection,2026,{view:"overview",dashboardMode:""}).replaceAll("\u00a0"," ");
- for(const text of ["Årshyra 2026","Avtal","Avtalad yta","200 m²","Aktiviteter · kr","Aktiviteter · antal","Fastigheter","410 000 kr"])assert.ok(html.includes(text),text);
+ for(const text of ["Årshyra 2026","Avtal","Avtalad yta","200 m²","Ärenden · kr","Ärenden · antal","Fastigheter","410 000 kr"])assert.ok(html.includes(text),text);
  for(const lens of ["","person","unit","owner"]){
    const result=buildPortfolioInsights(data,selection,2026,lens);
    assert.equal(result.activityCost,410000);

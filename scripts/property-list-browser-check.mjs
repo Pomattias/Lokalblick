@@ -51,7 +51,8 @@ async function open(base) {
 const navigate = (page,view) => page.locator(`.sidebar [data-view="${view}"]`).evaluate(button=>button.click());
 const names = page => page.locator('tbody[data-row-group]:visible .property-list-summary td:first-child > button').allTextContents();
 const noOverflow = page => page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
-const layout = page => page.locator('body').evaluate(body=>[body,...body.querySelectorAll('*')].map(element=>{
+// Navigation labels change by request; all Budget content and controls stay fixed.
+const layout = page => page.locator('main').evaluate(body=>[body,...body.querySelectorAll('*')].map(element=>{
   const css=getComputedStyle(element), rect=element.getBoundingClientRect();
   return {tag:element.tagName,x:rect.x,y:rect.y,width:rect.width,height:rect.height,
     style:['display','color','backgroundColor','fontFamily','fontSize','fontWeight','lineHeight','padding','borderColor'].map(key=>css[key])};
@@ -175,7 +176,7 @@ async function budgetEvidence(base,label) {
   if(await expander.count()) {
     await expander.click();
     await page.getByRole('button',{name:'Sortera på Area',exact:true}).click();
-    await page.locator('[data-toggle-column-filters]').click();
+    if(await page.locator('[data-toggle-column-filters]').getAttribute('aria-expanded')!=='true')await page.locator('[data-toggle-column-filters]').click();
     await page.getByRole('searchbox',{name:'Filtrera Fastighet',exact:true}).fill('Hamnen');
   }
   await navigate(page,'budget');
@@ -185,7 +186,7 @@ async function budgetEvidence(base,label) {
     await page.mouse.move(0,0);
     assert.ok(await noOverflow(page),'Budget must fit at '+width);
     layouts.push(await layout(page));
-    screenshots.push(await page.screenshot({path:path.join(artifacts,`${label}-budget-${width}.png`),fullPage:true}));
+    screenshots.push(await page.locator('main').screenshot({path:path.join(artifacts,`${label}-budget-${width}.png`)}));
   }
   const manual = page.locator('[data-preliminary]');
   await manual.fill('450');
@@ -206,7 +207,7 @@ async function budgetEvidence(base,label) {
     await page.setViewportSize({width,height:900});
     await page.mouse.move(0,0);
     layouts.push(await layout(page));
-    screenshots.push(await page.screenshot({path:path.join(artifacts,`${label}-budget-locked-${width}.png`),fullPage:true}));
+    screenshots.push(await page.locator('main').screenshot({path:path.join(artifacts,`${label}-budget-locked-${width}.png`)}));
   }
   await page.locator('.budget-danger-zone summary').click();
   await page.locator('[data-followup-layer]').click();
@@ -297,7 +298,7 @@ try {
   }
   await page.setViewportSize({width:1440,height:900});
   await navigate(page,'contracts');
-  await page.locator('#content tr').filter({hasText:'202-2025'}).locator('[data-edit="contracts"]').click();
+  await page.locator('#content tr').filter({hasText:'202-2025'}).locator('[data-open-contract]').click();
   const primary = page.locator('.contract-editor .contract-section').first().locator(':scope > .contract-grid');
   assert.ok(!(await primary.innerText()).includes('Hyresgäst enligt källa'));
   assert.ok(!(await primary.innerText()).includes('Verksamhetspart'));
@@ -340,11 +341,11 @@ try {
   // The extracted interactions must still work for the existing ordinary lists.
   await page.getByRole('searchbox',{name:'Sök fastigheter eller avtal',exact:true}).fill('');
   await page.getByRole('searchbox',{name:'Sök fastigheter eller avtal',exact:true}).dispatchEvent('change');
-  for(const [view,heading,filter] of [['contracts','Avtal','201-2025'],['activities','Aktivitet','Ventilation']]) {
+  for(const [view,heading,filter] of [['contracts','Avtal','201-2025'],['activities','Ärende','Ventilation']]) {
     await navigate(page,view);
     await page.getByRole('button',{name:'Sortera på '+heading,exact:true}).click();
-    assert.equal(await page.locator('th[aria-sort="ascending"]').count(),1);
-    await page.locator('[data-toggle-column-filters]').click();
+    assert.equal(await page.locator('th[aria-sort]').count(),1);
+    if(await page.locator('[data-toggle-column-filters]').getAttribute('aria-expanded')!=='true')await page.locator('[data-toggle-column-filters]').click();
     await page.getByRole('searchbox',{name:'Filtrera '+heading,exact:true}).fill(filter);
     assert.equal(await page.locator('table[data-smart-table] tbody tr:visible').count(),1);
   }

@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdirSync} from 'node:fs';
+import {chromium} from 'playwright';
+const artifacts='/tmp/lokalblick-unified-lists';mkdirSync(artifacts,{recursive:true});
+const server=spawn(process.execPath,['backend/server.mjs'],{env:{...process.env,LOKALBLICK_PORT:'8798'}});let browser;
+try {
+  await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('error',reject);});
+  browser=await chromium.launch({executablePath:process.env.LOKALBLICK_CHROMIUM_PATH||undefined,args:['--no-sandbox']});
+  const page=await browser.newPage({viewport:{width:1440,height:960}}),errors=[];
+  page.on('pageerror',error=>errors.push(error.message));await page.route('https://**/*',route=>route.abort());
+  await page.goto('http://127.0.0.1:8798/');await page.waitForSelector('[data-dashboard-mode]');
+  await page.evaluate(async()=>{const {normalize}=await import('/v2/model.js');localStorage.setItem('lokalblick-public-demo-v1',JSON.stringify(normalize(window.LokalblickDemoData)));});
+  await page.reload();await page.waitForSelector('[data-dashboard-mode]');
+  const navigate=view=>page.locator(`.sidebar [data-view="${view}"]`).evaluate(b=>b.click());
+  assert.equal(await page.locator('[data-view=businesses]').count(),0);
+  assert.equal(await page.locator('.sidebar [data-view=activities]').innerText(),'Ärenden');
+  const views=[['properties','Fastighet','Centrum 5'],['objects','Objekt','201-01'],['contracts','Avtal','201-2025'],['activities','Ärende','Ventilation']];
+  const appearance=[];
+  for(const [view,column,query] of views){
+    await navigate(view);
+    const table=page.locator(`table[data-list-key="${view}"]`),wrapper=table.locator('..');
+    assert.equal(await table.count(),1);
+    await page.screenshot({path:`${artifacts}/${view}-desktop.png`});
+    await page.setViewportSize({width:390,height:900});await page.screenshot({path:`${artifacts}/${view}-closed-390.png`});
+    await page.setViewportSize({width:1440,height:960});
+    assert.equal(await wrapper.locator('[data-toggle-column-filters]').innerText(),'Kolumnfilter');
+    appearance.push(await wrapper.locator('[data-toggle-column-filters]').evaluate(node=>{const s=getComputedStyle(node);return [s.fontSize,s.padding,s.borderRadius];}));
+    await table.getByRole('button',{name:'Sortera på '+column,exact:true}).click();
+    await wrapper.locator('[data-toggle-column-filters]').click();
+    const filter=table.getByRole('searchbox',{name:'Filtrera '+column,exact:true});
+    await filter.fill(query);
+    assert.ok((await wrapper.locator('[data-table-count]').innerText()).startsWith('1 '),'One filtered '+view);
+    await navigate('overview');await navigate(view);
+    assert.equal(await table.getByRole('searchbox',{name:'Filtrera '+column,exact:true}).inputValue(),query,'Filter survives navigation for '+view);
+    assert.equal(await table.locator('.column-filters').getAttribute('hidden'),null);
+    await filter.fill('Matchar ingen post');assert.equal(await table.locator('[data-table-empty]').isVisible(),true);
+    await filter.fill('');
+    const numeric={properties:['Area',4],objects:['Objektarea',2],contracts:['Kvm',3],activities:['Kostnad',5]}[view];
+    await table.getByRole('button',{name:'Sortera på '+numeric[0],exact:true}).click();
+    const values=await table.locator(`tbody:not([data-table-empty])>tr:not([data-group-detail]):not([data-table-empty])>td:nth-child(${numeric[1]+1})`).evaluateAll(cells=>cells.map(cell=>cell.getAttribute('data-sort-value')));
+    assert.ok(values.length>1&&values.every(value=>value!==null),'Numeric sort uses the actual values for '+view);
+    assert.deepEqual(values.map(Number),values.map(Number).sort((a,b)=>a-b),'Correct numeric order for '+view);
+    const pencil=table.locator('[data-edit-action]').first();
+    assert.equal(await pencil.locator('svg').count(),1);
+    assert.equal(await pencil.innerText(),'');assert.ok(await pencil.getAttribute('aria-label'));
+    await pencil.click();await page.locator('#edit-form.editor-editing').waitFor();
+    assert.equal(await page.locator('[data-editor-activate] svg').count(),1);
+    await page.locator('[data-editor-undo]').click();
+    await page.locator('#edit-form.editor-readonly').waitFor();await page.keyboard.press('Escape');
+    for(const width of [390,320,667]){
+      await page.setViewportSize({width,height:900});
+      assert.equal(await wrapper.locator('[data-table-sort]').isVisible(),true);
+      await wrapper.locator('[data-table-sort]').selectOption('0:desc');
+      assert.equal(await table.locator('[data-column-sort="0"]').getAttribute('data-direction'),'desc');
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No page overflow: '+view+' '+width);
+      await page.screenshot({path:`${artifacts}/${view}-${width}.png`});
+    }
+    await page.setViewportSize({width:1440,height:960});
+  }
+  assert.ok(appearance.every(style=>JSON.stringify(style)===JSON.stringify(appearance[0])),'All four list controls share their appearance');
+  await navigate('overview');
+  assert.ok(!/\baktiviteter\b/i.test(await page.locator('main').innerText()));
+  await page.locator('.mobile-nav [data-view=more]').evaluate(b=>b.click());assert.equal(await page.locator('.more-menu [data-view=businesses]').count(),0);
+  await navigate('people');assert.ok(await page.locator('#content [data-edit-action] svg').count()>0,'Dynamically rendered edit actions use the same pencil');
+  assert.deepEqual(errors,[]);
+  console.log('PASS: four shared lists, filters/counts/empty states, persistent sort and filters, direct pencil editing, accessible icons, mobile layouts and navigation wording.');
+}finally{await browser?.close();server.kill('SIGTERM');}

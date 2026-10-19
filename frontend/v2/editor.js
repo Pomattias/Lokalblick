@@ -55,7 +55,7 @@ const group = (key) =>
                   )
                 ? "Tidplan"
                 : "Uppgifter";
-export function editorHtml(data, col, id, company = false, defaults = {}) {
+export function editorHtml(data, col, id, company = false, defaults = {}, presentation = {}) {
   const schema = window.LokalblickSourceService.schemas.find(
     (s) => s.key === col,
   );
@@ -72,7 +72,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     objectId: "Objekt",
     propertyId: "Fastighet",
     contractId: "Avtal",
-    activityId: "Aktivitet",
+    activityId: presentation.portfolio?"Ärende":"Aktivitet",
     businessId:"Verksamhet",
     unitId: col==='businesses'?'Organisatorisk tillhörighet':"Verksamhet",
     ownerPartyId: "Fastighetsägare",
@@ -114,7 +114,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}) {
     if(key==='responsibilityChangeDate'||col==='businesses'&&['responsiblePersonId','ownerResponsiblePersonId','tenantResponsiblePersonId'].includes(key))return;
     if(col==='objects'&&key==='predecessorIds') {
       control=`<select name="predecessorIds" multiple aria-label="Föregående objekt">${(data.objects||[]).filter(o=>o.id!==record.id&&(!record.propertyId||o.propertyId===record.propertyId)).map(o=>`<option value="${esc(o.id)}" ${(record.predecessorIds||[]).includes(o.id)?'selected':''}>${esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)}</option>`).join('')}</select><small>Välj tidigare objekt vid delning eller sammanslagning. Avsluta dem med eget t.o.m.-datum.</small>`;
-    } else if(col==='assignments'&&key==='targetType'){control=`<select name="targetType" data-assignment-type>${options(Object.entries(globalThis.LokalblickResponsibility.types),x=>x[0],x=>({property:'Fastighet',object:'Objekt',contract:'Avtal',business:'Verksamhet',activity:'Aktivitet',organization:'Part'})[x[0]],record.targetType,'Välj hemvist')}</select>`;
+    } else if(col==='assignments'&&key==='targetType'){control=`<select name="targetType" data-assignment-type>${options(Object.entries(globalThis.LokalblickResponsibility.types),x=>x[0],x=>({property:'Fastighet',object:'Objekt',contract:'Avtal',business:'Verksamhet',activity:presentation.portfolio?'Ärende':'Aktivitet',organization:'Part'})[x[0]],record.targetType,'Välj hemvist')}</select>`;
     } else if(col==='assignments'&&key==='targetId'){const collection=globalThis.LokalblickResponsibility.types[record.targetType]||'properties';const items=data[collection]||[];control=`<select name="targetId" data-assignment-target>${options(items,x=>x.id,x=>x.name||x.number||x.title||x.designation||x.id,record.targetId,'Välj post')}</select>`;
     } else if(col==='assignments'&&key==='role'){const roles=[...new Set([...Object.values(globalThis.LokalblickResponsibility.roles),'Kontakt',record.role].filter(Boolean))];control=`<select name="role">${options(roles,x=>x,x=>x,record.role,'Välj roll')}</select>`;
     } else if(col==='assignments'&&key==='shared'){control=`<select name="shared"><option value="Nej">Ensam i rollen</option><option value="Ja" ${record.shared?'selected':''}>Delat ansvar</option></select>`;

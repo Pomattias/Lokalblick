@@ -38,7 +38,7 @@ try {
   const row=page.locator('[data-row-group="TEST-P"]');
   assert.ok((await row.innerText()).includes('1 avtal'));
   assert.equal(await row.locator('.property-list-summary>td').nth(4).getAttribute('data-sort-value'),'100');
-  const openProperty=()=>row.locator('[data-edit=properties]').click();
+  const openProperty=()=>row.locator('.primary-cell [data-edit=properties]').click();
   await openProperty();const form=page.locator('#edit-form');
   for(const width of [390,320,667,1440]){
     await page.setViewportSize({width,height:900});

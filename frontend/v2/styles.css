@@ -3533,7 +3533,7 @@ main .settings-inline-actions button {min-height:31px;padding:5px 9px;font-size:
 
 /* Property list adopts the existing compact table. Keep every addition scoped:
    Budget and the other lists continue to use their current styles. */
-body[data-view="properties"] .property-list .property-list-sort,
+.portfolio-list .property-list-sort,
 body[data-view="properties"] .property-list .property-list-mobile-label {display:none;}
 body[data-view="properties"] .property-list [hidden] {display:none!important;}
 body[data-view="properties"] .property-list .property-list-summary td {height:40px;}
@@ -3568,22 +3568,22 @@ body[data-view="properties"] .property-list .property-list-contracts p {margin:0
   body[data-view="properties"] .property-list .property-list-relations {grid-template-columns:minmax(0,1fr);gap:16px;}
 }
 @media(max-width:700px) {
-  body[data-view="properties"] .property-list {overflow:hidden;}
-  body[data-view="properties"] .property-list .compact-table-heading {gap:8px;padding:7px 10px;}
-  body[data-view="properties"] .property-list .compact-table-heading>button {min-height:36px;padding:4px;}
-  body[data-view="properties"] .property-list .property-list-sort {
+  .portfolio-list {overflow:hidden;}
+  .portfolio-list .compact-table-heading {gap:8px;padding:7px 10px;}
+  .portfolio-list .compact-table-heading>button {min-height:36px;padding:4px;}
+  .portfolio-list .property-list-sort {
     display:flex;flex-direction:row;align-items:center;gap:8px;padding:5px 10px 9px;
   }
-  body[data-view="properties"] .property-list .property-list-sort select {font-size:16px;min-height:40px;flex:1;}
-  body[data-view="properties"] .property-list table>thead {display:block;}
-  body[data-view="properties"] .property-list thead>tr:first-child {display:none;}
-  body[data-view="properties"] .property-list .column-filters {
+  .portfolio-list .property-list-sort select {font-size:16px;min-height:40px;flex:1;}
+  .portfolio-list table>thead {display:block;}
+  .portfolio-list thead>tr:first-child {display:none;}
+  .portfolio-list .column-filters {
     display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:8px 10px;background:var(--soft);
   }
-  body[data-view="properties"] .property-list .column-filters th {display:block;min-width:0;padding:0;background:transparent;}
-  body[data-view="properties"] .property-list .column-filters th:last-child {display:none;}
-  body[data-view="properties"] .property-list .column-filters th::before {content:attr(data-label);display:block;margin-bottom:3px;font-size:10px;}
-  body[data-view="properties"] .property-list .column-filters input {font-size:16px;max-width:none;min-height:40px;}
+  .portfolio-list .column-filters th {display:block;min-width:0;padding:0;background:transparent;}
+  .portfolio-list .column-filters th:last-child {display:none;}
+  .portfolio-list .column-filters th::before {content:attr(data-label);display:block;margin-bottom:3px;font-size:10px;}
+  .portfolio-list .column-filters input {font-size:16px;max-width:none;min-height:40px;}
   body[data-view="properties"] .property-list tbody[data-row-group] {border-top:1px solid var(--line);}
   body[data-view="properties"] .property-list .property-list-summary {
     display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 10px;border:0;
@@ -3639,6 +3639,44 @@ body[data-view="properties"] .property-list .property-list-contracts p {margin:0
   }
 }
 
+/* Opt-in list and edit controls; Budget keeps its original rendering. */
+.portfolio-list .table-sort {display:none;}
+body:not([data-view="budget"]) button.edit-action {display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:32px;min-width:32px;min-height:32px;padding:0;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);line-height:1;vertical-align:middle;}
+body:not([data-view="budget"]) button.edit-action:hover {background:var(--soft);}
+body:not([data-view="budget"]) button.edit-action svg {pointer-events:none;width:17px;height:17px;}
+body[data-view="properties"] .property-list-summary>td:last-child {width:80px;white-space:nowrap;}
+body[data-view="properties"] .property-list-summary .edit-action {margin-right:4px;}
+.portfolio-record-history {margin-top:14px;}
+.portfolio-record-history>summary {cursor:pointer;font-size:13px;padding:8px 0;}
+@media(max-width:700px) {
+  body:not([data-view="budget"]) button.edit-action {width:40px;min-width:40px;min-height:40px;}
+  .portfolio-list .table-sort {display:flex;}
+  .portfolio-list:not(.property-list) table,.portfolio-list:not(.property-list) tbody {display:block;width:100%;}
+  .portfolio-list:not(.property-list) tbody>tr:not([data-table-empty]) {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:8px 10px;border-top:1px solid var(--line);}
+  .portfolio-list:not(.property-list) tbody>tr>td {min-width:0;width:auto;height:auto;margin:0;padding:0;border:0;white-space:normal;overflow-wrap:anywhere;text-align:left;font-size:12px;}
+  .portfolio-list:not(.property-list) tbody>tr>td:last-child {grid-column:2;grid-row:1/3;align-self:start;}
+  .portfolio-list:not(.property-list) .text-button {white-space:normal;text-align:left;overflow-wrap:anywhere;}
+  .portfolio-list table[data-list-key="contracts"] td:nth-child(3) {grid-column:1;grid-row:1;}
+  .portfolio-list table[data-list-key="contracts"] td:nth-child(1) {grid-column:1;grid-row:2;}
+  .portfolio-list table[data-list-key="contracts"] td:nth-child(2) {grid-column:1;grid-row:3;color:var(--muted);}
+  .portfolio-list table[data-list-key="contracts"] td:nth-child(4) {grid-column:2;grid-row:4;}
+  .portfolio-list table[data-list-key="contracts"] td:nth-child(4)::after {content:" m²";}
+  .portfolio-list table[data-list-key="contracts"] td:nth-child(5) {grid-column:1;grid-row:4;}
+  .portfolio-list table[data-list-key="contracts"] td:nth-child(n+6):nth-child(-n+9) {display:none;}
+  .portfolio-list table[data-list-key="objects"] td:first-child {grid-column:1;grid-row:1;}
+  .portfolio-list table[data-list-key="objects"] td:nth-child(2) {grid-column:1;grid-row:2;color:var(--muted);}
+  .portfolio-list table[data-list-key="objects"] td:nth-child(3) {grid-column:2;grid-row:3;}
+  .portfolio-list table[data-list-key="objects"] td:nth-child(4) {display:none;}
+  .portfolio-list table[data-list-key="objects"] td:nth-child(5) {grid-column:1;grid-row:3;}
+  .portfolio-list table[data-list-key="activities"] td:first-child {grid-column:1;grid-row:1;}
+  .portfolio-list table[data-list-key="activities"] td:nth-child(2) {grid-column:1;grid-row:2;}
+  .portfolio-list table[data-list-key="activities"] td:nth-child(3) {grid-column:1;grid-row:3;color:var(--muted);}
+  .portfolio-list table[data-list-key="activities"] td:nth-child(4) {grid-column:1;grid-row:4;}
+  .portfolio-list table[data-list-key="activities"] td:nth-child(5) {grid-column:2;grid-row:4;max-width:110px;}
+  .portfolio-list table[data-list-key="activities"] td:nth-child(6) {grid-column:1;grid-row:5;}
+  .portfolio-list table[data-list-key$="-history"] td {grid-column:1;}
+}
+
 /* Related records use the original editors and fields. Budget is excluded. */
 #editor-root .record-workspace [data-context-panel][hidden] {display:none!important;}
 #editor-root .record-workspace.contract-editor #edit-form.editor-readonly .contract-field {min-height:30px;}
@@ -3671,7 +3709,7 @@ body[data-view="contracts"] .portfolio-contract-history>summary {cursor:pointer;
 #editor-root .record-workspace:not([data-context-tab="info"]) [data-editor-activate] {display:none;}
 #editor-root .record-workspace .context-scope {display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:12px;color:var(--muted);}
 #editor-root .record-workspace .context-toolbar {display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0;}
-#editor-root .record-workspace .context-filters,body[data-view="activities"] .portfolio-issue-filters {display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
+#editor-root .record-workspace .context-filters {display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
 #editor-root .record-workspace .context-filters label {flex:1 1 140px;min-width:0;font-size:12px;}
 #editor-root .record-workspace .context-filters :is(input,select) {width:100%;min-height:38px;}
 #editor-root .record-workspace :is(.context-object,[data-context-panel="issues"]) h3 {margin:16px 0 6px;font-size:13px;}

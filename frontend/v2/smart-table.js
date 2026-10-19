@@ -16,11 +16,12 @@ export function refreshSmartTable(table) {
     node.hidden = !inputs.every(input => !normalize(input.value) ||
       normalize(row.cells[Number(input.dataset.columnFilter)]?.textContent).includes(normalize(input.value)));
   }
-  if (!grouped(table)) return;
+  if (!grouped(table)&&!table.dataset.listKey) return;
   const visible = records.filter(({node}) => !node.hidden).length;
   const count = container(table).querySelector('[data-table-count]');
+  const noun=table.dataset.tableNoun||'fastigheter';
   if (count) count.textContent = visible === records.length
-    ? `${visible} fastigheter` : `${visible} av ${records.length} fastigheter`;
+    ? `${visible} ${noun}` : `${visible} av ${records.length} ${noun}`;
   table.querySelector('[data-table-empty]').hidden = visible > 0;
 }
 

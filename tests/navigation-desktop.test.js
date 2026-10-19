@@ -29,11 +29,10 @@ test("Desktop sidebar includes objects between property and agreements",()=>{
     .map(([,view,label])=>({view,label}));
   assert.deepEqual(buttons,[
     {view:"overview",label:"Översikt"},
-    {view:"properties",label:"Fastighet"},
+    {view:"properties",label:"Fastigheter"},
     {view:"objects",label:"Objekt"},
     {view:"contracts",label:"Avtal"},
-    {view:"businesses",label:"Verksamheter"},
-    {view:"activities",label:"Aktiviteter"},
+    {view:"activities",label:"Ärenden"},
     {view:"plan",label:"Planera"},
     {view:"budget",label:"Budget"},
     {view:"map",label:"Karta"},
@@ -84,4 +83,12 @@ test("Mobile navigation still exposes the new pages through compact scrollable c
   for(const view of ["overview","properties","contracts","activities","plan","budget","map"])
     assert.ok(page.includes('data-view="'+view+'"'));
   assert.match(css,/\.mobile-nav\s*\{[^}]*overflow-x:auto/);
+});
+
+test('object summary shows physical object area independently of the previously selected perspective',()=>{
+  const objects={...data,objects:[{id:'o',propertyId:'p',number:'101',area:120}]};
+  const html=summary(objects,selection,2026,{view:'objects',perspective:'Ärenden'});
+  assert.match(html,/>Objekt<\/span><strong>1<\/strong>/);
+  assert.match(html,/>Objektarea<\/span><strong>120 m²<\/strong>/);
+  assert.doesNotMatch(html,/Bedömd kostnad/);
 });
