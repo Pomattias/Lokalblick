@@ -10,14 +10,14 @@ export function contractCard(data,contract,year,showPeriod=false) {
     year=Number(date?.slice(0,4))||year;
   }
   const value=rentalTotals(data,[contract],year);
-  return `<button type="button" class="context-contract-card" data-context-record="contracts" data-id="${esc(contract.id)}"><span class="context-contract-name"><strong>${esc(contract.number||'Avtalsnummer saknas')}</strong><span>${esc(tenantName(data,contract))}</span></span><span class="context-metrics"><span><small>Yta</small><strong>${num(value.area)} m²</strong></span><span><small>Årshyra ${year}</small><strong>${amount(value.needsReview&&value.rent===0?null:value.rent,' kr')}</strong></span><span><small>Årshyra/m²</small><strong>${amount(value.rentPerSqm,' kr')}</strong></span></span>${showPeriod?`<small class="context-period">${esc(contract.start||'Start saknas')} – ${esc(contract.end||'Tills vidare')}</small>`:!contract.start?'<small class="context-period">Startdatum saknas – kontrollera avtalstiden</small>':''}${value.needsReview?'<small class="rent-needs-review">Hyresunderlag behöver kontroll</small>':value.preliminary?'<small>Preliminär indexhyra</small>':''}</button>`;
+  return `<button type="button" class="context-contract-card" data-context-record="contracts" data-id="${esc(contract.id)}"><span class="context-contract-name"><strong>${esc(contract.number||contract.id)}</strong><span>${esc(tenantName(data,contract))}</span></span><span class="context-metrics"><span><small>Yta</small><strong>${num(value.area)} m²</strong></span><span><small>Årshyra ${year}</small><strong>${amount(value.needsReview&&value.rent===0?null:value.rent,' kr')}</strong></span><span><small>Årshyra/m²</small><strong>${amount(value.rentPerSqm,' kr')}</strong></span></span>${showPeriod?`<small class="context-period">${esc(contract.start||'Start saknas')} – ${esc(contract.end||'Tills vidare')}</small>`:!contract.start?'<small class="context-period">Startdatum saknas – kontrollera avtalstiden</small>':''}${value.needsReview?'<small class="rent-needs-review">Hyresunderlag behöver kontroll</small>':value.preliminary?'<small>Preliminär indexhyra</small>':''}</button>`;
 }
 function issueCards(data,issues,compact=false) {
   if(!issues.length)return '<p class="context-empty">Inga ärenden i aktuellt urval.</p>';
   const today=globalThis.LokalblickResponsibility.today();
   return `<ul class="context-issue-list">${issues.map(issue=>{
     const contract=data.contracts.find(row=>row.id===issue.contractId),object=(data.objects||[]).find(row=>row.id===issue.objectId);
-    const home=contract?'Avtal '+contract.number:object?'Objekt '+(object.number||object.name):'Fastigheten';
+    const home=contract?'Avtal '+(contract.number||contract.id):object?'Objekt '+(object.number||object.id):'Fastigheten';
     const end=issue.endDate||issue.end||'';
     const overdue=isOpenIssue(issue)&&end&&end<today;
     return `<li>${recordButton('activities',issue.id,issue.title||'Ärende')}<small>${esc(issue.status||'Status saknas')}${overdue?' · <strong class="context-overdue">Försenat</strong>':''}${compact?'':' · '+esc(home)+' · '+esc(data.people.find(row=>row.id===issue.responsiblePersonId)?.name||'Utan ärendeansvarig')}</small></li>`;

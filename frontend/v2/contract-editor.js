@@ -1,7 +1,19 @@
-import {contractBusinessControls} from './business-editor.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, calc, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
+
+// Existing Budget editor controls remain scoped to Budget.
+function budgetBusinessControls(data,c){
+ const at=globalThis.LokalblickResponsibility.today();
+ const links=(data.contractBusinesses||[]).filter(l=>l.contractId===c.id&&!l.cancelled&&(!l.fromDate||l.fromDate<=at)&&(!l.toDate||l.toDate>=at));
+ const ids=links.map(l=>l.businessId);
+ const mainId=ids[0]||"";
+ const businesses=data.businesses||[];
+ const primary=`<label>Verksamhet<select name="businessIds" aria-label="Verksamhet"><option value="">Ingen verksamhet vald</option>${businesses.map(b=>`<option value="${esc(b.id)}" ${mainId===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`;
+ const extras=`<details><summary>Flera verksamheter delar avtalet${ids.length>1?' ('+ids.length+' kopplade)':''}</summary><p>Markera ytterligare verksamheter endast när flera nyttjar samma avtal.</p><div style="display:grid;gap:8px">${businesses.filter(b=>b.id!==mainId).map(b=>`<label><input type="checkbox" name="businessIds" value="${esc(b.id)}" ${ids.includes(b.id)?'checked':''}> ${esc(b.name)}</label>`).join('')}</div></details>`;
+ const distribution=links.length>1?`<details><summary>Nyttjad area och kostnadsfördelning</summary><div class="mapping-table"><table><thead><tr><th>Verksamhet</th><th>Area, m²</th><th>Kostnadsandel, %</th></tr></thead><tbody>${links.map(l=>`<tr><td>${esc(businesses.find(b=>b.id===l.businessId)?.name||l.businessId)}</td><td><input name="businessArea|${esc(l.businessId)}" aria-label="Nyttjad area" type="number" min="0" step="any" value="${esc(l.usedArea??'')}"></td><td><input name="businessShare|${esc(l.businessId)}" aria-label="Kostnadsandel" type="number" min="0" max="100" step="any" value="${esc(l.costSharePercent??'')}"></td></tr>`).join('')}</tbody></table></div><small>Frivilligt. Ingen automatisk 100-procentsandel sätts vid 1:1.</small></details>`:"";
+ return `<section class="contract-section"><h3>Verksamhet</h3>${primary}${extras}${distribution}<small>Normalt en verksamhet per avtal. Kopplingarnas giltighet och historik bevaras vid ändring.</small>${!businesses.length?'<p>Verksamheter kan kopplas här när de finns i underlaget.</p>':''}</section>`;
+}
 
 const CATEGORIES = ["Kontor", "Förråd", "Äldreboende", "LSS-boende", "Bostad", "Daglig verksamhet", "Verksamhetslokal", "Övrigt"];
 const money = n => new Intl.NumberFormat("sv-SE", {maximumFractionDigits:0}).format(Number(n)||0) + " kr";
@@ -87,11 +99,9 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
 
   const tenantContact = field("Hyresgästens kontaktperson",select("tenantResponsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"));
   const contractContact = field("Vår ansvarige för avtalet",select("responsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"));
-  const distinctTenantContact = c.tenantResponsiblePersonId && c.tenantResponsiblePersonId !== c.businessResponsiblePersonId;
-  const distinctContractContact = c.responsiblePersonId && c.responsiblePersonId !== property.responsiblePersonId;
   const identity = '<section class="contract-section" data-contract-section="identity"><h3>Avtal</h3><div class="contract-grid">'+
     (!id&&!c.propertyId ? field("Fastighet",select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")) : "")+
-    field("Avtalsnummer",input(c,"number","text",masterLocked))+
+    (presentation.portfolio?field("AvtalsID",input({...c,id:c.number||c.id},"id","text",Boolean(id),'required maxlength="100"')):field("Avtalsnummer",input(c,"number","text",masterLocked)))+
     field("Hyresgäst",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
     field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>x.number||x.name||x.id,"Välj objekt"))+
     field("Fastighetsägare",display(ownerName))+
@@ -136,7 +146,14 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
 
   // Supplementary source and relationship fields stay mounted for FormData,
   // but do not interrupt the agreement's identity, economics and dates.
-  const additional = '<details class="contract-secondary" data-contract-context><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
+  const additional = presentation.portfolio?('<details class="contract-secondary" data-contract-context><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
+    field("Lokalkategori",categorySelect)+
+    field('Användning',input(c,'use','text',company&&!!id))+
+    field('Verksamhet','<textarea name="business" rows="2">'+esc(c.business||'')+'</textarea>')+
+    field('Antal arbetsplatser',input(c,'workplaceCount','number',false,'min="0" step="1"'))+
+    field('Antal hubbplatser',input(c,'hubCount','number',false,'min="0" step="1"'))+
+    field('Länk till huvudkontrakt',input(c,'contractDocumentUrl'))+
+    '</div>'+(company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+'</details>'):('<details class="contract-secondary" data-contract-context><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
     field("Organisatorisk tillhörighet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj tillhörighet"))+
     field("Lokalkategori",categorySelect)+
     field("Hyresgäst enligt källa",input(c,"tenantName","text",true))+
@@ -147,18 +164,21 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
       field('Lägenhetsyta, m²',input(c,'apartmentArea','number',false,'min="0" step="any"'))+
       field('Kommentar verksamhet','<textarea name="businessComment" rows="2">'+esc(c.businessComment||'')+'</textarea>')+
       field('Länk till huvudkontrakt',input(c,'contractDocumentUrl')):"")+
-    '</div>'+contractBusinessControls(data,c)+
-    (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+'</details>';
+    '</div>'+budgetBusinessControls(data,c)+
+    (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+'</details>');
 
+  const distinctTenantContact = c.tenantResponsiblePersonId && c.tenantResponsiblePersonId !== c.businessResponsiblePersonId;
+  const distinctContractContact = c.responsiblePersonId && c.responsiblePersonId !== property.responsiblePersonId;
   const extraContacts = (!distinctTenantContact ? tenantContact : "")+(!distinctContractContact ? contractContact : "");
-  const contacts = '<section class="contract-section" data-contract-section="contacts"><h3>Kontaktpersoner</h3><div class="contract-grid">'+
+  const contacts = presentation.portfolio?('<section class="contract-section" data-contract-section="contacts"><h3>Kontaktpersoner</h3><div class="contract-grid">'+
+    tenantContact+contractContact+'</div>'+responsibilityHtml(data,'contract',c.id)+'</section>'):('<section class="contract-section" data-contract-section="contacts"><h3>Kontaktpersoner</h3><div class="contract-grid">'+
     field("Vår kontaktperson för fastigheten",display(ourContact))+
     field("Verksamhetsansvarig",select("businessResponsiblePersonId",activityPersonOptions,c,x=>x.id,x=>x.name,"Ej kopplad"))+
     field("Fastighetsägarens kontaktperson",display(ownerContact))+
     (distinctTenantContact ? tenantContact : "")+
     (distinctContractContact ? contractContact : "")+
     '</div>'+(extraContacts?'<details class="contract-secondary" data-contract-contact-roles><summary>Fler kontaktroller</summary><div class="contract-grid">'+extraContacts+'</div></details>':'')+
-    responsibilityHtml(data,'contract',c.id)+'</section>';
+    responsibilityHtml(data,'contract',c.id)+'</section>');
 
   const heading = property.designation || (property.address ? "Beteckning saknas" : "Nytt avtal");
   return '<div class="editor-backdrop"></div><aside class="editor contract-editor" aria-labelledby="editor-title">'+

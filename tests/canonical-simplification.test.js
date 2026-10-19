@@ -31,13 +31,12 @@ test("canonical normalization does not duplicate contact, business or review dat
  };
  const once=normalize(source),twice=normalize(once);
  assert.deepEqual(twice,once);
- assert.equal(once.contractBusinesses.length,1);
- assert.equal(once.businesses.length,1);
+ assert.equal(once.contractBusinesses,undefined);
+ assert.equal(once.businesses,undefined);
  assert.equal(once.organizations.filter(p=>p.type==="tenant").length,1);
  assert.equal(once.sourceRegistry[0].review,0);
  assert.equal(once.importReview[0].status,"planning");
  assert.ok(!Object.hasOwn(once.contracts[0],"annualContractDrift"));
- assert.ok(!Object.hasOwn(once.contractBusinesses[0],"migratedFromLegacy"));
  assert.equal(once.contracts[0].objectId,"OBJ|c");
  assert.equal(once.objects[0].id,"OBJ|c");
  assert.equal(once.objects[0].propertyId,"p");

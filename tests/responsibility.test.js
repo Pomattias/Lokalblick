@@ -15,19 +15,8 @@ test('migration preserves stable IDs and unknown dates and is idempotent',()=>{
  const d=fixture();d.properties[0].responsiblePersonId='u1';model.normalize(d);const first=structuredClone(d);model.normalize(d);assert.deepEqual(d,first);assert.equal(d.assignments[0].personId,'u1');assert.equal(d.assignments[0].fromDate,'');assert.equal(d.assignments[0].organizationId,'our');
  const legacy=fixture();legacy.assignments=[{id:'old',personId:'u1',targetType:'property',targetId:'p',role:'Ansvarig',fromDate:'',toDate:''}];model.normalize(legacy);assert.equal(legacy.assignments.length,1);assert.equal(legacy.assignments[0].id,'old');
 });
-test('business responsibilities require actual business IDs, not unit aliases',()=>{
- const d=fixture();
- const stale={id:'ref-old',personId:'u1',targetType:'business',targetId:'VARDBO',
-   role:'Verksamhetsansvarig',roleKey:'business',fromDate:'2026-01-01',toDate:''};
- d.assignments=[stale];
- const normalized=normalize(d);
- assert.equal(normalized.assignments[0].targetId,'VARDBO',
-   'Normalization must not rewrite a unit assignment into a business');
- assert.ok(model.issues(normalized).some(issue=>/hemvist saknas/.test(issue.message)));
- const actual=normalized.businesses.find(b=>b.unitId==='VARDBO');
- assert.ok(actual,'Explicit business register can still be derived from source contract');
- normalized.assignments[0].targetId=actual.id;
- model.validate(normalized);
+test('obsolete business responsibility is not offered as a target or role',()=>{
+ assert.equal(model.types.business,undefined);assert.equal(model.roles.business,undefined);
 });
 
 test('replacement closes previous period, preserves unknown beginning and logs source and actor',()=>{
@@ -41,7 +30,7 @@ test('clearing a role does not resurrect it on restart or from a stale compatibi
  const d=fixture();d.properties[0].responsiblePersonId='u1';model.normalize(d);replace(d,'');d.properties[0].responsiblePersonId='u1';model.normalize(d);assert.equal(d.properties[0].responsiblePersonId,'');assert.equal(d.assignments.length,1);
 });
 test('multiple roles and homes coexist without confusing business and legal tenant',()=>{
- const d=fixture();replace(d,'u1');model.change(d,{targetType:'object',targetId:'o',personId:'u1',fromDate:'2026-10-12'});model.change(d,{targetType:'activity',targetId:'a',personId:'u2',fromDate:'2026-10-12'});model.change(d,{targetType:'contract',targetId:'c',personId:'b1',role:'business',fromDate:'2026-10-12'});model.change(d,{targetType:'property',targetId:'p',personId:'owner1',role:'owner',fromDate:'2026-10-12'});assert.equal(d.assignments.length,5);assert.equal(d.contracts[0].tenantPartyId,'tenant');assert.equal(d.contracts[0].businessPartyId,'business');assert.equal(d.assignments.find(a=>a.roleKey==='business').organizationId,'business');model.validate(d);
+ const d=fixture();replace(d,'u1');model.change(d,{targetType:'object',targetId:'o',personId:'u1',fromDate:'2026-10-12'});model.change(d,{targetType:'activity',targetId:'a',personId:'u2',fromDate:'2026-10-12'});model.change(d,{targetType:'contract',targetId:'c',personId:'b1',role:'tenant',fromDate:'2026-10-12'});model.change(d,{targetType:'property',targetId:'p',personId:'owner1',role:'owner',fromDate:'2026-10-12'});assert.equal(d.assignments.length,5);assert.equal(d.contracts[0].tenantPartyId,'tenant');assert.equal(d.contracts[0].businessPartyId,'business');assert.equal(d.assignments.find(a=>a.roleKey==='tenant').organizationId,'tenant');model.validate(d);
 });
 test('overlaps require all participants to explicitly share responsibility',()=>{
  const d=fixture();replace(d,'u1');const bad={...d.assignments[0],id:'bad',personId:'u2'};d.assignments.push(bad);assert.throws(()=>model.validate(d),/Överlappande/);d.assignments[0].shared=true;assert.throws(()=>model.validate(d),/Överlappande/);bad.shared=true;model.validate(d);

@@ -1,6 +1,7 @@
 import {emptyData,validateData} from './model.js';
 import {projectWorkspace,collectWorkspace} from './view-adapter.js';
 import {BrowserExcel} from './excel-client.js';
+import {upgradeData} from './model-revision.js';
 const marker='lokalblick-clean-active';
 const database=()=>new Promise((resolve,reject)=>{const request=indexedDB.open('lokalblick-clean-workspace',1);request.onupgradeneeded=()=>request.result.createObjectStore('workspace');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
 async function localState(value){
@@ -28,7 +29,7 @@ export function withCleanWorkspace(legacy){
    if(window.LokalblickRuntime?.cleanDatabase){api=true;const result=await request('/api/lokaler');clean=result.data;version=result.version;activate();return projectWorkspace(clean);}
    if(clean)return projectWorkspace(clean);
    if(globalThis.sessionStorage?.getItem(marker)==='1'){
-    const stored=await localState();if(stored?.handle&&await stored.handle.queryPermission({mode:'readwrite'})==='granted'){file=new BrowserExcel(stored.handle);await file.reload();clean=file.data;activate();return projectWorkspace(clean);}if(stored?.data){validateData(stored.data);clean=stored.data;activate();return projectWorkspace(clean);}
+    const stored=await localState();if(stored?.handle&&await stored.handle.queryPermission({mode:'readwrite'})==='granted'){file=new BrowserExcel(stored.handle);await file.reload();clean=file.data;activate();return projectWorkspace(clean);}if(stored?.data){clean=upgradeData(stored.data);activate();return projectWorkspace(clean);}
    }
    return legacy.load();
   },

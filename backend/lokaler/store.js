@@ -6,6 +6,7 @@ import path from 'node:path';
 import { tables, normalize, emptyData, validateData } from '../../frontend/lokaler/model.js';
 import { writeWorkbook } from './workbook.js';
 import { readLocalWorkbook } from './read-workbook.js';
+import {upgradeData} from '../../frontend/lokaler/model-revision.js';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 const keys = Object.keys(tables);
@@ -28,6 +29,20 @@ export class LocalStore {
     const populated = db.prepare("SELECT count(*) AS count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").get().count;
     if ((appId !== 0 && appId !== 0x4c4b4c32) || (populated && appId !== 0x4c4b4c32)) throw Error('Filen är inte den nya Lokalblick-databasen. Välj en ny tom fil; äldre databaser konverteras inte.');
    }
+   const oldColumns=db.prepare('PRAGMA table_info(agreements)').all();
+   const upgrading=oldColumns.some(column=>column.name==='number');
+   let upgraded;
+   if(upgrading){
+    const data={...Object.fromEntries(keys.map(table=>[table,db.prepare('SELECT * FROM '+table).all().map(row=>{
+     for(const f of tables[table].fields)if(row[f.key]!=null){if(f.type==='json')row[f.key]=JSON.parse(row[f.key]);if(f.type==='boolean')row[f.key]=Boolean(row[f.key]);}return row;
+    })])),workspace:Object.fromEntries(db.prepare('SELECT key,value FROM workspace').all().map(row=>[row.key,JSON.parse(row.value)]))};
+    upgraded=upgradeData(data);
+    // Validate first, then keep an independent SQLite backup before rebuilding.
+    if(mode==='sqlite')db.prepare('VACUUM INTO ?').run(file+'.before-simplify-'+randomUUID()+'.sqlite');
+    db.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE');
+    for(const table of [...keys].reverse())db.exec('DROP TABLE '+table);
+    db.exec('DROP TABLE workspace');
+   }
    db.exec(schema);
    for (const [table, spec] of Object.entries(tables)) {
     const existing = new Set(db.prepare('PRAGMA table_info(' + table + ')').all().map(row => row.name));
@@ -38,6 +53,11 @@ export class LocalStore {
    }
    if (mode === 'sqlite') db.exec('PRAGMA application_id = 0x4c4b4c32');
    db.exec('CREATE TABLE IF NOT EXISTS store_meta (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL) STRICT; INSERT OR IGNORE INTO store_meta VALUES (1,0);');
+   if(upgraded){
+    for(const table of keys)for(const record of upgraded[table])store.insert(table,record);
+    store.setWorkspace(upgraded.workspace);store.validateGraph();
+    db.exec('UPDATE store_meta SET version=version+1 WHERE id=1; COMMIT; PRAGMA foreign_keys=ON;');
+   }
    if (mode === 'sqlite') {
     await chmod(file, 0o600);
     db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
@@ -117,6 +137,7 @@ export class LocalStore {
    for (const operation of operations) {
     const { table, record, action = 'save' } = operation;
     if (!Object.hasOwn(tables, table) || action !== 'save' || !record || typeof record !== 'object' || Array.isArray(record)) throw Error('Ogiltig ändring.');
+    if(table==='agreements'&&!record.id)throw Error('Ange AvtalsID (avtalsnumret).');
     const row = normalize(table, record, record.id || `${tables[table].prefix}-${randomUUID()}`);
     const existing = this.db.prepare(`SELECT id FROM ${table} WHERE id=?`).get(row.id);
     if (existing && operation.create) throw new ConflictError('ID finns redan. Välj det befintliga registret eller ett annat ID.');
@@ -132,7 +153,6 @@ export class LocalStore {
    return this.snapshot();
   } catch (error) {
    this.db.exec('ROLLBACK');
-   if (/UNIQUE constraint failed: agreements.number/.test(error.message)) throw Error('Avtalsnumret finns redan. Avtalsnummer jämförs exakt, inklusive skiljetecken.');
    if (/FOREIGN KEY constraint failed/.test(error.message)) throw Error('En hänvisning saknar motsvarande post. Skapa fastighet, objekt, part eller person först.');
    throw error;
   }

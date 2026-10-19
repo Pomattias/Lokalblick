@@ -10,8 +10,6 @@ export const collections = [
   "organizations",
   "people",
   "assignments",
-  "businesses",
-  "contractBusinesses",
   "orders",
   "activities",
   "recurringCosts",
@@ -191,7 +189,6 @@ export function responsible(data, collection, record) {
   if (!record) return "";
   if (collection === "properties") return record.responsiblePersonId || "";
   if (collection === "activities") return record.responsiblePersonId || "";
-  if (collection === "businesses") return record.businessResponsiblePersonId || "";
   if(collection==='objects')return record.responsiblePersonId||data.properties.find(p=>p.id===record.propertyId)?.responsiblePersonId||'';
   if (collection === "contracts") {
     const property = data.properties.find((x) => x.id === record.propertyId);
@@ -221,7 +218,7 @@ export function scope(data, selection) {
         [
           (data.objects||[]).find(o=>o.id===c.objectId)?.name,
           (data.objects||[]).find(o=>o.id===c.objectId)?.number,
-          c.number,
+          c.number||c.id,
           c.tenantName,
           c.use,
           c.businessName,
@@ -249,7 +246,7 @@ export function scope(data, selection) {
         .includes(q) ||
       (data.objects||[]).some(o=>o.propertyId===p.id&&[o.number,o.name,o.use,o.businessName].join(' ').toLocaleLowerCase('sv').includes(q))||
       related.some((c) =>
-        [c.number, c.use, c.businessName]
+        [c.number||c.id, c.use, c.businessName||c.business]
           .join(" ")
           .toLocaleLowerCase("sv")
           .includes(q),
@@ -302,7 +299,7 @@ export function scope(data, selection) {
         record.type,
         property.address,
         property.designation,
-        contract?.number,
+        contract?.number||contract?.id,
         contract?.use,
         contract?.businessName,
       ]
@@ -510,20 +507,12 @@ export function resolveReview(data, id, decision, targetId, actor) {
     if(decision==='accept')throw Error('Ange värdet per avtal i underlaget eller avtalsformuläret. Ett gemensamt belopp får inte kopieras till flera avtal.');
     item.status='rejected';item.resolvedBy=actor;item.resolvedAt=new Date().toISOString();return;
   }
-  if(item.kind==='business-identity'){
+  if(item.kind==='tenant-identity'){
     if(decision==='accept'){
-      const c=data.contracts.find(c=>c.id===(item.values?.contractId||item.values?.id));
+      const c=data.contracts.find(c=>c.id===item.values?.id);
       if(!c)throw Error('Avtalet saknas');
-      const before=clone(c);
-      if(item.collection==='contracts'){
-        if(!data.organizations.some(o=>o.id===targetId))throw Error('Välj rätt hyresgäst');
-        c.tenantPartyId=targetId;c.provenance ||= {};c.provenance.tenantPartyId={source:item.source,value:targetId,confirmedBy:actor};
-      }else{
-        if(!data.businesses.some(b=>b.id===targetId))throw Error('Välj rätt verksamhet');
-        c.businessLinksManaged=true;
-        if(!data.contractBusinesses.some(l=>l.contractId===c.id&&l.businessId===targetId))data.contractBusinesses.push({id:'CB|'+c.id+'|'+targetId,contractId:c.id,businessId:targetId,fromDate:'',toDate:'',usedArea:null,costSharePercent:null,provenance:{source:item.source,confirmedBy:actor}});
-        globalThis.LokalblickBusinessModel.validate(data);
-      }
+      if(!data.organizations.some(o=>o.id===targetId))throw Error('Välj rätt hyresgäst');
+      const before=clone(c);c.tenantPartyId=targetId;
       audit(data,'contracts',c.id,before,c,actor);
     }
     item.status=decision==='accept'?'accepted':'rejected';item.resolvedBy=actor;item.resolvedAt=new Date().toISOString();return;

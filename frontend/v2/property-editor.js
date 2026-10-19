@@ -49,10 +49,10 @@ export function renderPropertyEditor(data, p, id, company=false) {
     person.id===p.ownerResponsiblePersonId);
   const ourPeople=allPeople.filter(person=>own(data, person) || person.id===p.responsiblePersonId);
   const contacts=(data.contracts||[]).filter(c=>c.propertyId===p.id).map(c=>{
-    const person=allPeople.find(x=>x.id===c.businessResponsiblePersonId);
+    const person=allPeople.find(x=>x.id===c.tenantResponsiblePersonId);
     return {
-      number:c.number||"Avtal",
-      unit:units[c.unitId]||c.unitId||"Ej fördelad verksamhet",
+      number:c.number||c.id,
+      unit:c.business||"",
       personId:person?.id||"",
       id:c.id,
     };
@@ -60,7 +60,7 @@ export function renderPropertyEditor(data, p, id, company=false) {
   // Contract contacts live on each contract, but their presentation is the
   // same property-person-field as owner and our contacts. Never a separate card.
   const contactRows=contacts.map(c=>
-    personSelect(data,"",c.personId,allPeople,"Verksamhetens kontaktperson",
+    personSelect(data,"",c.personId,allPeople,"Hyresgästens kontaktperson",
       "contract",c.id,c.unit+" · "+c.number)
   ).join("");
   const locked=Boolean(id && !data.isDemo && company);

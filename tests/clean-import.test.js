@@ -4,7 +4,7 @@ import XLSX from 'xlsx';
 import {emptyData,validateData} from '../frontend/lokaler/model.js';
 import {prepareCleanImport} from '../frontend/lokaler/import-model.js';
 import {projectWorkspace,collectWorkspace} from '../frontend/lokaler/view-adapter.js';
-const targets=['properties.sourceId','properties.designation','properties.address','objects.number','objects.area','objects.apartmentCount','contracts.number','contracts.tenantName','contracts.baseRent','properties.responsiblePersonId','contracts.tenantResponsiblePersonId'];
+const targets=['properties.sourceId','properties.designation','properties.address','objects.number','objects.area','objects.apartmentCount','contracts.id','contracts.tenantName','contracts.baseRent','properties.responsiblePersonId','contracts.tenantResponsiblePersonId'];
 const fixture=()=>[
  ['F1','Eken','Fiktiv väg 1','O1',100,2,'9(1)','Fiktiv hyresgäst',100000,'Anna Test','Kim Test'],
  ['F1','Eken','Fiktiv väg 1','O2',50,1,'91','Fiktiv hyresgäst',50000,'Anna Test','Kim Test'],
@@ -21,7 +21,7 @@ test('en källrad fördelas till rätt register utan dubbel yta, personer eller 
  const result=run();validateData(result.clean);
  assert.equal(result.clean.properties.length,2);assert.equal(result.clean.objects.length,3);assert.equal(result.clean.agreements.length,3);
  assert.equal(result.clean.parties.length,1);assert.equal(result.clean.people.length,2);assert.equal(result.clean.contacts.length,5);
- assert.deepEqual(result.clean.agreements.map(row=>row.number),['9(1)','91','91,1']);
+ assert.deepEqual(result.clean.agreements.map(row=>row.id),['9(1)','91','91,1']);
  assert.ok(result.clean.agreements.every(row=>!('area'in row)&&!('property_id'in row)&&!('responsiblePersonId'in row)));
  assert.ok(result.clean.objects.every(row=>!('number'in row)&&!('rooms'in row)&&row.valid_from===null));
  assert.equal(result.clean.workspace.importReview.length,0);
@@ -70,7 +70,7 @@ test('ett manuellt val vid värdekonflikt påverkar bara vald kolumn och källa'
 });
 test('ett verkligt personbyte i gamla vyn skapar egen tidskoppling men kopierar inte arvet',()=>{
  const data=run().clean;data.issues.push({id:'A1',object_id:'O1',property_id:null,title:'Ärende',status:'open',priority:'normal'});
- const before=projectWorkspace(data),view=structuredClone(before),newPerson=data.people.find(p=>p.name==='Kim Test');
+ data.people.push({id:'PER3',name:'Ny intern ansvarig'});const before=projectWorkspace(data),view=structuredClone(before),newPerson=data.people.find(p=>p.id==='PER3');
  view.activities[0].responsiblePersonId=newPerson.id;
  globalThis.LokalblickResponsibility.applyChanges(before,view,{actor:'Testare',fromDate:'2026-10-19'});
  const saved=collectWorkspace(view,data);
@@ -79,8 +79,8 @@ test('ett verkligt personbyte i gamla vyn skapar egen tidskoppling men kopierar 
  assert.equal(saved.contacts.filter(c=>c.role==='coordinator'&&c.property_id).length,2);
 });
 test('flikar med separata register ordnas efter beroenden och blankt datum förblir blankt',()=>{
- const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([['ObjektID','FastighetsID','Benämning','Area'],['O1','P1','Kontor',100]]),'Objekt');XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([['FastighetsID','Namn'],['P1','Testfastighet']]),'Fastigheter');
- const profiles=[{name:'Objekt',headerRow:1,columns:['objects.number','objects.propertyId','objects.name','objects.area'].map((target,index)=>({index,target,header:target}))},{name:'Fastigheter',headerRow:1,columns:['properties.sourceId','properties.designation'].map((target,index)=>({index,target,header:target}))}];
+ const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([['ObjektID','FastighetsID','Area'],['O1','P1',100]]),'Objekt');XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([['FastighetsID','Namn'],['P1','Testfastighet']]),'Fastigheter');
+ const profiles=[{name:'Objekt',headerRow:1,columns:['objects.number','objects.propertyId','objects.area'].map((target,index)=>({index,target,header:target}))},{name:'Fastigheter',headerRow:1,columns:['properties.sourceId','properties.designation'].map((target,index)=>({index,target,header:target}))}];
  const result=prepareCleanImport(workbook,profiles,emptyData(),{fileName:'test.xlsx'},XLSX);
  assert.equal(result.clean.objects.length,1);assert.equal(result.clean.objects[0].valid_from,null);assert.equal(result.report.blocking,0);
 });

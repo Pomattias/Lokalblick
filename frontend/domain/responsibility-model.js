@@ -1,25 +1,24 @@
 /* One responsibility model for both frontends, Excel and the local backend. */
 (function(root){
   const copy=x=>JSON.parse(JSON.stringify(x)),today=()=>new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
-  const types={property:'properties',object:'objects',contract:'contracts',activity:'activities',organization:'organizations',business:'businesses'};
-  const roles={our:'Vår ansvarige',owner:'Fastighetsägarens kontaktperson',business:'Verksamhetsansvarig',tenant:'Hyresgästens kontaktperson'};
-  const fields={responsiblePersonId:'our',ownerResponsiblePersonId:'owner',businessResponsiblePersonId:'business',tenantResponsiblePersonId:'tenant'};
+  const types={property:'properties',object:'objects',contract:'contracts',activity:'activities',order:'orders'};
+  const roles={our:'Vår ansvarige',owner:'Fastighetsägarens kontaktperson',tenant:'Hyresgästens kontaktperson'};
+  const fields={responsiblePersonId:'our',ownerResponsiblePersonId:'owner',tenantResponsiblePersonId:'tenant'};
   const uid=()=>root.crypto?.randomUUID?.()||'A|'+Date.now()+'|'+Math.random().toString(36).slice(2);
   function date(value){if(!value)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value+'T00:00:00Z'))||new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value)throw TypeError('Ogiltigt datum för ansvar: '+value);return value;}
   const previousDay=d=>new Date(Date.parse(date(d)+'T00:00:00Z')-86400000).toISOString().slice(0,10);
-  const roleKey=a=>a.roleKey||(/fastighetsäg|hyresvärd/i.test(a.role)?'owner':/verksamhet/i.test(a.role)?'business':/hyresgäst/i.test(a.role)?'tenant':/ansvar|projektledare/i.test(a.role)?'our':a.role||'Kontakt');
+  const roleKey=a=>a.roleKey||(/fastighetsäg|hyresvärd/i.test(a.role)?'owner':/hyresgäst/i.test(a.role)?'tenant':/ansvar|projektledare/i.test(a.role)?'our':a.role||'Kontakt');
   const slot=a=>a.targetType+'|'+a.targetId+'|'+roleKey(a);
   function target(data,type,id){return (data[types[type]]||[]).find(x=>x.id===id);}
   const active=(a,at=today())=>(!a.fromDate||a.fromDate<=at)&&(!a.toDate||a.toDate>=at)&&a.cancelled!==true;
   function history(data,type,id,role){return (data.assignments||[]).filter(a=>a.targetType===type&&a.targetId===id&&(!role||roleKey(a)===role));}
   function current(data,type,id,role,at=today()){return history(data,type,id,role).filter(a=>active(a,at));}
-  function organizationFor(data,row,type,role,personId){return role==='owner'?(type==='property'?row.ownerPartyId:(data.properties||[]).find(p=>p.id===row.propertyId)?.ownerPartyId)||'':role==='business'?(type==='business'?row.organizationId:row.businessPartyId)||'':role==='tenant'?row.tenantPartyId||'':(data.people||[]).find(p=>p.id===personId)?.organizationId||'';}
+  function organizationFor(data,row,type,role,personId){return role==='owner'?(type==='property'?row.ownerPartyId:(data.properties||[]).find(p=>p.id===row.propertyId)?.ownerPartyId)||'':role==='tenant'?row.tenantPartyId||'':(data.people||[]).find(p=>p.id===personId)?.organizationId||'';}
   function legacyRole(data,a){
     if(a.roleKey)return a.roleKey;
     const person=data.people.find(p=>p.id===a.personId),org=data.organizations.find(o=>o.id===person?.organizationId),home=target(data,a.targetType,a.targetId);
     if(org?.type==='owner'&&a.targetType==='property')return 'owner';
     if(a.targetType==='contract'&&person?.organizationId&&home?.tenantPartyId===person.organizationId)return 'tenant';
-    if(a.targetType==='contract'&&org?.type!=='our'&&person?.organizationId&&home?.businessPartyId===person.organizationId)return 'business';
     return roleKey(a);
   }
   function normalize(data){
@@ -32,7 +31,7 @@
     }
     for(const [type,collection] of Object.entries(types))for(const row of data[collection]||[])for(const [field,role] of Object.entries(fields)){
       const existing=history(data,type,row.id,role),personId=row[field];
-      if(!existing.length&&personId){
+      if(!existing.length&&personId&&!data.cleanModel){
         data.assignments.push({id:'FIELD|'+type+'|'+row.id+'|'+role+'|'+personId,personId,organizationId:organizationFor(data,row,type,role,personId),targetType:type,targetId:row.id,role:roles[role],roleKey:role,fromDate:'',toDate:'',shared:false,provenance:copy(row.provenance?.[field]||{source:'field-input',field})});
       }
     }
@@ -40,7 +39,8 @@
     for(const [type,collection] of Object.entries(types))for(const row of data[collection]||[])for(const [field,role] of Object.entries(fields)){
       if(!history(data,type,row.id,role).length)continue;
       const selected=current(data,type,row.id,role);
-      row[field]=selected.length===1?selected[0].personId:'';
+      const people=[...new Set(selected.map(a=>a.personId))];
+      row[field]=people.length===1?people[0]:'';
     }
     return data;
   }
@@ -66,6 +66,7 @@
   }
   function validate(data,baseline){if(baseline)for(const a of baseline.assignments||[])if(!(data.assignments||[]).some(x=>x.id===a.id))throw TypeError('Ansvarshistorik får inte raderas');const old=new Set(baseline?issues(baseline).map(x=>x.signature):[]);const invalid=issues(data).filter(x=>!old.has(x.signature));if(invalid.length)throw TypeError(invalid[0].message);return data;}
   function change(data,{targetType,targetId,role='our',personId='',organizationId,fromDate=today(),shared=false,actor='',source='manual'}){
+    if(!Object.hasOwn(roles,role))throw TypeError('Välj ägarens kontakt, hyresgästens kontakt eller vår ansvarige');
     date(fromDate);if(!fromDate)throw TypeError('Ange datum för ansvarbytet');normalize(data);
     if(!target(data,targetType,targetId))throw TypeError('Välj en befintlig hemvist för ansvaret');
     if(personId&&!(data.people||[]).some(p=>p.id===personId))throw TypeError('Vald person saknas i personregistret');

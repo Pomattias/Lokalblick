@@ -14,10 +14,10 @@ const fixtures = () => [
  { table: 'people', record: { id: 'PER1', name: 'Fiktiv samordnare', email: 'example@example.invalid' } },
  { table: 'people', record: { id: 'PER2', name: 'Fiktiv ersättare' } },
  { table: 'properties', record: { id: 'FAS1', name: 'Testfastighet', popular_name: 'Testhuset', owner_party_id: 'PAR1' } },
- { table: 'objects', record: { id: 'OBJ1', property_id: 'FAS1', name: 'Lokal', area: 100, apartment_count: 2 } },
- { table: 'objects', record: { id: 'OBJ2', property_id: 'FAS1', name: 'Vakant lokal', area: 50 } },
- { table: 'agreements', record: { id: 'AVT1', object_id: 'OBJ1', number: '9(1)', annual_rent: 100000, valid_from: '2025-01-01', valid_to: '2025-12-31' } },
- { table: 'agreements', record: { id: 'AVT2', object_id: 'OBJ1', number: '91,1', annual_rent: 120000, valid_from: '2026-01-01' } },
+ { table: 'objects', record: { id: 'OBJ1', property_id: 'FAS1', area: 100, apartment_count: 2 } },
+ { table: 'objects', record: { id: 'OBJ2', property_id: 'FAS1', area: 50 } },
+ { table: 'agreements', record: { id: '9(1)', object_id: 'OBJ1', annual_rent: 100000, valid_from: '2025-01-01', valid_to: '2025-12-31' } },
+ { table: 'agreements', record: { id: '91,1', object_id: 'OBJ1', annual_rent: 120000, valid_from: '2026-01-01' } },
  { table: 'issues', record: { id: 'ARE1', object_id: 'OBJ1', title: 'Fiktivt ärende' } },
  { table: 'orders', record: { id: 'BES1', issue_id: 'ARE1', title: 'Fiktiv beställning' } },
  { table: 'contacts', record: { id: 'KOP1', role: 'coordinator', person_id: 'PER1', property_id: 'FAS1' } }
@@ -33,23 +33,23 @@ test('ren modell: yta bara på objekt, obligatoriska kopplingar och verkliga dat
  assert.equal(tables.objects.fields.some(f => /number|room/.test(f.key)), false);
  assert.throws(() => normalize('issues', { id: 'x', title: 'Test' }), /antingen/);
  assert.throws(() => normalize('issues', { id: 'x', title: 'Test', property_id: 'p', object_id: 'o' }), /antingen/);
- assert.throws(() => normalize('objects', { id: 'x', name: 'Test', property_id: 'p', valid_from: '2026-02-30' }), /giltigt datum/);
+ assert.throws(() => normalize('objects', { id: 'x', property_id: 'p', valid_from: '2026-02-30' }), /giltigt datum/);
  assert.throws(() => normalize('agreements', { id: 'x', object_id: 'o', number: 'n', area: 10 }), /finns inte/);
  assert.throws(() => normalize('contacts', { id: 'x', person_id: 'p', role: 'owner', agreement_id: 'a' }), /fastigheten/);
- assert.equal(normalize('objects', { id: 'OBJ,1', property_id: 'p', name: 'Test', area: '1 234,5' }).area, 1234.5);
+ assert.equal(normalize('objects', { id: 'OBJ,1', property_id: 'p', area: '1 234,5' }).area, 1234.5);
  assert.equal(active({ valid_from: '2026-01-01', valid_to: '2026-01-31' }, '2026-01-31'), true);
 });
 test('databas: persistens, exakta avtalsnummer och summering av unika objekt inklusive vakans', async () => withStore(async (store, dir, reopen) => {
  await store.mutate(fixtures(), 0);
  const state = store.snapshot();
- assert.deepEqual(state.data.agreements.map(a => a.number), ['9(1)', '91,1']);
+ assert.deepEqual(state.data.agreements.map(a => a.id), ['9(1)', '91,1']);
  const totals = propertySummary(state.data, 'FAS1', '2026-10-19');
  assert.equal(totals.area, 150); assert.equal(totals.apartments, 2); assert.equal(totals.annualRent, 120000);
  const reopened = await reopen(); assert.equal(reopened.snapshot().version, 1); assert.deepEqual(reopened.snapshot().data, state.data);
 }));
 test('databas: avtal får inte överlappa eller lämna objektets period', async () => withStore(async store => {
  await store.mutate(fixtures(), 0);
- await assert.rejects(store.mutate([{ table: 'agreements', record: { id: 'bad', object_id: 'OBJ1', number: '91', valid_from: '2026-01-01' } }], 1), /redan ett avtal/);
+ await assert.rejects(store.mutate([{ table: 'agreements', record: { id: '91', object_id: 'OBJ1', valid_from: '2026-01-01' } }], 1), /redan ett avtal/);
  const object = store.snapshot().data.objects[0];
  await assert.rejects(store.mutate([{ table: 'objects', record: { ...object, valid_from: '2026-01-01' } }], 1), /rymma/);
  assert.equal(store.snapshot().data.agreements.length, 2); assert.equal(store.snapshot().version, 1);
@@ -67,7 +67,7 @@ test('databas: arv order → ärende → fastighet utan kopierad person', async 
  await assert.rejects(store.mutate([{ table: 'contacts', record: { id: 'KOP3', role: 'coordinator', person_id: 'PER1', issue_id: 'ARE1' } }], 2), /överlappar/);
 }));
 test('databas: en trasig hänvisning rullar tillbaka hela ändringen; samtidiga versioner stoppas', async () => withStore(async store => {
- await assert.rejects(store.mutate([{ table: 'parties', record: { id: 'p', name: 'Test' } }, { table: 'objects', record: { id: 'o', property_id: 'saknas', name: 'Test' } }], 0), /hänvisning/);
+ await assert.rejects(store.mutate([{ table: 'parties', record: { id: 'p', name: 'Test' } }, { table: 'objects', record: { id: 'o', property_id: 'saknas' } }], 0), /hänvisning/);
  assert.equal(store.snapshot().data.parties.length, 0);
  const outcomes = await Promise.allSettled([store.mutate(fixtures(), 0), store.mutate(fixtures(), 0)]);
  assert.equal(outcomes.filter(r => r.status === 'fulfilled').length, 1);
@@ -80,8 +80,8 @@ test('databas: delning/sammanslagning bevarar nya ID:n och förhindrar dubbel yt
  const old = store.snapshot().data.objects.find(o => o.id === 'OBJ1');
  await store.mutate([
   { table: 'objects', record: { ...old, valid_to: '2026-10-31' } },
-  { table: 'objects', record: { id: 'OBJ3', property_id: 'FAS1', name: 'Del A', area: 40, valid_from: '2026-11-01' } },
-  { table: 'objects', record: { id: 'OBJ4', property_id: 'FAS1', name: 'Del B', area: 60, valid_from: '2026-11-01' } },
+  { table: 'objects', record: { id: 'OBJ3', property_id: 'FAS1', area: 40, valid_from: '2026-11-01' } },
+  { table: 'objects', record: { id: 'OBJ4', property_id: 'FAS1', area: 60, valid_from: '2026-11-01' } },
   { table: 'object_links', record: { id: 'L1', predecessor_id: 'OBJ1', successor_id: 'OBJ3' } },
   { table: 'object_links', record: { id: 'L2', predecessor_id: 'OBJ1', successor_id: 'OBJ4' } }
  ], 1);
@@ -92,7 +92,7 @@ test('Excel: samma modell, beständig arbetsfil och backup utan extra databas', 
  await store.mutate(fixtures(), 0);
  const bytes = await readFile(store.file);
  const excel = await readWorkbook(bytes);
- assert.equal(excel.agreements[1].number, '91,1'); assert.equal(excel.objects[0].area, 100);
+ assert.equal(excel.agreements[1].id, '91,1'); assert.equal(excel.objects[0].area, 100);
  assert.equal(excel.agreements[0].area, undefined); assert.equal(excel.contacts[0].person_id, 'PER1');
  assert.ok((await readFile(store.file + '.bak')).length);
  const reopened = await reopen(); assert.equal(reopened.snapshot().data.objects.length, 2);

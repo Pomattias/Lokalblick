@@ -60,7 +60,7 @@ export function portfolioScope(data,selection={},local={}) {
   const contractText=contract=>{
     const property=data.properties.find(row=>row.id===contract.propertyId)||{};
     const object=(data.objects||[]).find(row=>row.id===contract.objectId)||{};
-    return includes(query,contract.number,tenantName(data,contract),contract.use,contract.businessName,
+    return includes(query,contract.number||contract.id,tenantName(data,contract),contract.use,contract.business,contract.businessName,
       property.designation,property.address,object.number,object.name);
   };
   if(query&&local.view!=='activities') {
@@ -76,7 +76,7 @@ export function portfolioScope(data,selection={},local={}) {
   if(local.view==='activities') items=items.filter(item=>{
     const property=data.properties.find(row=>row.id===item.propertyId)||{};
     const contract=data.contracts.find(row=>row.id===item.record.contractId)||{};
-    return includes(query,item.title,item.record.description,item.record.type,property.designation,property.address,contract.number,tenantName(data,contract))&&
+    return includes(query,item.title,item.record.description,item.record.type,property.designation,property.address,contract.number||contract.id,tenantName(data,contract))&&
       (!local.person||item.record.responsiblePersonId===local.person)&&
       (!local.type||local.type==='Alla'||item.record.type===local.type)&&
       (local.status==='all'||(local.status==='closed'?!isOpenIssue(item.record):isOpenIssue(item.record)));

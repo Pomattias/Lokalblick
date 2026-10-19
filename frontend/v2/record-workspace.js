@@ -12,12 +12,12 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
   const link=(kind,row,label)=>row?`<button type="button" class="text-button" data-context-record="${kind}" data-id="${esc(row.id)}">${esc(label)}</button>`:'';
   if(collection!=='properties'){
     const title=heading.querySelector('h2');
-    title.textContent=collection==='contracts'?'Avtal '+(record.number||'Nummer saknas'):['Objekt '+(record.number||record.id),record.name].filter(Boolean).join(' · ');
+    title.textContent=collection==='contracts'?'Avtal '+(record.number||record.id):['Objekt '+(record.number||record.id),record.name].filter(Boolean).join(' · ');
     for(const small of heading.querySelectorAll('small'))small.remove();
     const parent=document.createElement('div');parent.className='context-parent';
-    parent.innerHTML=[link('properties',property,[property?.designation,property?.address].filter(Boolean).join(' · ')),link('objects',object,'Objekt '+(object?.number||object?.name||''))].filter(Boolean).join('<span aria-hidden="true">›</span>');
+    parent.innerHTML=[link('properties',property,[property?.designation,property?.address].filter(Boolean).join(' · ')),link('objects',object,'Objekt '+(object?.number||object?.id||''))].filter(Boolean).join('<span aria-hidden="true">›</span>');
     title.before(parent);
-    for(const key of ['number','propertyId',...(collection==='contracts'?['objectId']:['name'])])form.querySelector(`[name="${key}"]`)?.closest('label')?.classList.add('context-header-reference');
+    for(const key of ['number',...(current.cleanModel?['id']:[]),'propertyId',...(collection==='contracts'?['objectId']:['name'])])form.querySelector(`[name="${key}"]`)?.closest('label')?.classList.add('context-header-reference');
   }
   if(collection==='objects'){
     form.querySelector('nav.tabs')?.remove();
@@ -41,9 +41,9 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
   if(contactSection||collection==='objects'){
     contactSection?.classList.add('context-legacy-contacts');
     const contacts=document.createElement('section');contacts.className='context-current-contacts';
-    const roles=collection==='properties'?[['owner','Ägarkontakt','ownerResponsiblePersonId'],['our','Lokalsamordnare','responsiblePersonId']]:[['business','Verksamhetskontakt','businessResponsiblePersonId'],['tenant','Hyresgästkontakt','tenantResponsiblePersonId'],['our','Avtalsansvarig','responsiblePersonId']];
+    const roles=collection==='properties'?[['owner','Ägarkontakt','ownerResponsiblePersonId'],['our','Lokalsamordnare','responsiblePersonId']]:[['tenant','Hyresgästens kontakt','tenantResponsiblePersonId'],['our','Vår ansvarige','responsiblePersonId']];
     if(collection==='objects'){
-      roles[2][1]='Objektansvarig';
+      roles.splice(0,1);roles[0][1]='Vår ansvarige';
       for(const [, ,field] of roles)info.querySelector(`[name="${field}"]`)?.closest('label')?.classList.add('context-header-reference');
     }
     contacts.innerHTML='<h3>Kontaktpersoner</h3>'+currentContacts(current,{properties:'property',objects:'object',contracts:'contract'}[collection],record,roles);
@@ -107,6 +107,6 @@ export function recordBreadcrumb(data,collection,record,trail=[]) {
   const property=data.properties.find(row=>row.id===(contract?.propertyId||object?.propertyId||record.propertyId));
   const back=trail.length?'<button type="button" class="text-button" data-context-back>← Tillbaka</button>':'';
   const propertyLink=collection==='activities'&&property?link('properties',property.id,property.designation||property.address):'';
-  const contractLink=collection==='activities'&&contract?link('contracts',contract.id,'Avtal '+contract.number):'';
+  const contractLink=collection==='activities'&&contract?link('contracts',contract.id,'Avtal '+(contract.number||contract.id)):'';
   return back||propertyLink||contractLink?`<nav class="context-breadcrumb" aria-label="Tillbaka och sammanhang">${[back,propertyLink,contractLink].filter(Boolean).join('<span aria-hidden="true">›</span>')}</nav>`:'';
 }

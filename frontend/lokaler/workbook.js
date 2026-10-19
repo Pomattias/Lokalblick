@@ -1,5 +1,6 @@
 import { workspaceKeys } from './view-fields.js';
 import { tables, emptyData, idLabels } from './model.js';
+import {upgradeData,retiredFields} from './model-revision.js';
 const header = field => field.type === 'ref' ? (field.key === 'predecessor_id' ? 'Tidigare ObjektID' : field.key === 'successor_id' ? 'Nytt ObjektID' : field.key === 'owner_party_id' ? 'Fastighetsägare PartID' : field.key === 'tenant_party_id' ? 'Hyresgäst PartID' : idLabels[field.table]) : field.label;
 export async function writeWorkbook(data, ExcelJS) {
  const book = new ExcelJS.Workbook();
@@ -32,8 +33,9 @@ export async function readWorkbook(buffer, ExcelJS) {
   const sheet = book.getWorksheet(spec.label);
   if (!sheet) throw Error(`Fliken ${spec.label} saknas. Utgå från en exporterad Lokalblick-arbetsbok.`);
   if (sheet.rowCount > 50001 || sheet.columnCount > 50) throw Error('Arbetsboken är för stor. Högst 50 000 rader per tabell och 50 kolumner.');
-  const fields = ['id', ...spec.fields.map(f => f.key)];
-  const expected = [idLabels[table], ...spec.fields.map(header)];
+  const retired=Object.entries(retiredFields[table]||{});
+  const fields = ['id', ...spec.fields.map(f => f.key),...retired.map(([key])=>key)];
+  const expected = [idLabels[table], ...spec.fields.map(header),...retired.map(([,label])=>label)];
   const headers = sheet.getRow(1).values.slice(1).map(String);
   if (new Set(headers).size !== headers.length || headers.some(h => !expected.includes(h)) || !headers.includes(idLabels[table]) || spec.fields.some(f => f.required && !headers.includes(header(f)))) throw Error(`Kolumnerna i ${spec.label} följer inte Lokalblick-mallen.`);
   sheet.eachRow((row, index) => {
@@ -48,6 +50,7 @@ export async function readWorkbook(buffer, ExcelJS) {
     if (field?.type === 'json' && value != null) value = JSON.parse(value);
     if (field?.type === 'boolean' && value != null) value = value === 'Ja' || value === true;
     if (field?.values && value != null) value = Object.entries(field.values).find(([, label]) => label === value)?.[0] ?? value;
+    if(table==='contacts'&&key==='role')value=({Samordnare:'coordinator','Verksamhetens kontakt':'business'})[value]||value;
     if (value != null && !['number', 'integer', 'coordinate','json','boolean'].includes(field?.type)) value = String(value);
     record[key] = value;
    });
@@ -57,5 +60,5 @@ export async function readWorkbook(buffer, ExcelJS) {
  const meta = book.getWorksheet('Arbetsyta'), chunks = new Map();
  meta?.eachRow((row,index) => { if(index===1)return; const key=row.getCell(1).text;if(!workspaceKeys.includes(key))throw Error('Okänt arbetsytefält: '+key); const part=row.getCell(2).value; const value=row.getCell(3).value; if(!Number.isInteger(part)||part<0||typeof value!=='string')throw Error('Ogiltig arbetsytemetadata.'); if(!chunks.has(key))chunks.set(key,[]); if(chunks.get(key)[part] != null)throw Error('Dubbel arbetsytedel.'); chunks.get(key)[part]=value; });
  for(const [key,parts] of chunks) data.workspace[key]=JSON.parse(parts.join(''));
- return data;
+ return upgradeData(data);
 }

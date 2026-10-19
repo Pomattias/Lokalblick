@@ -32,12 +32,12 @@ function homeChoices(data,current) {
   const list=[
     ...(data.properties||[]).map(p=>({value:"property:"+p.id,label:"Fastighet · "+(p.designation||p.address||p.id)})),
     ...(data.objects||[]).map(o=>({value:"object:"+o.id,label:"Objekt · "+(o.number||o.name||o.id)})),
-    ...(data.contracts||[]).map(c=>{
+    ...(!data.cleanModel?data.contracts||[]:[]).map(c=>{
       const p=(data.properties||[]).find(p=>p.id===c.propertyId);
       return {value:"contract:"+c.id,label:"Avtal · "+(c.number||c.id)};
     }),
-    ...Object.entries(units).map(([id,label])=>({value:"unit:"+id,label:"Verksamhet · "+label})),
-    {value:"general",label:"Generellt ärende"}
+    ...Object.entries(data.cleanModel?{}:units).map(([id,label])=>({value:"unit:"+id,label:"Verksamhet · "+label})),
+    ...(!data.cleanModel?[{value:"general",label:"Generellt ärende"}]:[])
   ];
   if(current&&!list.some(x=>x.value===current))
     list.push({value:current,label:"Tidigare hemvist · kontrollera koppling"});

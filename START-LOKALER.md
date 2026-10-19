@@ -6,7 +6,7 @@ Den separata prototypens gränssnitt är avvecklat. Dess adress
 
 Den nya datamodellen och lagringen finns i `frontend/lokaler` och
 `backend/lokaler`. Befintliga Budgetvyer och beräkningsfunktioner är oförändrade.
-Ingen äldre databas migreras. Nya Excelunderlag fördelas till den nya modellen
+Databaser från andra eller äldre appar migreras inte. Nya Excelunderlag fördelas till den nya modellen
 vid granskad import. Redan anslutna äldre arbetsfiler fortsätter använda sitt
 befintliga flöde; de konverteras inte automatiskt.
 
@@ -82,8 +82,8 @@ när ingen instans använder filen. En databas av annat format avvisas och lämn
 | Register | Innehåll |
 | --- | --- |
 | Fastigheter | FastighetsID, namn, populärnamn, adress, ort, ägarens PartID och kartposition |
-| Objekt | ObjektID, FastighetsID, benämning, ytor, antal lägenheter och giltighetstid |
-| Avtal | AvtalsID, ObjektID, exakt avtalsnummer, hyresgästens PartID, hyra, period och ekonomivillkor |
+| Objekt | ObjektID, FastighetsID, ytor, antal lägenheter, objektkategori och giltighetstid |
+| Avtal | AvtalsID (= exakt avtalsnummer), ObjektID, hyresgästens PartID, verksamhetstext, antal arbetsplatser/hubbplatser, hyra, period och ekonomivillkor |
 | Personer | PersonID, namn, e-post, telefon och eventuell part |
 | Personkopplingar | PersonID, roll, ett mål-ID och giltighetstid |
 | Ärenden | ÄrendeID, antingen FastighetsID eller ObjektID, ansvar via personkoppling, beskrivning, status, kostnad och tidplan |
@@ -102,6 +102,15 @@ på komma: `9(1)`, `91` och `91,1` är olika nummer. Ett nytt objekt identifiera
 med ObjektID, eller inom en fastighet via en tydlig avtals-/objektidentitet.
 Oklarheter ska rättas i granskningen. Personer matchas med ID/e-post, alternativt
 med uttryckligen bekräftad unik namnkolumn. Samma person kan ha flera kopplingar.
+Personens part finns i personregistret. Kontaktrollerna är ägarens kontakt,
+hyresgästens kontakt och vår ansvarige. Verksamhet är en beskrivning på avtalet,
+inte ett separat partsregister eller en relation.
+
+En arbetsyta från den rena modellens föregående schema (`f3a08cd`) kan läsas
+med det förenklade schemat. SQLite valideras och säkerhetskopieras separat innan
+tabellerna byggs om atomärt. Borttagna värden och gamla avtalsidentiteter bevaras
+i ändringsloggen. Budgetplaner och ekonomivillkor konverteras inte.
+Se [fältbeslut och avgränsningar](docs/faltbeslut-2026-10-19.md).
 
 Tomma objektdatum lämnas tomma. Avtals- och kontaktperioder får inte överlappa
 på ett otillåtet sätt. Historik visas genom befintliga fördjupningar. Importen

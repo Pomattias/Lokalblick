@@ -60,7 +60,8 @@ export function importPersonLinks(data,rows,{at,actor,changes,decisions,counts})
       for(const field of Object.keys(api.fields))delete working[role.collection][0][field];
       for(const old of history)if(!working.people.some(p=>p.id===old.personId))working.people.push(copy(data.people.find(p=>p.id===old.personId)));
       const organizationId=role.role==='our'?(data.organizations.filter(org=>org.type==='our').length===1?data.organizations.find(org=>org.type==='our').id:''):
-        role.role==='tenant'?home.tenantPartyId||'':role.role==='business'?home.businessPartyId||home.organizationId||'':home.ownerPartyId||data.properties?.find(p=>p.id===home.propertyId)?.ownerPartyId||'';
+        role.role==='tenant'?home.tenantPartyId||'':home.ownerPartyId||data.properties?.find(p=>p.id===home.propertyId)?.ownerPartyId||'';
+      person.organizationId ||= organizationId;
       if(!same){
         const sharedAddition=column.shared===true&&history.every(link=>link.cancelled||link.shared);
         if(history.length&&!values.fromDate&&!sharedAddition)throw Error('Ange kontaktens fr.o.m. för att bevara ansvarshistoriken vid byte');

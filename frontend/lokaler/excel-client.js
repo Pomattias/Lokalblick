@@ -63,6 +63,7 @@ export class BrowserExcel {
   if (this.busy || expectedVersion !== this.version) throw Error('Uppgifterna har ändrats. Stäng formuläret och uppdatera innan du sparar igen.');
   this.busy = true;
   try {
+   if(table==='agreements'&&!record.id)throw Error('Ange AvtalsID (avtalsnumret).');
    const row = normalize(table, record, record.id || `${tables[table].prefix}-${crypto.randomUUID()}`);
    const data = structuredClone(this.data);
    const index = data[table].findIndex(item => item.id === row.id);

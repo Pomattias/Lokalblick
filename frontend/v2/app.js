@@ -237,9 +237,7 @@ function openGeoPlacement(id) {
       if (!p) throw Error("Fastigheten finns inte längre.");
       p.latitude = selected[0];
       p.longitude = selected[1];
-      p.geoSource = "manual";
-      p.geoConfirmedAt = new Date().toISOString();
-      p.geoConfirmedBy = actor();
+      if(!d.cleanModel){p.geoSource = "manual";p.geoConfirmedAt = new Date().toISOString();p.geoConfirmedBy = actor();}
     });
     close();
     notice("Positionen är bekräftad. Välj Spara till Excel för att behålla den i Lokalblick-data.");
@@ -274,10 +272,10 @@ function startGeoEnrichment() {
           if (item.status !== "matched" || item.latitude == null || item.longitude == null) continue;
           const source = snapshot.properties.find(p => String(p.id) === String(item.id));
           const target = data.properties.find(p => String(p.id) === String(item.id));
-          if (!source || !target || target.geoSource === "manual" || target.address !== source.address || target.city !== source.city) continue;
+          if (!source || !target || target.geoSource === "manual" || target.address !== source.address || target.city !== source.city || data.cleanModel&&target.latitude!=null&&target.longitude!=null&&(target.latitude!==source.latitude||target.longitude!==source.longitude)) continue;
           target.latitude = item.latitude;
           target.longitude = item.longitude;
-          target.geoSource = "openrouteservice";
+          if(!data.cleanModel)target.geoSource = "openrouteservice";
           source.latitude = item.latitude;
           source.longitude = item.longitude;
         }
@@ -293,12 +291,12 @@ function startGeoEnrichment() {
       const byId = new Map(snapshot.properties.map(p => [String(p.id), p]));
       for (const current of data.properties) {
         const result = byId.get(String(current.id));
-        if (!result || current.geoSource === "manual" || current.address !== result.address || current.city !== result.city) continue;
+        if (!result || current.geoSource === "manual" || current.address !== result.address || current.city !== result.city || data.cleanModel&&current.latitude!=null&&current.longitude!=null&&(current.latitude!==result.latitude||current.longitude!==result.longitude)) continue;
         if (Number.isFinite(Number(result.latitude)) && result.latitude != null &&
             Number.isFinite(Number(result.longitude)) && result.longitude != null) {
           current.latitude = result.latitude;
           current.longitude = result.longitude;
-          current.geoSource = "openrouteservice";
+          if(!data.cleanModel)current.geoSource = "openrouteservice";
         }
       }
       data = await transport.save(data);
@@ -1096,7 +1094,7 @@ function openPropertyPersonDialog(button) {
   const original=existing || newPersonDefaults(root,data,kind,contractId);
   const dialog=document.createElement("dialog");
   dialog.className="property-person-dialog";
-  dialog.innerHTML=personFormHtml(original,creating);
+  dialog.innerHTML=personFormHtml(original,creating,data);
   document.body.append(dialog);
   dialog.addEventListener("close",()=>dialog.remove(),{once:true});
   dialog.querySelectorAll("[data-person-dialog-close]").forEach(b=>b.onclick=()=>dialog.close());
@@ -1115,7 +1113,7 @@ function openPropertyPersonDialog(button) {
         else {
           const i=d.people.findIndex(p=>p.id===next.id);
           if (i<0) throw Error("Personen finns inte längre.");
-          d.people[i]={...d.people[i],name:next.name,role:next.role,phone:next.phone,email:next.email};
+          d.people[i]={...d.people[i],name:next.name,role:next.role,phone:next.phone,email:next.email,organizationId:next.organizationId};
         }
       });
       refreshPropertyPersonSelectors(root,data,{kind,contractId,id:next.id});
@@ -1859,7 +1857,7 @@ document.addEventListener("input",event=>{
   }
 });
 document.addEventListener("submit", (event) => {
-  if (event.target.id !== "edit-form") return;
+  if (event.target.getAttribute("id") !== "edit-form") return;
   event.preventDefault();
   run(async () => {
     if(editor?.readOnly)throw Error(ui.view==="budget"?"Tryck på Redigera innan du ändrar och sparar.":"Aktivera redigering med pennan innan du sparar.");
@@ -1878,7 +1876,7 @@ document.addEventListener("submit", (event) => {
       next.planningMonth=null;
       next.planningQuarter=null;
     }
-    if (manualPositionSelected) {
+    if (manualPositionSelected && !data.cleanModel) {
       next.geoSource="manual";
       next.geoConfirmedAt=new Date().toISOString();
       next.geoConfirmedBy=actor();
@@ -1887,7 +1885,9 @@ document.addEventListener("submit", (event) => {
     const noteDraft=col==="activities"?String(event.target.querySelector("[data-activity-journal-note]")?.value||"").trim():"";
     await mutation((d) => {
       if (!id) {
-        next.id = crypto.randomUUID();
+        next.id = d.cleanModel&&['contracts','objects'].includes(col)?String(next.id||'').trim():crypto.randomUUID();
+        if(!next.id)throw Error(col==='contracts'?'Ange AvtalsID (avtalsnumret).':'Ange ObjektID.');
+        if(d[col].some(row=>row.id===next.id))throw Error('ID finns redan. Välj den befintliga posten.');
         next.propertyId = next.propertyId || selection.propertyId;
         d[col].push(next);
         audit(d, col, next.id, {}, next, actor());
@@ -1912,17 +1912,12 @@ document.addEventListener("submit", (event) => {
         d[col][index] = next;
         audit(d, col, id, before, next, actor());
       }
-      if(col==='contracts'&&event.target.elements.namedItem('businessIds')){
-        const ids=[...new Set(new FormData(event.target).getAll('businessIds').filter(Boolean))],values={};
-        for(const bid of ids){const area=event.target.elements.namedItem('businessArea|'+bid)?.value,share=event.target.elements.namedItem('businessShare|'+bid)?.value;values[bid]={};if(area!==undefined)values[bid].usedArea=area===''?null:Number(area);if(share!==undefined)values[bid].costSharePercent=share===''?null:Number(share);}
-        globalThis.LokalblickBusinessModel.applyLinks(d,next.id,ids,values,event.target.elements.namedItem('responsibilityChangeDate')?.value||globalThis.LokalblickResponsibility.today(),actor());
-      }
       if (col === "properties" && id) {
         contractContactChanges.forEach(({contractId,personId})=>{
           const contract=d.contracts.find(x=>x.id===contractId && x.propertyId===id);
           if (!contract) throw Error("Ett avtalsobjekt saknas. Läs om fastigheten och försök igen.");
           if (personId && !d.people.some(p=>p.id===personId)) throw Error("Vald person saknas i personregistret.");
-          contract.businessResponsiblePersonId=personId || "";
+          contract.tenantResponsiblePersonId=personId || "";
         });
       }
       // Saving the case also saves any unsent note in the same transaction.

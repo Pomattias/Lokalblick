@@ -282,7 +282,7 @@ function contractRows(data, contracts, year, portfolio = false) {
     return row([
       esc(propertyDesignation(p) || "–"),
       propertyAddressCell(p),
-      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||"Avtalsnummer saknas")}</strong></button><small>${esc(tenantName(data,c))}</small>`,
+      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||c.id)}</strong></button><small>${esc(tenantName(data,c))}</small>`,
       num(area),
       contractComponentLabel(v.rent),
       contractComponentLabel(v.addition),
@@ -335,7 +335,7 @@ function propertyListGroup(data, p, contracts, year, portfolioView) {
   const contractContact = c => globalThis.LokalblickResponsibility.history(data,"contract",c.id,"our").length || c.responsiblePersonId
     ? contactNames(data,"contract",c,"our",c.responsiblePersonId) : ourContact;
   const contacts = `<section class="property-list-contacts"><h3>Kontaktpersoner</h3><dl>${portfolioView?"":`<div><dt>Vår ansvarige</dt><dd>${esc(ourContact)}</dd></div>`}<div><dt>Fastighetsägarens kontaktperson</dt><dd>${esc(ownerContact)}</dd></div></dl></section>`;
-  const agreements = `<section class="property-list-contracts"><h3>Avtal${subset ? ` · ${contracts.length} av ${totalContracts} i aktuellt urval` : ` · ${contracts.length}`}</h3>${contracts.length ? `<ul>${contracts.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || "Avtalsnummer saknas")}</button><small>${esc(portfolioView?tenantName(data,c):units[c.unitId] || c.use || "Verksamhet saknas")}</small></div><dl>${portfolioView?"":`<div><dt>Vår ansvarige för avtalet</dt><dd>${esc(contractContact(c))}</dd></div>`}<div><dt>Verksamhetsansvarig</dt><dd>${esc(contactNames(data,"contract",c,"business",c.businessResponsiblePersonId))}</dd></div></dl></li>`).join("")}</ul>` : `<p>${totalContracts ? "Inga avtal i aktuellt urval." : "Inga avtal kopplade till fastigheten."}</p>`}</section>`;
+  const agreements = `<section class="property-list-contracts"><h3>Avtal${subset ? ` · ${contracts.length} av ${totalContracts} i aktuellt urval` : ` · ${contracts.length}`}</h3>${contracts.length ? `<ul>${contracts.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || c.id)}</button><small>${esc(portfolioView?tenantName(data,c):units[c.unitId] || c.use || "Verksamhet saknas")}</small></div><dl>${portfolioView?"":`<div><dt>Vår ansvarige för avtalet</dt><dd>${esc(contractContact(c))}</dd></div>`}<div><dt>Hyresgästens kontaktperson</dt><dd>${esc(contactNames(data,"contract",c,"tenant",c.tenantResponsiblePersonId))}</dd></div></dl></li>`).join("")}</ul>` : `<p>${totalContracts ? "Inga avtal i aktuellt urval." : "Inga avtal kopplade till fastigheten."}</p>`}</section>`;
   return `<tbody data-row-group="${esc(p.id)}"><tr class="property-list-summary">
     <td class="primary-cell"><button type="button" class="text-button" data-edit="properties" data-id="${esc(p.id)}">${esc(title)}</button>${openCount?`<small><button type="button" class="text-button" data-context-record="properties" data-id="${esc(p.id)}" data-context-target-tab="issues">${openCount} öppna ärenden</button></small>`:""}</td>
     <td>${esc(propertyAddress(p) || "Adress saknas")}<small class="property-list-owner">${esc(propertyOwnerLabel(data,p))}</small></td>
@@ -381,7 +381,7 @@ export function overview(data, s, ui) {
         ["Fastighet","Objekt","Avtal","Hyresgäst","Registrerad avtalstid"],
         history.map(contract=>{
           const property=data.properties.find(row=>row.id===contract.propertyId),object=(data.objects||[]).find(row=>row.id===contract.objectId);
-          return `<tr><td>${esc(propertyReference(property||{}))}</td><td>${esc(object?.number||object?.name||'–')}</td><td><button type="button" class="text-button" data-edit="contracts" data-id="${esc(contract.id)}">${esc(contract.number||'Nummer saknas')}</button></td><td>${esc(tenantName(data,contract))}</td><td>${esc(contract.start||'Start saknas')} – ${esc(contract.end||'Tills vidare')}</td></tr>`;
+          return `<tr><td>${esc(propertyReference(property||{}))}</td><td>${esc(object?.number||object?.name||'–')}</td><td><button type="button" class="text-button" data-edit="contracts" data-id="${esc(contract.id)}">${esc(contract.number||contract.id)}</button></td><td>${esc(tenantName(data,contract))}</td><td>${esc(contract.start||'Start saknas')} – ${esc(contract.end||'Tills vidare')}</td></tr>`;
         }),true,"Tidigare och kommande avtal",false,{key:"contracts-history",noun:"avtal"})}</details>`;
     }
   } else
@@ -442,7 +442,7 @@ export function contractDetail(data, id, year, presentation={}) {
   <div class="detail-grid">
     <div><small>Verksamhet</small><strong>${esc(units[c.unitId]||c.use||"–")}</strong></div>
     <div><small>Hyresgäst</small><strong>${esc(c.tenantName||"–")}</strong></div>
-    <div><small>Verksamhetsansvarig · avtal</small><strong>${esc(personLabel(data,c.businessResponsiblePersonId))}</strong></div>
+    <div><small>Hyresgästens kontaktperson · avtal</small><strong>${esc(personLabel(data,c.tenantResponsiblePersonId))}</strong></div>
     <div><small>Vår kontaktperson · fastighet</small><strong>${esc(personLabel(data,p.responsiblePersonId))}</strong></div>
     <div><small>Fastighetsägarens kontaktperson · fastighet</small><strong>${esc(personLabel(data,p.ownerResponsiblePersonId))}</strong></div>
     <div><small>Hyra ${year} · ${esc(v.rent.status)}</small><strong>${v.rent.status==="Behöver kontroll"&&v.rent.amount<=0?"Kontrollera":money(v.rent.amount)}</strong></div>
@@ -714,7 +714,7 @@ const importFieldLabels = {
   tenantName: "Hyresgäst",
   responsiblePersonId: "Ansvarig hos oss",
   ownerResponsiblePersonId: "Ansvarig hos fastighetsägaren",
-  businessResponsiblePersonId: "Verksamhetsansvarig",
+  tenantResponsiblePersonId: "Hyresgästens kontaktperson",
   start: "Giltigt fr.o.m.",
   end: "Giltigt t.o.m.",
   noticePeriodMonths: "Uppsägningstid",
@@ -809,7 +809,7 @@ function reviewValue(data, item, value) {
   if (["ownerPartyId", "businessPartyId"].includes(item.field))
     return organizationLabel(data, value) || value;
   if (
-    ["responsiblePersonId", "ownerResponsiblePersonId", "businessResponsiblePersonId"].includes(
+    ["responsiblePersonId", "ownerResponsiblePersonId", "tenantResponsiblePersonId"].includes(
       item.field,
     )
   )
@@ -887,7 +887,7 @@ export function reviewCandidateChoices(data,item,searchValue="") {
 }
 function reviewStandardCard(data,x) {
   if(x.kind==='multi-contract-value')return `<article class="review review-card"><h3>Flera avtalsreferenser</h3><p>${esc(x.source)} · ${esc(x.sheet)} · ${esc(x.provenance?.cell)} · ${esc(x.reason)}</p><p>${esc(x.field)}: ${esc(x.proposed)}. Ange uppgiften separat per avtal i underlaget eller avtalsformuläret.</p><button data-review="${esc(x.id)}" data-decision="reject">Lämna värdet oförändrat</button></article>`;
-  if(x.kind==='business-identity'){const rows=x.collection==='contracts'?data.organizations:data.businesses;return `<article class="review review-card"><h3>Bekräfta ${x.collection==='contracts'?'hyresgäst':'verksamhet'}</h3><p>${esc(x.reason)} · ${esc(x.values?.name||x.values?.tenantName)}</p><label>Välj befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(rows||[]).map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${esc(r.id)}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Bekräfta koppling</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;}
+  if(x.kind==='tenant-identity'){const rows=data.organizations;return `<article class="review review-card"><h3>Bekräfta ${x.collection==='contracts'?'hyresgäst':'verksamhet'}</h3><p>${esc(x.reason)} · ${esc(x.values?.name||x.values?.tenantName)}</p><label>Välj befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(rows||[]).map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${esc(r.id)}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Bekräfta koppling</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;}
   if(x.kind==='invalid-import-field')return `<article class="review review-card"><h3>Värdet behöver rättas</h3><p>${esc(x.source)} · ${esc(x.provenance?.sheet||'')} · ${esc(x.provenance?.cell||'')}</p><p>${esc(fieldCaption(x.collection,x.field))}: ${esc(x.provenance?.originalValue??'')} · ${esc(x.reason)}</p><p>Rätta värdet i underlaget och läs in på nytt.</p><button data-review="${esc(x.id)}" data-decision="reject">Ignorera detta värde</button></article>`;
   if(x.kind==='mapped-identity')return `<article class="review review-card"><h3>Identifiera importerad post</h3><p>${esc(x.source)} · ${esc(x.sheet)} rad ${esc(x.row)} · ${esc(x.reason)}</p>${importRecordPreview(x.values)}<label>Koppla till befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(data[x.collection]||[]).map(r=>`<option value="${esc(r.id)}">${esc([r.address,r.designation,r.city,r.number,r.tenantName,r.name,r.title,r.area?num(r.area)+' m²':''].filter(Boolean).join(' · '))}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Koppla och berika</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;
   const titles={match:"Matcha importerat avtal",record:"Koppla importerad post",

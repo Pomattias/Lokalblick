@@ -24,7 +24,7 @@ const data={
     {id:"ourPerson",name:"Vår kontakt",organizationId:"our"},
     {id:"business",name:"Verksamhetschef",unitId:"VARDBO"}
   ],
-  contracts:[{id:"a1",number:"A-100",propertyId:"p1",unitId:"VARDBO",businessResponsiblePersonId:"business"}]
+  contracts:[{id:"a1",number:"A-100",propertyId:"p1",unitId:"VARDBO",tenantResponsiblePersonId:"business"}]
 };
 
 test("Fastighet is a single editor, no tabs or geocode administration fields",()=>{
@@ -48,7 +48,7 @@ test("Fastighet is a single editor, no tabs or geocode administration fields",()
   assert.match(html,/Ägarkontakt/);
   assert.match(html,/Vår kontakt/);
   assert.match(html,/Verksamhetschef/);
-  assert.match(html,/Vårdbo · A-100/);
+  assert.match(html,/A-100/);
   assert.match(html,/class="property-person-field"/);
   assert.doesNotMatch(html,/property-contact-list|property-business-contact/);
   assert.equal((html.match(/class="property-contact-row"/g)||[]).length,0);
@@ -157,19 +157,19 @@ test("auxiliary map does not destroy the underlying portfolio map",()=>{
 });
 
 
-test("saving a business contact from the property keeps dated responsibility history",()=>{
+test("saving a tenant contact from the property keeps dated responsibility history",()=>{
   const original=normalize(structuredClone(data));
   const first=original.contracts.find(c=>c.id==="a1");
-  assert.equal(first.businessResponsiblePersonId,"business");
+  assert.equal(first.tenantResponsiblePersonId,"business");
   const updated=structuredClone(original);
-  updated.contracts.find(c=>c.id==="a1").businessResponsiblePersonId="ourPerson";
+  updated.contracts.find(c=>c.id==="a1").tenantResponsiblePersonId="ourPerson";
   globalThis.LokalblickResponsibility.applyChanges(original,updated,{
     actor:"Redaktör",fromDate:"2026-10-15"
   });
-  const history=globalThis.LokalblickResponsibility.history(updated,"contract","a1","business");
+  const history=globalThis.LokalblickResponsibility.history(updated,"contract","a1","tenant");
   assert.equal(history.length,2,"Keep old and current contact history");
   assert.equal(history.find(a=>a.personId==="business").toDate,"2026-10-14");
   assert.equal(history.find(a=>a.personId==="ourPerson").fromDate,"2026-10-15");
-  assert.equal(updated.contracts.find(c=>c.id==="a1").businessResponsiblePersonId,"ourPerson");
+  assert.equal(updated.contracts.find(c=>c.id==="a1").tenantResponsiblePersonId,"ourPerson");
   assert.ok(updated.auditLog.some(entry=>entry.collection==="assignments"));
 });

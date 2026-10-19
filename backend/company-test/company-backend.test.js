@@ -107,7 +107,7 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   assert.equal((await repository.get("orders", "ORD-TEST")).activityId, "ACT-TEST");
   await repository.saveWorkspace({
     properties: [{ id: "PROP-1", address: "förfalskad", latitude: 60, longitude: 19, note: "Syntetisk komplettering", ownerResponsiblePersonId: person.id, responsiblePersonId: person.id }],
-    contracts: [{ ...core.contracts[0], tenantName: "Syntetisk hyresgäst", unitId: "VARDBO", businessResponsiblePersonId: person.id, baseRent: 1234, annualRent: 999999, address: "förfalskad" }]
+    contracts: [{ ...core.contracts[0], tenantName: "Syntetisk hyresgäst", unitId: "VARDBO", tenantResponsiblePersonId: person.id, baseRent: 1234, annualRent: 999999, address: "förfalskad" }]
   });
   assert.equal((await repository.bootstrap()).properties.find((item) => item.id === "PROP-1").latitude, 60);
   assert.equal((await repository.bootstrap()).properties.find((item) => item.id === "PROP-1").note, "Syntetisk komplettering");
@@ -116,7 +116,7 @@ test("persists CRUD, coordinates, and overlays across refresh and repository res
   assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).baseRent, 1234);
   assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).tenantName, "Syntetisk hyresgäst");
   assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).unitId, "VARDBO");
-  assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).businessResponsiblePersonId, person.id);
+  assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).tenantResponsiblePersonId, person.id);
   assert.equal((await repository.bootstrap()).properties.find((item) => item.id === "PROP-1").ownerResponsiblePersonId, person.id);
   assert.equal((await repository.bootstrap()).properties.find((item) => item.id === "PROP-1").responsiblePersonId, person.id);
   assert.equal((await repository.get("contracts", "SF|PROP-1|SF-100")).annualRent, undefined);

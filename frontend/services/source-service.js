@@ -20,7 +20,7 @@
     ],labelAliases:{number:["Objektnr","Objektsnummer","Objektsnr"],area:["Objektarea","Objektyta"]},display:["Fastighet","Adress","Föregående objekt"] },
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
-      ["objectId","_objectId",true],["propertyId","_propertyId",true],["businessPartyId","_businessPartyId",true],["businessResponsiblePersonId","_businessResponsiblePersonId",true],["responsiblePersonId","_responsiblePersonId",true],
+      ["objectId","_objectId",true],["propertyId","_propertyId",true],["responsiblePersonId","_responsiblePersonId",true],
       ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["tenantName","Hyresgäst enligt källa"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
       ["start","Start"],["end","Slut"],["moveInDate","Inflyttning"],["moveOutDate","Utflyttning"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
       ["terminatedOn","Uppsagd den"],["terminationReason","Uppsägningsorsak"],["businessComment","Kommentar verksamhet"],
@@ -58,8 +58,6 @@
     ],
     display:["Fastighet","Avtal"]
   });
-  SCHEMAS.push({sheet:'Verksamheter',key:'businesses',prefix:'BUS',columns:[['id','_id',true],['sourceId','Källans verksamhets-ID'],['name','Verksamhetsnamn'],['type','Verksamhetstyp'],['unitId','Organisatorisk tillhörighet'],['organizationId','_organizationId',true],['status','Status'],['businessResponsiblePersonId','_businessResponsiblePersonId',true]],display:['Part','Verksamhetsansvarig']},
-   {sheet:'AvtalVerksamhet',key:'contractBusinesses',prefix:'CB',columns:[['id','_id',true],['contractId','_contractId',true],['businessId','_businessId',true],['fromDate','Giltigt fr.o.m.'],['toDate','Giltigt t.o.m.'],['usedArea','Nyttjad area, m²'],['costSharePercent','Kostnadsandel, %'],['cancelled','_cancelled',true]],display:['Avtal','Verksamhet']});
   SCHEMAS.find(s=>s.key==='objects').columns.push(['areaType','Areatyp']);
   SCHEMAS.forEach(function(schema) { schema.fields = schema.columns.map(function(column){ return column[0]; }); });
 
@@ -80,7 +78,7 @@
       ["objectId","_objectId",true],["propertyId","_propertyId",true],["contractId","_contractId",true],["responsiblePersonId","_responsiblePersonId",true],["scopeType","Hemvisttyp"],["unitId","Område"],
       ["type","Typ"],["actionKind","Åtgärdens karaktär"],["rentSurchargeStartDate","Hyrespåslag från"],["title","Aktivitet"],["description","Beskrivning"],["category","Kategori"],["status","Status"],["priority","Prioritet"],
       ["planningYear","Planår"],["planningQuarter","Kvartal",true],["planningMonth","Månad",true],["budgetCategory","Budgetkategori",true],["includeInBudget","Ta med i budget"],
-      ["estimatedCost","Bedömd kostnad"],["phase","Fas"],["startDate","Start"],["endDate","Slut"]
+      ["estimatedCost","Bedömd kostnad"],["startDate","Start"],["endDate","Slut"]
     ],
     display:["Objekt","Fastighet","Adress","Avtal","Ansvarig hos oss"]
   };
@@ -503,7 +501,7 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["businesses","contractBusinesses","assignments","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
+  const EXTRA_KEYS = ["indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
   const RESTORE_EXTRA_KEYS = ["indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
   function extraRows(data) {
     const rows=[];

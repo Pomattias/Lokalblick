@@ -10,7 +10,7 @@ const data={
   isDemo:true,
   properties:[{id:"p1",designation:"Hamnen 4",address:"Hamnvägen 12",ownerPartyId:"owner",
     ownerResponsiblePersonId:"ownerPerson",responsiblePersonId:"ourPerson"}],
-  contracts:[{id:"c1",number:"AV-101",propertyId:"p1",unitId:"VARDBO",businessResponsiblePersonId:"businessPerson"}],
+  contracts:[{id:"c1",number:"AV-101",propertyId:"p1",unitId:"VARDBO",tenantPartyId:"tenant",tenantResponsiblePersonId:"businessPerson"}],
   organizations:[
     {id:"owner",name:"Stadsfastigheter",type:"owner"},
     {id:"owner2",name:"En annan ägare",type:"owner"},
@@ -41,7 +41,7 @@ test("new person defaults match correct responsibility level",()=>{
   const root={querySelector:key=>key==='[data-owner-select]'?{value:"owner"}:null};
   assert.equal(newPersonDefaults(root,data,"owner").organizationId,"owner");
   assert.equal(newPersonDefaults(root,data,"our").organizationId,"our");
-  assert.equal(newPersonDefaults(root,data,"contract","c1").unitId,"VARDBO");
+  assert.equal(newPersonDefaults(root,data,"contract","c1").unitId,undefined);
   assert.equal(newPersonDefaults(root,data,"contract","c1").organizationId,"tenant");
   assert.throws(()=>newPersonDefaults({querySelector:()=>({value:""})},data,"owner"),/Välj fastighetsägare/);
 });
@@ -76,7 +76,7 @@ test("context selection resolves business person without mutating the contract",
     querySelectorAll:key=>key==='[data-property-contract-contact]'?[contractSelect]:[]
   };
   assert.equal(contextPersonSelect(root,"contract","c1"),contractSelect);
-  assert.equal(data.contracts[0].businessResponsiblePersonId,"businessPerson");
+  assert.equal(data.contracts[0].tenantResponsiblePersonId,"businessPerson");
 });
 
 test("refreshing a role select updates linked person names and enables editing",()=>{

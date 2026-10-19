@@ -14,16 +14,16 @@ CREATE TABLE IF NOT EXISTS properties (
 ) STRICT;
 CREATE TABLE IF NOT EXISTS objects (
  id TEXT PRIMARY KEY NOT NULL, property_id TEXT NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
- name TEXT NOT NULL CHECK(trim(name) <> ''), area REAL CHECK(area >= 0),
+ area REAL CHECK(area >= 0),
  apartment_count INTEGER CHECK(apartment_count >= 0), valid_from TEXT, valid_to TEXT,
  CHECK(valid_from IS NULL OR valid_to IS NULL OR valid_from <= valid_to)
 ) STRICT;
 CREATE TABLE IF NOT EXISTS agreements (
  id TEXT PRIMARY KEY NOT NULL, object_id TEXT NOT NULL REFERENCES objects(id) ON DELETE RESTRICT,
- number TEXT NOT NULL UNIQUE CHECK(trim(number) <> ''), tenant_party_id TEXT REFERENCES parties(id) ON DELETE RESTRICT,
+ tenant_party_id TEXT REFERENCES parties(id) ON DELETE RESTRICT,
  annual_rent REAL CHECK(annual_rent >= 0), valid_from TEXT, valid_to TEXT,
- terminated_on TEXT, termination_reason TEXT, usage TEXT, business_comment TEXT,
- staff_count TEXT, eb_category TEXT, main_contract_url TEXT,
+ terminated_on TEXT, termination_reason TEXT, usage TEXT, business TEXT,
+ workplace_count INTEGER CHECK(workplace_count >= 0), hub_count INTEGER CHECK(hub_count >= 0), eb_category TEXT, main_contract_url TEXT,
  CHECK(valid_from IS NULL OR valid_to IS NULL OR valid_from <= valid_to)
 ) STRICT;
 CREATE TABLE IF NOT EXISTS issues (
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS orders (
 ) STRICT;
 CREATE TABLE IF NOT EXISTS contacts (
  id TEXT PRIMARY KEY NOT NULL, person_id TEXT NOT NULL REFERENCES people(id) ON DELETE RESTRICT,
- role TEXT NOT NULL CHECK(role IN ('owner','coordinator','tenant','business')),
+ role TEXT NOT NULL CHECK(role IN ('owner','coordinator','tenant')),
  property_id TEXT REFERENCES properties(id) ON DELETE RESTRICT,
  agreement_id TEXT REFERENCES agreements(id) ON DELETE RESTRICT,
  issue_id TEXT REFERENCES issues(id) ON DELETE RESTRICT,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS contacts (
  valid_from TEXT, valid_to TEXT, cancelled INTEGER NOT NULL DEFAULT 0 CHECK(cancelled IN (0,1)),
  CHECK((property_id IS NOT NULL) + (agreement_id IS NOT NULL) + (issue_id IS NOT NULL) + (order_id IS NOT NULL) = 1),
  CHECK(role <> 'owner' OR property_id IS NOT NULL),
- CHECK(role NOT IN ('tenant','business') OR agreement_id IS NOT NULL),
+ CHECK(role <> 'tenant' OR agreement_id IS NOT NULL),
  CHECK(valid_from IS NULL OR valid_to IS NULL OR valid_from <= valid_to)
 ) STRICT;
 CREATE TABLE IF NOT EXISTS object_links (

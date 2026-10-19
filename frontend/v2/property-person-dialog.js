@@ -60,13 +60,12 @@ export function newPersonDefaults(root, data, kind, contractId = "") {
   if (kind === "contract") {
     const contract=(data.contracts||[]).find(x=>x.id===contractId);
     if (!contract) throw Error("Avtalet kunde inte hittas.");
-    const tenant=(data.organizations||[]).find(x=>x.type==="tenant");
-    return { organizationId:tenant?.id || "", unitId:contract.unitId || "", role:"Verksamhetsansvarig" };
+    return { organizationId:contract.tenantPartyId || "", role:"Kontaktperson" };
   }
   throw Error("Okänd kontaktroll.");
 }
 
-export function personFormHtml(person, isNew) {
+export function personFormHtml(person, isNew, data={}) {
   return '<form id="property-person-form" class="property-person-form">'+
     '<div class="section-title"><div><small>PERSONREGISTER</small>'+
     '<h2>'+(isNew?"Ny person":"Redigera person")+'</h2></div>'+
@@ -75,6 +74,7 @@ export function personFormHtml(person, isNew) {
       ?"Personen sparas i det gemensamma registret. Kopplingen till fastigheten sparas när du sparar Fastighet."
       :"Ändringar av en person gäller på alla fastigheter och avtal där personen används.")+'</p>'+
     '<label>Namn <input name="name" required maxlength="160" value="'+esc(person.name||"")+'"></label>'+
+    '<label>Part <select name="organizationId">'+options(data.organizations||[],p=>p.id,p=>p.name,person.organizationId||'',"Ej angiven")+'</select></label>'+
     '<label>Befattning <input name="role" maxlength="160" value="'+esc(person.role||"")+'"></label>'+
     '<label>Telefonnummer <input name="phone" type="tel" autocomplete="tel" maxlength="50" value="'+esc(person.phone||"")+'"></label>'+
     '<label>E-post <input name="email" type="email" maxlength="254" value="'+esc(person.email||"")+'"></label>'+
@@ -92,5 +92,5 @@ export function updatedPersonRecord(person, formData) {
     throw Error("Personens uppgifter är för långa.");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     throw Error("Ange en giltig e-postadress.");
-  return {...person, name, role, phone, email};
+  return {...person, name, role, phone, email, organizationId:formData.has("organizationId")?String(formData.get("organizationId")||""):person.organizationId||""};
 }
