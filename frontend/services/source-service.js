@@ -681,6 +681,7 @@
   function dataToWorkbook(data) {
     const canonical=canonicalizeModel(clone(data||{}));
     if(window.LokalblickObjectModel)window.LokalblickObjectModel.normalize(canonical);
+    window.LokalblickObjectModel?.stripAreas(canonical);
     ensureStableIds(canonical);
     const workbook = XLSX.utils.book_new();
     const metadata = [
@@ -843,10 +844,12 @@
       async load() { return clone(source.data || {}); },
       async save(data) {
         const next = clone(data);
+        window.LokalblickObjectModel?.normalize(next);
         window.LokalblickBusinessModel?.normalize(next);
         window.LokalblickBusinessModel?.validate(next,source.data);
         window.LokalblickResponsibility?.normalize(next);
         window.LokalblickResponsibility?.validate(next,source.data);
+        window.LokalblickObjectModel?.stripAreas(next);
         next.isDemo = false;
         next.sourceName = source.fileName || "Excel-källa";
         source.pendingChanges = diffData(source.baselineData || {}, next);

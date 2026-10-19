@@ -1,6 +1,6 @@
 /* Shared import decisions. Adapters interpret columns; these rules decide writes. */
 (function(root){
-  const copy=x=>JSON.parse(JSON.stringify(x));
+  const copy=x=>x===undefined?undefined:JSON.parse(JSON.stringify(x));
   const present=x=>x!=null&&(typeof x!=='string'||x.trim()!=='');
   const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   const key=x=>String(x??'').trim().toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'');
@@ -117,7 +117,7 @@
       const rows=copy(base[collection]||[]);data[collection]=rows;const index=createIndex(rows);
       for(const incoming of candidate[collection]||[]){
         const proposed=copy(incoming);
-        for(const field of ['propertyId','objectId','contractId','activityId','businessId','ownerPartyId','organizationId','responsiblePersonId','orderedByPersonId'])if(remap.has(proposed[field]))proposed[field]=remap.get(proposed[field]);
+        for(const field of ['propertyId','objectId','contractId','activityId','businessId','ownerPartyId','organizationId','tenantPartyId','businessPartyId','personId','targetId','orderedByPersonId',...Object.keys(root.LokalblickResponsibility?.fields||{})])if(remap.has(proposed[field]))proposed[field]=remap.get(proposed[field]);
         const existing=index.lookup('id',proposed.id).find(r=>r.id===proposed.id);
         let match=existing?{kind:'A',record:existing}:identify(rows,proposed,collection,[],index);
         // Parser-generated IDs anchor legacy rows lacking a human identifier.
@@ -129,6 +129,13 @@
         for(const [field,proposedValue] of Object.entries(proposed)){
           let value=proposedValue;
           if(['id','provenance'].includes(field)||equal(record[field],value))continue;
+          const responsibility=root.LokalblickResponsibility,role=responsibility?.fields[field],type=role&&Object.keys(responsibility.types).find(type=>responsibility.types[type]===collection);
+          if(type&&responsibility.history(candidate,type,incoming.id,role).length){
+            const active=responsibility.current(candidate,type,incoming.id,role),derived=active.length===1?active[0].personId:'';
+            // A reviewed assignment is the canonical write. Its compatibility
+            // field is derived after links have merged, never imported again.
+            if(equal(incoming[field],derived))continue;
+          }
           const origin=provenance(workbook,proposed,field,source,schemas,provenanceCache),from=copy(record[field]??'');
           const formats=root.LokalblickImportFormats||root.window?.LokalblickImportFormats;
           if(formats&&workbook?.Sheets&&origin.cell&&!protectedField(field)&&!field.endsWith('Id')&&(formats.dateField(field)||formats.numberField(field))){

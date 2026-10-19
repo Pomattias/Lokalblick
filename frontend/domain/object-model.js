@@ -25,7 +25,7 @@
       contract.propertyId=object.propertyId;
     }
     for(const activity of data.activities){if(activity.objectId&&!activity.contractId){const o=data.objects.find(o=>o.id===activity.objectId);if(o)activity.propertyId=o.propertyId;}}
-    return data;
+    return projectAreas(data);
   }
   function validate(data){
     const objects=data.objects||[],byId=new Map(objects.map(o=>[o.id,o]));
@@ -44,5 +44,40 @@
     return data;
   }
   const propertyId=(data,record)=>record.objectId?(data.objects||[]).find(o=>o.id===record.objectId)?.propertyId||record.propertyId||'':record.propertyId||'';
-  root.LokalblickObjectModel={normalize,validate,propertyId};
+  // Compatibility projections keep existing consumers (including Budget)
+  // unchanged. Managed area is persisted only on the object.
+  function projectAreas(data){
+    for(const c of data.contracts||[])if(c.objectAreaManaged===true){
+      const o=(data.objects||[]).find(o=>o.id===c.objectId);
+      if(o&&meaningful(o.area))c.area=o.area;else delete c.area;
+    }
+    return data;
+  }
+  function stripAreas(data){
+    for(const c of data.contracts||[])if(c.objectAreaManaged===true)delete c.area;
+    return data;
+  }
+  function applyAreaChanges(before,data){
+    const changed=new Set();
+    for(const c of data.contracts||[]){
+      const previous=(before?.contracts||[]).find(old=>old.id===c.id);
+      if(c.objectAreaManaged!==true||!previous||!Object.hasOwn(c,'area')||c.area===previous.area)continue;
+      const object=(data.objects||[]).find(object=>object.id===c.objectId),oldObject=(before.objects||[]).find(object=>object.id===c.objectId);
+      if(!object)continue;
+      if(c.area!==''&&(!Number.isFinite(Number(c.area))||Number(c.area)<0))throw TypeError('Objektets yta måste vara ett positivt tal eller tomt');
+      if(object.area!==oldObject?.area&&object.area!==c.area)throw TypeError('Olika ytor har angetts för samma objekt');
+      object.area=c.area;changed.add(object.id);
+    }
+    return changed;
+  }
+  function adoptAreas(data){
+    normalize(data);
+    for(const o of data.objects||[]){
+      const contracts=(data.contracts||[]).filter(c=>c.objectId===o.id),values=[...new Set(contracts.filter(c=>c.objectAreaManaged!==true&&meaningful(c.area)).map(c=>Number(c.area)))];
+      if(!meaningful(o.area)&&values.length===1){o.area=values[0];o.provenance ||= {};o.provenance.area ||= {...contracts.find(c=>meaningful(c.area))?.provenance?.area,derived:'legacy-contract-area'};}
+      for(const c of contracts)if(c.objectAreaManaged===true||!meaningful(c.area)||meaningful(o.area)&&Number(c.area)===Number(o.area)){c.objectAreaManaged=true;delete c.area;}
+    }
+    return data;
+  }
+  root.LokalblickObjectModel={normalize,validate,propertyId,projectAreas,stripAreas,adoptAreas,applyAreaChanges};
 })(typeof window==='undefined'?globalThis:window);

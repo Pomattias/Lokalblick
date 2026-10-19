@@ -230,6 +230,7 @@ export class LokalblickRepository {
     return {previewId,baseRevision:revision,...proposed};
   }
   validateImportedData(data){
+    data=globalThis.LokalblickObjectModel.projectAreas(structuredClone(data));
     globalThis.LokalblickObjectModel.validate(data);
     globalThis.LokalblickResponsibility.validate(data);
     globalThis.LokalblickBusinessModel.validate(data);
@@ -250,6 +251,7 @@ export class LokalblickRepository {
     }
   }
   storeImportedWorkspace(store,data,master=this.core){
+    data=globalThis.LokalblickObjectModel.stripAreas(structuredClone(data));
     store.imported={properties:data.properties.filter(p=>!master.properties.some(x=>x.id===p.id)).map(p=>structuredClone(p)),contracts:data.contracts.filter(c=>!master.contracts.some(x=>x.id===c.id)).map(c=>structuredClone(c))};
     for(const entity of USER_ENTITIES)if(!['propertyOverlays','contractOverlays','budgetData'].includes(entity))store.entities[entity]=structuredClone(data[entity]||store.entities[entity]);
     store.entities.propertyOverlays=data.properties.map(p=>{const original=master.properties.find(x=>x.id===p.id)||store.imported.properties.find(x=>x.id===p.id)||{};return {id:p.id,propertyId:p.id,...Object.fromEntries(Object.entries(p).filter(([k,v])=>k!=="id"&&(JSON.stringify(v)!==JSON.stringify(original[k])||p.provenance?.[k]?.source==="manual")))};});
@@ -293,18 +295,22 @@ export class LokalblickRepository {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       throw new TypeError("Workspace payload must be an object");
     }
-    if(Array.isArray(payload.objects)){const current=await this.bootstrap();globalThis.LokalblickObjectModel.validate({...current,...payload});}
+    payload=structuredClone(payload);
     const currentData=await this.bootstrap();
+    const prepared={...structuredClone(currentData),...structuredClone(payload)};
+    if(globalThis.LokalblickObjectModel.applyAreaChanges(currentData,prepared).size)payload.objects=structuredClone(prepared.objects);
+    globalThis.LokalblickObjectModel.projectAreas(prepared);
+    if(Array.isArray(payload.objects))globalThis.LokalblickObjectModel.validate(prepared);
     if (Array.isArray(payload.recurringCosts)) {
       globalThis.LokalblickRecurringCosts.validateCosts({
-        ...currentData,
-        ...payload,
+        ...prepared,
         recurringCosts: payload.recurringCosts,
       });
     }
-    const preparedResponsibility=globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickBusinessModel.normalize({...structuredClone(currentData),...structuredClone(payload)}));
+    const preparedResponsibility=globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickBusinessModel.normalize(prepared));
     globalThis.LokalblickResponsibility.validate(preparedResponsibility,currentData);
     globalThis.LokalblickBusinessModel.validate(preparedResponsibility,currentData);
+    globalThis.LokalblickObjectModel.stripAreas(payload);
     payload={...payload,assignments:preparedResponsibility.assignments,businesses:preparedResponsibility.businesses,contractBusinesses:preparedResponsibility.contractBusinesses};
     const approved=(collection,row,field,value)=>(payload.importReview||payload.budgetData?.find(x=>x.id==="lokalblick-v2-workspace")?.workspace?.importReview||[]).some(r=>r.kind==="operational-conflict"&&r.status==="accepted"&&(r.collection===collection||!r.collection&&r.entity===(collection==="contracts"?"Avtal":"Fastighet"))&&r.recordId===row.id&&r.field===field&&r.resolvedBy&&r.resolvedAt&&JSON.stringify(r.proposed)===JSON.stringify(value)&&[r.current,value].some(v=>JSON.stringify(currentData[collection].find(x=>x.id===row.id)?.[field])===JSON.stringify(v)));
     const updates = {};

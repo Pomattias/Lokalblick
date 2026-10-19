@@ -705,6 +705,8 @@ async function mutation(change, { automatic = false, manualPositionIds = [], res
   busy = true;
   try {
     change(data);
+    globalThis.LokalblickObjectModel.applyAreaChanges(before,data);
+    globalThis.LokalblickObjectModel.projectAreas(data);
     if(!automatic)globalThis.LokalblickResponsibility.applyChanges(before,data,{actor:actor(),fromDate:responsibilityDate||globalThis.LokalblickResponsibility.today()});
     globalThis.LokalblickBusinessModel.normalize(data);
     globalThis.LokalblickBusinessModel.validate(data,before);

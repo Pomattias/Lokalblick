@@ -307,7 +307,8 @@ try {
   assert.deepEqual(await page.locator('[data-contract-section]').evaluateAll(sections=>sections.map(section=>section.dataset.contractSection)),
     ['identity','economics','dates','contacts']);
   assert.ok(!(await page.locator('[data-contract-rent-terms]').getAttribute('open')));
-  assert.ok(await page.locator('[data-contract-section="economics"] [name="area"] + .editor-mode-value').isVisible());
+  assert.ok(await page.locator('[data-contract-section="economics"] [data-object-area]').isVisible());
+  assert.equal(await page.locator('[data-contract-section="economics"] [name="area"]').count(),0);
   for(const width of [1440,390]) {
     await page.setViewportSize({width,height:900});
     const appearance = selector => page.locator(selector).first().evaluate(element=>{

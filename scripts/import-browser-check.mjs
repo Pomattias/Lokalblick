@@ -8,7 +8,7 @@ const require=createRequire(import.meta.url),artifacts='/tmp/lokalblick-simple-i
 const server=spawn(process.execPath,['backend/server.mjs'],{env:{...process.env,LOKALBLICK_PORT:'8805'}});let browser;
 function file(name,sheets){const workbook=XLSX.utils.book_new();for(const [sheet,rows] of sheets)XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(rows),sheet);return {name,bytes:[...XLSX.write(workbook,{type:'buffer',bookType:'xlsx'})]};}
 const files=[file('syntetiska-avtal.xlsx',[
- ['Lokallista',[['Förvaltningsobjekt','Gatuadress','Avtalsnummer','Area','Årshyra','Fr.o.m.','T.o.m.','Specialvillkor','Internt kostnadsställe','Uppsagd den','Uppsägningsorsak','Användning'],['P-1','Testgatan 1','A-1',425,120000,'2025-01-01','2028-12-31','FÅR INTE IMPORTERAS','K-42','2027-04-30','Avveckling','Träffpunkt']]],
+ ['Lokallista',[['Förvaltningsobjekt','Gatuadress','Avtalsnummer','Area','Årshyra','Fr.o.m.','T.o.m.','Specialvillkor','Internt kostnadsställe','Uppsagd den','Uppsägningsorsak','Användning','Hyresgästens kontaktperson','Kontaktens e-post','Avtalsansvarig','Ansvarigs e-post'],['P-1','Testgatan 1','A-1',425,120000,'2025-01-01','2028-12-31','FÅR INTE IMPORTERAS','K-42','2027-04-30','Avveckling','Träffpunkt','Anna Lind','anna.lind@example.invalid','Johan Ek','johan@example.invalid']]],
  ['Lokalbestånd',[['Objektsnummer / Förvaltningsobjekt','Avtalsnummer','Ort','Kommentar verksamhet','Antal medarbetare (viss+ heltid)','Lokalkategori (LEB)','Lägenheter (yta)','Länk avtal (Huvudkontrakt)'],['P-1','A-1','Malmö','Kommunal primärvård.','12,5','KP Kontor- och personallokaler','245,5','https://example.invalid/A-1.pdf']]],
 ]),file('syntetiska-personer.xlsx',[
  ['Personer',[['Namn','E-post','Telefon'],['Anna Lind','anna.lind@example.invalid','0700000001'],['Annan Person','annalind@example.invalid','0700000002']]],
@@ -33,12 +33,16 @@ try{
  const choose=async(key,search,target)=>{await page.locator(`[data-preview-map="${key}"]`).evaluate(node=>{for(let parent=node.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;});await page.locator(`[data-preview-map="${key}"]`).click();await page.locator('[data-field-search]').fill(search);await page.locator(`[data-target="${target}"]`).click();};
  await open();
  assert.equal(await page.locator('[data-existing],[data-preview-collection],[data-extra]').count(),0);
- assert.equal(await page.locator('[data-preview-map]').count(),23);
+ assert.equal(await page.locator('[data-preview-map]').count(),27);
  assert.equal(await page.locator('[data-apply]').isDisabled(),true);
  assert.ok(!(await page.locator('.import-mapping-dialog').innerText()).includes('Kompletterande information'));
  await page.screenshot({path:`${artifacts}/pending-1280.png`});
  await choose('0:8','kostnadsställe','contracts.costCenterPremises');
  await page.locator('[data-ignore-column="0:7"]').click();
+ await choose('0:12','hyresgästens kontaktperson','contracts.tenantResponsiblePersonId');
+ await choose('0:13','hyresgästens e-post','contact.12.email');
+ await choose('0:14','ansvarig hos oss','contracts.responsiblePersonId');
+ await choose('0:15','Avtalsansvarig e-post','contact.14.email');
  assert.equal(await page.locator('[data-apply]').isEnabled(),true);
  await page.locator('[data-column-group="mapped"]').evaluate(node=>node.open=true);
  for(const width of [1280,390,320]){
@@ -51,7 +55,9 @@ try{
  await page.locator('[data-apply]').click();await page.locator('.import-mapping-dialog').waitFor({state:'detached'});
  await page.locator('.import-progress-dialog').waitFor({state:'detached'});
  const loaded=()=>page.evaluate(()=>LokalblickDataService.load());
- const first=await loaded();assert.equal(first.properties.length,1);assert.equal(first.contracts.length,1);assert.equal(first.people.length,2);
+ const first=await loaded();assert.equal(first.properties.length,1);assert.equal(first.contracts.length,1);assert.equal(first.people.length,3);
+ assert.equal(first.assignments.length,2);assert.equal(first.contracts[0].tenantResponsiblePersonId,first.people.find(person=>person.name==='Anna Lind').id);assert.equal(first.contracts[0].responsiblePersonId,first.people.find(person=>person.name==='Johan Ek').id);
+ assert.equal(first.objects[0].area,425);assert.equal(first.contracts[0].area,undefined);assert.equal(first.objects[0].start||'','');assert.equal(first.objects[0].end||'','');
  assert.equal(first.contracts[0].costCenterPremises,'K-42');assert.equal(first.contracts[0].baseRent,120000);assert.equal(first.contracts[0].end,'2028-12-31');
  const fields={terminatedOn:'2027-04-30',terminationReason:'Avveckling',use:'Träffpunkt',businessComment:'Kommunal primärvård.',employees:12.5,category:'KP Kontor- och personallokaler',apartmentArea:245.5,contractDocumentUrl:'https://example.invalid/A-1.pdf'};
  for(const [field,value] of Object.entries(fields))assert.equal(first.contracts[0][field],value,field);
@@ -60,13 +66,14 @@ try{
  await open();assert.equal(await page.locator('[data-column-group="pending"]').count(),0);assert.equal(await page.locator('[data-apply]').isEnabled(),true);
  assert.ok((await page.locator('[data-import-result]').innerText()).includes('Oförändrade'));
  await page.locator('[data-apply]').click();await page.locator('.import-mapping-dialog').waitFor({state:'detached'});await page.locator('.import-progress-dialog').waitFor({state:'detached'});
- const again=await loaded();assert.equal(again.people.length,2);assert.equal(again.properties.length,1);assert.equal(again.contracts.length,1);assert.equal(again.auditLog.length,first.auditLog.length);
+ const again=await loaded();assert.equal(again.people.length,3);assert.equal(again.assignments.length,2);assert.equal(again.properties.length,1);assert.equal(again.contracts.length,1);assert.equal(again.auditLog.length,first.auditLog.length);
  // Cancelling a changed choice never persists its new rules or values.
  await open();await choose('0:8','kommentar','contracts.comment');await page.locator('[data-cancel]').click();
  assert.deepEqual(await loaded(),again);
  // The agreement keeps the imported source values and edits each real field once.
  await page.locator('.sidebar [data-view="contracts"]').evaluate(button=>button.click());await page.locator('[data-open-contract]').first().click();
  const form=page.locator('#edit-form');await form.waitFor();
+ assert.equal(await form.locator('[data-object-area]').innerText(),'425');assert.equal(await form.locator('[name=area]').count(),0);
  await form.locator('[data-contract-context]>summary').click();await form.locator('[data-contract-notice-terms]>summary').click();
  for(const [field,value] of Object.entries(fields)){
   assert.equal(await form.locator(`[name="${field}"]`).count(),1,field);
@@ -82,6 +89,13 @@ try{
  assert.equal(await form.count(),0,await page.locator('#notice').innerText());
  await page.reload({waitUntil:'domcontentloaded'});await page.locator('#content > *').first().waitFor();
  const edited=(await loaded()).contracts[0];assert.equal(edited.businessComment,'Kompletterad verksamhetskommentar.');assert.equal(edited.employees,13.5);assert.equal(edited.terminatedOn,'2027-05-31');assert.equal(edited.category,fields.category);assert.equal(edited.contractDocumentUrl,fields.contractDocumentUrl);
+ // Editing object area updates the derived agreement value, without storing
+ // another copy or inventing object dates.
+ await page.locator('.sidebar [data-view="objects"]').evaluate(button=>button.click());await page.locator('[data-edit="objects"]').first().click();
+ await form.locator('[data-context-tab="info"]').click();await form.locator('[data-editor-activate]').click();await form.locator('[name="area"]').fill('500');await form.locator('[type="submit"]').click();await form.waitFor({state:'detached'});
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('#content > *').first().waitFor();
+ const resized=await loaded();assert.equal(resized.objects[0].area,500);assert.equal(resized.contracts[0].area,undefined);assert.equal(resized.objects[0].start||'','');assert.equal(resized.objects[0].end||'','');
+ await page.locator('.sidebar [data-view="contracts"]').evaluate(button=>button.click());await page.locator('[data-open-contract]').first().click();assert.equal(await form.locator('[data-object-area]').innerText(),'500');await form.locator('[data-editor-close]').click();
  // After city completion the progress dialog describes saving, even if storage waits.
  const isolated=await browser.newContext({viewport:{width:390,height:900}}),cityPage=await isolated.newPage();
  await cityPage.route('https://**/*',route=>{
@@ -101,5 +115,5 @@ try{
  assert.equal(await cityPage.evaluate(async()=>(await LokalblickDataService.load()).properties.length),1);
  await isolated.close();
  assert.deepEqual(errors,[]);
- console.log('PASS: one review, direct fields, exclusions, all highlighted agreement fields, native detail edits, mobile fit, source categories and links, saved choices, distinct people, idempotent reimport, cancellation and reload.');
+ console.log('PASS: direct role choices for several name columns, shared person identity, canonical object area, blank dates, object editing, idempotent reimport, saved mappings, reload, native agreement fields, exclusions and mobile fit.');
 }finally{await browser?.close();server.kill('SIGTERM');}

@@ -114,7 +114,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
   const rentPerSqm=totals.rent.status==='Behöver kontroll'?'Behöver kontroll':Number(c.area)>0?money(totals.rent.amount/Number(c.area)):'Ej beräknat';
   const economics = '<section class="contract-section" data-contract-section="economics"><h3>Hyra och yta</h3><div class="contract-grid">'+
     field("Hyra "+new Date().getFullYear()+", kr/år",display(rentValue))+
-    field("Area, m²",input(c,"area","number",masterLocked,'min="0" step="any"'))+
+    field("Area, m²",presentation.portfolio?'<span class="contract-readonly" data-object-area>'+esc((data.objects||[]).find(object=>object.id===c.objectId)?.area??c.area??'–')+'</span>':input(c,"area","number",masterLocked,'min="0" step="any"'),presentation.portfolio?'Hämtas från objektet. Ändra ytan på objektets sida.':'')+
     (presentation.portfolio?field('Årshyra, kr/m²','<span class="contract-readonly" data-contract-rent-per-sqm>'+esc(rentPerSqm)+'</span>'):"")+
     (totals.addition.amount || totals.tax ? field("Total årskostnad, kr",display(money(annualTotal))) : "")+
     '</div>'+(missing.length?'<p class="rent-needs-review">Behöver kontroll: '+esc(missing.join(' · '))+'</p>':'')+

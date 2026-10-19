@@ -164,7 +164,7 @@ export function normalize(data) {
     "driftIssues", "wishes", "assignmentChanges", "operations", "driftCosts",
     "maintenanceStatus", "legacyOrganizations",
   ]) delete canonical[key];
-  return canonical;
+  return globalThis.LokalblickObjectModel.projectAreas(canonical);
 }
 export function activityPropertyId(data, record) {
   if (!record) return "";

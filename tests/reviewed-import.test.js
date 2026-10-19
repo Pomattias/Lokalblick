@@ -45,7 +45,7 @@ test('tenant contacts resolve to actual people and cannot save names as person I
 test('cross-sheet enrichment uses the source property identifier and one agreement',()=>{
  const workbook=book([['Förvaltningsobjekt','Gatuadress','Ort','Avtalsnummer'],['P-1','Testgatan 1','Malmö','A-1']]);
  XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([['Objektsnummer / Förvaltningsobjekt','Avtalsnummer','Lokalyta (kvm)'],['P-1','A-1',200]]),'Lokalbestånd');
- const result=run(workbook);assert.equal(result.data.properties.length,1);assert.equal(result.data.contracts.length,1);assert.equal(result.data.contracts[0].area,200);assert.equal(result.data.objects.length,1);
+ const result=run(workbook);assert.equal(result.data.properties.length,1);assert.equal(result.data.contracts.length,1);assert.equal(result.data.contracts[0].area,undefined);assert.equal(result.data.objects[0].area,200);assert.equal(result.data.objects.length,1);
 });
 test('excluding the property identity stages the agreement instead of creating an orphan',()=>{
  const result=run(book([['Fast.bet','Avtalsnummer'],['Test 1','A-1']]),{},profiles=>{profiles[0].columns[0].target='@ignore';});

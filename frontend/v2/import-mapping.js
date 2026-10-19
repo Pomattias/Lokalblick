@@ -1,5 +1,6 @@
 import {issueCaption,collectionCaption} from './field-labels.js';
 import {fieldCatalog,prepareMappedImport,retargetColumn} from '../services/import-engine.js';
+import {personRole,contactPart,contactFields} from '../services/import-person-links.js';
 import {esc} from './views.js';
 
 const selected=column=>!column.target.startsWith('@');
@@ -8,10 +9,10 @@ const fieldLabel=field=>issueCaption(field.label);
 export const formatHtml=column=>`${esc(column.format?.label||'Text')}${column.format?.invalid?' · '+column.format.invalid+' värden behöver granskas':''}${column.transform==='monthly'||/månadshyra|kr\s*\/\s*mån/i.test(column.header)?' · räknas om till år':''}`;
 
 export function reviewProfiles(profiles,schemas) {
-  const targets=new Set(fieldCatalog(schemas,true).map(field=>field.target));
-  return structuredClone(profiles).map(profile=>({...profile,columns:profile.columns.map(column=>({...column,
-    target:targets.has(column.target)||column.target==='@ignore'?column.target:'@unmapped',
-  }))}));
+  return structuredClone(profiles).map(profile=>{
+    const targets=new Set([...fieldCatalog(schemas,true),...contactFields(profile)].map(field=>field.target));
+    return {...profile,columns:profile.columns.map(column=>({...column,target:targets.has(column.target)||column.target==='@ignore'?column.target:'@unmapped'}))};
+  });
 }
 function dialog(html,className='') {
   const d=document.createElement('dialog');d.className='followup-dialog import-dialog '+className;
@@ -36,7 +37,7 @@ function chooseField(fields,current) {
   });
 }
 export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}) {
-  const fields=fieldCatalog(schemas,true),names=new Map(fields.map(field=>[field.target,fieldLabel(field)]));
+  const fields=fieldCatalog(schemas,true);
   const all=mapping.profiles.flatMap(profile=>profile.columns),unmapped=all.filter(pending).length,included=all.filter(selected).length;
   const reviews=(result.data.importReview||[]).filter(row=>row.status==='pending');
   const problems=new Map(),uncertainRows=new Set();
@@ -47,17 +48,19 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
     if(!problems.has(key))problems.set(key,{...row,count:0});problems.get(key).count++;
   }
   const rowHtml=(profile,pi,column,ci)=>{
+    const names=new Map([...fields,...contactFields(profile)].map(field=>[field.target,fieldLabel(field)]));
     const key=pi+':'+ci,[collection,field]=column.target.split('.');
     const changes=(result.report.changes||[]).filter(change=>change.collection===collection&&change.field===field&&(!change.provenance?.sheet||change.provenance.sheet===profile.name)&&(!profile.fileName||change.provenance?.source===profile.fileName));
     const conflicts=reviews.filter(review=>review.collection===collection&&review.field===field&&(!review.sheet||review.sheet===profile.name)&&(!review.source||review.source===(profile.fileName||prepared.fileName)));
     const preferenceKey=[collection,field,profile.fileName||prepared.fileName].map(value=>String(value||'').trim().toLocaleLowerCase('sv')).join('|');
-    const canPrioritize=selected(column)&&!['id','sourceId','objectId','propertyId','contractId','activityId'].includes(field)&&(conflicts.length||preferences[preferenceKey]);
+    const canPrioritize=selected(column)&&!personRole(column.target)&&!contactPart(column.target)&&!['id','sourceId','objectId','propertyId','contractId','activityId'].includes(field)&&(conflicts.length||preferences[preferenceKey]);
     const examples=column.samples||column.examples||[];
     return `<div class="import-column-row" data-import-column="${key}" data-column-state="${pending(column)?'pending':selected(column)?'mapped':'ignored'}">
       <div class="import-column-name"><strong>${esc(column.header)}</strong><small>${esc(column.filled??0)} ifyllda · ${formatHtml(column)}</small>${column.identity&&selected(column)?'<small>Används för att identifiera och koppla poster.</small>':''}</div>
       <div class="import-column-examples"><span>${esc(examples.find(value=>String(value??'').trim())??'–')}</span>${examples.length?`<details><summary>Visa exempel</summary>${examples.map((value,index)=>`<small>Rad ${(profile.headerRow||1)+index+1}: ${esc(value===''?'Tomt':value)}</small>`).join('')}</details>`:''}</div>
       <div class="import-column-choice"><button type="button" class="import-target" data-preview-map="${key}" aria-label="Välj fält för ${esc(column.header)}">${esc(names.get(column.target)||'Välj fält…')}</button><button type="button" data-ignore-column="${key}" aria-pressed="${column.target==='@ignore'}">${column.target==='@ignore'?'Ångra bortval':'Importera inte'}</button>
       <small>${pending(column)?'Behöver kopplas eller väljas bort':selected(column)?changes.length+' fältändringar · '+conflicts.length+' avvikelser':'Importeras inte'}</small>
+      ${personRole(column.target)?`<small>Skapar eller återanvänder en person och kopplar till denna roll. Koppla e-post, person-ID och kontaktdatum via Välj fält på motsvarande kolumner. Saknade datum lämnas tomma.</small><label><input type="checkbox" data-person-identity="${key}"${column.personIdentity==='name'?' checked':''}> Jag bekräftar att namnen i denna kolumn identifierar unika personer</label><label><input type="checkbox" data-person-shared="${key}"${column.shared?' checked':''}> Delat ansvar i denna roll</label>`:''}
       ${canPrioritize?`<label>Vid avvikelse<select aria-label="Berikningsregel för ${esc(column.header)}" data-column-rule="${key}"><option value="">Komplettera tomma fält, granska konflikter</option><option value="accept">Använd denna källa vid avvikelse</option><option value="reject">Behåll befintliga värden vid avvikelse</option></select></label>${preferences[preferenceKey]?'<small>Sparad kolumnregel</small>':''}`:''}</div>
     </div>`;
   };
@@ -79,7 +82,7 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
 export async function previewImport(prepared,base,schemas,actor) {
   const mapping={profiles:reviewProfiles(prepared.profiles,schemas)},fields=fieldCatalog(schemas,true);
   const draft=structuredClone(base);draft.importFieldPreferences ||= {};
-  const context={fingerprint:prepared.fingerprint,fileName:prepared.fileName,schemas,actor,strictColumns:true};
+  const context={fingerprint:prepared.fingerprint,fileName:prepared.fileName,schemas,actor,strictColumns:true,personLinks:true,objectAreas:true};
   const evaluate=()=>prepareMappedImport(prepared.workbook,mapping.profiles.map(profile=>({...profile,columns:profile.columns.map(column=>pending(column)?{...column,target:'@ignore'}:column)})),draft,context,window.XLSX);
   const d=dialog('<p role="status">Kontrollerar valda kolumner…</p>','import-mapping-dialog');
   return new Promise((resolve,reject)=>{
@@ -95,14 +98,19 @@ export async function previewImport(prepared,base,schemas,actor) {
       for(const node of d.querySelectorAll('[data-column-rule]')){const {profile,column}=locate(node.dataset.columnRule),key=[...column.target.split('.'),profile.fileName||prepared.fileName].map(value=>String(value).trim().toLocaleLowerCase('sv')).join('|');node.value=draft.importFieldPreferences[key]||'';}
       d.scrollTop=scroll;
     };
-    const update=(profile,column,target)=>{retargetColumn(prepared.workbook,profile,column,target,window.XLSX);column.collection=target.split('.')[0];refresh();};
+    const update=(profile,column,target)=>{
+      retargetColumn(prepared.workbook,profile,column,target,window.XLSX);column.collection=target.split('.')[0];
+      const allowed=new Set(contactFields(profile).map(field=>field.target));
+      for(const other of profile.columns)if(contactPart(other.target)&&!allowed.has(other.target))retargetColumn(prepared.workbook,profile,other,'@unmapped',window.XLSX);
+      refresh();
+    };
     const fail=error=>{result=null;d.querySelector('[data-import-error]').textContent=error.message;d.querySelector('[data-apply]').disabled=true;};
     d.addEventListener('cancel',event=>{event.preventDefault();abort();});
     d.addEventListener('click',async event=>{
       const button=event.target.closest('button');if(!button)return;
       try{
         if(button.hasAttribute('data-cancel')){abort();return;}
-        if(button.hasAttribute('data-preview-map')){const key=button.dataset.previewMap,{profile,column}=locate(key),target=await chooseField(fields,column.target);if(closed)return;if(target)update(profile,column,target);d.querySelector(`[data-preview-map="${key}"]`)?.focus();}
+        if(button.hasAttribute('data-preview-map')){const key=button.dataset.previewMap,{profile,column}=locate(key),target=await chooseField([...fields,...contactFields(profile)],column.target);if(closed)return;if(target)update(profile,column,target);d.querySelector(`[data-preview-map="${key}"]`)?.focus();}
         if(button.hasAttribute('data-ignore-column')){const {profile,column}=locate(button.dataset.ignoreColumn);update(profile,column,column.target==='@ignore'?'@unmapped':'@ignore');}
         if(button.hasAttribute('data-ignore-unmapped')){for(const profile of mapping.profiles)for(const column of profile.columns)if(pending(column))retargetColumn(prepared.workbook,profile,column,'@ignore',window.XLSX);refresh();}
         if(button.hasAttribute('data-apply')){
@@ -114,6 +122,11 @@ export async function previewImport(prepared,base,schemas,actor) {
       }catch(error){fail(error);}
     });
     d.addEventListener('change',event=>{
+      if(event.target.hasAttribute('data-person-identity')||event.target.hasAttribute('data-person-shared')){
+        const identity=event.target.hasAttribute('data-person-identity'),{column}=locate(identity?event.target.dataset.personIdentity:event.target.dataset.personShared);
+        if(identity)column.personIdentity=event.target.checked?'name':'';else column.shared=event.target.checked;
+        try{refresh();}catch(error){fail(error);}return;
+      }
       if(!event.target.hasAttribute('data-column-rule'))return;
       const {profile,column}=locate(event.target.dataset.columnRule),key=[...column.target.split('.'),profile.fileName||prepared.fileName].map(value=>String(value).trim().toLocaleLowerCase('sv')).join('|');
       if(event.target.value)draft.importFieldPreferences[key]=event.target.value;else delete draft.importFieldPreferences[key];
