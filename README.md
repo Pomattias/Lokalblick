@@ -83,3 +83,11 @@ LEB/Excel är master för källdata. Backend äger Lokalblicks kompletteringar o
 - `npx playwright install chromium` och `npm run test:integration-browser` är separat webbläsarregression.
 
 All företagsdata, filer och hemligheter ska ligga utanför GitHub och Vercels publika demomiljö. Den gamla V1-vyn kan inte längre väljas.
+
+### Ny fristående app: Lokalblick Lokaler
+
+Den rena modellen för fastigheter, objekt, avtal, ärenden och personkopplingar
+finns under `frontend/lokaler/`. Öppna `/frontend/lokaler/index.html` för den nya
+webbappen och anslut en lokal Excel-arbetsbok, eller kör `npm run lokaler` för
+lokal SQLite-lagring. Den tidigare appen och Budget är oförändrade.
+Se [startguide och datamodell](START-LOKALER.md).

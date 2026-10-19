@@ -30,3 +30,17 @@ temp/
 .DS_Store
 Thumbs.db
 .vscode/*.local.json
+
+# Local storage journals, locks and Excel recovery copies
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.db-wal
+*.db-shm
+*.sqlite.lock
+*.sqlite3.lock
+*.db.lock
+*.xlsx.lock
+*.xlsx.bak
+*.xlsx.*.tmp

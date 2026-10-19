@@ -1,0 +1,133 @@
+import { DatabaseSync } from 'node:sqlite';
+import { randomUUID, createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { mkdir, open, readFile, writeFile, rename, unlink, chmod } from 'node:fs/promises';
+import path from 'node:path';
+import { tables, normalize, emptyData, validateData } from '../../frontend/lokaler/model.js';
+import { writeWorkbook } from './workbook.js';
+import { readLocalWorkbook } from './read-workbook.js';
+const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
+const keys = Object.keys(tables);
+export class ConflictError extends Error { constructor(message) { super(message); this.status = 409; } }
+export class LocalStore {
+ static async open({ file, mode = 'sqlite' }) {
+  if (!['sqlite', 'excel'].includes(mode)) throw Error('Lagring måste vara sqlite eller excel.');
+  await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+  const lockPath = file + '.lock';
+  let lock;
+  try { lock = await open(lockPath, 'wx', 0o600); }
+  catch (error) { if (error.code === 'EEXIST') throw Error('Datafilen används redan, eller har en kvarvarande .lock-fil efter en avbruten körning. Stäng andra appinstanser innan låset tas bort.'); throw error; }
+  let store;
+  try {
+   await lock.writeFile(String(process.pid));
+   const db = new DatabaseSync(mode === 'excel' ? ':memory:' : file);
+   store = new LocalStore(db, file, mode, lock, lockPath);
+   if (mode === 'sqlite') {
+    const appId = db.prepare('PRAGMA application_id').get().application_id;
+    const populated = db.prepare("SELECT count(*) AS count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").get().count;
+    if ((appId !== 0 && appId !== 0x4c4b4c32) || (populated && appId !== 0x4c4b4c32)) throw Error('Filen är inte den nya Lokalblick-databasen. Välj en ny tom fil; äldre databaser konverteras inte.');
+   }
+   db.exec(schema);
+   if (mode === 'sqlite') db.exec('PRAGMA application_id = 0x4c4b4c32');
+   db.exec('CREATE TABLE IF NOT EXISTS store_meta (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL) STRICT; INSERT OR IGNORE INTO store_meta VALUES (1,0);');
+   if (mode === 'sqlite') {
+    await chmod(file, 0o600);
+    db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
+   } else {
+    let bytes;
+    try { bytes = await readFile(file); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (bytes) {
+     const data = await readLocalWorkbook(bytes);
+     db.exec('BEGIN');
+     try {
+      for (const table of keys) for (const record of data[table]) store.insert(table, normalize(table, record));
+      store.validateGraph();
+      db.exec('COMMIT');
+     } catch (error) { db.exec('ROLLBACK'); throw error; }
+     store.fileHash = digest(bytes);
+    } else {
+     const initial = await writeWorkbook(emptyData());
+     await writeFile(file, initial, { mode: 0o600, flag: 'wx' });
+     store.fileHash = digest(initial);
+    }
+   }
+   store.validateGraph();
+   return store;
+  } catch (error) {
+   if (store) store.db.close();
+   await lock.close();
+   await unlink(lockPath).catch(() => {});
+   throw error;
+  }
+ }
+ constructor(db, file, mode, lock, lockPath) {
+  Object.assign(this, { db, file, mode, lock, lockPath, fileHash: null });
+  this.queue = Promise.resolve();
+ }
+ async readSnapshot() { await this.queue; return this.snapshot(); }
+ snapshot() {
+  return { version: this.db.prepare('SELECT version FROM store_meta WHERE id=1').get().version,
+   storage: { mode: this.mode, file: path.basename(this.file) },
+   data: Object.fromEntries(keys.map(table => [table, this.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()])) };
+ }
+ insert(table, row) {
+  const fields = ['id', ...tables[table].fields.map(f => f.key)];
+  this.db.prepare(`INSERT INTO ${table} (${fields.join(',')}) VALUES (${fields.map(() => '?').join(',')})`).run(...fields.map(key => row[key] ?? null));
+ }
+ validateGraph() { validateData(this.snapshot().data); }
+
+ mutate(operations, expectedVersion) {
+  const work = this.queue.then(() => this.apply(operations, expectedVersion));
+  this.queue = work.catch(() => {});
+  return work;
+ }
+ async apply(operations, expectedVersion) {
+  if (!Number.isInteger(expectedVersion) || expectedVersion !== this.snapshot().version) throw new ConflictError('Data har ändrats. Uppdatera sidan innan du sparar igen.');
+  if (!Array.isArray(operations) || !operations.length || operations.length > 1000) throw Error('Ange 1–1000 ändringar.');
+  this.db.exec('BEGIN IMMEDIATE');
+  try {
+   for (const operation of operations) {
+    const { table, record, action = 'save' } = operation;
+    if (!Object.hasOwn(tables, table) || action !== 'save' || !record || typeof record !== 'object' || Array.isArray(record)) throw Error('Ogiltig ändring.');
+    const row = normalize(table, record, record.id || `${tables[table].prefix}-${randomUUID()}`);
+    const existing = this.db.prepare(`SELECT id FROM ${table} WHERE id=?`).get(row.id);
+    if (existing && operation.create) throw new ConflictError('ID finns redan. Välj det befintliga registret eller ett annat ID.');
+    if (existing) {
+     const fields = tables[table].fields.map(f => f.key);
+     this.db.prepare(`UPDATE ${table} SET ${fields.map(key => key + '=?').join(',')} WHERE id=?`).run(...fields.map(key => row[key]), row.id);
+    } else this.insert(table, row);
+   }
+   this.validateGraph();
+   this.db.exec('UPDATE store_meta SET version=version+1 WHERE id=1');
+   if (this.mode === 'excel') await this.persistWorkbook();
+   this.db.exec('COMMIT');
+   return this.snapshot();
+  } catch (error) {
+   this.db.exec('ROLLBACK');
+   if (/UNIQUE constraint failed: agreements.number/.test(error.message)) throw Error('Avtalsnumret finns redan. Avtalsnummer jämförs exakt, inklusive skiljetecken.');
+   if (/FOREIGN KEY constraint failed/.test(error.message)) throw Error('En hänvisning saknar motsvarande post. Skapa fastighet, objekt, part eller person först.');
+   throw error;
+  }
+ }
+ async persistWorkbook() {
+  const previous = await readFile(this.file);
+  if (digest(previous) !== this.fileHash) throw new ConflictError('Excel-filen har ändrats utanför appen. Starta om appen för att läsa in filen; dina ändringar har inte skrivits över.');
+  const bytes = await writeWorkbook(this.snapshot().data);
+  const temporary = this.file + '.' + randomUUID() + '.tmp';
+  try {
+   await writeFile(temporary, bytes, { mode: 0o600, flag: 'wx' });
+   await writeFile(this.file + '.bak', previous, { mode: 0o600 });
+   // Recheck after encoding, before replacing the local workbook.
+   if (digest(await readFile(this.file)) !== this.fileHash) throw new ConflictError('Excel-filen ändrades medan du sparade. Starta om appen för att läsa den.');
+   await rename(temporary, this.file);
+   this.fileHash = digest(bytes);
+  } finally { await unlink(temporary).catch(() => {}); }
+ }
+ async close() {
+  await this.queue;
+  this.db.close();
+  await this.lock.close();
+  await unlink(this.lockPath);
+ }
+}

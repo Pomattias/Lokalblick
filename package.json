@@ -20,7 +20,10 @@
     "test:editor-browser": "node scripts/editor-geometry-browser-check.mjs",
     "test:budget-browser": "node scripts/integration-browser-check.mjs",
     "test:integration-browser": "node scripts/integration-browser-check.mjs",
-    "test:map-browser": "node scripts/integration-browser-check.mjs"
+    "test:map-browser": "node scripts/integration-browser-check.mjs",
+    "lokaler": "node backend/lokaler/server.mjs",
+    "lokaler:excel": "node backend/lokaler/start-excel.mjs",
+    "test:lokaler-browser": "node scripts/lokaler-browser-check.mjs"
   },
   "engines": {
     "node": ">=20"
