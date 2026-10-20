@@ -110,7 +110,7 @@ export class LocalStore {
   const work = this.queue.then(async () => {
    if (expectedVersion !== this.snapshot().version) throw new ConflictError('Data har ändrats. Läs om före sparning.');
    const data = { ...Object.fromEntries(keys.map(table => [table,(input[table] || []).map(row => normalize(table,row))])), workspace: input.workspace || {} };
-   validateData(data);
+   validateData(data,this.snapshot().data);
    this.db.exec('BEGIN IMMEDIATE');
    try {
     for (const table of [...keys].reverse()) this.db.exec('DELETE FROM ' + table);
@@ -134,6 +134,7 @@ export class LocalStore {
   if (!Number.isInteger(expectedVersion) || expectedVersion !== this.snapshot().version) throw new ConflictError('Data har ändrats. Uppdatera sidan innan du sparar igen.');
   if (!Array.isArray(operations) || !operations.length || operations.length > 1000) throw Error('Ange 1–1000 ändringar.');
   this.db.exec('BEGIN IMMEDIATE');
+  const before=this.snapshot().data;
   try {
    for (const operation of operations) {
     const { table, record, action = 'save' } = operation;
@@ -147,7 +148,7 @@ export class LocalStore {
      this.db.prepare(`UPDATE ${table} SET ${fields.map(key => key + '=?').join(',')} WHERE id=?`).run(...fields.map(key => this.encode(table, key, row[key])), row.id);
     } else this.insert(table, row);
    }
-   this.validateGraph();
+   validateData(this.snapshot().data,before);
    this.db.exec('UPDATE store_meta SET version=version+1 WHERE id=1');
    if (this.mode === 'excel') await this.persistWorkbook();
    this.db.exec('COMMIT');

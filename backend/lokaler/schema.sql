@@ -128,3 +128,28 @@ WHEN NEW.type='base' AND EXISTS(SELECT 1 FROM agreement_items i WHERE i.id<>NEW.
  AND coalesce(i.valid_from,'0000-01-01')<=coalesce(NEW.valid_to,'9999-12-31')
  AND coalesce(NEW.valid_from,'0000-01-01')<=coalesce(i.valid_to,'9999-12-31'))
 BEGIN SELECT RAISE(ABORT,'Endast en bashyra får vara aktiv samtidigt per avtal.'); END;
+
+CREATE TABLE IF NOT EXISTS spaces (
+ id TEXT PRIMARY KEY NOT NULL, object_id TEXT NOT NULL REFERENCES objects(id) ON DELETE RESTRICT,
+ name TEXT NOT NULL CHECK(trim(name) <> ''), floor TEXT
+) STRICT;
+CREATE TABLE IF NOT EXISTS building_parts (
+ id TEXT PRIMARY KEY NOT NULL, space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE RESTRICT,
+ name TEXT NOT NULL CHECK(trim(name) <> ''), responsibility TEXT
+) STRICT;
+CREATE TABLE IF NOT EXISTS inspections (
+ id TEXT PRIMARY KEY NOT NULL, object_id TEXT NOT NULL REFERENCES objects(id) ON DELETE RESTRICT,
+ inspected_on TEXT, inspector_id TEXT REFERENCES people(id) ON DELETE RESTRICT,
+ status TEXT NOT NULL DEFAULT 'draft', notes TEXT, sources TEXT
+) STRICT;
+CREATE TABLE IF NOT EXISTS inspection_points (
+ id TEXT PRIMARY KEY NOT NULL, inspection_id TEXT NOT NULL REFERENCES inspections(id) ON DELETE RESTRICT,
+ part_id TEXT NOT NULL REFERENCES building_parts(id) ON DELETE RESTRICT,
+ assessment TEXT NOT NULL DEFAULT 'unchecked', comment TEXT, last_action TEXT, photo_reference TEXT,
+ issue_id TEXT REFERENCES issues(id) ON DELETE RESTRICT, source_plans TEXT, sources TEXT,
+ UNIQUE(inspection_id,part_id)
+) STRICT;
+CREATE INDEX IF NOT EXISTS spaces_object ON spaces(object_id);
+CREATE INDEX IF NOT EXISTS parts_space ON building_parts(space_id);
+CREATE INDEX IF NOT EXISTS inspections_object ON inspections(object_id,inspected_on);
+CREATE INDEX IF NOT EXISTS points_inspection ON inspection_points(inspection_id);

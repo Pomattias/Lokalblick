@@ -33,6 +33,7 @@ test("Desktop sidebar includes objects between property and agreements",()=>{
     {view:"objects",label:"Objekt"},
     {view:"contracts",label:"Avtal"},
     {view:"activities",label:"Ärenden"},
+    {view:"maintenance",label:"Underhåll"},
     {view:"plan",label:"Planera"},
     {view:"budget",label:"Budget"},
     {view:"map",label:"Karta"},

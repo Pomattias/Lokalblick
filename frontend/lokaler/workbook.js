@@ -1,5 +1,6 @@
 import { workspaceKeys } from './view-fields.js';
 import { tables, emptyData, idLabels } from './model.js';
+import {maintenanceTables} from './maintenance-model.js';
 import {upgradeData,retiredFields,previousFinanceFields} from './model-revision.js';
 const header = field => field.type === 'ref' ? (field.key === 'predecessor_id' ? 'Tidigare ObjektID' : field.key === 'successor_id' ? 'Nytt ObjektID' : field.key === 'owner_party_id' ? 'Fastighetsägare PartID' : field.key === 'tenant_party_id' ? 'Hyresgäst PartID' : idLabels[field.table]) : field.label;
 // ExcelJS splits XML text into fixed UTF-16 chunks. JSON escapes keep surrogate
@@ -30,12 +31,14 @@ export async function readWorkbook(buffer, ExcelJS) {
  const book = new ExcelJS.Workbook();
  await book.xlsx.load(buffer);
  const data = emptyData();
+ const noMaintenance=Object.values(maintenanceTables).every(spec=>!book.getWorksheet(spec.label));
  const financeNames=['Avtalsposter','Fastighetskostnader','Kostnadsunderlag'];
  const preceding=financeNames.every(name=>!book.getWorksheet(name))&&(book.getWorksheet('Avtal')?.getRow(1).values||[]).some(header=>Object.values(previousFinanceFields).includes(String(header)));
  const knownSheets = new Set([...Object.values(tables).map(spec => spec.label),'Arbetsyta']);
  if (book.worksheets.some(sheet => !knownSheets.has(sheet.name))) throw Error('Arbetsboken innehåller okända flikar. Använd den nya Lokalblick-mallen; äldre underlag konverteras inte automatiskt.');
  for (const [table, spec] of Object.entries(tables)) {
   const sheet = book.getWorksheet(spec.label);
+  if(!sheet&&noMaintenance&&Object.hasOwn(maintenanceTables,table))continue;
   if(!sheet&&preceding&&['agreement_items','recurring_costs','cost_evidence'].includes(table))continue;
   if (!sheet) throw Error(`Fliken ${spec.label} saknas. Utgå från en exporterad Lokalblick-arbetsbok.`);
   if (sheet.rowCount > 50001 || sheet.columnCount > 50) throw Error('Arbetsboken är för stor. Högst 50 000 rader per tabell och 50 kolumner.');

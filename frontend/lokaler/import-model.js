@@ -2,6 +2,7 @@ import {consolidateImportReviews} from './import-conflicts.js';
 import {refreshImportReceipt} from './import-receipt.js';
 import {importPreference} from '../services/import-preferences.js';
 import {legacyFinanceFields,legacyFinanceMap,validateFinance} from './finance-model.js';
+import {maintenanceTables} from './maintenance-model.js';
 import {financialId,legacyAgreementItems} from './finance-revision.js';
 import {tables,emptyData,normalize,validateData,idLabels,partyNumberFields,normalizeOrganizationNumber} from './model.js';
 import {viewFields,viewCollections} from './view-fields.js';
@@ -74,7 +75,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   emails=new Map(data.people.filter(row=>row.email).map(row=>[key(row.email),row]));
   personNames=new Map();for(const person of data.people){const k=key(person.name);if(!personNames.has(k))personNames.set(k,[]);personNames.get(k).push(person);}
  };rebuild();
- const rank=profile=>Math.min(...profile.columns.map(c=>{const m=fieldMap[c.target];return m&&viewCollections[m.table]===c.target.split('.')[0]?['parties','properties','people','objects','agreements','issues','orders','agreement_items','recurring_costs','cost_evidence'].indexOf(m.table):99;}));
+ const rank=profile=>Math.min(...profile.columns.map(c=>{const m=fieldMap[c.target];return m&&viewCollections[m.table]===c.target.split('.')[0]?['parties','properties','people','objects','agreements','issues','orders','agreement_items','recurring_costs','cost_evidence',...Object.keys(maintenanceTables)].indexOf(m.table):99;}));
  const propertyProvider=profile=>profile.columns.some(c=>fieldMap[c.target]?.table==='properties'&&fieldMap[c.target]?.field==='id')?0:1;
  const priority=profile=>profile.columns.filter(column=>importPreference(data.workspace.importFieldPreferences,...column.target.split('.'),profile.fileName||context.fileName,profile,column)==='accept').length;
  for(const profile of [...profiles].sort((a,b)=>rank(a)-rank(b)||propertyProvider(a)-propertyProvider(b)||priority(b)-priority(a)||JSON.stringify([a.fileName||context.fileName,a.name]).localeCompare(JSON.stringify([b.fileName||context.fileName,b.name]),'sv'))){
@@ -239,6 +240,11 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     }
     if(itemRows.size)delete raw.agreement_items;
     for(const table of ['agreement_items','recurring_costs','cost_evidence'])if(raw[table]){const row=raw[table];if(!row.id)throw Error(tables[table].label+' behöver ett beständigt ID för säker återimport.');for(const f of tables[table].fields)if(f.values&&row[f.key]!=null)row[f.key]=Object.entries(f.values).find(([,label])=>label===row[f.key])?.[0]||row[f.key];if(table==='agreement_items')row.agreement_id ||= agreement?.id;if(table==='recurring_costs')row.property_id ||= property?.id;merge(table,row,indexes[table].get(row.id));}
+    for(const table of Object.keys(maintenanceTables))if(raw[table]){
+     const row=raw[table];if(!row.id)throw Error(tables[table].label+' behöver ett beständigt ID för säker återimport.');
+     for(const f of tables[table].fields)if(f.values&&row[f.key]!=null)row[f.key]=Object.entries(f.values).find(([,label])=>label===row[f.key])?.[0]||row[f.key];
+     merge(table,row,indexes[table].get(row.id));
+    }
     for(const {column,values,errors=[]} of contacts.values()){
      if(!column)continue;
      const contactUndo=undo.length,contactChanges=changes.length,contactReviews=reviews.length,contactDecisions=decisions.length,peopleLength=data.people.length,contactsLength=data.contacts.length,contactTouched=new Map([...rowTouched].map(([table,ids])=>[table,new Set(ids)]));

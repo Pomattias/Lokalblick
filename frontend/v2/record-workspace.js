@@ -22,6 +22,7 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
   if(collection==='objects'){
     form.querySelector('nav.tabs')?.remove();
     for(const section of form.querySelectorAll('[data-editor-section]'))section.hidden=false;
+    if(current.cleanModel){const maintenance=document.createElement('button');maintenance.type='button';maintenance.className='text-button';maintenance.dataset.objectMaintenance=id;maintenance.textContent='Öppna underhåll';heading.append(maintenance);}
   }
   const state={tab:collection==='contracts'?'info':'contracts',status:'open',person:'',q:'',all:false,...saved};
   const info=document.createElement('section');info.dataset.contextPanel='info';

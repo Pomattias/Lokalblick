@@ -1,4 +1,5 @@
 import {openItemDialog,openPropertyCostDialog,openEvidenceDialog,propertyCostsPanel} from './finance-ui.js';
+import {maintenancePage,mountMaintenance} from './maintenance-ui.js';
 import {projectFinance,applyContractFinanceEdit,applyLegacyCostEdit,adoptAgreementItems,projectStoredAgreementItems,validateAgreementItems} from '../lokaler/finance-view.js';
 import { createCleanEvaluator } from '../lokaler/import-worker-client.js';
 import { importSchemas } from '../lokaler/import-model.js';
@@ -74,6 +75,7 @@ let mapViewState;
 let mapScopeKey;
 const searches={properties:"",objects:"",contracts:"",activities:""};
 const issueFilters={status:"open",person:""};
+const maintenanceState={objectId:'',inspectionId:'',q:'',filter:'all',open:[]};
 const isPortfolioView=()=>["properties","objects","contracts","activities","map"].includes(ui.view);
 const portfolioLocal=()=>({view:ui.view==="map"?"properties":ui.view,q:searches[ui.view==="map"?"properties":ui.view]||"",...(ui.view==="activities"?{...issueFilters,type:ui.issueType}:{})});
 const recordSource=()=>ui.view==="activities"?{}:isPortfolioView()?portfolioLocal():{};
@@ -96,6 +98,7 @@ const labels = {
   overview: "Översikt",
   properties: "Fastigheter",
   objects: "Objekt",
+  maintenance: "Underhåll",
   contracts: "Avtal",
   activities: "Ärenden",
   plan: "Planera",
@@ -589,7 +592,7 @@ function render() {
   globalThis.LokalblickMapService?.destroy();
   document.querySelector("#title").textContent = labels[ui.view];
   document.querySelectorAll("[data-view]").forEach((x) => {
-    const active=x.dataset.view===ui.view || (x.dataset.view==="more" && ["properties","objects","contracts","activities","sources","people","settings","datamodel"].includes(ui.view));
+    const active=x.dataset.view===ui.view || (x.dataset.view==="more" && ["properties","objects","contracts","activities","maintenance","sources","people","settings","datamodel"].includes(ui.view));
     x.classList.toggle("active", active);
     x.setAttribute(
       "aria-current",
@@ -607,7 +610,7 @@ function render() {
       {key:'person',caption:'Ärendeansvarig',selected:issueFilters.person,items:data.people.map(row=>({id:row.id,label:row.name}))}
     ]:[]}:{}) : "";
   filterArea.hidden = !filterState.show;
-  document.querySelector("#summary").innerHTML = ["sources", "people", "businesses", "settings", "more", "datamodel"].includes(
+  document.querySelector("#summary").innerHTML = ["sources", "people", "businesses", "settings", "more", "datamodel", "maintenance"].includes(
     ui.view,
   )
     ? ""
@@ -646,6 +649,11 @@ function render() {
     });
   }
   if(ui.view==='objects')content.innerHTML=objectList(data,selection,viewUi);
+  content.onclick=null;content.onchange=null;
+  if(ui.view==='maintenance'){
+    content.innerHTML=maintenancePage(data,maintenanceState,canEdit()&&Boolean(data.cleanModel));
+    mountMaintenance(content,{data:()=>data,state:maintenanceState,editable:canEdit()&&Boolean(data.cleanModel),mutate:mutation,notify:notice,openRecord:openEditor});
+  }
   for(const table of content.querySelectorAll("table[data-list-key]"))restoreSmartTableState(table,listTableStates.get(table.dataset.listKey));
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
   if (ui.view === "budget") content.innerHTML = budget(data, selection, ui) + recurringCostPanel(data, ui.year, scope(data, selection), canEdit());
@@ -654,7 +662,7 @@ function render() {
   if (ui.view === "datamodel") { content.innerHTML = relationshipView(data); bindRelationshipView(data); }
   if (ui.view === "settings") content.innerHTML = activityOptionSettings(data)+economicSettings(data, ui);
   if (ui.view === "people") content.innerHTML = organization(data);
-  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","activities","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
+  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","activities","maintenance","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
     content.innerHTML =
       '<div class="section-title map-heading"><h2>Fastigheter i aktuellt urval</h2></div><div id="property-map" aria-label="Fastigheter på karta"></div><p class="map-help">Välj en markör för avtal, nyckeltal och öppna ärenden. Välj sedan en länk för detaljer.</p>';
@@ -701,7 +709,7 @@ function render() {
     if(!canEdit())content.querySelectorAll("[data-edit-mode=edit]").forEach(button=>button.disabled=true);
   }
 }
-async function mutation(change, { automatic = false, manualPositionIds = [], responsibilityDate } = {}) {
+async function mutation(change, { automatic = false, manualPositionIds = [], responsibilityDate, refresh = true } = {}) {
   if (busy) throw Error("En ändring sparas redan");
   if (!canEdit()) throw Error("Denna anslutning är skrivskyddad");
   if (!automatic) requireActorIdentity();
@@ -736,7 +744,7 @@ async function mutation(change, { automatic = false, manualPositionIds = [], res
           ? "Ändring registrerad – spara till Excel när du är klar."
           : transport.cleanActive()?"Sparat i lokal datamodell":"Demodata sparad",
     );
-    render();
+    if(refresh)render();
   } catch (error) {
     data = before;
     throw error;
@@ -1258,6 +1266,10 @@ document.addEventListener("click", (event) =>
     }
     const b = event.target.closest("button");
     if (!b || b.disabled) return;
+    if(b.dataset.objectMaintenance){
+      if(!closeEditor())return;
+      maintenanceState.objectId=b.dataset.objectMaintenance;maintenanceState.inspectionId='';maintenanceState.q='';maintenanceState.open=[];ui.view='maintenance';render();return;
+    }
     if(b.hasAttribute("data-issue-expand")){toggleIssueText(b);return;}
     if(b.dataset.contextRecord){
       openEditor(b.dataset.contextRecord,b.dataset.id,{}, {fromCurrent:!!editor,tab:b.dataset.contextTargetTab});return;

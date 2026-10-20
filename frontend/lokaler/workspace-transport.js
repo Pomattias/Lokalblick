@@ -14,7 +14,7 @@ export function withCleanWorkspace(legacy){
  const stage=async data=>{await localState(file?{handle:file.handle}:{data});sessionStorage.setItem(marker,'1');};
  const request=async(url,body)=>{const response=await fetch(url,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error||'Kunde inte spara lokal databas.');return result;};
  const persist=async data=>{
-  validateData(data);
+  validateData(data,clean);
   if(api){const result=await request('/api/lokaler/workspace',{version,data});version=result.version;clean=result.data;}
   else if(file){const saved=await file.replace(data,file.version);clean=saved.data;await stage(clean).catch(()=>{});}
   else{await stage(data);clean=structuredClone(data);}

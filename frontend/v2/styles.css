@@ -3932,3 +3932,51 @@ body[data-view="sources"] .import-receipt details {margin-top:8px}
 body[data-view="sources"] .import-receipt-column {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:6px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
 body[data-view="sources"] .import-receipt-column small {display:block}
 body[data-view="sources"] .import-receipt [data-receipt-review] {margin:8px 0}
+
+/* Maintenance only. Shared screens, especially Budget, keep their layout. */
+.maintenance-page { font-size: var(--ui-font-data); }
+.maintenance-page > .section-title { justify-content:flex-end; }
+.maintenance-page .maintenance-toolbar { display:grid; grid-template-columns:2fr 2fr 1fr; gap:8px; margin:12px 0; }
+.maintenance-page label,.maintenance-dialog label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
+.maintenance-page input,.maintenance-page select,.maintenance-dialog input,.maintenance-dialog select,.maintenance-dialog textarea { width:100%; min-width:0; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--paper); color:var(--ink); }
+.maintenance-page button,.maintenance-dialog button { min-height:30px; padding:5px 9px; }
+.maintenance-page small { display:block; color:var(--muted); font-size:12px; }
+.maintenance-page .maintenance-inspection { padding:12px; margin-bottom:12px; border:1px solid var(--line); border-radius:8px; background:var(--paper); display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; }
+.maintenance-page .maintenance-inspection p,.maintenance-page .maintenance-inspection details { flex-basis:100%; margin:0; }
+.maintenance-page .maintenance-space { border:1px solid var(--line); border-radius:8px; background:var(--paper); margin-bottom:6px; }
+.maintenance-page .maintenance-space > summary { padding:10px 12px; cursor:pointer; }
+.maintenance-page .maintenance-space > summary span { color:var(--muted); font-size:12px; margin-left:8px; }
+.maintenance-page .maintenance-space > summary strong { font-size:13px; font-weight:600; color:var(--ink); }
+.maintenance-page .maintenance-parts { padding:0 12px 10px; }
+.maintenance-page .maintenance-part { display:grid; grid-template-columns:minmax(140px,1fr) 145px minmax(180px,auto); align-items:center; gap:8px; padding:7px 0; border-top:1px solid var(--line); }
+.maintenance-page .maintenance-part strong { font-weight:500; }
+.maintenance-page .maintenance-part-actions { display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end; }
+.maintenance-page .maintenance-comment { max-width:60ch; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.maintenance-page .maintenance-status { font-size:12px; }
+.maintenance-page .maintenance-status[data-status=defect] { color:#8a4526; }
+.maintenance-page .maintenance-history,.maintenance-page .maintenance-source,.maintenance-page .maintenance-settings { margin:14px 0; font-size:12px; }
+.maintenance-page .maintenance-history button { display:block; margin:6px 0; }
+.maintenance-page .maintenance-source dl { display:grid; grid-template-columns:50px 1fr; gap:4px 8px; }
+.maintenance-page .maintenance-source dd { margin:0; overflow-wrap:anywhere; }
+.maintenance-page .maintenance-objects { display:grid; gap:6px; }
+.maintenance-page .maintenance-objects button { text-align:left; padding:10px 12px; }
+.maintenance-page .maintenance-note,.maintenance-dialog .maintenance-note { white-space:pre-wrap; }
+.maintenance-dialog { width:min(520px,calc(100vw - 24px)); max-height:90dvh; padding:16px; }
+.maintenance-dialog.maintenance-import-dialog { width:min(760px,calc(100vw - 24px)); }
+.maintenance-dialog form { display:grid; gap:10px; }
+.maintenance-dialog form > h2 { font-size:18px; margin:0; }
+.maintenance-dialog .actions { justify-content:flex-end; }
+.maintenance-dialog details,.maintenance-dialog small { font-size:12px; color:var(--muted); }
+.maintenance-dialog details { margin:8px 0; }
+.maintenance-dialog .maintenance-import-sheet { border-top:1px solid var(--line); padding-top:10px; }
+.maintenance-dialog li { margin:4px 0; overflow-wrap:anywhere; }
+.maintenance-dialog [hidden] { display:none; }
+@media(max-width:640px) {
+ .maintenance-page .maintenance-toolbar { grid-template-columns:minmax(0,2fr) minmax(100px,1fr); }
+ .maintenance-page .maintenance-toolbar > label:first-child { grid-column:1/-1; }
+ .maintenance-page .section-title { align-items:flex-start; flex-wrap:wrap; gap:8px; }
+ .maintenance-page .maintenance-part { grid-template-columns:minmax(0,1fr) 130px auto; gap:6px; }
+ .maintenance-page .maintenance-part:has(.maintenance-part-actions > :nth-child(2)) .maintenance-part-actions { grid-column:1/-1; }
+ .maintenance-page .maintenance-comment { max-width:100%; white-space:normal; }
+ .maintenance-page .maintenance-space > summary span { display:block; margin:3px 0 0 16px; }
+}

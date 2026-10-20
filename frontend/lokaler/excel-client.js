@@ -57,7 +57,7 @@ export class BrowserExcel {
  }); }
  replace(data, expectedVersion) { return this.#withLock(expectedVersion, () => this.#persist(structuredClone(data))); }
  async #persist(data) {
-   validateData(data);
+   validateData(data,this.data);
    const bytes = await excel('write', data);
    if (bytes.byteLength > 15 * 1024 * 1024) throw Error('Arbetsboken har nått storleksgränsen 15 MB. Använd databasläget.');
    const fileHash = await hash(bytes);

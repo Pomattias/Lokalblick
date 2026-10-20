@@ -67,5 +67,5 @@ export function collectWorkspace(view, baseline=emptyData()) {
   clean.contacts.push(normalize('contacts',{id:assignment.id,person_id:assignment.personId,role,[targetFields[table]]:assignment.targetId,valid_from:assignment.fromDate||null,valid_to:assignment.toDate||null,cancelled:Boolean(assignment.cancelled)}));
  }
  for(const object of view.objects||[])for(const previous of object.predecessorIds||[])clean.object_links.push(normalize('object_links',{id:'LINK-'+object.id+'-'+previous,predecessor_id:previous,successor_id:object.id}));
- validateData(clean);return clean;
+ validateData(clean,baseline);return clean;
 }

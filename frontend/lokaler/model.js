@@ -1,6 +1,7 @@
 import '../domain/calculations.js';
 import { workspaceKeys,viewFields } from './view-fields.js';
 import {financeTables,validateFinance} from './finance-model.js';
+import {maintenanceTables,maintenanceResponsibilities,validateMaintenance} from './maintenance-model.js';
 // One model is used by the local SQL store, Excel store and user interface.
 export const roles = { owner: 'Fastighetsägarens kontakt', coordinator: 'Vår ansvarige', tenant: 'Hyresgästens kontakt' };
 export const statuses = { open: 'Öppet', ongoing: 'Pågår', done: 'Klart', draft: 'Utkast', ordered: 'Beställd' };
@@ -33,8 +34,11 @@ additions.orders.push(['reference','Beställningsreferens'],['delivery','Leveran
 additions.contacts = [['cancelled','Makulerad','boolean',{default:false}]];
 for (const [table, fields] of Object.entries(additions)) tables[table].fields.push(...fields.map(args => field(...args)));
 Object.assign(tables, financeTables);
+tables.objects.fields.push(field('maintenance_responsibility','Underhållsansvar','select',{values:maintenanceResponsibilities}));
+Object.assign(tables,maintenanceTables);
 export const idLabels = { parties: 'PartID', people: 'PersonID', properties: 'FastighetsID', objects: 'ObjektID', agreements: 'AvtalsID', issues: 'ÄrendeID', orders: 'BeställningsID', contacts: 'KopplingsID', object_links: 'FörändringsID', agreement_items:'PostID', recurring_costs:'KostnadsID', cost_evidence:'UnderlagsID' };
 export const emptyData = () => ({ ...Object.fromEntries(Object.keys(tables).map(key => [key, []])), workspace: {} });
+Object.assign(idLabels,{spaces:'UtrymmesID',building_parts:'DelID',inspections:'BesiktningsID',inspection_points:'BesiktningspunktID'});
 export const today = () => new Date().toLocaleDateString('sv-SE');
 export const active = (row, date = today()) => !row.cancelled && (!row.valid_from || row.valid_from <= date) && (!row.valid_to || row.valid_to >= date);
 export const find = (data, table, id) => data[table]?.find(row => row.id === id);
@@ -124,7 +128,7 @@ export function normalize(table, input, id) {
 }
 
 // Shared validation for SQL and browser Excel. Derived values are never stored.
-export function validateData(data) {
+export function validateData(data, before) {
  for (const key of Object.keys(data.workspace || {})) if (!workspaceKeys.includes(key)) throw Error('Okänt arbetsytefält: ' + key);
  const indexes = {};
  for (const [table, spec] of Object.entries(tables)) {
@@ -172,5 +176,6 @@ export function validateData(data) {
   if (!before.valid_to || !after.valid_from || before.valid_to >= after.valid_from) throw Error('Tidigare objekt måste ha slutdatum före det nya objektets startdatum.');
  }
  validateFinance(data);
+ validateMaintenance(data,before);
  return data;
 }

@@ -10,7 +10,41 @@ Databaser från andra eller äldre appar migreras inte. Nya Excelunderlag förde
 vid granskad import. Redan anslutna äldre arbetsfiler fortsätter använda sitt
 befintliga flöde; de konverteras inte automatiskt.
 
-## Läs in Excelunderlag i webbappen
+## Underhåll och besiktningar
+
+Öppna **Underhåll** eller **Öppna underhåll** på ett objekt. Välj objekt,
+lägg till utrymmen (med våning/placering) och deras delar, exempelvis Kök → Tak.
+Starta en besiktning med datum och besiktningsperson. Alla delar börjar som
+**Ej kontrollerad**. Välj **OK** eller **Brist**; kommentarer och foto-/dokumentreferenser
+öppnas med **Notera**. Referenser till lokala filer laddas inte upp; de öppnas i
+företagets filhanterare. Denna etapp innehåller ingen bilduppladdning.
+
+**Hantera brist** skapar ett vanligt ärende eller länkar till ett befintligt på
+samma objekt/fastighet. Ansvarig, prioritet, tidplan och åtgärdskostnad hanteras
+enbart i ärendet. Ett öppet ärende kan återanvändas vid nästa besiktning.
+Avsluta när samtliga delar är kontrollerade. Avslutade protokoll bevaras;
+historik öppnas aktivt. En ny besiktning återanvänder delarna men inga gamla
+bedömningar eller kommentarer. Underhållsansvar (ägare/hyresgäst) kan anges
+gemensamt på objektet och ändras för en enskild del.
+
+**Läs in besiktningar** tolkar matriser med skickkolumner, kommentarer och
+årsbelopp eller tidsintervall. Koppla valda flikar till befintliga ObjektID och
+granska strukturen innan inläsning. Sammanställningar importeras inte som nya
+kostnader. Årsbelopp och intervall bevaras som källunderlag på besiktningspunkten;
+de skapar inte budgetrader, fastighetskostnader eller avtalsposter. Osäkra datum
+lämnas tomma med varning. Övriga källuppgifter finns under **Importerat underlag**.
+En identisk återimport skapar inga nya protokoll. Ändrade underlag blir en ny
+historisk besiktning och skriver inte över tidigare bedömningar. Om utrymmens
+namn eller struktur ändras i underlaget behöver kopplingarna granskas igen.
+
+De fyra nya registren **Utrymmen**, **Delar**, **Besiktningar** och
+**Besiktningspunkter** använder samma modell och Excel-/SQLite-lagring som övriga
+appen. De kan också läsas genom den vanliga tabellstyrda importguiden med
+beständiga ID:n. En aktuell Lokalblick-arbetsbok utan dessa register öppnas med
+tomma underhållstabeller, som följer med vid nästa sparning. Budget och dess
+historiska snapshots ändras inte.
+
+## Läs in övriga Excelunderlag i webbappen
 
 Om du har en tidigare arbetsyta öppen väljer du först **Ny ren arbetsyta**.
 Den anslutna äldre filen ändras inte.

@@ -15,3 +15,11 @@ Object.assign(viewFields, {
  cost_evidence:{cost_id:'costId',type:'type',year:'year',amount:'amount',selected:'selected',invoice_reference:'invoiceReference',invoice_date:'invoiceDate',valid_from:'start',valid_to:'end',document_url:'documentUrl',sources:'sources'}
 });
 export const workspaceKeys = ['budgetPlans','indexSeries','priceBaseAmounts','auditLog','sourceRegistry','importReview','documents','importMappings','importFieldPreferences','activityOptions','currentUser','investmentThreshold','rentSurchargeRate','settings'];
+Object.assign(viewCollections,{spaces:'spaces',building_parts:'buildingParts',inspections:'inspections',inspection_points:'inspectionPoints'});
+viewFields.objects.maintenance_responsibility='maintenanceResponsibility';
+Object.assign(viewFields,{
+ spaces:{object_id:'objectId',name:'name',floor:'floor'},
+ building_parts:{space_id:'spaceId',name:'name',responsibility:'responsibility'},
+ inspections:{object_id:'objectId',inspected_on:'inspectedOn',inspector_id:'inspectorId',status:'status',notes:'notes',sources:'sources'},
+ inspection_points:{inspection_id:'inspectionId',part_id:'partId',assessment:'assessment',comment:'comment',last_action:'lastAction',photo_reference:'photoReference',issue_id:'issueId',source_plans:'sourcePlans',sources:'sources'}
+});
