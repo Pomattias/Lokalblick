@@ -507,6 +507,11 @@ export function resolveReview(data, id, decision, targetId, actor) {
   if (!item || item.status !== "pending")
     throw Error("Förslaget är redan hanterat");
 
+  if(item.kind==='canonical-conflict'&&(item.rowRejected||!item.recordId||!Object.hasOwn(item,'proposed'))){
+    if(decision==='accept')throw Error('Rätta värdet eller kopplingen i underlaget och läs in på nytt. Raden har inte importerats eller fältet har lämnats oförändrat.');
+    item.status='rejected';item.resolvedBy=actor;item.resolvedAt=new Date().toISOString();return;
+  }
+
   if(item.kind==='multi-contract-value'){
     if(decision==='accept')throw Error('Ange värdet per avtal i underlaget eller avtalsformuläret. Ett gemensamt belopp får inte kopieras till flera avtal.');
     item.status='rejected';item.resolvedBy=actor;item.resolvedAt=new Date().toISOString();return;
@@ -632,7 +637,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
     return;
   }
 
-  if (item.kind === "operational-conflict") {
+  if (item.kind === "operational-conflict" || item.kind === "canonical-conflict") {
     if (decision === "accept") {
       const collection =
         item.collection ||

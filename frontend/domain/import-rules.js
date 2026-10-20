@@ -61,7 +61,7 @@
     const model=root.LokalblickResponsibility,role=model?.fields[field],type=role&&Object.keys(model.types).find(t=>model.types[t]===collection);
     if(type&&model.history(data,type,record.id,role).length)return {action:'review',protectedValue:true,current,proposed:value,reason:'Ansvarbyte behöver ett giltighetsdatum'};
     const protectedValue=previous?.source==='manual'||previous?.manual===true||(['latitude','longitude'].includes(field)&&(record.geoSource==='manual'||Boolean(record.geoConfirmedAt)));
-    const preference=data.importFieldPreferences?.[[collection,field,origin.source||''].map(x=>String(x).trim().toLocaleLowerCase('sv')).join('|')];
+    const preference=data.importFieldPreferences?.[origin.preferenceKey]??data.importFieldPreferences?.[[collection,field,origin.source||''].map(x=>String(x).trim().toLocaleLowerCase('sv')).join('|')];
     if(protectedValue||(present(current)&&preference!=='accept')||(protectedField(field)&&present(current))){
       if(preference==='reject'&&!protectedValue)return {action:'keep'};
       return {action:'review',protectedValue,current,proposed:value};

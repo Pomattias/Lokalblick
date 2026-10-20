@@ -886,6 +886,10 @@ export function reviewCandidateChoices(data,item,searchValue="") {
   }).join("")}</div>`;
 }
 function reviewStandardCard(data,x) {
+  if(x.kind==='canonical-conflict'){
+    if(!x.rowRejected&&x.recordId&&Object.hasOwn(x,'proposed'))return reviewConflictCard(data,x);
+    return `<article class="review review-card"><h3>${x.rowRejected?'Raden lästes inte in':'Fältet lämnades oförändrat'}</h3><p>${esc(x.source)} · ${esc(x.sheet)} · Rad ${esc(x.row)}</p><p>${esc(x.column||fieldCaption(x.collection,x.field))}: ${esc(x.value??x.proposed??'–')} · ${esc(x.reason)}</p><p>Rätta underlaget eller kolumnvalet och läs in på nytt. Att avvisa granskningen läser inte in raden.</p><button data-review="${esc(x.id)}" data-decision="reject">Avvisa granskning</button></article>`;
+  }
   if(x.kind==='multi-contract-value')return `<article class="review review-card"><h3>Flera avtalsreferenser</h3><p>${esc(x.source)} · ${esc(x.sheet)} · ${esc(x.provenance?.cell)} · ${esc(x.reason)}</p><p>${esc(x.field)}: ${esc(x.proposed)}. Ange uppgiften separat per avtal i underlaget eller avtalsformuläret.</p><button data-review="${esc(x.id)}" data-decision="reject">Lämna värdet oförändrat</button></article>`;
   if(x.kind==='tenant-identity'){const rows=data.organizations;return `<article class="review review-card"><h3>Bekräfta ${x.collection==='contracts'?'hyresgäst':'verksamhet'}</h3><p>${esc(x.reason)} · ${esc(x.values?.name||x.values?.tenantName)}</p><label>Välj befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(rows||[]).map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${esc(r.id)}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Bekräfta koppling</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;}
   if(x.kind==='invalid-import-field')return `<article class="review review-card"><h3>Värdet behöver rättas</h3><p>${esc(x.source)} · ${esc(x.provenance?.sheet||'')} · ${esc(x.provenance?.cell||'')}</p><p>${esc(fieldCaption(x.collection,x.field))}: ${esc(x.provenance?.originalValue??'')} · ${esc(x.reason)}</p><p>Rätta värdet i underlaget och läs in på nytt.</p><button data-review="${esc(x.id)}" data-decision="reject">Ignorera detta värde</button></article>`;
@@ -936,7 +940,7 @@ function priorityPanel(data,reviews){
     </div>`;
   }).join("");
   const saved=rules.length?`<details><summary>Sparad källprioritet (${rules.length})</summary>
-    ${rules.map(([key,choice])=>`<div class="source-priority-row"><small>${esc(key.split("|").join(" · "))}</small><strong>${choice==="accept"?"Importerad fil":"Tidigare data"}</strong><button type="button" data-priority-remove="${esc(encodeURIComponent(key))}">Ta bort regel</button></div>`).join("")}
+    ${rules.map(([key,choice])=>`<div class="source-priority-row"><small>${esc((key.startsWith('[')?JSON.parse(key):key.split('|')).filter(Boolean).join(' · '))}</small><strong>${choice==="accept"?"Importerad fil":choice==="reject"?"Tidigare data":"Granska konflikter"}</strong><button type="button" data-priority-remove="${esc(encodeURIComponent(key))}">Ta bort regel</button></div>`).join("")}
     <small>Att ta bort en regel ändrar inte redan godkända data.</small></details>`:"";
   return `<section class="detail source-priority">
     <h3>Välj källa för alla konflikter av samma typ</h3>

@@ -23,12 +23,27 @@ Den anslutna äldre filen ändras inte.
    namnkolumn. Om enbart namn finns måste du bekräfta att kolumnens namn
    identifierar unika personer. Ett namn med flera möjliga personer kräver ID.
 4. Kontrollera resultatet per register. Identifierare, datatyper och kopplingar
-   som inte går att fastställa måste rättas före import. Värdekonflikter skyddas
-   och kan granskas; tomma fält kompletteras. Inget sparas före **Genomför import**.
+   som inte går att fastställa visas med flik, källrad, kolumn och ursprungsvärde.
+   Felaktiga rader blockeras som standard. Du kan aktivt välja **Importera endast
+   godkända rader**; övriga rader sparas då i granskningsunderlaget med sina valda
+   källvärden och lämnar inga halva poster. Inget sparas före **Genomför import**.
+   Vid exakt FastighetsID kan säkra objekt/avtal läsas in även om namn/adress
+   skiljer sig. Befintligt fastighetsvärde behålls för ett separat granskningsval.
+   Osäkra ID:n eller kopplingar får aldrig automatiskt flytta en befintlig post.
 5. I webbappen sparas resultatet lokalt i webbläsarens databas. Välj
    **Skapa Lokalblick-data / Spara som Lokalblick-data** för en arbetsbok på datorn.
    Återimport kompletterar samma arbetsyta och skapar inte nya kopior av redan
    identifierade fastigheter, objekt, avtal, personer eller kopplingar.
+
+Kolumnval, bortval och tolkningsregler följer med vid återimport. En sammansatt
+rubrik som **Objektsnummer / Förvaltningsobjekt** kräver ett aktivt val av rätt ID.
+Dubbla rubriker återanvänder sparade val endast när kolumnordningen är densamma.
+Regeln **Vid avvikelse** gäller den aktuella fliken och kolumnen. Datumkolumner
+kan uttryckligen tolkas som svenska/amerikanska datum eller Excel-tal med
+1900-/1904-system. Tvåsiffriga år och ogiltiga kalenderdatum gissas aldrig.
+Webblänkar använder Excels verkliga länkmål, inte visningstexten. För en länk som
+inte är giltig kan du uttryckligen välja att läsa övriga uppgifter och spara
+länkvärdet för rättning. **Exportera granskningsunderlag** hämtar felen lokalt.
 
 **Anslut Lokalblick-data** öppnar den nya arbetsboken eller en tidigare
 Lokalblick-arbetsfil. Formatet identifieras när filen öppnas. Den nya arbetsboken
@@ -218,3 +233,6 @@ När en post ändras/läggs till flyttas det avtalets tidigare ekonomifält till
 postregister, med ursprunget kvar i ändringsloggen. De härledda beloppsfälten
 sparas inte som extra kopior i demo, äldre Excel-arbetsytor eller företagslagring.
 Budgetens befintliga kontroller behålls.
+
+Importens felhantering kan verifieras med syntetiska data genom
+`node scripts/import-stability-browser-check.mjs` (Chromium/Playwright).
