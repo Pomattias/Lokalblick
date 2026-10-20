@@ -3,6 +3,21 @@ import '../domain/responsibility-model.js';
 const model=()=>globalThis.LokalblickResponsibility;
 const copy=value=>structuredClone(value);
 const key=value=>String(value??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('sv');
+// An ordinary name is never split just because its first word is capitalized.
+// Auto requires an ID-shaped prefix containing a digit, or consistent column
+// examples including such a prefix. Letter-only IDs can be selected explicitly.
+const codedName=value=>String(value??'').trim().match(/^([A-ZÅÄÖ][A-ZÅÄÖ0-9_-]{2,19})\s+([\p{L}][\p{L}'’.-]*(?:\s+[\p{L}][\p{L}'’.-]*)+)$/u);
+export function personFormat(column){
+ if(['name','code-name'].includes(column.personFormat))return column.personFormat;
+ const examples=(column.samples||column.examples||[]).filter(value=>String(value??'').trim()),matches=examples.map(codedName);
+ return matches.length&&matches.every(Boolean)&&matches.some(match=>/\d/.test(match[1]))?'auto-code':'auto';
+}
+export function parsePersonIdentity(value,format='auto',knownIds=null){
+ const name=String(value??'').trim();if(format==='name'||!name)return {name};
+ const match=format==='code-name'?name.match(/^(\S{1,100})\s+(.+)$/u):codedName(name);
+ if(format==='code-name'&&(!match||!/[0-9]/.test(match[1])&&!/^[A-ZÅÄÖ_.-]{3,100}$/.test(match[1])))throw Error('Välj Automatisk eller Endast namn om cellen saknar källkod före namnet.');
+ return match&&(format==='code-name'||format==='auto-code'||/\d/.test(match[1])||knownIds?.has(match[1]))?{sourceCode:match[1],name:match[2].trim()}:{name};
+}
 export function personRole(target){
   const [collection,field]=String(target).split('.'),role=model().fields[field];
   const type=Object.keys(model().types).find(type=>model().types[type]===collection);
@@ -33,8 +48,11 @@ export function importPersonLinks(data,rows,{at,actor,changes,decisions,counts})
     const entry={source:task.fileName,sourceId:task.sourceId,sheet:task.profile.name,row:task.r+1,column:column.header,collection:'assignments',values:{...values,targetType:role.type,roleKey:role.role}};
     try{
       if(errors.length)throw Error(errors.join('; '));
+      const parsed=parsePersonIdentity(values.name,personFormat(column));values.name=parsed.name;
       const homeId=task.rowRecords[role.collection],home=(data[role.collection]||[]).find(row=>row.id===homeId);
       if(!home)throw Error('Personkopplingen saknar en säkert identifierad hemvist');
+      const organizationId=role.role==='our'?(data.organizations.filter(org=>org.type==='our').length===1?data.organizations.find(org=>org.type==='our').id:''):
+        role.role==='tenant'?home.tenantPartyId||'':home.ownerPartyId||data.properties?.find(p=>p.id===home.propertyId)?.ownerPartyId||'';
       let hits=[];
       const email=key(values.email),sourceId=String(values.sourceId||'').trim();
       if(email){
@@ -44,8 +62,7 @@ export function importPersonLinks(data,rows,{at,actor,changes,decisions,counts})
       else {
         hits=data.people.filter(person=>person.id===values.name||key(person.email)&&key(person.email)===key(values.name));
         if(!hits.length){
-          if(column.personIdentity!=='name')throw Error('Koppla e-post eller person-ID, eller bekräfta att namnet är unikt');
-          hits=data.people.filter(person=>key(person.name)===key(values.name));
+          hits=data.people.filter(person=>key(person.name)===key(values.name)&&(!organizationId||!person.organizationId||person.organizationId===organizationId));
         }
       }
       if(hits.length>1)throw Error('Flera personer har samma identitet. Välj en säker personidentifierare');
@@ -59,8 +76,6 @@ export function importPersonLinks(data,rows,{at,actor,changes,decisions,counts})
       // not generate new links while validating the small working set.
       for(const field of Object.keys(api.fields))delete working[role.collection][0][field];
       for(const old of history)if(!working.people.some(p=>p.id===old.personId))working.people.push(copy(data.people.find(p=>p.id===old.personId)));
-      const organizationId=role.role==='our'?(data.organizations.filter(org=>org.type==='our').length===1?data.organizations.find(org=>org.type==='our').id:''):
-        role.role==='tenant'?home.tenantPartyId||'':home.ownerPartyId||data.properties?.find(p=>p.id===home.propertyId)?.ownerPartyId||'';
       person.organizationId ||= organizationId;
       if(!same){
         const sharedAddition=column.shared===true&&history.every(link=>link.cancelled||link.shared);

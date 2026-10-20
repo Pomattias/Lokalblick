@@ -44,10 +44,10 @@ test('same person in two columns is stored once and linked to property and contr
  assert.deepEqual(new Set(result.data.assignments.map(link=>link.targetType)),new Set(['property','contract']));
  assert.ok(result.data.assignments.every(link=>link.fromDate===''&&link.toDate===''));
 });
-test('name-only creation requires a choice; ignored email is not read behind that choice',()=>{
+test('a selected person role creates named people without reading ignored email',()=>{
  const configure=profiles=>{profiles[0].columns[6].target='@ignore';profiles[0].columns[8].target='@ignore';};
- const uncertain=run([row],{},configure);assert.equal(uncertain.data.people.length,0);assert.equal(uncertain.data.assignments.length,0);assert.equal(uncertain.data.contracts.length,1);
- const confirmed=run([row],{},profiles=>{configure(profiles);profiles[0].columns[5].personIdentity='name';profiles[0].columns[7].personIdentity='name';});
+ const uncertain=run([row],{},configure);assert.equal(uncertain.data.people.length,2);assert.equal(uncertain.data.assignments.length,2);assert.equal(uncertain.data.contracts.length,1);
+ const confirmed=run([row],{},configure);
  assert.equal(confirmed.data.people.length,2);assert.ok(confirmed.data.people.every(person=>!person.email));
  assert.ok(!JSON.stringify(confirmed).includes('anna@example.invalid'));
  const again=run([row],confirmed.data,configure);assert.equal(again.data.people.length,2);assert.equal(again.report.counts.fields,0);

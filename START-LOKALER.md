@@ -27,10 +27,22 @@ Den anslutna äldre filen ändras inte.
    Explicit matchningsrad går före tidigare godkända val, därefter aktuella
    fältnamn/alternativa namn och automatiska förslag. Tidigare godkända val
    kan återanvändas i liknande filer; en ändrad datarad tolkas inte som en mallrad.
-3. För namnkolumner väljs personrollen, exempelvis fastighetsägarens kontakt
-   eller avtalets hyresgästkontakt. E-post/PersonID kan kopplas till respektive
-   namnkolumn. Om enbart namn finns måste du bekräfta att kolumnens namn
-   identifierar unika personer. Ett namn med flera möjliga personer kräver ID.
+3. Välj personrollen för namnkolumnen, exempelvis fastighetsägarens kontakt
+   eller avtalets hyresgästkontakt. Importen hittar eller skapar personen i
+   **Personer** och skapar sedan den daterade kopplingen till fastigheten/avtalet.
+   PersonID skapas internt vid behov; namnkolumnen behöver inte innehålla ett ID.
+   PersonID och e-post kan också kopplas från egna kolumner. Befintliga personer
+   återanvänds via ID, e-post eller ett entydigt namn och part. Flera möjliga
+   personer med samma namn lämnas för granskning.
+   **Förvaltare / Fastighetsförvaltare** föreslår fastighetsägarens kontakt på
+   fastigheten. En eventuell källkod i exempelvis `MGR001 Anna Testsson` kan
+   skiljas från namnet. Koden behöver inte vara personens PersonID. Formatet
+   **Källkod och namn i samma cell** kan väljas om automatiken inte räcker.
+   Förhandsgranskningen visar namnet och formatvalet återanvänds nästa gång.
+   Personen lagras en gång, med koppling via FastighetsID och PersonID.
+   Oklara personkopplingar lämnas separat för granskning; övriga giltiga
+   uppgifter på raden läses in. Rätta personvalet och återimportera för att
+   komplettera kopplingen. Ogiltiga grundidentifierare/relationer stoppar raden.
 4. Gör klart fältvalen och välj **Kontrollera poster**. Ändrade fält startar
    ingen ny fullständig konvertering förrän du begär kontrollen.
    Kontrollera sedan resultatet per register. Identifierare, datatyper och kopplingar
@@ -155,7 +167,7 @@ ID:n jämförs exakt. Skiljetecken tas inte bort och avtalsnummer delas aldrig
 på komma: `9(1)`, `91` och `91,1` är olika nummer. Ett nytt objekt identifieras
 med ObjektID, eller inom en fastighet via en tydlig avtals-/objektidentitet.
 Oklarheter ska rättas i granskningen. Personer matchas med ID/e-post, alternativt
-med uttryckligen bekräftad unik namnkolumn. Samma person kan ha flera kopplingar.
+med entydigt namn och part. Samma person kan ha flera kopplingar.
 Personens part finns i personregistret. Kontaktrollerna är ägarens kontakt,
 hyresgästens kontakt och vår ansvarige. Verksamhet är en beskrivning på avtalet,
 inte ett separat partsregister eller en relation.

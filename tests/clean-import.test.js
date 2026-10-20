@@ -13,7 +13,7 @@ const fixture=()=>[
 function prepare(rows=fixture(),selected=targets){
  const sheet=XLSX.utils.aoa_to_sheet([selected,...rows]);
  const workbook={SheetNames:['Underlag'],Sheets:{Underlag:sheet}};
- const profiles=[{name:'Underlag',sheetKey:'Underlag',fileName:'syntetiskt.xlsx',headerRow:1,startColumn:0,columns:selected.map((target,index)=>({header:target,index,target,personIdentity:'name'}))}];
+ const profiles=[{name:'Underlag',sheetKey:'Underlag',fileName:'syntetiskt.xlsx',headerRow:1,startColumn:0,columns:selected.map((target,index)=>({header:target,index,target}))}];
  return {workbook,profiles};
 }
 function run(rows,base=emptyData(),selected=targets){const {workbook,profiles}=prepare(rows,selected);return prepareCleanImport(workbook,profiles,base,{fileName:'syntetiskt.xlsx'},XLSX);}
@@ -38,11 +38,12 @@ test('olika värden hamnar i granskning och lämnar tidigare data intakt',()=>{
  assert.equal(result.clean.workspace.importReview.length,1);assert.match(result.clean.workspace.importReview[0].reason,/Olika värden/);
  assert.equal(result.clean.properties.length,2);
 });
-test('namn kräver bekräftad identitet en gång per kolumn; ID/e-post kan identifiera säkert',()=>{
- const {workbook,profiles}=prepare();profiles[0].columns.forEach(c=>delete c.personIdentity);
+test('vald personroll skapar personer och kopplingar utan extra bekräftelse',()=>{
+ const {workbook,profiles}=prepare();
  const result=prepareCleanImport(workbook,profiles,emptyData(),{fileName:'syntetiskt.xlsx'},XLSX);
- assert.equal(result.clean.people.length,0);assert.equal(result.clean.workspace.importReview.length,3);
- assert.equal(result.clean.agreements.length,0,'row is atomic');
+ assert.equal(result.clean.people.length,2);assert.equal(result.clean.workspace.importReview.length,0);assert.equal(result.report.blocking,0);
+ assert.equal(result.clean.agreements.length,3,'uncertain contact links do not discard valid property, object or agreement data');
+ assert.equal(result.clean.contacts.length,5);
 });
 test('bortvalda kolumner sparas inte och skapar inga kompletterande extrafält',()=>{
  const rows=fixture().map(row=>[...row,'hemlig ointressant uppgift']);
