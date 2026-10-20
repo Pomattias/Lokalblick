@@ -116,6 +116,11 @@ Webbläsarens lokala databas är knuten till webbadressen och webbläsarprofilen
 Exportera en arbetsbok för säkerhetskopiering och för att flytta arbetsytan.
 Filkopplingen kan återupptas efter omladdning när webbläsaren behåller behörigheten;
 annars behöver filen anslutas igen. Använd bara en redigerare åt gången för Excel.
+Omläsning och sparning kan inte köras samtidigt i samma anslutning. Appen begär
+exklusiv skrivning och kontrollerar filens innehåll efter att skrivningen öppnats.
+En upptäckt extern ändring avbryter sparningen. Vid fel frigörs filåtgärden så att
+du kan läsa om och försöka igen; appens data och version uppdateras först när
+skrivningen har slutförts. Detta ersätter inte företagets säkerhetskopiering.
 
 ## Kör med lokal SQLite-databas
 

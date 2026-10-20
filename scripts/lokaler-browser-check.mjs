@@ -79,6 +79,24 @@ async function scenario(mode){
   await page.setViewportSize({width:390,height:900});for(const view of ['overview','properties','contracts','activities','map','sources']){await nav(view);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,view+' mobile overflow');}
   await page.screenshot({path:path.join(artifacts,mode+'-mobile.png'),fullPage:true});assert.deepEqual(errors,[]);
   if(mode==='browser-excel')assert.equal(store.snapshot().data.properties.length,0,'Browser Excel never uploads records to the API');
+  if(mode==='browser-excel'){
+   const safety=await page.evaluate(async()=>{
+    const {BrowserExcel}=await import('/frontend/lokaler/excel-client.js');
+    const root=await navigator.storage.getDirectory(),handle=await root.getFileHandle('stability-check.xlsx',{create:true});
+    const client=await BrowserExcel.connect(true,()=>{},handle);
+    await client.save('properties',{id:'TEST-F',name:'Fiktiv stabilitet'},client.version,true);
+    const held=await handle.createWritable({mode:'exclusive'}),version=client.version;
+    let blocked='';try{await client.save('properties',{id:'TEST-F',name:'Ska inte sparas'},client.version);}catch(error){blocked=error.message;}finally{await held.abort();}
+    const unchanged=client.version===version&&client.data.properties[0].name==='Fiktiv stabilitet';
+    await client.save('properties',{id:'TEST-F',name:'Godkänt återförsök'},client.version);await client.reload();
+    const other=new BrowserExcel(handle);await other.reload();await other.save('properties',{id:'TEST-F',name:'Extern ändring'},other.version);
+    let conflict='';try{await client.save('properties',{id:'TEST-F',name:'Ska inte skriva över'},client.version);}catch(error){conflict=error.message;}
+    await client.reload();
+    return {blocked,unchanged,conflict,name:client.data.properties[0].name,busy:client.busy};
+   });
+   assert.match(safety.blocked,/låst eller skrivskyddad/);assert.equal(safety.unchanged,true);assert.match(safety.conflict,/ändrats utanför appen/);assert.equal(safety.name,'Extern ändring');assert.equal(safety.busy,false);assert.deepEqual(errors,[]);
+   console.log('browser-excel: native exclusive file lock, retry, external-change protection and reload passed');
+  }
   console.log(mode+': original overview, reviewed import, reimport, linked owner/tenant organization numbers, editors, persistence and mobile passed');
  }catch(error){await page.screenshot({path:path.join(artifacts,mode+'-failure.png'),fullPage:true});throw error;}
  finally{await page.close();await new Promise(resolve=>server.close(resolve));await store.close();await rm(dir,{recursive:true,force:true});}
