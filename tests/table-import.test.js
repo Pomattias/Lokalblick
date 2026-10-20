@@ -5,10 +5,34 @@ import {profileWorkbook,fieldCatalog,mappingConflicts,combineImportSources} from
 import {resolveFieldName,setMappingRow,mappingTemplate,relatedTables} from '../frontend/services/import-matching.js';
 import {columnPreviewHtml} from '../frontend/v2/import-mapping.js';
 import {createCleanEvaluator} from '../frontend/lokaler/import-worker-client.js';
+import {resolveImportChoices} from '../frontend/lokaler/import-conflicts.js';
+import {overview} from '../frontend/v2/views.js';
+import '../frontend/domain/calculations.js';
 const book=(rows,name='Hyresavtal 2027')=>{const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(rows),name);return workbook;};
 const profile=(workbook,saved=[])=>profileWorkbook(workbook,importSchemas,XLSX,saved,{reviewed:true});
 const rows=[['FastighetsID','Fast.nr','ObjektID','Avtalsnummer','Kontraktsstart','Årshyra','Tillägg','Hyra justeringsregel'],['F1','Test 1','0001','A1','2027-01-01',850000,25000,'none']];
 const run=(workbook,profiles=profile(workbook),base=emptyData(),context={})=>prepareCleanImport(workbook,profiles,base,{fileName:'syntetiskt.xlsx',...context},XLSX);
+
+test('Fastighet and Fastighetsnamn import the property name separately from address and preserve ID links',()=>{
+ for(const header of ['Fastighet','Fastighetsnamn']){
+  const workbook=book([['FastighetsID',header,'Adress','ObjektID','AvtalsID'],['F1','Testfastigheten','Testgatan 12','O1','A1'],['F1','Testfastigheten','Testgatan 12','O2','A2']]),ps=profile(workbook),result=run(workbook,ps);
+  assert.equal(ps[0].columns[0].target,'properties.id');assert.equal(ps[0].columns[1].target,'properties.designation');assert.equal(ps[0].columns[2].target,'properties.address');
+  assert.equal(result.report.blocking,0);assert.equal(result.clean.properties.length,1);assert.equal(result.clean.properties[0].name,'Testfastigheten');assert.equal(result.clean.properties[0].address,'Testgatan 12');
+  assert(result.clean.objects.every(o=>o.property_id==='F1'));assert.deepEqual(result.clean.agreements.map(a=>a.object_id),['O1','O2']);
+  const html=overview(result.data,{propertyId:'',unit:'',owner:'',person:'',q:''},{perspective:'Fastigheter',year:2026,contractId:''});
+  assert.match(html,/<td class="primary-cell"><button[^>]*data-edit="properties"[^>]*>Testfastigheten<\/button>/);assert.match(html,/<td>Testgatan 12</);
+  const again=run(workbook,ps,result.clean);assert.equal(again.clean.properties.length,1);assert.equal(again.report.review,0);validateData(again.clean);
+ }
+});
+test('reimport can replace an old address-based name with Fastighetsnamn without changing the address or links',()=>{
+ const base=run(book([['FastighetsID','Adress','ObjektID','AvtalsID'],['F1','Testgatan 12','O1','A1']])).clean;
+ assert.equal(base.properties[0].name,'Testgatan 12');
+ const workbook=book([['FastighetsID','Fastighetsnamn'],['F1','Testfastigheten']],'Fastigheter'),preview=run(workbook,profile(workbook),base);
+ assert.equal(preview.report.blocking,0);assert.equal(preview.report.review,1);assert.equal(preview.clean.properties[0].name,'Testgatan 12');
+ const result=resolveImportChoices(preview,{mode:'replace'});
+ assert.equal(result.report.review,0);assert.equal(result.clean.properties[0].name,'Testfastigheten');assert.equal(result.clean.properties[0].address,'Testgatan 12');assert.equal(result.clean.objects[0].property_id,'F1');assert.equal(result.clean.agreements[0].object_id,'O1');
+ assert(result.clean.workspace.auditLog.some(e=>e.fields?.some(f=>f.field==='designation'&&f.from==='Testgatan 12'&&f.to==='Testfastigheten')));validateData(result.clean);
+});
 
 test('current-model catalog has no contract monetary copies, retired fields or parallel organizations',()=>{
  const fields=fieldCatalog(importSchemas,true);assert(fields.some(f=>f.target==='agreementItems.baseAmount'));assert(fields.some(f=>f.target==='recurringCosts.annualAmount'));assert(!fields.some(f=>f.target==='contracts.baseRent'||f.target==='contracts.number'||f.target==='contracts.businessPartyId'||f.target==='activities.phase'));

@@ -14,7 +14,7 @@ const validLink=value=>{try{const url=new URL(value);return /^https?:$/.test(url
 const hash=value=>{let h=2166136261;for(const char of value){h^=char.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(16);};
 const fieldAliases={
  organizations:{organizationNumber:['Orgnr','Org.nr','Organisationsnr']},
- properties:{designation:['Fastighetsbeteckning','Fast.bet','Fast.nr','Fastighetsnr'],id:['Fastighets-ID','Förvaltningsobjekt'],address:['Gatuadress','Postadress'],city:['Postort','Stad'],ownerPartyId:['Fastighetsägare PartID','Fastighetsägare namn']},
+ properties:{designation:['Fastighet','Fastighetsbeteckning','Fast.bet','Fast.nr','Fastighetsnr'],id:['Fastighets-ID','Förvaltningsobjekt'],address:['Gatuadress','Postadress'],city:['Postort','Stad'],ownerPartyId:['Fastighetsägare PartID','Fastighetsägare namn']},
  objects:{id:['Objektnummer','Objektsnummer','Objektnr'],area:['Area','Lokalarea','Lokalyta kvm','BRA','kvm'],apartmentCount:['Lägenheter'],apartmentArea:['Lägenheter (yta)']},
  contracts:{id:['Avtalsnummer','Avtalsnr','Avtals-ID'],start:['Fr.o.m.','Start','Startdatum','Kontraktsstart','Gäller från','Giltigt fr.o.m.'],end:['T.o.m.','Slut','Slutdatum','Kontraktsslut','Giltigt t.o.m.'],business:['Kommentar verksamhet','Namn på verksamheten','Verksamhetsnamn'],category:['Lokalkategori (LEB)','Lokalkategori (EB)'],use:['Användning'],contractDocumentUrl:['Länk avtal (Huvudkontrakt)','Länk till huvudkontrakt']},
  activities:{title:['Ärendenamn','Aktivitet'],startDate:['Fr.o.m.','Startdatum'],endDate:['T.o.m.','Slutdatum']},
