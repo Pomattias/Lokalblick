@@ -1207,7 +1207,7 @@ async function sourceAction(action) {
       notice(
         "Excel inläst från " + selectedSheets.length + " flik(ar). " +
         (retained.mode === "connected"
-          ? "Resultatet har lagts till i arbetsfilens osparade ändringar."
+          ? "Resultatet är inläst i arbetsytan."
           : "All tidigare inläst data ligger kvar. Välj Spara som Lokalblick-data när du är klar.") +
         " Granska eventuella konflikter." + cityWarning,
       );

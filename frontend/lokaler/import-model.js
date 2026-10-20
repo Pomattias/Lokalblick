@@ -1,4 +1,5 @@
 import {consolidateImportReviews} from './import-conflicts.js';
+import {refreshImportReceipt} from './import-receipt.js';
 import {importPreference} from '../services/import-preferences.js';
 import {legacyFinanceFields,legacyFinanceMap,validateFinance} from './finance-model.js';
 import {financialId,legacyAgreementItems} from './finance-revision.js';
@@ -6,7 +7,7 @@ import {tables,emptyData,normalize,validateData,idLabels} from './model.js';
 import {viewFields,viewCollections} from './view-fields.js';
 import {projectWorkspace} from './view-adapter.js';
 import {interpretCell} from '../services/import-formats.js';
-import {personRole,contactPart} from '../services/import-person-links.js';
+import {personRole,contactPart,contactFields} from '../services/import-person-links.js';
 const clone=value=>structuredClone(value),present=value=>value!==null&&value!==undefined&&value!=='';
 const text=value=>String(value??'').trim(),key=value=>text(value).replace(/\s+/g,' ').toLocaleLowerCase('sv');
 const validLink=value=>{try{const url=new URL(value);return /^https?:$/.test(url.protocol)&&!!url.hostname&&!/\s/.test(value);}catch{return false;}};
@@ -46,6 +47,12 @@ const targetField={property:'property_id',contract:'agreement_id',activity:'issu
 const roles={our:'coordinator',owner:'owner',tenant:'tenant'};
 export function prepareCleanImport(workbook,profiles,base=emptyData(),context={},XLSX){
  const data=clone(base),changes=[],decisions=[],reviews=[];
+ const touched=Object.fromEntries(Object.keys(tables).map(table=>[table,new Set()]));
+ let rejectedRows=0;
+ const columnStats=new Map(profiles.map(profile=>{
+  const labels=new Map([...importSchemas.flatMap(schema=>schema.columns.map(([field,label])=>({target:schema.key+'.'+field,label:schema.sheet+' → '+label}))),...contactFields(profile)].map(field=>[field.target,field.label]));
+  return [profile,new Map(profile.columns.map(column=>[column.index,{source:profile.fileName||context.fileName||'Excel',sheet:profile.name,index:column.index,header:column.header,target:column.target,label:labels.get(column.target)||column.target,...(column.itemType?{itemType:column.itemType,itemLabel:tables.agreement_items.fields.find(field=>field.key==='type').values[column.itemType]}:{}),read:0,skipped:0,review:0}]))];
+ }));
  data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const prior=clone(data);let rowCount=0;
  let indexes,partyNames,propertyNames,propertyIdentities,emails,personNames;
  const rebuild=()=>{
@@ -67,6 +74,8 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
    if(!selected.some(column=>present(sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.v)))continue;
    if(++rowCount>20000)throw Error('Högst 20 000 datarader per import. Dela underlaget i mindre filer.');
    const lengths=Object.fromEntries(Object.keys(tables).map(table=>[table,data[table].length])),undo=[],startChanges=changes.length,startReviews=reviews.length,startDecisions=decisions.length;
+   const rowTouched=new Map(),readColumns=new Set();let rejected=false;
+   const touch=(table,id)=>{if(!rowTouched.has(table))rowTouched.set(table,new Set());rowTouched.get(table).add(id);};
    const source=profile.fileName||context.fileName||'Excel',origin={source,sheet:profile.name,row:r+1};
    const raw={},itemRows=new Map(),contacts=new Map(),sourceValues=selected.map(column=>{const cell=sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})];return {column:column.header,index:column.index,target:column.target,raw:cell?.v??'',hyperlink:cell?.l?.Target};});let fieldInProgress='',columnInProgress=null;const finance={};
    const originFor=(table,field)=>{const column=selected.find(c=>fieldMap[c.target]?.table===table&&fieldMap[c.target]?.field===field);return {column:column?.header,columnIndex:column?.index,collection:viewCollections[table]||table,field:viewFields[table]?.[field]||field};};
@@ -101,12 +110,13 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     if(existing){const before=clone(existing);undo.push(()=>{for(const k of Object.keys(existing))delete existing[k];Object.assign(existing,before);});Object.assign(existing,normalized);}
     else{data[table].push(normalized);indexes[table].set(normalized.id,normalized);existing=normalized;}
     for(const [field] of Object.entries(record))if(field!=='id'&&JSON.stringify(previous?.[field])!==JSON.stringify(existing[field]))changes.push({collection:viewCollections[table]||table,recordId:existing.id,field:viewFields[table]?.[field]||field,from:previous?.[field]??null,to:existing[field],provenance:origin});
+    touch(table,existing.id);
     return existing;
    };
    const party=(value,kind)=>{
     if(!present(value))return null;
     const existing=indexes.parties.get(text(value))||partyNames.get(key(value));
-    if(existing)return existing.id;
+    if(existing){touch('parties',existing.id);return existing.id;}
     const row=merge('parties',{id:'PAR-'+crypto.randomUUID(),name:text(value),kind},null);partyNames.set(key(value),row);return row.id;
    };
    try{
@@ -130,6 +140,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      }
      if(mapping?.field==='index_share'&&value>1&&value<=100)value/=100;
      if(!present(value))continue;
+     readColumns.add(column.index);
      if(mapping&&tables[mapping.table].fields.find(f=>f.key===mapping.field)?.type==='text'&&typeof value!=='string')value=String(value);
      if(role){if(!contacts.has(column.index))contacts.set(column.index,{column,values:{}});contacts.get(column.index).values.name=value;}
      else if(part){if(!contacts.has(part.index))contacts.set(part.index,{column:profile.columns.find(c=>c.index===part.index),values:{}});contacts.get(part.index).values[part.field]=value;}
@@ -197,7 +208,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     if(itemRows.size)delete raw.agreement_items;
     for(const table of ['agreement_items','recurring_costs','cost_evidence'])if(raw[table]){const row=raw[table];if(!row.id)throw Error(tables[table].label+' behöver ett beständigt ID för säker återimport.');for(const f of tables[table].fields)if(f.values&&row[f.key]!=null)row[f.key]=Object.entries(f.values).find(([,label])=>label===row[f.key])?.[0]||row[f.key];if(table==='agreement_items')row.agreement_id ||= agreement?.id;if(table==='recurring_costs')row.property_id ||= property?.id;merge(table,row,indexes[table].get(row.id));}
     for(const {column,values} of contacts.values()){
-     if(!column||!values.name)continue;
+     if(!column||!values.name){for(const input of selected)if(contactPart(input.target)?.index===column?.index)readColumns.delete(input.index);continue;}
      const descriptor=personRole(column.target),role=roles[descriptor.role],target=({property,contract:agreement,activity:issue,order})[descriptor.type];
      if(!target)throw Error('Kontaktkolumnen saknar identifierad fastighet, avtal eller ärende.');
      if(values.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email))throw Error('Ogiltig e-postadress i kontaktkolumnen.');
@@ -209,6 +220,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(person.email)emails.set(key(person.email),person);if(!personNames.has(key(person.name)))personNames.set(key(person.name),[]);if(!personNames.get(key(person.name)).some(p=>p.id===person.id))personNames.get(key(person.name)).push(person);
      const f=targetField[descriptor.type],candidate={person_id:person.id,role,[f]:target.id,valid_from:values.fromDate||null,valid_to:values.toDate||null};
      const existing=data.contacts.find(row=>row.person_id===person.id&&row.role===role&&row[f]===target.id&&row.valid_from===candidate.valid_from&&row.valid_to===candidate.valid_to&&!row.cancelled);
+     if(existing)touch('contacts',existing.id);
      if(!existing){if(data.contacts.some(row=>!row.cancelled&&row.role===role&&row[f]===target.id&&(role==='coordinator'||row.person_id===person.id)&&(!row.valid_to||!candidate.valid_from||row.valid_to>=candidate.valid_from)&&(!candidate.valid_to||!row.valid_from||candidate.valid_to>=row.valid_from)))throw Error('Personkopplingen överlappar en befintlig period.');merge('contacts',{...candidate,id:'KOP-'+crypto.randomUUID()},null);}
     }
     for(const review of reviews.slice(startReviews))if(!review.recordId&&!review.blocking)review.recordId=({properties:property,contracts:agreement,objects:object,activities:issue,orders:order})[review.collection]?.id;
@@ -217,12 +229,15 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      validateFinance({agreement_items:agreementId?data.agreement_items.filter(x=>x.agreement_id===agreementId):[],recurring_costs:costId?data.recurring_costs.filter(x=>x.id===costId):[],cost_evidence:costId?data.cost_evidence.filter(x=>x.cost_id===costId):[]});
     }
    }catch(error){
+    rejected=true;rejectedRows++;
     for(const revert of undo.reverse())revert();for(const table of Object.keys(tables))data[table].length=lengths[table];changes.length=startChanges;reviews.length=startReviews;decisions.length=startDecisions;rebuild();
     const [collection,field]=fieldInProgress.split('.');
     const review={id:'CLEAN-'+hash(JSON.stringify([source,profile.name,r+1,error.message,error.proposed])),kind:'canonical-conflict',status:'pending',...origin,collection:error.collection||collection,field:error.field||field,recordId:error.recordId,current:error.current,proposed:error.proposed,reason:error.message,matches:error.matches,matchingKey:error.matchingKey,column:error.column||columnInProgress?.header,columnIndex:error.columnIndex??columnInProgress?.index,value:error.value??sourceValues.find(v=>v.index===(error.columnIndex??columnInProgress?.index))?.raw,blocking:true,rowRejected:true,sourceValues};
     if(!review.recordId)review.reason+=' Rätta kolumnval eller identifierare före import.';
     reviews.push(review);decisions.push({...origin,collection:review.collection,classification:'D',reason:error.message});
    }
+   if(!rejected)for(const [table,ids]of rowTouched)for(const id of ids)touched[table].add(id);
+   for(const value of sourceValues){const stat=columnStats.get(profile).get(value.index);if(rejected){if(present(value.raw))stat.skipped++;}else if(readColumns.has(value.index))stat.read++;}
   }
  }
  validateData(data);
@@ -233,7 +248,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
  const recordStates={};
  const counts=Object.entries(viewCollections).map(([table,collection])=>{
   const old=new Map(prior[table].map(row=>[row.id,row]));recordStates[collection]=Object.create(null);let created=0,updated=0,unchanged=0;
-  for(const record of data[table]){const before=old.get(record.id);recordStates[collection][record.id]=!before?'created':JSON.stringify(before)!==JSON.stringify(record)?'updated':'unchanged';if(!before)created++;else if(JSON.stringify(before)!==JSON.stringify(record))updated++;else unchanged++;}
+  for(const record of data[table]){if(!touched[table].has(record.id))continue;const before=old.get(record.id);recordStates[collection][record.id]=!before?'created':JSON.stringify(before)!==JSON.stringify(record)?'updated':'unchanged';if(!before)created++;else if(JSON.stringify(before)!==JSON.stringify(record))updated++;else unchanged++;}
   return {collection,label:tables[table].label,created,updated,unchanged,review:reviews.filter(row=>row.collection===collection).length};
  });
  data.workspace.importMappings=[...(data.workspace.importMappings||[]).filter(saved=>!profiles.some(p=>saved.sheet===p.name&&saved.fileName===(p.fileName||context.fileName))),...profiles.map(p=>({sheet:p.name,fileName:p.fileName||context.fileName,signature:p.signature,layoutSignature:p.layoutSignature,primaryTable:p.primaryTable,columns:p.columns.map(c=>({...c,contactHeader:contactPart(c.target)?p.columns.find(other=>other.index===contactPart(c.target).index)?.header:undefined,samples:undefined,examples:undefined}))}))];
@@ -243,5 +258,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
  if(importedHistory.length)data.workspace.auditLog=[...(data.workspace.auditLog||[]),...importedHistory];
  data.workspace.sourceRegistry=[...(data.workspace.sourceRegistry||[]).filter(row=>row.name!==sourceName),{id:'SRC-'+hash(sourceName),name:sourceName,kind:'clean-import',sheets:profiles.map(p=>p.name).join(', '),rows:rowCount,created:counts.reduce((sum,row)=>sum+row.created,0),matched:counts.reduce((sum,row)=>sum+row.updated,0),review:reviews.length,importedAt:new Date().toISOString()}];
  if(changes.length)data.workspace.auditLog=[...(data.workspace.auditLog||[]),{id:crypto.randomUUID(),collection:'imports',recordId:'SRC-'+hash(sourceName),action:'Excelunderlag inläst',at:new Date().toISOString(),by:context.actor||'Excelimport',fields:[{field:'källa',to:sourceName},{field:'nya poster',to:counts.reduce((sum,row)=>sum+row.created,0)},{field:'kompletterade poster',to:counts.reduce((sum,row)=>sum+row.updated,0)}]}];
- return {clean:data,data:projectWorkspace(data),report:{tables:counts,recordStates,reviewIds:reviews.map(r=>r.id),sourceName,changes,decisions,review:reviews.length,blocking:new Set(reviews.filter(row=>row.blocking).map(row=>JSON.stringify([row.source,row.sheet,row.row]))).size,rows:rowCount}};
+ data.workspace.sourceRegistry.find(row=>row.kind==='clean-import'&&row.name===sourceName).receipt={rows:rowCount,readRows:rowCount-rejectedRows,rejectedRows,columns:[...columnStats.values()].flatMap(columns=>[...columns.values()])};
+ const result={clean:data,report:{tables:counts,recordStates,reviewIds:reviews.map(r=>r.id),sourceName,changes,decisions,review:reviews.length,blocking:new Set(reviews.filter(row=>row.blocking).map(row=>JSON.stringify([row.source,row.sheet,row.row]))).size,rows:rowCount}};
+ refreshImportReceipt(result);return {...result,data:projectWorkspace(data)};
 }

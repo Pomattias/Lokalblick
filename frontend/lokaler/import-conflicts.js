@@ -1,6 +1,7 @@
 import {tables,normalize,validateData} from './model.js';
 import {viewCollections,viewFields} from './view-fields.js';
 import {projectWorkspace} from './view-adapter.js';
+import {refreshImportReceipt} from './import-receipt.js';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const editable=review=>review.kind==='canonical-conflict'&&!review.blocking&&!review.rowRejected&&review.recordId&&Object.hasOwn(review,'proposed');
 const tableFor=collection=>Object.keys(viewCollections).find(table=>viewCollections[table]===collection);
@@ -72,5 +73,6 @@ export function resolveImportChoices(result,{mode='review',choices={}}={},actor=
  report.review=pending.length;
  for(const counts of report.tables)counts.review=pending.filter(r=>r.collection===counts.collection).length;
  for(const source of clean.workspace.sourceRegistry||[])if(source.kind==='clean-import'&&source.name===report.sourceName){source.review=report.review;source.matched=report.tables.reduce((sum,row)=>sum+row.updated,0);}
+ refreshImportReceipt({clean,report});
  return {...result,clean,data:projectWorkspace(clean),report};
 }

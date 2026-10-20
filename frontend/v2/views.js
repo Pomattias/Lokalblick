@@ -949,10 +949,32 @@ function priorityPanel(data,reviews){
     <small>Avtalsmatchningar och preliminära personer kräver separat kontroll.</small>
   </section>`;
 }
+export function importReceiptHtml(source,data) {
+  const receipt=source.receipt;if(!receipt)return '';
+  const ids=new Set(receipt.reviewIds||[]),pending=(data.importReview||[]).filter(row=>ids.has(row.id)&&row.status==='pending');
+  const columns=receipt.columns||[],used=columns.filter(column=>column.read>0),ignored=columns.filter(column=>column.target==='@ignore'),empty=columns.filter(column=>column.target!=='@ignore'&&!column.read);
+  const columnRows=items=>{
+    const sheets=new Map();for(const column of items){const key=JSON.stringify([column.source,column.sheet]);if(!sheets.has(key))sheets.set(key,[]);sheets.get(key).push(column);}
+    return [...sheets.values()].map(columns=>`<section><small>${columns[0].source!==source.name?esc(columns[0].source)+' · ':''}${esc(columns[0].sheet)}</small>${columns.map(column=>`<div class="import-receipt-column"><strong>${esc(column.header)}</strong><span>${column.target==='@ignore'?'Importeras inte':esc(column.label)+(column.itemLabel?' · '+esc(column.itemLabel):'')}<small>${column.target==='@ignore'?'':num(column.read)+(column.read===1?' läst värde':' lästa värden')+(column.skipped?' · '+num(column.skipped)+' utanför importen':'')+(column.review?' · '+num(column.review)+' avvikelser vid importen':'')}</small></span></div>`).join('')}</section>`).join('');
+  };
+  const totals=(receipt.tables||[]).reduce((sum,row)=>({created:sum.created+row.created,updated:sum.updated+row.updated,unchanged:sum.unchanged+(row.unchanged||0)}),{created:0,updated:0,unchanged:0});
+  return `<section class="detail import-receipt" data-import-receipt><h3>Importresultat · ${esc(source.name)}</h3><small>${esc(new Date(source.importedAt).toLocaleString('sv-SE'))}</small>
+    <p>${num(totals.created)} nya · ${num(totals.updated)} kompletterade · ${num(totals.unchanged)} oförändrade poster · ${ignored.length} ${ignored.length===1?'bortvald kolumn':'bortvalda kolumner'}</p>
+    <small>${num(receipt.readRows)} ${receipt.readRows===1?'inläst källrad':'inlästa källrader'}${receipt.rejectedRows?' · '+num(receipt.rejectedRows)+(receipt.rejectedRows===1?' rad lämnades utanför':' rader lämnades utanför'):''}. Resultatet gäller denna import.</small>
+    ${pending.length?`<div data-receipt-review><h4>Behöver granskas (${pending.length})</h4>${[...new Set(pending.map(row=>row.reason))].map(reason=>`<p>${esc(reason)}</p>`).join('')}<small>Öppna granskningsärendena nedan för att se berörda poster och källrader.</small></div>`:''}
+    ${used.length?`<details data-receipt-columns="used"><summary>Använda kolumnkopplingar (${used.length})</summary><small>Lästa värden kan vara nya, oförändrade eller avvikande. Olösta avvikelser ändrar inte sparade värden.</small>${columnRows(used)}</details>`:''}
+    ${empty.length?`<details data-receipt-columns="empty"><summary>Kolumner utan inlästa värden (${empty.length})</summary>${columnRows(empty)}</details>`:''}
+    ${ignored.length?`<details data-receipt-columns="ignored"><summary>Bortvalda kolumner (${ignored.length})</summary>${columnRows(ignored)}</details>`:''}
+    <details data-receipt-tables><summary>Resultat per register</summary>${table(['Register','Nya','Kompletterade','Oförändrade'],(receipt.tables||[]).filter(row=>row.created||row.updated||row.unchanged||row.review).map(item=>row([esc(item.label),num(item.created),num(item.updated),num(item.unchanged)])))}</details>
+    <small>Kolumnvalen återanvänds vid nästa liknande import. Ändra dem före importen; bortval raderar inte redan sparade uppgifter.</small>
+  </section>`;
+}
 export function sources(data, transport) {
   const st = transport.status(),
     company = transport.company();
   const reviews = data.importReview.filter((x) => x.status === "pending");
+  const receipts=(data.sourceRegistry||[]).filter(source=>source.receipt).sort((a,b)=>String(b.importedAt).localeCompare(String(a.importedAt)));
+  const latestReceipt=receipts[0];
   const activities = data.activities || [];
   const missingHome = activities.filter(a =>
     !a.contractId && !a.propertyId &&
@@ -1006,11 +1028,11 @@ export function sources(data, transport) {
       if(String(src.importedAt||"")>String(existing.importedAt))existing.importedAt=src.importedAt;
     }
   });
-  return workingState + simplifiedQuality + priorityPanel(data,reviews) + geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? `<div class="actions"><button data-source="import">Läs in underlag</button></div><p><small>Underlagen läses och granskas lokalt. Godkända uppgifter och historik sparas tillsammans i företagets backend.</small></p>` : `<div class="actions"><button data-source="import">Läs in underlag</button>${st.mode==='database'?'<a href="/api/lokaler/workbook" download>Hämta Excel-kopia</a>':'<button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button>'}${!data.cleanModel?'<button data-source="new-clean">Ny ren arbetsyta</button>':''}</div><details><summary>Avancerade filåtgärder</summary><button data-source="blank">Ny tom Lokalblick-data</button><p><small>En tom arbetsfil innehåller ingen tidigare data.</small></p></details><p><small>Välj ett befintligt fält eller Importera inte för varje kolumn. Granska nya, kompletterade och oförändrade poster innan du genomför importen. Samma val gäller även för igenkända underlag.</small></p>`}</section>${table(
+  return (latestReceipt?importReceiptHtml(latestReceipt,data):'') + workingState + simplifiedQuality + priorityPanel(data,reviews) + geoPanel + `<div class="section-title"><h2>Datakällor och kvalitet</h2><button data-view="people">Personer och parter</button>${st.connected ? `<button data-source="refresh">Läs om</button>` : ""}</div><section class="detail"><strong>${esc(st.fileName || "Ingen arbetsfil ansluten")}</strong><p>${company ? "Läsning och sparande sker genom företagets lokala API. Källadaptrar konfigureras i backend." : st.sourceKind === "migration" ? "Källfilen är skrivskyddad. Läs in fler Excel-filer och skapa sedan Lokalblick-data." : "Excel är källunderlag. Lokalblick matchar och berikar sin egen datamodell utan att skapa parallella tabeller."}</p>${company ? `<div class="actions"><button data-source="import">Läs in underlag</button></div><p><small>Underlagen läses och granskas lokalt. Godkända uppgifter och historik sparas tillsammans i företagets backend.</small></p>` : `<div class="actions"><button data-source="import">Läs in underlag</button>${st.mode==='database'?'<a href="/api/lokaler/workbook" download>Hämta Excel-kopia</a>':'<button data-source="connect">Anslut Lokalblick-data</button><button data-source="create">Skapa Lokalblick-data</button>'}${!data.cleanModel?'<button data-source="new-clean">Ny ren arbetsyta</button>':''}</div><details><summary>Avancerade filåtgärder</summary><button data-source="blank">Ny tom Lokalblick-data</button><p><small>En tom arbetsfil innehåller ingen tidigare data.</small></p></details><p><small>Välj ett befintligt fält eller Importera inte för varje kolumn. Granska nya, kompletterade och oförändrade poster innan du genomför importen. Samma val gäller även för igenkända underlag.</small></p>`}</section>${table(
     ["Källa", "Flik(ar)", "Typ", "Rader", "Matchat", "Skapat", "Granska", "Importerad"],
     [...sourceGroups.values()].map(x =>
       row([
-        esc(x.name),
+        esc(x.name) + receipts.filter(source=>source!==latestReceipt&&source.name===x.name).map(source=>'<details><summary>Visa importresultat</summary>'+importReceiptHtml(source,data)+'</details>').join(''),
         esc([...x.sheets].join(", ") || "–"),
         esc([...x.kinds].join(" + ")),
         num(x.rows),
@@ -1020,7 +1042,7 @@ export function sources(data, transport) {
         esc(x.importedAt),
       ]),
     ),
-  )}<div class="section-title review-title"><h3>Behöver granskas (${reviews.length})</h3><div class="actions"><small>Välj vilket värde som ska gälla. Valet loggas i ändringshistoriken.</small><button type="button" data-export-reviews ${reviews.length ? "" : "disabled"}>Exportera granskningsfel (JSON)</button></div></div><details class="review-details"><summary>Visa granskningsärenden (${reviews.length})</summary>${
+  )}<div class="section-title review-title"><h3>Behöver granskas (${reviews.length})</h3><div class="actions"><small>Välj vilket värde som ska gälla. Valet loggas i ändringshistoriken.</small><button type="button" data-export-reviews ${reviews.length ? "" : "disabled"}>Exportera granskningsfel (JSON)</button></div></div><details class="review-details"${reviews.length?' open':''}><summary>Visa granskningsärenden (${reviews.length})</summary>${
     reviews
       .map((x) =>
         x.kind === "conflict" || x.kind === "operational-conflict"

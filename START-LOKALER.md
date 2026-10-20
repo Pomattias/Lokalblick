@@ -54,8 +54,16 @@ Den anslutna äldre filen ändras inte.
    Återimport kompletterar samma arbetsyta och skapar inte nya kopior av redan
    identifierade fastigheter, objekt, avtal, personer eller kopplingar.
 
-Kolumnval, bortval och tolkningsregler följer med vid återimport. En sammansatt
-rubrik som **Objektsnummer / Förvaltningsobjekt** kräver ett aktivt val av rätt ID.
+Kolumnval, bortval och tolkningsregler följer med vid återimport. Efter en genomförd
+import visas ett kompakt **Importresultat** i Datakällor:
+nya, kompletterade och oförändrade poster, inlästa respektive avvisade källrader
+och bortvalda kolumner. Använda kolumnkopplingar är hopfällda; granskningsfel
+visas direkt. Räknarna omfattar bara poster som berörs av just importen.
+Senaste resultatet per underlag sparas i befintligt källregister och följer med
+databasen och Excel-kopian. Det skapas för nya importer, inte retroaktivt.
+Bortval görs före importen och återanvänds nästa gång; det raderar inte tidigare data.
+
+En sammansatt rubrik som **Objektsnummer / Förvaltningsobjekt** kräver ett aktivt val av rätt ID.
 Dubbla rubriker återanvänder sparade val endast när kolumnordningen är densamma.
 Regeln **Vid avvikelse** gäller den aktuella fliken och kolumnen. Datumkolumner
 kan uttryckligen tolkas som svenska/amerikanska datum eller Excel-tal med

@@ -66,7 +66,7 @@ try{
   const evaluator=async profiles=>{const current=++revision;await new Promise(r=>setTimeout(r,current===2?250:30));window.__previewRevisions.push(current);return {clean:{},data:{importReview:[]},report:{tables:[],changes:[],decisions:[],blocking:0,rows:1},selected:profiles[0].columns[0].target};};
   previewImport({fileName:'syntetiskt.xlsx',workbook,profiles:[{name:'Test',headerRow:1,columns:[column]}]}, {importFieldPreferences:{}},importSchemas,'Testare',evaluator).then(result=>{window.__previewResolved=result.selected;}).catch(error=>{window.__previewResolved=error.name;});
  });
- await ready();await page.locator('[data-ignore-column]').click();
+ await ready();await page.locator('[data-column-group=mapped]').evaluate(node=>node.open=true);await page.locator('[data-ignore-column]').click();
  assert.equal(await page.locator('[data-apply]').isDisabled(),true,'Apply is disabled until checking changed field choices');await page.locator('[data-check-records]').click();
  await page.locator('[data-column-group=ignored]').evaluate(node=>node.open=true);await page.locator('[data-ignore-column]').click();await ready();await page.waitForFunction(()=>window.__previewRevisions.includes(2));assert.equal(await page.locator('[data-apply]').isDisabled(),true,'Stale ignored result cannot enable Apply');
  await page.locator('[data-ignore-unmapped]').click();await ready();assert.equal(await page.locator('[data-apply]').isDisabled(),true,'No selected column can be imported');await page.locator('[data-cancel]').click();assert.deepEqual(errors,[]);

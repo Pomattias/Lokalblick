@@ -3928,3 +3928,7 @@ body:not([data-view="budget"]) .import-sheet-settings select {width:100%;min-wid
 body:not([data-view="budget"]) .import-review-actions {flex-wrap:wrap;gap:6px;}
 body:not([data-view="budget"]) .import-field-picker select {width:100%;margin:5px 0;}
 @media(max-width:600px){body:not([data-view="budget"]) .import-sheet-settings {grid-template-columns:1fr;}}
+body[data-view="sources"] .import-receipt details {margin-top:8px}
+body[data-view="sources"] .import-receipt-column {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:6px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+body[data-view="sources"] .import-receipt-column small {display:block}
+body[data-view="sources"] .import-receipt [data-receipt-review] {margin:8px 0}
