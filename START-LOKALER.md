@@ -63,6 +63,15 @@ Senaste resultatet per underlag sparas i befintligt källregister och följer me
 databasen och Excel-kopian. Det skapas för nya importer, inte retroaktivt.
 Bortval görs före importen och återanvänds nästa gång; det raderar inte tidigare data.
 
+Fastighetsägaren väljs på fastigheten och hyresgästen på avtalet. Deras
+organisationsnummer lagras en gång i **Parter → Organisationsnummer**, som text
+med tio siffror (visas som `000000-0000`). Numret kan ändras vid respektive
+koppling och i partregistret. Samma part kan vara både fastighetsägare och hyresgäst.
+I underlag används **Fastighetsägare**, **Orgnr fastighetsägare**, **Hyresgäst**
+och **Orgnr hyresgäst**. På en blandad rad knyts varje nummer till rätt part;
+det sparas inte dubbelt på fastighet eller avtal. Kända organisationsnummer
+återanvänds. Motstridiga namn/ID:n och nummer lämnas för granskning.
+
 En sammansatt rubrik som **Objektsnummer / Förvaltningsobjekt** kräver ett aktivt val av rätt ID.
 Dubbla rubriker återanvänder sparade val endast när kolumnordningen är densamma.
 Regeln **Vid avvikelse** gäller den aktuella fliken och kolumnen. Datumkolumner

@@ -51,7 +51,7 @@ export class LocalStore {
      db.exec('ALTER TABLE ' + table + ' ADD COLUMN ' + f.key + ' ' + type + (f.type === 'ref' ? ' REFERENCES ' + f.table + '(id)' : ''));
     }
    }
-   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS evidence_annual ON cost_evidence(cost_id,year) WHERE type='annual'; CREATE UNIQUE INDEX IF NOT EXISTS evidence_invoice ON cost_evidence(cost_id,invoice_reference) WHERE type='invoice';");
+   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS parties_organization_number ON parties(organization_number) WHERE organization_number IS NOT NULL; CREATE UNIQUE INDEX IF NOT EXISTS evidence_annual ON cost_evidence(cost_id,year) WHERE type='annual'; CREATE UNIQUE INDEX IF NOT EXISTS evidence_invoice ON cost_evidence(cost_id,invoice_reference) WHERE type='invoice';");
    if (mode === 'sqlite') db.exec('PRAGMA application_id = 0x4c4b4c32');
    db.exec('CREATE TABLE IF NOT EXISTS store_meta (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL) STRICT; INSERT OR IGNORE INTO store_meta VALUES (1,0);');
    if(upgraded){

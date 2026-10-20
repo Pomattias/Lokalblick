@@ -1062,5 +1062,5 @@ export function organization(data) {
   ${table(["Person","Befattning","Telefonnummer","Part",""],data.people.map((x)=>row([esc(x.name),esc(x.role),esc(x.phone||"–"),esc(data.organizations.find((o)=>o.id===x.organizationId)?.name||""),edit("people",x.id)])))}
   <details><summary>Ansvar och kontaktpersoner (${(data.assignments||[]).length})</summary>${table(['Person','Roll','Från','Till',''],(data.assignments||[]).map(a=>row([esc(data.people.find(p=>p.id===a.personId)?.name||a.personId),esc(a.role),esc(a.fromDate||'Okänt'),esc(a.toDate||'Ej angivet'),edit('assignments',a.id)])))}</details>
   <h3>Parter</h3>
-  ${table(["Part","Typ",""],data.organizations.map((x)=>row([esc(x.name),esc(x.type),edit("organizations",x.id)])))}`;
+  ${table(["Part",...(data.cleanModel?['Organisationsnummer']:[]),"Typ",""],data.organizations.map((x)=>row([esc(x.name),...(data.cleanModel?[esc(x.organizationNumber||'–')]:[]),esc(x.type),edit("organizations",x.id)])))}`;
 }

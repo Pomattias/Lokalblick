@@ -2,6 +2,7 @@ import {openItemDialog,openPropertyCostDialog,openEvidenceDialog,propertyCostsPa
 import {projectFinance,applyContractFinanceEdit,applyLegacyCostEdit,adoptAgreementItems,projectStoredAgreementItems,validateAgreementItems} from '../lokaler/finance-view.js';
 import { createCleanEvaluator } from '../lokaler/import-worker-client.js';
 import { importSchemas } from '../lokaler/import-model.js';
+import {applyLinkedPartyNumber,refreshPartyNumber} from './party-fields.js';
 import {bindEditActions,decorateEditActions} from './edit-actions.js';
 import {mountCompactIssue,compactIssueJournal,toggleIssueText} from "./compact-issue.js";
 import {portfolioScope} from "./portfolio-context.js";
@@ -1728,7 +1729,9 @@ document.addEventListener("change", (event) =>
       redrawFormPlanning(x.closest("form"));
       return;
     }
+    if(x.name==='tenantPartyId'&&x.form?.getAttribute('id')==='edit-form')refreshPartyNumber(x.form,data,'tenantPartyId');
     if (x.hasAttribute("data-owner-select")) {
+      refreshPartyNumber(x.form,data,'ownerPartyId');
       updatePropertyOwnerContacts(document.querySelector("#editor-root"), data);
       refreshPropertyPersonSelectors(document.querySelector("#editor-root"), data);
       return;
@@ -1898,6 +1901,7 @@ document.addEventListener("submit", (event) => {
     if(col==='contracts'&&!next.objectId)throw Error('Välj vilket objekt avtalet tillhör');
     const noteDraft=col==="activities"?String(event.target.querySelector("[data-activity-journal-note]")?.value||"").trim():"";
     await mutation((d) => {
+      applyLinkedPartyNumber(d,col,next,actor());
       if (!id) {
         next.id = d.cleanModel&&['contracts','objects'].includes(col)?String(next.id||'').trim():crypto.randomUUID();
         if(!next.id)throw Error(col==='contracts'?'Ange AvtalsID (avtalsnumret).':'Ange ObjektID.');

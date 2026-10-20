@@ -1,6 +1,6 @@
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS parties (
- id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL CHECK(trim(name) <> ''),
+ id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL CHECK(trim(name) <> ''), organization_number TEXT,
  UNIQUE(name COLLATE NOCASE)
 ) STRICT;
 CREATE TABLE IF NOT EXISTS people (

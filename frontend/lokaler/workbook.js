@@ -2,6 +2,9 @@ import { workspaceKeys } from './view-fields.js';
 import { tables, emptyData, idLabels } from './model.js';
 import {upgradeData,retiredFields,previousFinanceFields} from './model-revision.js';
 const header = field => field.type === 'ref' ? (field.key === 'predecessor_id' ? 'Tidigare ObjektID' : field.key === 'successor_id' ? 'Nytt ObjektID' : field.key === 'owner_party_id' ? 'Fastighetsägare PartID' : field.key === 'tenant_party_id' ? 'Hyresgäst PartID' : idLabels[field.table]) : field.label;
+// ExcelJS splits XML text into fixed UTF-16 chunks. JSON escapes keep surrogate
+// pairs intact across those boundaries and decode to the exact original values.
+const jsonText=value=>JSON.stringify(value).replace(/[\uD800-\uDFFF]/g,char=>'\\u'+char.charCodeAt(0).toString(16).padStart(4,'0'));
 export async function writeWorkbook(data, ExcelJS) {
  const book = new ExcelJS.Workbook();
  book.creator = 'Lokalblick';
@@ -11,7 +14,7 @@ export async function writeWorkbook(data, ExcelJS) {
   for (const record of data[table]) {
    const row = { ...record };
    for (const f of spec.fields) if (f.values && row[f.key] != null) row[f.key] = f.values[row[f.key]];
-   for (const f of spec.fields) { if (f.type === 'json' && row[f.key] != null) row[f.key] = JSON.stringify(row[f.key]); if (f.type === 'boolean' && row[f.key] != null) row[f.key] = row[f.key] ? 'Ja' : 'Nej'; }
+   for (const f of spec.fields) { if (f.type === 'json' && row[f.key] != null) row[f.key] = jsonText(row[f.key]); if (f.type === 'boolean' && row[f.key] != null) row[f.key] = row[f.key] ? 'Ja' : 'Nej'; }
    sheet.addRow(row);
   }
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
@@ -20,7 +23,7 @@ export async function writeWorkbook(data, ExcelJS) {
   sheet.autoFilter = { from: 'A1', to: { row: 1, column: spec.fields.length + 1 } };
  }
  const workspace = book.addWorksheet('Arbetsyta'); workspace.addRow(['Nyckel','Del','JSON']);
- for (const [key,value] of Object.entries(data.workspace || {})) { const json = JSON.stringify(value); let start=0,part=0;while(start<json.length){let end=Math.min(start+30000,json.length);if(end<json.length&&/[\uD800-\uDBFF]/.test(json[end-1]))end--;workspace.addRow([key,part++,json.slice(start,end)]);start=end;} }
+ for (const [key,value] of Object.entries(data.workspace || {})) { const json = jsonText(value); for(let start=0,part=0;start<json.length;start+=30000)workspace.addRow([key,part++,json.slice(start,start+30000)]); }
  return new Uint8Array(await book.xlsx.writeBuffer());
 }
 export async function readWorkbook(buffer, ExcelJS) {

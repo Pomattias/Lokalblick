@@ -2,6 +2,7 @@ import {agreementItemsPanel} from './finance-ui.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, calc, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
+import {partyNumberInput} from './party-fields.js';
 
 // Existing Budget editor controls remain scoped to Budget.
 function budgetBusinessControls(data,c){
@@ -104,6 +105,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
     (!id&&!c.propertyId ? field("Fastighet",select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")) : "")+
     (presentation.portfolio?field("AvtalsID",input({...c,id:c.number||c.id},"id","text",Boolean(id),'required maxlength="100"')):field("Avtalsnummer",input(c,"number","text",masterLocked)))+
     field("Hyresgäst",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
+    (data.cleanModel&&presentation.portfolio?field('Orgnr hyresgäst',partyNumberInput(data,'contracts',c)):'')+
     field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>x.number||x.name||x.id,"Välj objekt"))+
     field("Fastighetsägare",display(ownerName))+
     '</div>'+documentLink+'</section>';

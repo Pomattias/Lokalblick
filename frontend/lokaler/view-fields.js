@@ -1,7 +1,7 @@
 // Fields needed by the existing views. Every fact has one storage owner.
 export const viewCollections = { parties: 'organizations', people: 'people', properties: 'properties', objects: 'objects', agreements: 'contracts', issues: 'activities', orders: 'orders', agreement_items:'agreementItems', recurring_costs:'recurringCosts', cost_evidence:'costEvidence' };
 export const viewFields = {
- parties: { name:'name', kind:'type', owner_class:'ownerClass', investment_rule:'investmentRule', investment_threshold:'investmentThreshold', rent_surcharge_rate:'rentSurchargeRate' },
+ parties: { name:'name', organization_number:'organizationNumber', kind:'type', owner_class:'ownerClass', investment_rule:'investmentRule', investment_threshold:'investmentThreshold', rent_surcharge_rate:'rentSurchargeRate' },
  people: { name:'name', email:'email', phone:'phone', party_id:'organizationId', job_title:'role' },
  properties: { name:'designation', popular_name:'popularName', address:'address', city:'city', owner_party_id:'ownerPartyId', latitude:'latitude', longitude:'longitude' },
  objects: { property_id:'propertyId', area:'area', apartment_count:'apartmentCount', apartment_area:'apartmentArea', common_area:'commonArea', category:'category', valid_from:'start', valid_to:'end' },

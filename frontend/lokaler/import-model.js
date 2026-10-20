@@ -3,7 +3,7 @@ import {refreshImportReceipt} from './import-receipt.js';
 import {importPreference} from '../services/import-preferences.js';
 import {legacyFinanceFields,legacyFinanceMap,validateFinance} from './finance-model.js';
 import {financialId,legacyAgreementItems} from './finance-revision.js';
-import {tables,emptyData,normalize,validateData,idLabels} from './model.js';
+import {tables,emptyData,normalize,validateData,idLabels,partyNumberFields,normalizeOrganizationNumber} from './model.js';
 import {viewFields,viewCollections} from './view-fields.js';
 import {projectWorkspace} from './view-adapter.js';
 import {interpretCell} from '../services/import-formats.js';
@@ -13,7 +13,8 @@ const text=value=>String(value??'').trim(),key=value=>text(value).replace(/\s+/g
 const validLink=value=>{try{const url=new URL(value);return /^https?:$/.test(url.protocol)&&!!url.hostname&&!/\s/.test(value);}catch{return false;}};
 const hash=value=>{let h=2166136261;for(const char of value){h^=char.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(16);};
 const fieldAliases={
- properties:{designation:['Fastighetsbeteckning','Fast.bet','Fast.nr','Fastighetsnr'],id:['Fastighets-ID','Förvaltningsobjekt'],address:['Gatuadress','Postadress'],city:['Postort','Stad']},
+ organizations:{organizationNumber:['Orgnr','Org.nr','Organisationsnr']},
+ properties:{designation:['Fastighetsbeteckning','Fast.bet','Fast.nr','Fastighetsnr'],id:['Fastighets-ID','Förvaltningsobjekt'],address:['Gatuadress','Postadress'],city:['Postort','Stad'],ownerPartyId:['Fastighetsägare PartID','Fastighetsägare namn']},
  objects:{id:['Objektnummer','Objektsnummer','Objektnr'],area:['Area','Lokalarea','Lokalyta kvm','BRA','kvm'],apartmentCount:['Lägenheter'],apartmentArea:['Lägenheter (yta)']},
  contracts:{id:['Avtalsnummer','Avtalsnr','Avtals-ID'],start:['Fr.o.m.','Start','Startdatum','Kontraktsstart','Gäller från','Giltigt fr.o.m.'],end:['T.o.m.','Slut','Slutdatum','Kontraktsslut','Giltigt t.o.m.'],business:['Kommentar verksamhet','Namn på verksamheten','Verksamhetsnamn'],category:['Lokalkategori (LEB)','Lokalkategori (EB)'],use:['Användning'],contractDocumentUrl:['Länk avtal (Huvudkontrakt)','Länk till huvudkontrakt']},
  activities:{title:['Ärendenamn','Aktivitet'],startDate:['Fr.o.m.','Startdatum'],endDate:['T.o.m.','Slutdatum']},
@@ -22,6 +23,9 @@ const fieldAliases={
 export const importSchemas=Object.entries(viewCollections).map(([table,collection])=>{
  const spec=tables[table],fields=spec.fields.filter(f=>f.key!=='sources'),fieldSpecs=Object.fromEntries(fields.map(f=>[viewFields[table][f.key]||f.key,{...f,storageKey:f.key}]));
  const schema={key:collection,storage:table,canonical:true,sheet:spec.label,singular:spec.singular,fieldSpecs:{id:{type:'text',storageKey:'id'},...fieldSpecs},labelAliases:fieldAliases[collection]||{},columns:[['id',idLabels[table]],...fields.map(f=>[viewFields[table][f.key]||f.key,f.type==='ref'?idLabels[f.table]:f.label])],related:[],parents:[]};
+ if(table==='properties')schema.columns=schema.columns.map(c=>c[0]==='ownerPartyId'?[c[0],'Fastighetsägare']:c);
+ const linked=partyNumberFields[table];
+ if(linked){schema.columns.push([linked.key,linked.label]);schema.fieldSpecs[linked.key]={type:'text',storageTarget:'parties.organization_number'};schema.labelAliases={...schema.labelAliases,[linked.key]:[linked.label,'Organisationsnummer '+(linked.role==='owner'?'fastighetsägare':'hyresgäst'),'Orgnr ('+(linked.role==='owner'?'fastighetsägare':'hyresgäst')+')']};}
  if(['properties','contracts','activities','orders'].includes(collection)){
   const roles=collection==='properties'?[['ownerResponsiblePersonId','Fastighetsägarens kontaktperson'],['responsiblePersonId','Samordnare']]:collection==='contracts'?[['tenantResponsiblePersonId','Hyresgästens kontaktperson'],['responsiblePersonId','Samordnare']]:[['responsiblePersonId','Vår ansvarige']];
   schema.columns.push(...roles);for(const [key]of roles)schema.fieldSpecs[key]={type:'text'};
@@ -37,6 +41,7 @@ export const importSchemas=Object.entries(viewCollections).map(([table,collectio
 for(const schema of importSchemas){const table=tables[schema.storage];for(const field of table.fields.filter(f=>f.type==='ref')){const parent=importSchemas.find(s=>s.storage===field.table);if(parent){schema.related.push(parent.key);schema.parents.push(parent.key);parent.related.push(schema.key);}}}
 const fieldMap=Object.fromEntries(Object.entries(viewCollections).flatMap(([table,collection])=>tables[table].fields.map(({key:field})=>[collection+'.'+(viewFields[table][field]||field),{table,field}])));
 for(const table of Object.keys(viewCollections)){fieldMap[viewCollections[table]+'.id']={table,field:'id'};}
+for(const [table,linked]of Object.entries(partyNumberFields))fieldMap[viewCollections[table]+'.'+linked.key]={table:'parties',field:'organization_number',partyRole:linked.role};
 fieldMap['properties.sourceId']={table:'properties',field:'id'};fieldMap['objects.number']={table:'objects',field:'id'};fieldMap['people.sourceId']={table:'people',field:'id'};
 // Older saved mappings may name the same input number; it resolves to the sole AvtalsID.
 fieldMap['contracts.number']={table:'agreements',field:'id'};
@@ -54,10 +59,11 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   return [profile,new Map(profile.columns.map(column=>[column.index,{source:profile.fileName||context.fileName||'Excel',sheet:profile.name,index:column.index,header:column.header,target:column.target,label:labels.get(column.target)||column.target,...(column.itemType?{itemType:column.itemType,itemLabel:tables.agreement_items.fields.find(field=>field.key==='type').values[column.itemType]}:{}),read:0,skipped:0,review:0}]))];
  }));
  data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const prior=clone(data);let rowCount=0;
- let indexes,partyNames,propertyNames,propertyIdentities,emails,personNames;
+ let indexes,partyNames,partyNumbers,propertyNames,propertyIdentities,emails,personNames;
  const rebuild=()=>{
   indexes=Object.fromEntries(Object.keys(tables).map(table=>[table,new Map(data[table].map(row=>[row.id,row]))]));
   partyNames=new Map(data.parties.map(row=>[key(row.name),row]));
+  partyNumbers=new Map(data.parties.filter(row=>row.organization_number).map(row=>[normalizeOrganizationNumber(row.organization_number),row]));
   propertyNames=new Map(data.properties.map(row=>[key(row.name)+'|'+key(row.address),row]));
   propertyIdentities=new Map();for(const row of data.properties){if(!propertyIdentities.has(key(row.name)))propertyIdentities.set(key(row.name),[]);propertyIdentities.get(key(row.name)).push(row);}
   emails=new Map(data.people.filter(row=>row.email).map(row=>[key(row.email),row]));
@@ -77,8 +83,9 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
    const rowTouched=new Map(),readColumns=new Set();let rejected=false;
    const touch=(table,id)=>{if(!rowTouched.has(table))rowTouched.set(table,new Set());rowTouched.get(table).add(id);};
    const source=profile.fileName||context.fileName||'Excel',origin={source,sheet:profile.name,row:r+1};
-   const raw={},itemRows=new Map(),contacts=new Map(),sourceValues=selected.map(column=>{const cell=sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})];return {column:column.header,index:column.index,target:column.target,raw:cell?.v??'',hyperlink:cell?.l?.Target};});let fieldInProgress='',columnInProgress=null;const finance={};
-   const originFor=(table,field)=>{const column=selected.find(c=>fieldMap[c.target]?.table===table&&fieldMap[c.target]?.field===field);return {column:column?.header,columnIndex:column?.index,collection:viewCollections[table]||table,field:viewFields[table]?.[field]||field};};
+   const raw={},itemRows=new Map(),contacts=new Map(),linkedNumbers=new Map(),sourceValues=selected.map(column=>{const cell=sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})];return {column:column.header,index:column.index,target:column.target,raw:cell?.v??'',hyperlink:cell?.l?.Target};});let fieldInProgress='',columnInProgress=null,partyNumberColumn=null;const finance={};
+   const columnFor=(table,field)=>table==='parties'&&field==='organization_number'&&partyNumberColumn||selected.find(c=>fieldMap[c.target]?.table===table&&fieldMap[c.target]?.field===field&&!fieldMap[c.target]?.partyRole);
+   const originFor=(table,field)=>{const column=columnFor(table,field);return {column:column?.header,columnIndex:column?.index,collection:viewCollections[table]||table,field:viewFields[table]?.[field]||field};};
    const merge=(table,record,existing)=>{
     const previous=existing?{...existing}:null;
     const values={...existing,...Object.fromEntries(Object.entries(record).filter(([,value])=>present(value)))};
@@ -86,9 +93,9 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     if(normalized.sources&&existing?.sources)normalized.sources=[...new Map([...existing.sources,...normalized.sources].map(source=>[JSON.stringify(source),source])).values()];
     if(existing)for(const field of Object.keys(record)){const value=normalized[field];if(field!=='id'&&field!=='sources'&&present(record[field])&&present(existing[field])&&JSON.stringify(existing[field])!==JSON.stringify(value)){
      const legacy=viewFields[table]?.[field]||field,collection=viewCollections[table]||table;
-     const selectedTarget=selected.find(c=>fieldMap[c.target]?.table===table&&fieldMap[c.target]?.field===field)?.target.split('.')[1]||legacy;
-     const inputColumn=selected.find(c=>fieldMap[c.target]?.table===table&&fieldMap[c.target]?.field===field);
-     const rule=importPreference(data.workspace.importFieldPreferences,collection,selectedTarget,source,profile,inputColumn);
+     const selectedTarget=columnFor(table,field)?.target.split('.')[1]||legacy;
+     const inputColumn=columnFor(table,field);
+     const rule=importPreference(data.workspace.importFieldPreferences,fieldMap[inputColumn?.target]?.partyRole?inputColumn.target.split('.')[0]:collection,selectedTarget,source,profile,inputColumn);
      if(tables[table].fields.find(f=>f.key===field)?.type==='ref'){const error=Error('Olika värden för '+(tables[table].fields.find(f=>f.key===field)?.label||field)+'. Importen får inte flytta en befintlig koppling.');Object.assign(error,{collection,field:legacy,column:inputColumn?.header,columnIndex:inputColumn?.index,current:existing[field],proposed:value});throw error;}
      if(typeof value==='string'&&typeof existing[field]==='string'&&['properties','parties','people'].includes(table)&&['name','address','city','popular_name'].includes(field)&&key(value.normalize('NFKC'))===key(existing[field].normalize('NFKC'))){normalized[field]=existing[field];continue;}
      if(rule==='reject'){normalized[field]=existing[field];continue;}
@@ -106,6 +113,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     if(table==='agreements'&&indexes.objects.has(normalized.object_id)&&!fits(normalized,indexes.objects.get(normalized.object_id)))throw Object.assign(Error('Avtalets period måste rymmas inom objektets giltighetstid.'),originFor(table,'valid_to'));
     if(table==='objects'&&data.agreements.some(a=>a.object_id===normalized.id&&!fits(a,normalized)))throw Object.assign(Error('Objektets period skulle lämna ett befintligt avtal utan giltigt objekt.'),originFor(table,'valid_to'));
     if(table==='people'&&normalized.email&&data.people.some(p=>p.id!==normalized.id&&key(p.email)===key(normalized.email)))throw Error('E-post och PersonID pekar på olika personer.');
+    if(table==='parties'&&normalized.organization_number&&data.parties.some(p=>p.id!==normalized.id&&normalizeOrganizationNumber(p.organization_number)===normalized.organization_number))throw Object.assign(Error('Organisationsnumret tillhör redan en annan part. Kontrollera namn och koppling.'),originFor(table,'organization_number'));
     for(const f of tables[table].fields)if(f.type==='ref'&&normalized[f.key]&&!indexes[f.table].has(normalized[f.key]))throw Object.assign(Error(f.label+' hänvisar till ett ID som saknas.'),originFor(table,f.key));
     if(existing){const before=clone(existing);undo.push(()=>{for(const k of Object.keys(existing))delete existing[k];Object.assign(existing,before);});Object.assign(existing,normalized);}
     else{data[table].push(normalized);indexes[table].set(normalized.id,normalized);existing=normalized;}
@@ -114,10 +122,16 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     return existing;
    };
    const party=(value,kind)=>{
-    if(!present(value))return null;
-    const existing=indexes.parties.get(text(value))||partyNames.get(key(value));
-    if(existing){touch('parties',existing.id);return existing.id;}
-    const row=merge('parties',{id:'PAR-'+crypto.randomUUID(),name:text(value),kind},null);partyNames.set(key(value),row);return row.id;
+    const linked=linkedNumbers.get(kind);partyNumberColumn=linked?.column||null;
+    let number;try{number=normalizeOrganizationNumber(linked?.value);}catch(error){throw Object.assign(error,originFor('parties','organization_number'),{value:linked?.value});}
+    const byName=indexes.parties.get(text(value))||partyNames.get(key(value)),byNumber=number&&partyNumbers.get(number);
+    if(byName&&byNumber&&byName.id!==byNumber.id)throw Error('Namn och organisationsnummer pekar på olika parter. Kontrollera kopplingen.');
+    const existing=byName||byNumber;
+    if(!present(value)&&!linked)return null;
+    if(!existing&&!present(value))throw Error('Ange fastighetsägarens eller hyresgästens namn för det nya organisationsnumret.');
+    if(existing&&!number){touch('parties',existing.id);partyNumberColumn=null;return existing.id;}
+    const row=merge('parties',{id:existing?.id||'PAR-'+crypto.randomUUID(),name:existing?.name||text(value),kind:existing?.kind||kind,organization_number:number||existing?.organization_number},existing);
+    partyNames.set(key(row.name),row);if(row.organization_number)partyNumbers.set(row.organization_number,row);linkedNumbers.delete(kind);partyNumberColumn=null;return row.id;
    };
    try{
     for(const column of selected){
@@ -142,25 +156,28 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(!present(value))continue;
      readColumns.add(column.index);
      if(mapping&&tables[mapping.table].fields.find(f=>f.key===mapping.field)?.type==='text'&&typeof value!=='string')value=String(value);
-     if(role){if(!contacts.has(column.index))contacts.set(column.index,{column,values:{}});contacts.get(column.index).values.name=value;}
+     if(mapping?.partyRole)linkedNumbers.set(mapping.partyRole,{value,column});
+     else if(role){if(!contacts.has(column.index))contacts.set(column.index,{column,values:{}});contacts.get(column.index).values.name=value;}
      else if(part){if(!contacts.has(part.index))contacts.set(part.index,{column:profile.columns.find(c=>c.index===part.index),values:{}});contacts.get(part.index).values[part.field]=value;}
      else if(mapping.finance){finance[mapping.field]=value;raw.agreements ||= {};}
      else if(mapping.table==='agreement_items'&&column.itemType){if(!itemRows.has(column.itemType))itemRows.set(column.itemType,{type:column.itemType});itemRows.get(column.itemType)[mapping.field]=value;}
      else{raw[mapping.table] ||= {};if(present(raw[mapping.table][mapping.field])&&raw[mapping.table][mapping.field]!==value)throw Error('Två kolumner ger olika identifierare eller värden.');raw[mapping.table][mapping.field]=value;}
     }
     let property=null,object=null,agreement=null,issue=null,order=null;
-    if(raw.parties){const p=raw.parties,existing=p.id?indexes.parties.get(text(p.id)):partyNames.get(key(p.name));const saved=merge('parties',{...p,id:existing?.id||text(p.id)||'PAR-'+crypto.randomUUID()},existing);partyNames.set(key(saved.name),saved);}
+    if(raw.parties){const p=raw.parties,number=normalizeOrganizationNumber(p.organization_number),byName=p.id?indexes.parties.get(text(p.id)):partyNames.get(key(p.name)),byNumber=number&&partyNumbers.get(number);if(byName&&byNumber&&byName.id!==byNumber.id||p.id&&byNumber&&p.id!==byNumber.id)throw Error('PartID, namn och organisationsnummer pekar på olika parter.');const existing=byName||byNumber;const saved=merge('parties',{...p,id:existing?.id||text(p.id)||'PAR-'+crypto.randomUUID()},existing);partyNames.set(key(saved.name),saved);if(saved.organization_number)partyNumbers.set(saved.organization_number,saved);}
     const anchorAgreement=raw.agreements?.id&&indexes.agreements.get(text(raw.agreements.id));
     const anchorObject=indexes.objects.get(text(raw.objects?.id||raw.agreements?.object_id||raw.issues?.object_id||anchorAgreement?.object_id));
     const anchorProperty=anchorObject&&indexes.properties.get(anchorObject.property_id);
+    if(linkedNumbers.has('owner'))raw.properties ||= {};
     if(raw.properties){
-     const p=raw.properties;if(p.owner_party_id)p.owner_party_id=party(p.owner_party_id,'owner');
+     const p=raw.properties;
      const matchingKey=JSON.stringify([source,profile.name,r+1]),named=p.name?propertyIdentities.get(key(p.name))||[]:[],atAddress=p.address?named.filter(row=>key(row.address)===key(p.address)):named;
      const candidates=atAddress.length?atAddress:named,chosen=context.rowMatches?.[matchingKey];
      if(!p.id&&!anchorProperty&&candidates.length>1&&!chosen)throw Object.assign(Error('Flera fastigheter har samma beteckning. Välj rätt fastighet under Granska poster.'),{collection:'properties',field:'designation',matchingKey,matches:candidates.map(row=>({id:row.id,label:row.name,detail:[row.address,row.city].filter(Boolean).join(' · ')}))});
      if(chosen)origin.matchingDecision={propertyId:chosen,method:'explicit-row-choice'};
      if(chosen&&(!candidates.some(row=>row.id===chosen)||p.id&&p.id!==chosen))throw Error('Det valda FastighetsID stämmer inte med radens identifierare.');
      const existing=p.id?indexes.properties.get(text(p.id)):anchorProperty||(chosen?indexes.properties.get(chosen):candidates[0])||propertyNames.get(key(p.name||p.address)+'|'+key(p.address));
+     if(p.owner_party_id||linkedNumbers.has('owner'))p.owner_party_id=party(p.owner_party_id||existing?.owner_party_id,'owner');
      property=merge('properties',{...p,id:existing?.id||text(p.id)||'FAS-'+crypto.randomUUID(),name:p.name||existing?.name||p.address||p.id},existing);
      propertyNames.set(key(property.name)+'|'+key(property.address),property);if(!propertyIdentities.has(key(property.name)))propertyIdentities.set(key(property.name),[]);if(!propertyIdentities.get(key(property.name)).some(row=>row.id===property.id))propertyIdentities.get(key(property.name)).push(property);
     }
@@ -177,7 +194,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     if(raw.agreements){
      const a=raw.agreements;if(!a.id)throw Error('Avtalet behöver AvtalsID (avtalsnumret) för säker återimport.');const existing=indexes.agreements.get(text(a.id));
      if(!object)throw Error('Avtalet saknar ObjektID.');
-     if(a.tenant_party_id)a.tenant_party_id=party(a.tenant_party_id,'tenant');
+     if(a.tenant_party_id||linkedNumbers.has('tenant'))a.tenant_party_id=party(a.tenant_party_id||existing?.tenant_party_id,'tenant');
      const candidate={...existing,...a,id:existing?.id||text(a.id),object_id:object.id};
      agreement=merge('agreements',candidate,existing);
      for(const item of legacyAgreementItems({...finance,id:agreement.id,valid_from:agreement.valid_from,valid_to:agreement.valid_to},agreement.id,[origin],data.agreement_items))merge('agreement_items',item,indexes.agreement_items.get(item.id));
@@ -224,6 +241,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(!existing){if(data.contacts.some(row=>!row.cancelled&&row.role===role&&row[f]===target.id&&(role==='coordinator'||row.person_id===person.id)&&(!row.valid_to||!candidate.valid_from||row.valid_to>=candidate.valid_from)&&(!candidate.valid_to||!row.valid_from||candidate.valid_to>=row.valid_from)))throw Error('Personkopplingen överlappar en befintlig period.');merge('contacts',{...candidate,id:'KOP-'+crypto.randomUUID()},null);}
     }
     for(const review of reviews.slice(startReviews))if(!review.recordId&&!review.blocking)review.recordId=({properties:property,contracts:agreement,objects:object,activities:issue,orders:order})[review.collection]?.id;
+    if(linkedNumbers.size)throw Error('Organisationsnumret saknar identifierad fastighet eller avtal. Välj rätt ID och partkoppling.');
     if(itemRows.size||Object.keys(finance).length||raw.agreement_items||raw.recurring_costs||raw.cost_evidence){
      const agreementId=agreement?.id||raw.agreement_items?.agreement_id||itemRows.values().next().value?.agreement_id,costId=raw.cost_evidence?.cost_id||raw.recurring_costs?.id;
      validateFinance({agreement_items:agreementId?data.agreement_items.filter(x=>x.agreement_id===agreementId):[],recurring_costs:costId?data.recurring_costs.filter(x=>x.id===costId):[],cost_evidence:costId?data.cost_evidence.filter(x=>x.cost_id===costId):[]});

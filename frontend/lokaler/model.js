@@ -27,7 +27,7 @@ const additions = {
  issues: [['kind','Typ'],['category','Kategori'],['final_cost','Slutkostnad','number'],['ordered_cost','Beställd kostnad','number'],['planning_year','Planeringsår','integer'],['planning_quarter','Planeringskvartal','integer'],['planning_month','Planeringsmånad','integer'],['include_in_budget','Ingår i budget'],['budget_category','Budgetkategori'],['value_increasing','Värdehöjande','boolean'],['journal','Journal','json']],
  orders: [['ordered_by','Beställd av','ref',{table:'people'}],['ordered_at','Beställd datum','date'],['final_cost','Slutkostnad','number'],['supplier','Leverantör']]
 };
-additions.parties.push(['investment_rule','Investeringsregel'],['investment_threshold','Investeringsgräns, kr','number'],['rent_surcharge_rate','Hyrespåslag, %','number']);
+additions.parties.push(['organization_number','Organisationsnummer'],['investment_rule','Investeringsregel'],['investment_threshold','Investeringsgräns, kr','number'],['rent_surcharge_rate','Hyrespåslag, %','number']);
 additions.issues.push(['action_kind','Åtgärdens karaktär'],['standard_enhancing','Standardhöjande','boolean'],['rent_surcharge_start','Hyrespåslag från','date'],['unit_id','Organisatorisk tillhörighet']);
 additions.orders.push(['reference','Beställningsreferens'],['delivery','Leverans'],['completed_at','Utförd','date'],['payment_status','Betalstatus'],['paid_at','Betald','date'],['invoice_comment','Fakturakommentar'],['owner_pays','Betalas av fastighetsägaren']);
 additions.contacts = [['cancelled','Makulerad','boolean',{default:false}]];
@@ -76,6 +76,13 @@ export function propertySummary(data, id, date = today()) {
   annualRent: (data.agreement_items||[]).filter(item=>item.type==='base'&&agreements.some(a=>a.id===item.agreement_id)&&active(item,date)).reduce((sum,item)=>sum+globalThis.LokalblickCalculations.itemComponent(Object.fromEntries(Object.entries(viewFields.agreement_items).map(([field,target])=>[target,item[field]])),Number(date.slice(0,4)),0,data.workspace?.indexSeries).amount,0),
   openIssues: data.issues.filter(row => propertyId(data, 'issues', row) === id && row.status !== 'done') };
 }
+export const partyNumberFields={properties:{key:'ownerOrganizationNumber',label:'Orgnr fastighetsägare',via:'owner_party_id',viewVia:'ownerPartyId',role:'owner'},agreements:{key:'tenantOrganizationNumber',label:'Orgnr hyresgäst',via:'tenant_party_id',viewVia:'tenantPartyId',role:'tenant'}};
+export function normalizeOrganizationNumber(value){
+ if(value==null||String(value).trim()==='')return null;
+ const digits=String(value).replace(/[\s-]/g,'');
+ if(!/^\d{10}$/.test(digits))throw Error('Organisationsnummer ska innehålla tio siffror, exempelvis 000000-0000.');
+ return digits.slice(0,6)+'-'+digits.slice(6);
+}
 export function normalize(table, input, id) {
  const spec = tables[table];
  if (!spec) throw Error('Okänd tabell.');
@@ -102,7 +109,7 @@ export function normalize(table, input, id) {
     if (f.type === 'url' && !/^https?:\/\//i.test(value)) throw Error(`${f.label} måste börja med https:// eller http://.`);
    }
   }
-  output[f.key] = value;
+  output[f.key] = table==='parties'&&f.key==='organization_number'?normalizeOrganizationNumber(value):value;
  }
  if (table === 'properties' && (output.latitude != null && Math.abs(output.latitude) > 90 || output.longitude != null && Math.abs(output.longitude) > 180)) throw Error('Ogiltiga koordinater.');
  if (output.valid_from && output.valid_to && output.valid_from > output.valid_to) throw Error('Slutdatum kan inte vara före startdatum.');
@@ -141,6 +148,7 @@ export function validateData(data) {
   }
  };
  unique(data.parties, row => row.name.toLocaleLowerCase('sv'), 'Partens namn');
+ unique(data.parties, row => normalizeOrganizationNumber(row.organization_number), 'Organisationsnumret');
  unique(data.people, row => row.email?.toLocaleLowerCase('sv'), 'E-postadressen');
  unique(data.object_links, row => JSON.stringify([row.predecessor_id, row.successor_id]), 'Objektförändringen');
  const periods = (rows, grouping, message) => {

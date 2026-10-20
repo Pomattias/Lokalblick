@@ -2,6 +2,7 @@ import {propertyCostsPanel} from './finance-ui.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
+import {partyNumberInput} from './party-fields.js';
 
 // Explicit property fields: the Excel/backend schema is not a form specification.
 const own = (data, person) => !person.organizationId ||
@@ -43,7 +44,7 @@ const coordinates = p => Number(p.latitude).toFixed(6)+", "+Number(p.longitude).
 
 export function renderPropertyEditor(data, p, id, company=false, presentation={portfolio:true}) {
   const ownerList=(data.organizations||[]).filter(o=>
-    o.type==="owner" || o.id===p.ownerPartyId);
+    data.cleanModel || o.type==="owner" || o.id===p.ownerPartyId);
   const allPeople=data.people||[];
   const ownerPeople=allPeople.filter(person=>
     (p.ownerPartyId && person.organizationId===p.ownerPartyId) ||
@@ -79,6 +80,7 @@ export function renderPropertyEditor(data, p, id, company=false, presentation={p
       '<section class="property-section"><h3>Fastighetsinfo</h3><div class="property-grid">'+
         control("Fastighetsägare",'<select name="ownerPartyId" data-owner-select>'+
           options(ownerList,x=>x.id,x=>x.name,p.ownerPartyId,"Välj fastighetsägare")+'</select>')+
+        (data.cleanModel&&presentation.portfolio?control('Orgnr fastighetsägare',partyNumberInput(data,'properties',p)):'')+
         control("Ort",textInput(p,"city"))+
         (data.cleanModel?control("Populärnamn",textInput(p,"popularName"))+control("Antal lägenheter",'<span>'+esc(p.apartmentCount??0)+'</span>'):"")+
       '</div></section>'+

@@ -3,7 +3,7 @@ import {personRole,contactPart,contactFields} from './import-person-links.js';
 import {profileFormat} from './import-formats.js';
 export const matchName=value=>String(value??'').trim().toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 const present=value=>value!=null&&String(value).trim()!=='';
-export function schemaFields(schemas){return schemas.flatMap(schema=>schema.columns.map(([field,label])=>({target:schema.key+'.'+field,collection:schema.key,field,label:schema.sheet+' → '+label,caption:label,type:schema.fieldSpecs?.[field]?.type,aliases:schema.labelAliases?.[field]||[],storage:schema.storage+'.'+(schema.fieldSpecs?.[field]?.storageKey||field)})));}
+export function schemaFields(schemas){return schemas.flatMap(schema=>schema.columns.map(([field,label])=>({target:schema.key+'.'+field,collection:schema.key,field,label:schema.sheet+' → '+label,caption:label,type:schema.fieldSpecs?.[field]?.type,aliases:schema.labelAliases?.[field]||[],storage:schema.fieldSpecs?.[field]?.storageTarget||schema.storage+'.'+(schema.fieldSpecs?.[field]?.storageKey||field)})));}
 function tableNames(schema){return [schema.key,schema.storage,schema.sheet,schema.singular,...(schema.aliases||[])].filter(Boolean).map(matchName);}
 export function relatedTables(schemas,primary){
  const root=schemas.find(s=>s.key===primary);if(!root)return [];
