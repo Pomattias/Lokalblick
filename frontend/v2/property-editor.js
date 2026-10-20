@@ -1,3 +1,4 @@
+import {propertyCostsPanel} from './finance-ui.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
@@ -40,7 +41,7 @@ function hasGeo(p) {
 }
 const coordinates = p => Number(p.latitude).toFixed(6)+", "+Number(p.longitude).toFixed(6);
 
-export function renderPropertyEditor(data, p, id, company=false) {
+export function renderPropertyEditor(data, p, id, company=false, presentation={portfolio:true}) {
   const ownerList=(data.organizations||[]).filter(o=>
     o.type==="owner" || o.id===p.ownerPartyId);
   const allPeople=data.people||[];
@@ -87,6 +88,7 @@ export function renderPropertyEditor(data, p, id, company=false) {
         contactRows+
       '</div><details class="property-help"><summary>Om kontaktkopplingar</summary><p>Kontakter sparas på respektive avtal. Välj Ej kopplad för att koppla bort utan att radera personen.</p></details></section>'+
       responsibilityHtml(data,'property',p.id)+
+      (data.cleanModel&&id&&presentation.portfolio?propertyCostsPanel(data,p.id):'')+
       '<section class="property-section"><h3>Placering på kartan</h3>'+
       '<p class="property-map-hint">'+(geo
         ? 'Klicka eller dra nålen för att ändra position.'

@@ -1,3 +1,4 @@
+import {projectFinance} from './finance-view.js';
 import { normalize as normalizeView } from '../v2/model.js';
 import { tables, emptyData, normalize, validateData, coordinator, active } from './model.js';
 import { viewCollections, viewFields, workspaceKeys } from './view-fields.js';
@@ -37,7 +38,7 @@ export function projectWorkspace(clean) {
    if(table!=='orders'&&table!=='objects')out.assignments.push({id:'INHERITED|'+table+'|'+row.id,personId:resolved.person.id,targetType:targetTypes[table],targetId:row.id,roleKey:'our',role:'Samordnare',organizationId:'',fromDate:'',toDate:'',shared:false,provenance:{derived:'clean-inherited'}});
   }
  }
- return normalizeView(out);
+ return normalizeView(projectFinance(out));
 }
 export function collectWorkspace(view, baseline=emptyData()) {
  const clean=emptyData();

@@ -1,3 +1,4 @@
+import {agreementItemsPanel} from './finance-ui.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, calc, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
@@ -186,6 +187,6 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
     '<div class="section-title"><div><h2 id="editor-title">'+esc(heading)+'</h2>'+
     (property.address?'<small>'+esc(property.address)+'</small>':'')+
     '</div><button type="button" data-editor-close>Stäng</button></div>'+
-    identity+economics+dates+additional+contacts+
+    identity+(presentation.portfolio&&data.cleanModel?agreementItemsPanel(data,c):economics)+dates+additional+contacts+
     '<div class="actions editor-actions"><button type="submit" class="primary">Spara ändring</button></div></form></aside>';
 }

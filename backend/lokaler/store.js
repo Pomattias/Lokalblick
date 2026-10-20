@@ -30,27 +30,28 @@ export class LocalStore {
     if ((appId !== 0 && appId !== 0x4c4b4c32) || (populated && appId !== 0x4c4b4c32)) throw Error('Filen är inte den nya Lokalblick-databasen. Välj en ny tom fil; äldre databaser konverteras inte.');
    }
    const oldColumns=db.prepare('PRAGMA table_info(agreements)').all();
-   const upgrading=oldColumns.some(column=>column.name==='number');
+   const upgrading=oldColumns.some(column=>['number','annual_rent','annual_additions'].includes(column.name));
    let upgraded;
    if(upgrading){
-    const data={...Object.fromEntries(keys.map(table=>[table,db.prepare('SELECT * FROM '+table).all().map(row=>{
+    const data={...Object.fromEntries(keys.map(table=>[table,(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table)?db.prepare('SELECT * FROM '+table).all():[]).map(row=>{
      for(const f of tables[table].fields)if(row[f.key]!=null){if(f.type==='json')row[f.key]=JSON.parse(row[f.key]);if(f.type==='boolean')row[f.key]=Boolean(row[f.key]);}return row;
     })])),workspace:Object.fromEntries(db.prepare('SELECT key,value FROM workspace').all().map(row=>[row.key,JSON.parse(row.value)]))};
     upgraded=upgradeData(data);
     // Validate first, then keep an independent SQLite backup before rebuilding.
     if(mode==='sqlite')db.prepare('VACUUM INTO ?').run(file+'.before-simplify-'+randomUUID()+'.sqlite');
     db.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE');
-    for(const table of [...keys].reverse())db.exec('DROP TABLE '+table);
+    for(const table of [...keys].reverse())db.exec('DROP TABLE IF EXISTS '+table);
     db.exec('DROP TABLE workspace');
    }
    db.exec(schema);
    for (const [table, spec] of Object.entries(tables)) {
     const existing = new Set(db.prepare('PRAGMA table_info(' + table + ')').all().map(row => row.name));
     for (const f of spec.fields) if (!existing.has(f.key)) {
-     const type = ['number','coordinate'].includes(f.type) ? 'REAL' : ['integer','boolean'].includes(f.type) ? 'INTEGER' : 'TEXT';
+     const type = ['number','coordinate','signed'].includes(f.type) ? 'REAL' : ['integer','boolean'].includes(f.type) ? 'INTEGER' : 'TEXT';
      db.exec('ALTER TABLE ' + table + ' ADD COLUMN ' + f.key + ' ' + type + (f.type === 'ref' ? ' REFERENCES ' + f.table + '(id)' : ''));
     }
    }
+   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS evidence_annual ON cost_evidence(cost_id,year) WHERE type='annual'; CREATE UNIQUE INDEX IF NOT EXISTS evidence_invoice ON cost_evidence(cost_id,invoice_reference) WHERE type='invoice';");
    if (mode === 'sqlite') db.exec('PRAGMA application_id = 0x4c4b4c32');
    db.exec('CREATE TABLE IF NOT EXISTS store_meta (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL) STRICT; INSERT OR IGNORE INTO store_meta VALUES (1,0);');
    if(upgraded){

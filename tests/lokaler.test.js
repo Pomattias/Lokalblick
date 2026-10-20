@@ -16,8 +16,10 @@ const fixtures = () => [
  { table: 'properties', record: { id: 'FAS1', name: 'Testfastighet', popular_name: 'Testhuset', owner_party_id: 'PAR1' } },
  { table: 'objects', record: { id: 'OBJ1', property_id: 'FAS1', area: 100, apartment_count: 2 } },
  { table: 'objects', record: { id: 'OBJ2', property_id: 'FAS1', area: 50 } },
- { table: 'agreements', record: { id: '9(1)', object_id: 'OBJ1', annual_rent: 100000, valid_from: '2025-01-01', valid_to: '2025-12-31' } },
- { table: 'agreements', record: { id: '91,1', object_id: 'OBJ1', annual_rent: 120000, valid_from: '2026-01-01' } },
+ { table: 'agreements', record: { id: '9(1)', object_id: 'OBJ1', valid_from: '2025-01-01', valid_to: '2025-12-31' } },
+ { table: 'agreements', record: { id: '91,1', object_id: 'OBJ1', valid_from: '2026-01-01' } },
+ {table:'agreement_items',record:{id:'base2025',agreement_id:'9(1)',type:'base',name:'Bashyra',base_amount:100000,valid_from:'2025-01-01',valid_to:'2025-12-31'}},
+ {table:'agreement_items',record:{id:'base2026',agreement_id:'91,1',type:'base',name:'Bashyra',base_amount:120000,valid_from:'2026-01-01'}},
  { table: 'issues', record: { id: 'ARE1', object_id: 'OBJ1', title: 'Fiktivt ärende' } },
  { table: 'orders', record: { id: 'BES1', issue_id: 'ARE1', title: 'Fiktiv beställning' } },
  { table: 'contacts', record: { id: 'KOP1', role: 'coordinator', person_id: 'PER1', property_id: 'FAS1' } }
@@ -75,7 +77,7 @@ test('databas: en trasig hänvisning rullar tillbaka hela ändringen; samtidiga 
  await assert.rejects(store.mutate([{ table: 'properties', create: true, record: { id: 'FAS1', name: 'Dublett' } }], 1), /ID finns/);
 }));
 test('databas: delning/sammanslagning bevarar nya ID:n och förhindrar dubbel yta i tiden', async () => withStore(async store => {
- const first = fixtures().filter(op => !['agreements', 'contacts', 'issues', 'orders'].includes(op.table));
+ const first = fixtures().filter(op => !['agreements', 'agreement_items', 'contacts', 'issues', 'orders'].includes(op.table));
  await store.mutate(first, 0);
  const old = store.snapshot().data.objects.find(o => o.id === 'OBJ1');
  await store.mutate([

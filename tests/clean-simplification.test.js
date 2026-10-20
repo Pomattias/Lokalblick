@@ -59,7 +59,7 @@ test('SQL removes old physical columns transactionally and keeps a backup and bu
   const db=new DatabaseSync(file);db.exec('PRAGMA application_id=0x4c4b4c32; CREATE TABLE store_meta(id INTEGER PRIMARY KEY,version INTEGER); INSERT INTO store_meta VALUES(1,4); CREATE TABLE workspace(key TEXT PRIMARY KEY,value TEXT);');
   const old=oldData();
   for(const[t,spec]of Object.entries(tables)){
-   const fields=new Map([['id','TEXT'],...spec.fields.map(f=>[f.key,['number','coordinate'].includes(f.type)?'REAL':['integer','boolean'].includes(f.type)?'INTEGER':'TEXT']),...Object.keys(retiredFields[t]||{}).map(k=>[k,'TEXT'])]);
+   const fields=new Map([['id','TEXT'],...spec.fields.map(f=>[f.key,['number','coordinate'].includes(f.type)?'REAL':['integer','boolean'].includes(f.type)?'INTEGER':'TEXT']),...Object.keys(retiredFields[t]||{}).map(k=>[k,'TEXT']),...Object.keys(old[t]?.[0]||{}).filter(k=>!spec.fields.some(f=>f.key===k)&&k!=='id').map(k=>[k,typeof old[t][0][k]==='number'?'REAL':'TEXT'])]);
    db.exec(`CREATE TABLE ${t} (${[...fields].map(([k,type])=>k+' '+type).join(',')})`);
    for(const row of old[t]){const keys=Object.keys(row);db.prepare(`INSERT INTO ${t}(${keys.join(',')}) VALUES(${keys.map(()=>'?').join(',')})`).run(...Object.values(row));}
   }

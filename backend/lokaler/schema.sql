@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS objects (
 CREATE TABLE IF NOT EXISTS agreements (
  id TEXT PRIMARY KEY NOT NULL, object_id TEXT NOT NULL REFERENCES objects(id) ON DELETE RESTRICT,
  tenant_party_id TEXT REFERENCES parties(id) ON DELETE RESTRICT,
- annual_rent REAL CHECK(annual_rent >= 0), valid_from TEXT, valid_to TEXT,
+ valid_from TEXT, valid_to TEXT,
  terminated_on TEXT, termination_reason TEXT, usage TEXT, business TEXT,
  workplace_count INTEGER CHECK(workplace_count >= 0), hub_count INTEGER CHECK(hub_count >= 0), eb_category TEXT, main_contract_url TEXT,
  CHECK(valid_from IS NULL OR valid_to IS NULL OR valid_from <= valid_to)
@@ -97,3 +97,34 @@ BEGIN SELECT RAISE(ABORT, 'Personkopplingen överlappar en befintlig koppling. A
 CREATE TABLE IF NOT EXISTS workspace (
  key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL CHECK(json_valid(value))
 ) STRICT;
+
+CREATE TABLE IF NOT EXISTS agreement_items (
+ id TEXT PRIMARY KEY NOT NULL,
+ agreement_id TEXT NOT NULL REFERENCES agreements(id) ON DELETE RESTRICT,
+ type TEXT NOT NULL, name TEXT NOT NULL, base_amount REAL NOT NULL CHECK(base_amount>=0),
+ valid_from TEXT, valid_to TEXT
+) STRICT;
+CREATE INDEX IF NOT EXISTS items_agreement ON agreement_items(agreement_id,valid_from,valid_to);
+CREATE TABLE IF NOT EXISTS recurring_costs (
+ id TEXT PRIMARY KEY NOT NULL,
+ property_id TEXT NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
+ category TEXT NOT NULL, name TEXT NOT NULL, annual_amount REAL NOT NULL CHECK(annual_amount>=0),
+ valid_from TEXT, valid_to TEXT
+) STRICT;
+CREATE INDEX IF NOT EXISTS costs_property ON recurring_costs(property_id,category);
+CREATE TABLE IF NOT EXISTS cost_evidence (
+ id TEXT PRIMARY KEY NOT NULL,
+ cost_id TEXT NOT NULL REFERENCES recurring_costs(id) ON DELETE RESTRICT,
+ type TEXT NOT NULL, amount REAL NOT NULL
+) STRICT;
+CREATE INDEX IF NOT EXISTS evidence_cost ON cost_evidence(cost_id);
+CREATE TRIGGER IF NOT EXISTS base_item_overlap_insert BEFORE INSERT ON agreement_items
+WHEN NEW.type='base' AND EXISTS(SELECT 1 FROM agreement_items i WHERE i.type='base' AND i.agreement_id=NEW.agreement_id
+ AND coalesce(i.valid_from,'0000-01-01')<=coalesce(NEW.valid_to,'9999-12-31')
+ AND coalesce(NEW.valid_from,'0000-01-01')<=coalesce(i.valid_to,'9999-12-31'))
+BEGIN SELECT RAISE(ABORT,'Endast en bashyra får vara aktiv samtidigt per avtal.'); END;
+CREATE TRIGGER IF NOT EXISTS base_item_overlap_update BEFORE UPDATE ON agreement_items
+WHEN NEW.type='base' AND EXISTS(SELECT 1 FROM agreement_items i WHERE i.id<>NEW.id AND i.type='base' AND i.agreement_id=NEW.agreement_id
+ AND coalesce(i.valid_from,'0000-01-01')<=coalesce(NEW.valid_to,'9999-12-31')
+ AND coalesce(NEW.valid_from,'0000-01-01')<=coalesce(i.valid_to,'9999-12-31'))
+BEGIN SELECT RAISE(ABORT,'Endast en bashyra får vara aktiv samtidigt per avtal.'); END;

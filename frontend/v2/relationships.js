@@ -41,14 +41,15 @@ function graph(input){
 }
 export function relationshipView(input){
  const {data,tables,links}=graph(input);
+ const height=Math.max(1120,...tables.map(t=>t.y+50+t.fields.length*27));
  const lines=links.map((r,i)=>{const a=tables.find(t=>t.id===r.a),b=tables.find(t=>t.id===r.b),p=point(a,r.af),q=point(b,r.bf),bend=(p.x+q.x)/2;
  return `<path data-relationship-line="${i}" d="M ${p.x} ${p.y} H ${bend} V ${q.y} H ${q.x}" fill="none" stroke="#0f766e" stroke-width="2" opacity=".7" vector-effect="non-scaling-stroke"/><circle cx="${p.x}" cy="${p.y}" r="3" fill="#0f766e"/><circle cx="${q.x}" cy="${q.y}" r="3" fill="#0f766e"/>`;}).join("");
  const nodes=tables.map(t=>`<div data-relationship-table="${t.id}" role="button" tabindex="0" aria-label="Öppna tabellen ${esc(t.name)}" style="cursor:pointer;position:absolute;left:${t.x}px;top:${t.y}px;width:240px;background:white;border:1px solid #b8cbd0;border-radius:9px;box-shadow:0 2px 7px #0001;overflow:hidden">
  <div style="background:#176655;color:white;font-weight:700;padding:12px">${esc(t.name)} <span style="float:right;font-size:11px">${(data[t.id]||[]).length} poster</span></div>
  ${t.fields.map(f=>`<div style="height:27px;line-height:27px;padding:0 10px;border-top:1px solid #e5e7eb;font:12px/27px ui-monospace,monospace">${f==="id"?"🔑 ":links.some(r=>r.a===t.id&&r.af===f)?"↗ ":""}${esc(f)}</div>`).join("")}</div>`).join("");
  return `<section aria-label="Datamodell" style="display:grid;gap:14px"><h2>Relationer mellan tabeller</h2><p>En Access-liknande översikt över dokumenterade ID-kopplingar. Tabellerna visar ett urval centrala kolumner inklusive personkopplingar och ansvarshistorik. Den rena arbetsytan visar databasens faktiska tabeller och referenser. Klicka på en koppling nedan för matchningsregeln. Allt är skrivskyddat.</p>
- <div style="overflow-x:auto;border:1px solid #dae3e1;border-radius:10px;background:#f5f8f7"><div style="position:relative;width:1176px;height:1120px">
- <svg viewBox="0 0 1176 1120" width="1176" height="1120" style="position:absolute;inset:0;pointer-events:none">${lines}</svg>${nodes}</div></div>
+ <div style="overflow-x:auto;border:1px solid #dae3e1;border-radius:10px;background:#f5f8f7"><div style="position:relative;width:1176px;height:${height}px">
+ <svg viewBox="0 0 1176 ${height}" width="1176" height="${height}" style="position:absolute;inset:0;pointer-events:none">${lines}</svg>${nodes}</div></div>
  <div id="relationship-table-detail" aria-live="polite" style="border:1px solid #b8cbd0;border-radius:10px;padding:14px;background:white"><strong>Välj en tabell i diagrammet</strong><p>Klicka på exempelvis Objekt för att visa samtliga tillgängliga kolumner och verkliga poster ur den aktuella datakällan.</p></div><h3>Kopplingar och matchningsregler</h3><input id="relationship-filter" type="search" aria-label="Sök relation" placeholder="Sök tabell, objektnummer eller kolumn" style="width:100%;max-width:520px;padding:10px;border:1px solid #bcc9cb;border-radius:8px"/>
  <div id="relationship-list" style="display:grid;gap:8px">${links.map((r,i)=>`<details class="relationship-rule" data-search="${esc((r.a+" "+r.af+" "+r.b+" "+r.bf+" "+r.rule).toLocaleLowerCase("sv"))}" style="border:1px solid #cad7d5;border-radius:9px;padding:12px">
  <summary style="cursor:pointer"><strong>${esc(r.a)}.${esc(r.af)} → ${esc(r.b)}.${esc(r.bf)}</strong></summary>

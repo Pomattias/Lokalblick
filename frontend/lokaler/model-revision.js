@@ -1,7 +1,9 @@
+import {upgradeFinance} from './finance-revision.js';
+import {legacyFinanceFields} from './finance-model.js';
 import {tables,normalize,validateData} from './model.js';
 
-// Read the preceding local schema at the storage boundary. No financial values
-// or budget plans are transformed; removed facts remain in the change log.
+// Upgrade preceding local schemas at the storage boundary. Financial facts
+// move to their registers; budget plans stay intact and removed facts remain auditable.
 export const retiredFields={
  properties:{kind:'Typ',geo_source:'Geokälla',geo_confirmed_at:'Geobekräftad',geo_confirmed_by:'Geobekräftad av'},
  objects:{name:'Benämning',usage:'Verksamhetstyp',unit_id:'Organisatorisk tillhörighet'},
@@ -55,6 +57,9 @@ export function upgradeData(input){
  }
  // Preserve provenance and references in historical audit entries. Existing
  // log payloads and locked budget snapshots are deliberately left intact.
+ upgradeFinance(data);
  for(const [table,spec]of Object.entries(tables))data[table]=(data[table]||[]).map(row=>normalize(table,row));
  validateData(data);return data;
 }
+
+export const previousFinanceFields=legacyFinanceFields;

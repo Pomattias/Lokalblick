@@ -83,7 +83,10 @@ när ingen instans använder filen. En databas av annat format avvisas och lämn
 | --- | --- |
 | Fastigheter | FastighetsID, namn, populärnamn, adress, ort, ägarens PartID och kartposition |
 | Objekt | ObjektID, FastighetsID, ytor, antal lägenheter, objektkategori och giltighetstid |
-| Avtal | AvtalsID (= exakt avtalsnummer), ObjektID, hyresgästens PartID, verksamhetstext, antal arbetsplatser/hubbplatser, hyra, period och ekonomivillkor |
+| Avtal | AvtalsID (= exakt avtalsnummer), ObjektID, hyresgästens PartID, verksamhetstext, antal arbetsplatser/hubbplatser, hyrestid, uppsägning och beskrivande uppgifter |
+| Avtalsposter | PostID, AvtalsID, typ, grundbelopp, giltighet och egna uppräkningsvillkor |
+| Fastighetskostnader | KostnadsID, FastighetsID, kategori, budgeterat årsbelopp och giltighet |
+| Kostnadsunderlag | UnderlagsID, KostnadsID, årsutfall eller faktura med belopp, period och dokumentlänk |
 | Personer | PersonID, namn, e-post, telefon och eventuell part |
 | Personkopplingar | PersonID, roll, ett mål-ID och giltighetstid |
 | Ärenden | ÄrendeID, antingen FastighetsID eller ObjektID, ansvar via personkoppling, beskrivning, status, kostnad och tidplan |
@@ -109,7 +112,7 @@ inte ett separat partsregister eller en relation.
 En arbetsyta från den rena modellens föregående schema (`f3a08cd`) kan läsas
 med det förenklade schemat. SQLite valideras och säkerhetskopieras separat innan
 tabellerna byggs om atomärt. Borttagna värden och gamla avtalsidentiteter bevaras
-i ändringsloggen. Budgetplaner och ekonomivillkor konverteras inte.
+i ändringsloggen. Budgetplaner konverteras inte. Ekonomiska fält flyttas till avtalsposter med samma beräkningsvillkor.
 Se [fältbeslut och avgränsningar](docs/faltbeslut-2026-10-19.md).
 
 Tomma objektdatum lämnas tomma. Avtals- och kontaktperioder får inte överlappa
@@ -145,3 +148,64 @@ Tester använder syntetiska underlag och tillfälliga databaser. Flödestestet
 verifierar förstasidan, import, återimport, redigering, omladdning och mobilvyer
 för SQLite, Excel via server och Excel direkt i webbläsaren. Budgetjämförelsen
 kontrollerar innehåll, layout och sparade planer mot basversionen.
+
+## Hyra, tillägg och fastighetens kostnader
+
+I den rena arbetsytan finns **Hyra och tillägg → Lägg till post** på avtalet.
+Varje post har eget belopp, period och uppräkning. Flera tillägg av samma typ
+kan finnas samtidigt. Bashyrans perioder får inte överlappa (slutdatum är
+inkluderande). Årstakten avser dagens datum för innevarande år, annars
+1 januari för valt år. Kalenderkostnaden beräknas för varje posts faktiska
+dagar inom avtalets period; befintlig budget använder fortsatt inflyttning/
+utflyttning när de finns. Skottår räknas med 366 dagar. Indexreglerna och
+budgetens scenarioindex fungerar som tidigare, nu per post.
+
+På **Fastighetsuppgifter → Kostnader** väljs år. Kostnadsregistret är samma
+`recurringCosts` som tidigare, nu med FastighetsID som enda ägare. Under
+**Underlag** kan fakturor, negativa kreditfakturor och manuellt/importerat
+årsutfall registreras. Fakturor över årsskiften fördelas på kostnadsperiodens
+dagar. Fakturadatum avgör inte kostnadsåret. Dokument anges som frivillig länk.
+
+Ett markerat **Använd årsutfallet** ersätter fakturasumman för kostnaden och
+året. Avmarkera för att använda fakturor. Fakturorna räknas som färdigt utfall
+först när året markerats komplett på kostnaden och kostnadsperioderna täcker
+hela dess giltiga del av året. Annars visas summan som preliminär; den förs
+inte till budgetens färdiga utfall. Kategorisummeringar beräknas från valda
+underlag, utan sparad tredje beloppstabell. Varje kostnad kan ha ett årsutfall
+per år och varje fakturareferens får förekomma en gång per kostnad.
+
+Avtalsposter och fastighetskostnader delar kategorikoder för värme, VA, el,
+kyla, sopor och övrigt. Flaggan för framtida avräkning gör ingen beräkning.
+Fördelningsnycklar, avräkning, efterdebitering och kreditering mellan parter
+är inte implementerade.
+
+### Övergång från den rena modellens tidigare ekonomi
+
+När en befintlig ren SQLite/Excel-arbetsyta öppnas flyttas bashyra, tillägg,
+fastighetsskatt och uppräkningsvillkor till separata avtalsposter. De tidigare
+beloppsfälten avvecklas fysiskt från Avtal. Arbetsytans gamla `recurringCosts`
+flyttas till Fastighetskostnader; deras `actuals` blir Kostnadsunderlag av typen
+Årsutfall. Tidigare avtalskopplade löpande utgifter blir fastighetens kostnader,
+inte hyresgästens tillägg. Ursprunglig koppling och fulla värden bevaras i
+ändringsloggen; budgetens tidigare urval kan därför fortfarande återskapas.
+
+Migrering valideras innan skrivning. SQLite får en separat säkerhetskopia
+`*.before-simplify-*.sqlite` och byggs om i en transaktion. Excel behåller
+filkonfliktskontroll och serverlägets `.bak`. Motstridiga identiteter eller
+relationer avbryter utan att skriva över originalet. Ingen låst budgetplan,
+historisk snapshot eller indexserie skrivs om.
+
+Excel-exporten innehåller de tre nya registerflikarna. Äldre breda
+underlagskolumner för hyra/tillägg/skatt fördelas vid granskad import till
+beständiga avtalsposter. Återimport uppdaterar samma ID med konfliktskydd,
+inte nya kopior. Nya separata registerflikar kan importeras med PostID,
+AvtalsID, KostnadsID och UnderlagsID. Flera separata tillägg måste ha olika
+PostID; en äldre enkel tilläggskolumn representerar en enda post. Indexandel
+lagras som andel 0–1; importen accepterar även procenttal över 1 upp till 100.
+
+De äldre källstyrda arbetsfilerna/företagsadaptrarna behåller sin läskompatibilitet;
+den nya ekonomimodellen används i den rena arbetsytan med SQLite eller Excel.
+Budgetens befintliga formulär får beräknade kompatibilitetsfält. Ändring av en
+enskild gammal ekonomikomponent sparas på dess post. Om flera poster motsvarar
+samma gamla kontroll görs ändringen på Avtalssidan för att undvika tvetydig
+massändring. Dessa kompatibilitetsfält lagras inte en gång till på avtalet.

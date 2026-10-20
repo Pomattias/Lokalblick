@@ -66,7 +66,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
   if (col === "contracts")
     return { record, html: renderContractEditor(data, record, id, company,presentation) };
   if (col === "properties")
-    return { record, html: renderPropertyEditor(data, record, id, company) };
+    return { record, html: renderPropertyEditor(data, record, id, company,presentation) };
   if (col === "activities")
     return { record, html: renderIssueEditor(data, record, id, company) };
   const fieldLabels = {
@@ -291,7 +291,7 @@ export function readEditor(form, record) {
       (Number(out[key]) < 0 || Number(out[key]) > 1)
     )
       throw Error("Indexandel anges mellan 0 och 1");
-  if (form.dataset?.collection === "contracts") {
+  if (form.dataset?.collection === "contracts" && (!Array.isArray(record.items)||form.querySelector('[name="baseRent"]'))) {
     for(const prefix of ["rent","addition"]){
       const method=String(out[prefix+"AdjustmentMethod"]||"kpi");
       if(!["kpi","fixed","kpi-limited","none"].includes(method))throw Error("Okänd avtalsregel för uppräkning");

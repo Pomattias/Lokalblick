@@ -258,7 +258,52 @@
           : [],
     };
   }
+  // A line reuses the exact contractual component engine; no second index formula.
+  function itemComponent(item,year,preliminaryIndex,series,options={}) {
+    const kind=item.type==='base'?'rent':'addition',p=kind==='rent'?'rent':'addition';
+    const c={[kind==='rent'?'baseRent':'baseAdditions']:item.baseAmount,[kind==='rent'?'annualRent':'annualAdditions']:item.reportedAmount};
+    for(const [suffix,key]of [['BaseYear','baseYear'],['BaseIndex','baseIndex'],['IndexPercent','indexPercent'],['AdjustmentMethod','adjustmentMethod'],['AnnualPercent','annualPercent'],['MinPercent','minPercent'],['MaxPercent','maxPercent'],['LimitBasis','limitBasis'],['SeriesBase','seriesBase'],['Floor','floor']])c[p+suffix]=item[key];
+    c[p+'AdjustmentMethod'] ||= 'none';
+    return component(c,kind,year,preliminaryIndex,series,options);
+  }
+  function intersectPeriod(contract,item,year) {
+    const from=[contract.moveInDate||contract.start,item.start].filter(Boolean).sort().at(-1)||'';
+    const to=[contract.moveOutDate||contract.end,item.end].filter(Boolean).sort()[0]||'';
+    return budgetPeriod({start:from,end:to},year);
+  }
+  function agreementItemValues(contract,year,preliminaryIndex,series,options={}) {
+    const date=options.date||(Number(year)===new Date().getFullYear()?new Date().toISOString().slice(0,10):year+'-01-01');
+    return (contract.items||[]).map(item=>{
+      const value=itemComponent(item,year,preliminaryIndex,series,options);
+      const period=intersectPeriod(contract,item,year);
+      const active=(!contract.start||contract.start<=date)&&(!contract.end||contract.end>=date)&&(!item.start||item.start<=date)&&(!item.end||item.end>=date);
+      return {item,value,period,active,annualRate:active?value.amount:0,calendarCost:value.amount*period.factor};
+    });
+  }
+  function agreementYearCost(contract,year,preliminaryIndex,series,options={}) {
+    return agreementItemValues(contract,year,preliminaryIndex,series,options).reduce((sum,row)=>sum+row.calendarCost,0);
+  }
+  function itemAnnualValues(c,year,preliminaryIndex,series,options){
+    const rows=agreementItemValues(c,year,preliminaryIndex,series,options),period=budgetPeriod(c,year);
+    const amount=row=>options.calendar?(period.factor?row.calendarCost/period.factor:0):row.annualRate;
+    const group=type=>{
+      const matching=rows.filter(row=>type==='base'?row.item.type==='base':!['base','tax'].includes(row.item.type));
+      const relevant=matching.filter(row=>options.calendar?row.period.days:row.active);
+      // Keep the original component shape for a single unchanged item, including
+      // status/source diagnostics consumed by existing Budget snapshots.
+      if(relevant.length===1)return {...relevant[0].value,amount:amount(relevant[0])};
+      if(!relevant.length)return component({baseRent:0,baseAdditions:0},type==='base'?'rent':'addition',year,preliminaryIndex,series,options);
+      const values=relevant.map(row=>row.value);
+      return {...values[0],amount:relevant.reduce((sum,row)=>sum+amount(row),0),
+        base:values.reduce((sum,v)=>sum+v.base,0),calculated:values.every(v=>v.calculated),preliminary:values.some(v=>v.preliminary),
+        status:values.some(v=>v.status==='Behöver kontroll')?'Behöver kontroll':values.some(v=>v.preliminary)?'Preliminär':'Beräknad',
+        reason:values.map(v=>v.reason).filter(Boolean).join(' · '),source:'Separata avtalsposter',basedOn:values.flatMap(v=>v.basedOn||[])};
+    };
+    const rent=group('base'),addition=group('addition'),tax=rows.filter(row=>row.item.type==='tax').reduce((sum,row)=>sum+amount(row),0);
+    return {rent,addition,tax,total:rent.amount+addition.amount+tax};
+  }
   function annualValues(c, year, preliminaryIndex, series, options={}) {
+    if(Array.isArray(c.items))return itemAnnualValues(c,year,preliminaryIndex,series,options);
     const rent = component(c, "rent", year, preliminaryIndex, series, options),
       addition = component(c, "addition", year, preliminaryIndex, series, options);
     const tax = number(c.annualPropertyTax);
@@ -275,7 +320,7 @@
     (data.contracts||[]).filter(c=>c.propertyId===propertyId).forEach(c=>{
       const period=budgetPeriod(c,year);
       if (!period.days) return;
-      const v=annualValues(c,year,0,data.indexSeries);
+      const v=annualValues(c,year,0,data.indexSeries,{calendar:true});
       result.rent+=v.rent.amount*period.factor;
       result.addition+=v.addition.amount*period.factor;
        result.tax+=v.tax*period.factor;
@@ -594,7 +639,7 @@
     (data.contracts || []).forEach((c) => {
       const period = budgetPeriod(c, year);
       if (!period.days) return;
-      const v = annualValues(c, year, options.scenario===true?plan?.preliminaryIndex:0, data.indexSeries, {scenario:options.scenario===true});
+      const v = annualValues(c, year, options.scenario===true?plan?.preliminaryIndex:0, data.indexSeries, {scenario:options.scenario===true,calendar:true});
       const status = [v.rent, v.addition].some((x) => x.status === "Behöver kontroll")
         ? "Behöver kontroll"
         : [v.rent, v.addition].some((x) => x.preliminary)
@@ -658,7 +703,7 @@
     (data.recurringCosts || [])
       .filter((x) => root.LokalblickRecurringCosts.annualBudget(x, year) > 0)
       .forEach((x) =>
-        add(x, "Driftkostnader", root.LokalblickRecurringCosts.annualBudget(x, year), "recurringCost", x.name),
+        add(x.budgetScopeContractId?{...x,contractId:x.budgetScopeContractId}:x, "Driftkostnader", root.LokalblickRecurringCosts.annualBudget(x, year), "recurringCost", x.name),
       );
 
     // Frozen/manual budget rows belong to the locked baseline, never to live forecast.
@@ -694,7 +739,7 @@
           ]);
     const rows = [];
     (data.recurringCosts || [])
-      .filter((x) => (x.contractId ? ids.has(x.contractId) : pids.has(x.propertyId)))
+      .filter((x) => ((x.budgetScopeContractId||x.contractId) ? ids.has(x.budgetScopeContractId||x.contractId) : pids.has(x.propertyId)))
       .forEach((x) => {
         const amount = root.LokalblickRecurringCosts.annualActual(x, year);
         if (amount) rows.push({
@@ -723,6 +768,7 @@
     indexedAmount,
     component,
     annualValues,
+    itemComponent,agreementItemValues,agreementYearCost,
     propertyAnnualCost,
     noticeDate,
     projectedContractTerm,

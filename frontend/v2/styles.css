@@ -3893,3 +3893,17 @@ body:not([data-view="budget"]) .import-field-results [aria-pressed="true"] {back
   body:not([data-view="budget"]) .ui-action-heading:not(.issue-heading) {grid-template-columns:minmax(0,1fr);}
   body:not([data-view="budget"]) .ui-action-heading:not(.issue-heading)>.ui-heading-actions {justify-self:end;}
 }
+
+/* Financial registers reuse the V2 drawer; scoped rules cannot affect Budget. */
+.record-workspace [data-finance-panel] td small {display:block;color:var(--muted);font-size:11px;}
+.record-workspace [data-finance-panel] td {font-size:12px;padding:7px 5px;}
+.record-workspace [data-finance-panel] .section-title {justify-content:space-between;gap:8px;}
+.record-workspace [data-cost-year] {width:auto;min-width:76px;}
+.finance-dialog .contract-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;}
+.finance-dialog label.contract-field {display:grid;gap:3px;font-size:12px;min-width:0;}
+.finance-dialog [hidden] {display:none!important;}
+.finance-dialog small {display:block;font-size:11px;color:var(--muted);margin-block:6px;}
+@media(max-width:540px){
+ .finance-dialog .contract-grid {grid-template-columns:1fr;}
+ .record-workspace [data-finance-label]::before {content:attr(data-finance-label);display:block;font-size:11px;color:var(--muted);}
+}

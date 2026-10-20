@@ -1,4 +1,6 @@
-import { workspaceKeys } from './view-fields.js';
+import '../domain/calculations.js';
+import { workspaceKeys,viewFields } from './view-fields.js';
+import {financeTables,validateFinance} from './finance-model.js';
 // One model is used by the local SQL store, Excel store and user interface.
 export const roles = { owner: 'Fastighetsägarens kontakt', coordinator: 'Vår ansvarige', tenant: 'Hyresgästens kontakt' };
 export const statuses = { open: 'Öppet', ongoing: 'Pågår', done: 'Klart', draft: 'Utkast', ordered: 'Beställd' };
@@ -9,7 +11,7 @@ export const tables = {
  people: { label: 'Personer', singular: 'Person', prefix: 'PER', fields: [field('name', 'Namn', 'text', { required: true }), field('email', 'E-post', 'email'), field('phone', 'Telefon', 'tel')] },
  properties: { label: 'Fastigheter', singular: 'Fastighet', prefix: 'FAS', fields: [field('name', 'Fastighetsnamn', 'text', { required: true }), field('popular_name', 'Populärnamn'), field('address', 'Adress'), field('owner_party_id', 'Fastighetsägare', 'ref', { table: 'parties' })] },
  objects: { label: 'Objekt', singular: 'Objekt', prefix: 'OBJ', fields: [field('property_id', 'Fastighet', 'ref', { table: 'properties', required: true }), field('area', 'Yta, m²', 'number'), field('apartment_count', 'Antal lägenheter', 'integer'), field('valid_from', 'Giltigt fr.o.m.', 'date'), field('valid_to', 'Giltigt t.o.m.', 'date')] },
- agreements: { label: 'Avtal', singular: 'Avtal', prefix: 'AVT', fields: [field('object_id', 'Objekt', 'ref', { table: 'objects', required: true }), field('tenant_party_id', 'Hyresgäst', 'ref', { table: 'parties' }), field('annual_rent', 'Årshyra, kr', 'number'), field('valid_from', 'Hyrestid fr.o.m.', 'date'), field('valid_to', 'Hyrestid t.o.m.', 'date'), field('terminated_on', 'Uppsagd den', 'date'), field('termination_reason', 'Uppsägningsorsak'), field('usage', 'Användning'), field('business', 'Verksamhet', 'textarea'), field('workplace_count', 'Antal arbetsplatser', 'integer'), field('hub_count', 'Antal hubbplatser', 'integer'), field('eb_category', 'Lokalkategori (EB)'), field('main_contract_url', 'Länk huvudkontrakt', 'url')] },
+ agreements: { label: 'Avtal', singular: 'Avtal', prefix: 'AVT', fields: [field('object_id', 'Objekt', 'ref', { table: 'objects', required: true }), field('tenant_party_id', 'Hyresgäst', 'ref', { table: 'parties' }), field('valid_from', 'Hyrestid fr.o.m.', 'date'), field('valid_to', 'Hyrestid t.o.m.', 'date'), field('terminated_on', 'Uppsagd den', 'date'), field('termination_reason', 'Uppsägningsorsak'), field('usage', 'Användning'), field('business', 'Verksamhet', 'textarea'), field('workplace_count', 'Antal arbetsplatser', 'integer'), field('hub_count', 'Antal hubbplatser', 'integer'), field('eb_category', 'Lokalkategori (EB)'), field('main_contract_url', 'Länk huvudkontrakt', 'url')] },
  issues: { label: 'Ärenden', singular: 'Ärende', prefix: 'ARE', fields: [field('title', 'Namn', 'text', { required: true }), field('description', 'Beskrivning', 'textarea'), field('property_id', 'Fastighet', 'ref', { table: 'properties' }), field('object_id', 'Objekt', 'ref', { table: 'objects' }), field('status', 'Status', 'select', { values: { open: 'Öppet', ongoing: 'Pågår', done: 'Klart' }, default: 'open' }), field('priority', 'Prioritet', 'select', { values: priorities, default: 'normal' }), field('estimated_cost', 'Beräknad kostnad, kr', 'number'), field('planned_from', 'Tidplan fr.o.m.', 'date'), field('planned_to', 'Tidplan t.o.m.', 'date'), field('notes', 'Noteringar', 'textarea')] },
  orders: { label: 'Beställningar', singular: 'Beställning', prefix: 'BES', fields: [field('issue_id', 'Ärende', 'ref', { table: 'issues', required: true }), field('title', 'Namn', 'text', { required: true }), field('amount', 'Belopp, kr', 'number'), field('status', 'Status', 'select', { values: { draft: 'Utkast', ordered: 'Beställd', done: 'Klart' }, default: 'draft' })] },
  contacts: { label: 'Personkopplingar', singular: 'Personkoppling', prefix: 'KOP', fields: [field('person_id', 'Person', 'ref', { table: 'people', required: true }), field('role', 'Roll', 'select', { values: roles, required: true }), field('property_id', 'Fastighet', 'ref', { table: 'properties' }), field('agreement_id', 'Avtal', 'ref', { table: 'agreements' }), field('issue_id', 'Ärende', 'ref', { table: 'issues' }), field('order_id', 'Beställning', 'ref', { table: 'orders' }), field('valid_from', 'Giltigt fr.o.m.', 'date'), field('valid_to', 'Giltigt t.o.m.', 'date')] },
@@ -21,7 +23,7 @@ const additions = {
  people: [['party_id','Part','ref',{table:'parties'}],['job_title','Befattning']],
  properties: [['city','Ort'],['latitude','Latitud','coordinate'],['longitude','Longitud','coordinate']],
  objects: [['apartment_area','Lägenhetsyta, m²','number'],['common_area','Gemensam yta, m²','number'],['category','Objektkategori']],
- agreements: [['annual_additions','Bastillägg, kr/år','number'],['annual_property_tax','Fastighetsskatt, kr/år','number'],['rent_base_year','Hyra basår','integer'],['rent_base_index','Hyra bastal KPI','number'],['rent_index_percent','Hyra indexandel, %','number'],['rent_adjustment_method','Hyra justeringsregel'],['rent_annual_percent','Hyra årlig uppräkning, %','number'],['rent_min_percent','Hyra minsta uppräkning, %','number'],['rent_max_percent','Hyra högsta uppräkning, %','number'],['rent_limit_basis','Hyra min/max gäller'],['addition_base_year','Tillägg basår','integer'],['addition_base_index','Tillägg bastal KPI','number'],['addition_index_percent','Tillägg indexandel, %','number'],['addition_adjustment_method','Tillägg justeringsregel'],['addition_annual_percent','Tillägg årlig uppräkning, %','number'],['addition_min_percent','Tillägg minsta uppräkning, %','number'],['addition_max_percent','Tillägg högsta uppräkning, %','number'],['addition_limit_basis','Tillägg min/max gäller'],['notice_months','Uppsägningstid, månader','integer'],['renewal_months','Förlängningstid, månader','integer'],['notice_by','Säg upp senast','date'],['move_in','Inflyttning','date'],['move_out','Utflyttning','date'],['comment','Kommentar']],
+ agreements: [['notice_months','Uppsägningstid, månader','integer'],['renewal_months','Förlängningstid, månader','integer'],['notice_by','Säg upp senast','date'],['move_in','Inflyttning','date'],['move_out','Utflyttning','date'],['comment','Kommentar']],
  issues: [['kind','Typ'],['category','Kategori'],['final_cost','Slutkostnad','number'],['ordered_cost','Beställd kostnad','number'],['planning_year','Planeringsår','integer'],['planning_quarter','Planeringskvartal','integer'],['planning_month','Planeringsmånad','integer'],['include_in_budget','Ingår i budget'],['budget_category','Budgetkategori'],['value_increasing','Värdehöjande','boolean'],['journal','Journal','json']],
  orders: [['ordered_by','Beställd av','ref',{table:'people'}],['ordered_at','Beställd datum','date'],['final_cost','Slutkostnad','number'],['supplier','Leverantör']]
 };
@@ -30,7 +32,8 @@ additions.issues.push(['action_kind','Åtgärdens karaktär'],['standard_enhanci
 additions.orders.push(['reference','Beställningsreferens'],['delivery','Leverans'],['completed_at','Utförd','date'],['payment_status','Betalstatus'],['paid_at','Betald','date'],['invoice_comment','Fakturakommentar'],['owner_pays','Betalas av fastighetsägaren']);
 additions.contacts = [['cancelled','Makulerad','boolean',{default:false}]];
 for (const [table, fields] of Object.entries(additions)) tables[table].fields.push(...fields.map(args => field(...args)));
-export const idLabels = { parties: 'PartID', people: 'PersonID', properties: 'FastighetsID', objects: 'ObjektID', agreements: 'AvtalsID', issues: 'ÄrendeID', orders: 'BeställningsID', contacts: 'KopplingsID', object_links: 'FörändringsID' };
+Object.assign(tables, financeTables);
+export const idLabels = { parties: 'PartID', people: 'PersonID', properties: 'FastighetsID', objects: 'ObjektID', agreements: 'AvtalsID', issues: 'ÄrendeID', orders: 'BeställningsID', contacts: 'KopplingsID', object_links: 'FörändringsID', agreement_items:'PostID', recurring_costs:'KostnadsID', cost_evidence:'UnderlagsID' };
 export const emptyData = () => ({ ...Object.fromEntries(Object.keys(tables).map(key => [key, []])), workspace: {} });
 export const today = () => new Date().toLocaleDateString('sv-SE');
 export const active = (row, date = today()) => !row.cancelled && (!row.valid_from || row.valid_from <= date) && (!row.valid_to || row.valid_to >= date);
@@ -41,6 +44,7 @@ export const propertyId = (data, table, row) => {
  if (table === 'properties') return row.id;
  if (row.property_id) return row.property_id;
  if (row.object_id) return find(data, 'objects', row.object_id)?.property_id;
+ if (row.cost_id) return find(data,'recurring_costs',row.cost_id)?.property_id;
  if (row.issue_id) return propertyId(data, 'issues', find(data, 'issues', row.issue_id));
  if (row.agreement_id) return propertyId(data, 'agreements', find(data, 'agreements', row.agreement_id));
  return null;
@@ -69,7 +73,7 @@ export function propertySummary(data, id, date = today()) {
  return { objects, agreements,
   area: objects.reduce((sum, row) => sum + (row.area ?? 0), 0), missingArea: objects.filter(row => row.area == null).length,
   apartments: objects.reduce((sum, row) => sum + (row.apartment_count ?? 0), 0),
-  annualRent: agreements.reduce((sum, row) => sum + (row.annual_rent ?? 0), 0),
+  annualRent: (data.agreement_items||[]).filter(item=>item.type==='base'&&agreements.some(a=>a.id===item.agreement_id)&&active(item,date)).reduce((sum,item)=>sum+globalThis.LokalblickCalculations.itemComponent(Object.fromEntries(Object.entries(viewFields.agreement_items).map(([field,target])=>[target,item[field]])),Number(date.slice(0,4)),0,data.workspace?.indexSeries).amount,0),
   openIssues: data.issues.filter(row => propertyId(data, 'issues', row) === id && row.status !== 'done') };
 }
 export function normalize(table, input, id) {
@@ -88,9 +92,9 @@ export function normalize(table, input, id) {
     if (typeof value === 'string') { try { value = JSON.parse(value); } catch { throw Error(f.label + ' måste vara giltig JSON.'); } }
     if (!Array.isArray(value)) throw Error(f.label + ' måste vara en lista.');
    } else if (f.type === 'boolean') { value = value === true || value === 1 || value === 'Ja';
-   } else if (['number', 'integer', 'coordinate'].includes(f.type)) {
+   } else if (['number', 'integer', 'coordinate', 'signed'].includes(f.type)) {
     if (typeof value === 'string') value = Number(value.replace(/\s/g, '').replace(',', '.'));
-    if (typeof value !== 'number' || !Number.isFinite(value) || (f.type !== 'coordinate' && value < 0) || (f.type === 'integer' && !Number.isInteger(value))) throw Error(`${f.label} måste vara ett positivt tal eller noll.`);
+    if (typeof value !== 'number' || !Number.isFinite(value) || (!['coordinate','signed'].includes(f.type) && value < 0) || (f.type === 'integer' && !Number.isInteger(value))) throw Error(`${f.label} måste vara ett positivt tal eller noll.`);
    } else {
     if (typeof value !== 'string' || value.length > 20000) throw Error(`${f.label} måste vara text, högst 20 000 tecken.`);
     if (f.type === 'date' && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value + 'T00:00:00Z')) || new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) !== value)) throw Error(`${f.label} måste vara ett giltigt datum.`);
@@ -159,5 +163,6 @@ export function validateData(data) {
   if (before.property_id !== after.property_id) throw Error('Delade eller sammanslagna objekt måste tillhöra samma fastighet.');
   if (!before.valid_to || !after.valid_from || before.valid_to >= after.valid_from) throw Error('Tidigare objekt måste ha slutdatum före det nya objektets startdatum.');
  }
+ validateFinance(data);
  return data;
 }

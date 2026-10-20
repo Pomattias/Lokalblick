@@ -13,6 +13,8 @@ export const collections = [
   "orders",
   "activities",
   "recurringCosts",
+  "agreementItems",
+  "costEvidence",
   "budgetPlans",
   "auditLog",
   "indexSeries",

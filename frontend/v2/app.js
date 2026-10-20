@@ -1,3 +1,5 @@
+import {openItemDialog,openPropertyCostDialog,openEvidenceDialog,propertyCostsPanel} from './finance-ui.js';
+import {projectFinance,applyContractFinanceEdit,applyLegacyCostEdit} from '../lokaler/finance-view.js';
 import { createCleanEvaluator } from '../lokaler/import-worker-client.js';
 import { importSchemas, cleanProfiles } from '../lokaler/import-model.js';
 import {bindEditActions,decorateEditActions} from './edit-actions.js';
@@ -706,6 +708,7 @@ async function mutation(change, { automatic = false, manualPositionIds = [], res
   busy = true;
   try {
     change(data);
+    if(data.cleanModel)projectFinance(data);
     globalThis.LokalblickObjectModel.applyAreaChanges(before,data);
     globalThis.LokalblickObjectModel.projectAreas(data);
     if(!automatic)globalThis.LokalblickResponsibility.applyChanges(before,data,{actor:actor(),fromDate:responsibilityDate||globalThis.LokalblickResponsibility.today()});
@@ -910,6 +913,8 @@ function setEditorReadMode(readOnly){
       if(field.matches("[data-context-new-issue]"))field.disabled=!canEdit();
       continue;
     }
+    if(field.matches("[data-cost-year]")){field.disabled=!editor.readOnly;continue;}
+    if(field.matches("[data-item-new],[data-item-edit],[data-cost-new],[data-cost-edit],[data-cost-evidence]")){field.disabled=!canEdit()||!editor.readOnly;continue;}
     if(field.matches("[data-activity-journal-note],[data-activity-journal-save],[data-issue-expand],[data-editor-close],[data-editor-activate],[data-editor-tab]"))continue;
     if(field.dataset.editorOriginalDisabled===undefined)
       field.dataset.editorOriginalDisabled=field.disabled?"true":"false";
@@ -1479,14 +1484,22 @@ document.addEventListener("click", (event) =>
     }
     if(b.hasAttribute("data-new-object"))openEditor("objects","",{propertyId:selection.propertyId||"",start:"",end:"",predecessorIds:[]});
     if(b.dataset.objectContract){openEditor("contracts",b.dataset.objectContract);return;}
+    if(b.matches('[data-item-new],[data-item-edit],[data-cost-new],[data-cost-edit],[data-cost-evidence]')){
+      if(!canEdit())throw Error('Denna anslutning är skrivskyddad');
+      if(hasUnsavedEditorChanges())throw Error('Spara eller ångra formuläret först.');
+      const col=editor?.col,id=editor?.id,saved=editor?.workspace?.capture(),financeYear=Number(b.closest('[data-cost-panel]')?.dataset.costPanelYear)||new Date().getFullYear();
+      const save=collection=>async next=>{await mutation(d=>{const rows=d[collection]||(d[collection]=[]),index=rows.findIndex(x=>x.id===next.id);if(index<0)rows.push(next);else rows[index]=next;});if(col&&id){openEditor(col,id,{}, {saved});if(col==='properties'){const panel=editorForm()?.querySelector('[data-cost-panel]');if(panel){panel.outerHTML=propertyCostsPanel(data,id,financeYear);setEditorReadMode(true);}}}};
+      if(b.matches('[data-item-new],[data-item-edit]'))openItemDialog(data,b.dataset.itemNew||b.dataset.itemContract,b.dataset.itemEdit,save('agreementItems'));
+      else if(b.hasAttribute('data-cost-evidence'))openEvidenceDialog(data,b.dataset.costEvidence,financeYear,save('costEvidence'));
+      else openPropertyCostDialog(data,b.dataset.costEdit,b.dataset.costNew,financeYear,save('recurringCosts'));
+      return;
+    }
     if (b.hasAttribute("data-new-recurring-cost") || b.hasAttribute("data-recurring-cost")) {
       if (!canEdit()) throw Error("Denna anslutning är skrivskyddad");
       openRecurringCostDialog(data, b.dataset.recurringCost || "", ui.year, selection.propertyId,
         next => mutation(d => {
-          const rows=d.recurringCosts || (d.recurringCosts=[]);
-          const index=rows.findIndex(x=>x.id===next.id);
-          if (index<0) rows.push(next);
-          else rows[index]=next;
+          if(d.cleanModel)applyLegacyCostEdit(d,next,ui.year);
+          else {const rows=d.recurringCosts||(d.recurringCosts=[]),index=rows.findIndex(x=>x.id===next.id);if(index<0)rows.push(next);else rows[index]=next;}
           globalThis.LokalblickRecurringCosts.validateCosts(d);
         }));
       return;
@@ -1679,6 +1692,7 @@ document.addEventListener("input",event=>{
 document.addEventListener("change", (event) =>
   run(async () => {
     const x = event.target;
+    if(x.hasAttribute('data-cost-year')){x.closest('[data-cost-panel]').outerHTML=propertyCostsPanel(data,x.dataset.costYear,Number(x.value));setEditorReadMode(editor.readOnly);return;}
     if(x.dataset.optionScope!==undefined){
       const kind=x.dataset.optionKind,name=x.dataset.optionName;
       await mutation(d=>{
@@ -1912,6 +1926,7 @@ document.addEventListener("submit", (event) => {
         d[col][index] = next;
         audit(d, col, id, before, next, actor());
       }
+      if(col==='contracts'&&d.cleanModel&&ui.view==='budget')applyContractFinanceEdit(d,editor.record,next);
       if (col === "properties" && id) {
         contractContactChanges.forEach(({contractId,personId})=>{
           const contract=d.contracts.find(x=>x.id===contractId && x.propertyId===id);
