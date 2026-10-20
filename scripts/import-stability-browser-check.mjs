@@ -49,6 +49,14 @@ try{
  assert.equal(await page.locator('[data-review="'+invalid.id+'"][data-decision=accept]').count(),0,'Rejected rows offer correction, never blind approval');
  const saved=page.waitForResponse(response=>response.url().endsWith('/api/lokaler/workspace')&&response.request().method()==='POST');
  await page.locator('[data-review="'+conflict.id+'"][data-decision=accept]').click();assert.equal((await saved).status(),200);data=(await store.readSnapshot()).data;assert.equal(data.properties[0].address,'Annan adress');assert.equal(data.agreements.length,4);assert(data.workspace.auditLog.some(e=>e.collection==='properties'&&e.recordId==='F1'&&e.fields.some(f=>f.to==='Annan adress')));
+ // The next import enriches those same roots; one repeated proposal is one decision.
+ await begin();await page.locator('[data-import-value-choices]').evaluate(node=>node.open=true);assert.equal(await page.locator('[data-import-conflict-choice]').count(),1);assert.match(await page.locator('[data-import-value-choices]').innerText(),/3 källrader/);
+ const propertyCounts=()=>page.locator('[data-import-result] tbody tr').filter({hasText:'Fastigheter'}).locator('td');
+ await page.locator('[data-import-conflict-mode]').selectOption('replace');assert.equal(await propertyCounts().nth(1).innerText(),'1');assert.equal(store.snapshot().data.properties[0].address,'Annan adress','An overall choice remains a preview until Apply');
+ await page.locator('[data-import-value-choices]').evaluate(node=>node.open=true);await page.locator('[data-import-conflict-choice]').selectOption('keep');assert.equal(await propertyCounts().nth(1).innerText(),'0');
+ await page.locator('[data-import-conflict-choice]').selectOption('new:0');assert.equal(await propertyCounts().nth(1).innerText(),'1');assert.equal(await page.locator('[data-import-safe-rows]').isChecked(),false);
+ await page.setViewportSize({width:390,height:900});assert.equal(await page.locator('.import-mapping-dialog').evaluate(node=>node.scrollWidth<=node.clientWidth),true,'Enrichment controls fit mobile');await page.locator('[data-import-enrichment]').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(artifacts,'enrichment-mobile.png')});await page.setViewportSize({width:1440,height:940});
+ await page.locator('[data-import-safe-rows]').check();await page.locator('[data-apply]').click();await page.locator('.import-progress-dialog').waitFor({state:'detached'});data=(await store.readSnapshot()).data;assert.equal(data.properties.length,1);assert.equal(data.properties[0].address,'Testgatan 1');assert.equal(data.agreements.length,4);assert.equal(data.objects.length,4);assert.equal(data.workspace.importReview.filter(r=>r.status==='pending'&&r.field==='address').length,0);assert.equal(data.workspace.auditLog.filter(e=>e.action==='Importvärde valt').at(-1).fields[0].provenance.occurrences.length,3);
  // Force out-of-order evaluations through the same preview UI: a stale result
  // must not enable Apply or override the last explicit column selection.
  await page.evaluate(async()=>{
@@ -62,6 +70,6 @@ try{
  assert.equal(await page.locator('[data-apply]').isDisabled(),true,'Apply is disabled while evaluating');
  await page.locator('[data-ignore-column]').click();await ready();await page.waitForFunction(()=>window.__previewRevisions.includes(2));assert.equal(await page.locator('[data-apply]').isDisabled(),true,'Stale ignored result cannot enable Apply');
  await page.locator('[data-ignore-unmapped]').click();await ready();assert.equal(await page.locator('[data-apply]').isDisabled(),true,'No selected column can be imported');await page.locator('[data-cancel]').click();assert.deepEqual(errors,[]);
- console.log('PASS: real Excel import → worker → preview → explicit partial selection → SQLite; saved exclusions/date/link rules, row rollback, idempotent reimport, mobile and stale preview protection.');console.log('Screenshots: '+artifacts);
+ console.log('PASS: real Excel import → worker → preview → explicit partial selection → SQLite; saved exclusions/date/link rules, row rollback, idempotent reimport, grouped enrichment, overall/per-record choices, mobile and stale preview protection.');console.log('Screenshots: '+artifacts);
 }catch(error){await page.screenshot({path:path.join(artifacts,'failure.png'),fullPage:true});throw error;}
 finally{await page.close();await browser.close();await new Promise(resolve=>server.close(resolve));await store.close();await rm(dir,{recursive:true,force:true});}

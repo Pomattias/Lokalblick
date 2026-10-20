@@ -27,8 +27,16 @@ Den anslutna äldre filen ändras inte.
    Felaktiga rader blockeras som standard. Du kan aktivt välja **Importera endast
    godkända rader**; övriga rader sparas då i granskningsunderlaget med sina valda
    källvärden och lämnar inga halva poster. Inget sparas före **Genomför import**.
-   Vid exakt FastighetsID kan säkra objekt/avtal läsas in även om namn/adress
-   skiljer sig. Befintligt fastighetsvärde behålls för ett separat granskningsval.
+   Fastigheten är grunden. En senare tabell kompletterar samma FastighetsID
+   och lägger bara till nya fastigheter när de inte redan finns. Om FastighetsID
+   saknas kan ett redan känt ObjektID eller AvtalsID hitta rätt fastighet.
+   Vanliga värdeskillnader stoppar inte annan säker berikning. Välj gemensamt
+   **Behåll alla sparade värden** eller **Använd ny information**, eller gör
+   undantag under **Välj värde per post**. Upprepade förslag blir ett enda val,
+   med samtliga källrader kvar. Flera olika nya värden för samma uppgift kräver
+   ett enskilt val. Olösta skillnader behåller det sparade värdet och kan
+   granskas senare. Samma princip används för objekt, avtal och övriga register.
+   Valda värden valideras tillsammans och besluten sparas i historiken.
    Osäkra ID:n eller kopplingar får aldrig automatiskt flytta en befintlig post.
 5. I webbappen sparas resultatet lokalt i webbläsarens databas. Välj
    **Skapa Lokalblick-data / Spara som Lokalblick-data** för en arbetsbok på datorn.

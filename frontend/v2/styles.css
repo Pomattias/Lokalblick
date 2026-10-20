@@ -3867,6 +3867,11 @@ body:not([data-view="budget"]) .import-column-row[data-column-state="ignored"] {
 body:not([data-view="budget"]) .import-column-choice [aria-pressed="true"] {background:var(--soft);}
 body:not([data-view="budget"]) .import-column-choice label {flex-basis:100%;font-size:11px;}
 body:not([data-view="budget"]) .import-column-choice select {width:100%;min-width:0;}
+body:not([data-view="budget"]) .import-enrichment {border-top:1px solid var(--line);padding:10px 0;font-size:12px;overflow-wrap:anywhere;}
+body:not([data-view="budget"]) .import-enrichment label {display:block;font-size:11px;}
+body:not([data-view="budget"]) .import-enrichment select {width:100%;min-width:0;max-width:100%;margin:4px 0;font-size:12px;}
+body:not([data-view="budget"]) .import-value-choice {border-top:1px solid var(--line);padding:8px 0;}
+body:not([data-view="budget"]) .import-enrichment small {display:block;font-size:11px;color:var(--muted);margin-top:3px;}
 body:not([data-view="budget"]) .import-result {border-top:1px solid var(--line);padding:10px 0;}
 body:not([data-view="budget"]) .import-result-table {overflow:auto;}
 body:not([data-view="budget"]) .import-result table {width:100%;font-size:12px;}

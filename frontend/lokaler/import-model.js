@@ -1,3 +1,4 @@
+import {consolidateImportReviews} from './import-conflicts.js';
 import {importPreference} from '../services/import-preferences.js';
 import {legacyFinanceFields,legacyFinanceMap,validateFinance} from './finance-model.js';
 import {legacyAgreementItems} from './finance-revision.js';
@@ -59,8 +60,9 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   personNames=new Map();for(const person of data.people){const k=key(person.name);if(!personNames.has(k))personNames.set(k,[]);personNames.get(k).push(person);}
  };rebuild();
  const rank=profile=>Math.min(...profile.columns.map(c=>{const m=fieldMap[c.target];return m&&viewCollections[m.table]===c.target.split('.')[0]?['parties','properties','people','objects','agreements','issues','orders','agreement_items','recurring_costs','cost_evidence'].indexOf(m.table):99;}));
+ const propertyProvider=profile=>profile.columns.some(c=>fieldMap[c.target]?.table==='properties'&&fieldMap[c.target]?.field==='id')?0:1;
  const priority=profile=>profile.columns.filter(column=>importPreference(data.workspace.importFieldPreferences,...column.target.split('.'),profile.fileName||context.fileName,profile,column)==='accept').length;
- for(const profile of [...profiles].sort((a,b)=>rank(a)-rank(b)||priority(b)-priority(a)||JSON.stringify([a.fileName||context.fileName,a.name]).localeCompare(JSON.stringify([b.fileName||context.fileName,b.name]),'sv'))){
+ for(const profile of [...profiles].sort((a,b)=>rank(a)-rank(b)||propertyProvider(a)-propertyProvider(b)||priority(b)-priority(a)||JSON.stringify([a.fileName||context.fileName,a.name]).localeCompare(JSON.stringify([b.fileName||context.fileName,b.name]),'sv'))){
   const sheet=workbook.Sheets[profile.sheetKey||profile.name];if(!sheet?.['!ref'])continue;
   const range=XLSX.utils.decode_range(sheet['!ref']);
   for(let r=profile.headerRow;r<=range.e.r;r++){
@@ -85,14 +87,14 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(typeof value==='string'&&typeof existing[field]==='string'&&['properties','parties','people'].includes(table)&&['name','address','city','popular_name'].includes(field)&&key(value.normalize('NFKC'))===key(existing[field].normalize('NFKC'))){normalized[field]=existing[field];continue;}
      if(rule==='reject'){normalized[field]=existing[field];continue;}
      if(field==='name'&&existing.name===existing.id)continue;
-     if(rule!=='accept'&&table==='properties'&&raw.properties?.id&&['name','address','city','popular_name'].includes(field)){
+     if(rule!=='accept'){
       const reason='Olika värden för '+tables[table].fields.find(f=>f.key===field).label;
       const review={id:'CLEAN-'+hash(JSON.stringify([source,profile.name,r+1,collection,field,value])),kind:'canonical-conflict',status:'pending',...origin,collection,field:legacy,recordId:existing.id,column:inputColumn?.header,columnIndex:inputColumn?.index,current:existing[field],proposed:value,reason,blocking:false,rowRejected:false};
       reviews.push(review);decisions.push({...origin,collection,classification:'B',reason});normalized[field]=existing[field];continue;
      }
-     if(rule!=='accept'){const error=Error('Olika värden för '+(tables[table].fields.find(f=>f.key===field)?.label||field));Object.assign(error,{collection,field:legacy,recordId:existing.id,current:existing[field],proposed:value,column:inputColumn?.header,columnIndex:inputColumn?.index});throw error;}
     }
     }
+    if(table==='agreements'&&data.agreements.some(row=>row.id!==normalized.id&&row.object_id===normalized.object_id&&(!row.valid_to||!normalized.valid_from||row.valid_to>=normalized.valid_from)&&(!normalized.valid_to||!row.valid_from||normalized.valid_to>=row.valid_from)))throw Error('Objektet har redan ett avtal under perioden.');
     if(table==='parties'&&data.parties.some(p=>p.id!==normalized.id&&key(p.name)===key(normalized.name)))throw Error('PartID och partens namn pekar på olika parter.');
     const fits=(agreement,object)=>(!object.valid_from||agreement.valid_from&&agreement.valid_from>=object.valid_from)&&(!object.valid_to||agreement.valid_to&&agreement.valid_to<=object.valid_to);
     if(table==='agreements'&&indexes.objects.has(normalized.object_id)&&!fits(normalized,indexes.objects.get(normalized.object_id)))throw Object.assign(Error('Avtalets period måste rymmas inom objektets giltighetstid.'),originFor(table,'valid_to'));
@@ -139,9 +141,12 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     }
     let property=null,object=null,agreement=null,issue=null,order=null;
     if(raw.parties){const p=raw.parties,existing=p.id?indexes.parties.get(text(p.id)):partyNames.get(key(p.name));const saved=merge('parties',{...p,id:existing?.id||text(p.id)||'PAR-'+crypto.randomUUID()},existing);partyNames.set(key(saved.name),saved);}
+    const anchorAgreement=raw.agreements?.id&&indexes.agreements.get(text(raw.agreements.id));
+    const anchorObject=indexes.objects.get(text(raw.objects?.id||raw.agreements?.object_id||raw.issues?.object_id||anchorAgreement?.object_id));
+    const anchorProperty=anchorObject&&indexes.properties.get(anchorObject.property_id);
     if(raw.properties){
      const p=raw.properties;if(p.owner_party_id)p.owner_party_id=party(p.owner_party_id,'owner');
-     const existing=p.id?indexes.properties.get(text(p.id)):propertyNames.get(key(p.name||p.address)+'|'+key(p.address));
+     const existing=p.id?indexes.properties.get(text(p.id)):anchorProperty||propertyNames.get(key(p.name||p.address)+'|'+key(p.address));
      property=merge('properties',{...p,id:existing?.id||text(p.id)||'FAS-'+crypto.randomUUID(),name:p.name||existing?.name||p.address||p.id},existing);
      propertyNames.set(key(property.name)+'|'+key(property.address),property);
     }
@@ -160,7 +165,6 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(!object)throw Error('Avtalet saknar ObjektID.');
      if(a.tenant_party_id)a.tenant_party_id=party(a.tenant_party_id,'tenant');
      const candidate={...existing,...a,id:existing?.id||text(a.id),object_id:object.id};
-     if(data.agreements.some(row=>row.id!==candidate.id&&row.object_id===object.id&&(!row.valid_to||!candidate.valid_from||row.valid_to>=candidate.valid_from)&&(!candidate.valid_to||!row.valid_from||candidate.valid_to>=row.valid_from)))throw Error('Objektet har redan ett avtal under perioden.');
      agreement=merge('agreements',candidate,existing);
      for(const item of legacyAgreementItems({...finance,id:agreement.id,valid_from:agreement.valid_from,valid_to:agreement.valid_to},agreement.id,[origin],data.agreement_items))merge('agreement_items',item,indexes.agreement_items.get(item.id));
     }
@@ -209,12 +213,14 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   }
  }
  validateData(data);
+ const consolidated=consolidateImportReviews(reviews);reviews.length=0;for(const review of consolidated)reviews.push(review);
  const affected=new Set(profiles.map(profile=>profile.fileName||context.fileName));
  data.workspace.importReview=[...(data.workspace.importReview||[]).filter(row=>!affected.has(row.source)),...reviews];
  data.workspace.importFieldPreferences=clone(context.preferences||data.workspace.importFieldPreferences||{});
+ const recordStates={};
  const counts=Object.entries(viewCollections).map(([table,collection])=>{
-  const old=new Map(prior[table].map(row=>[row.id,row]));let created=0,updated=0,unchanged=0;
-  for(const record of data[table]){const before=old.get(record.id);if(!before)created++;else if(JSON.stringify(before)!==JSON.stringify(record))updated++;else unchanged++;}
+  const old=new Map(prior[table].map(row=>[row.id,row]));recordStates[collection]=Object.create(null);let created=0,updated=0,unchanged=0;
+  for(const record of data[table]){const before=old.get(record.id);recordStates[collection][record.id]=!before?'created':JSON.stringify(before)!==JSON.stringify(record)?'updated':'unchanged';if(!before)created++;else if(JSON.stringify(before)!==JSON.stringify(record))updated++;else unchanged++;}
   return {collection,label:tables[table].label,created,updated,unchanged,review:reviews.filter(row=>row.collection===collection).length};
  });
  data.workspace.importMappings=[...(data.workspace.importMappings||[]).filter(saved=>!profiles.some(p=>saved.sheet===p.name&&saved.fileName===(p.fileName||context.fileName))),...profiles.map(p=>({sheet:p.name,fileName:p.fileName||context.fileName,signature:p.signature,layoutSignature:p.layoutSignature,columns:p.columns.map(c=>({...c,contactHeader:contactPart(c.target)?p.columns.find(other=>other.index===contactPart(c.target).index)?.header:undefined,samples:undefined,examples:undefined}))}))];
@@ -224,5 +230,5 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
  if(importedHistory.length)data.workspace.auditLog=[...(data.workspace.auditLog||[]),...importedHistory];
  data.workspace.sourceRegistry=[...(data.workspace.sourceRegistry||[]).filter(row=>row.name!==sourceName),{id:'SRC-'+hash(sourceName),name:sourceName,kind:'clean-import',sheets:profiles.map(p=>p.name).join(', '),rows:rowCount,created:counts.reduce((sum,row)=>sum+row.created,0),matched:counts.reduce((sum,row)=>sum+row.updated,0),review:reviews.length,importedAt:new Date().toISOString()}];
  if(changes.length)data.workspace.auditLog=[...(data.workspace.auditLog||[]),{id:crypto.randomUUID(),collection:'imports',recordId:'SRC-'+hash(sourceName),action:'Excelunderlag inläst',at:new Date().toISOString(),by:context.actor||'Excelimport',fields:[{field:'källa',to:sourceName},{field:'nya poster',to:counts.reduce((sum,row)=>sum+row.created,0)},{field:'kompletterade poster',to:counts.reduce((sum,row)=>sum+row.updated,0)}]}];
- return {clean:data,data:projectWorkspace(data),report:{tables:counts,changes,decisions,review:reviews.length,blocking:new Set(reviews.filter(row=>row.blocking).map(row=>JSON.stringify([row.source,row.sheet,row.row]))).size,rows:rowCount}};
+ return {clean:data,data:projectWorkspace(data),report:{tables:counts,recordStates,reviewIds:reviews.map(r=>r.id),sourceName,changes,decisions,review:reviews.length,blocking:new Set(reviews.filter(row=>row.blocking).map(row=>JSON.stringify([row.source,row.sheet,row.row]))).size,rows:rowCount}};
 }
