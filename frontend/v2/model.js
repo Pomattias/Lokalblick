@@ -1,3 +1,4 @@
+import {projectStoredAgreementItems} from '../lokaler/finance-view.js';
 import "../services/import-formats.js";
 import "../domain/object-model.js";
 import "../domain/responsibility-model.js";
@@ -149,6 +150,7 @@ export function normalize(data) {
       review.resolutionReason = "Hemvist tilldelas under Planera.";
     }
   }
+  projectStoredAgreementItems(canonical);
   markCrossObjectReviews(canonical);
   // A source's open-review count is derived, never a separately persisted fact.
   for(const source of canonical.sourceRegistry) {

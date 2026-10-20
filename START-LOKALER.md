@@ -151,7 +151,9 @@ kontrollerar innehåll, layout och sparade planer mot basversionen.
 
 ## Hyra, tillägg och fastighetens kostnader
 
-I den rena arbetsytan finns **Hyra och tillägg → Lägg till post** på avtalet.
+På avtalet finns **Hyra och tillägg → Lägg till post** även i demo och äldre arbetsytor.
+Välj kostnadsslag, exempelvis Värme eller VA. Benämningen föreslås automatiskt
+och kan ändras; flera poster av samma slag visas på egna rader med sina namn.
 Varje post har eget belopp, period och uppräkning. Flera tillägg av samma typ
 kan finnas samtidigt. Bashyrans perioder får inte överlappa (slutdatum är
 inkluderande). Årstakten avser dagens datum för innevarande år, annars
@@ -209,3 +211,10 @@ Budgetens befintliga formulär får beräknade kompatibilitetsfält. Ändring av
 enskild gammal ekonomikomponent sparas på dess post. Om flera poster motsvarar
 samma gamla kontroll görs ändringen på Avtalssidan för att undvika tvetydig
 massändring. Dessa kompatibilitetsfält lagras inte en gång till på avtalet.
+
+Äldre avtals samlade tillägg visas som Tilläggshyra tills användaren anger ett
+kostnadsslag. Appen gissar inte att ett okategoriserat belopp avser värme eller VA.
+När en post ändras/läggs till flyttas det avtalets tidigare ekonomifält till samma
+postregister, med ursprunget kvar i ändringsloggen. De härledda beloppsfälten
+sparas inte som extra kopior i demo, äldre Excel-arbetsytor eller företagslagring.
+Budgetens befintliga kontroller behålls.

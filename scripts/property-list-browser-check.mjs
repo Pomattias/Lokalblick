@@ -265,7 +265,7 @@ try {
   await page.getByRole('button',{name:'Hamnen 4',exact:true}).click();
   assert.ok(await page.locator('#edit-form.editor-readonly').count());
   await page.locator('[data-context-tab=info]').click();
-  await page.getByRole('button',{name:'Redigera',exact:true}).click();
+  await page.locator('#edit-form [data-editor-activate]').click();
   await page.locator('#edit-form [name="city"]').fill('Testort');
   await page.locator('#edit-form [type="submit"]').click();
   await page.waitForSelector('#edit-form',{state:'detached'});
@@ -303,10 +303,11 @@ try {
   assert.ok(!(await primary.innerText()).includes('Hyresgäst enligt källa'));
   assert.ok(!(await primary.innerText()).includes('Verksamhetspart'));
   assert.ok(!(await primary.innerText()).includes('Vår ansvarige för avtalet'));
-  assert.ok(!(await page.locator('.contract-editor .section-title').innerText()).includes('ÄNDRA AVTAL'));
+  assert.ok(!(await page.locator('.contract-editor #edit-form > .section-title').innerText()).includes('ÄNDRA AVTAL'));
   assert.deepEqual(await page.locator('[data-contract-section]').evaluateAll(sections=>sections.map(section=>section.dataset.contractSection)),
     ['identity','economics','dates','contacts']);
-  assert.ok(!(await page.locator('[data-contract-rent-terms]').getAttribute('open')));
+  assert.ok(await page.locator('[data-finance-panel] [data-item-new]').isVisible());
+  assert.equal(await page.locator('[data-contract-rent-terms]').count(),0);
   assert.ok(await page.locator('[data-contract-section="economics"] [data-object-area]').isVisible());
   assert.equal(await page.locator('[data-contract-section="economics"] [name="area"]').count(),0);
   for(const width of [1440,390]) {
@@ -322,7 +323,7 @@ try {
   }
   const savedContract = () => page.evaluate(()=>JSON.parse(localStorage.getItem('lokalblick-public-demo-v1')).contracts.find(contract=>contract.number==='202-2025'));
   const before = await savedContract();
-  await page.getByRole('button',{name:'Redigera',exact:true}).click();
+  await page.locator('#edit-form [data-editor-activate]').click();
   await page.locator('[data-contract-notice-terms]>summary').click();
   await page.locator('#edit-form [name="noticePeriodMonths"]').fill(String(Number(before.noticePeriodMonths)+1));
   await page.locator('#edit-form [type="submit"]').click();

@@ -469,7 +469,7 @@
   function canonicalizeModel(data) {
     data=data||{};
     ["properties","objects","contracts","organizations","people","assignments","orders",
-     "activities","recurringCosts","auditLog","sourceRegistry",
+     "activities","recurringCosts","agreementItems","auditLog","sourceRegistry",
      "importReview","documents"].forEach(key=>{
        if(!Array.isArray(data[key])) data[key]=[];
      });
@@ -501,8 +501,8 @@
     return data;
   }
 
-  const EXTRA_KEYS = ["indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
-  const RESTORE_EXTRA_KEYS = ["indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
+  const EXTRA_KEYS = ["agreementItems","indexSeries","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","sourceRegistry","auditLog","activityOptions"];
+  const RESTORE_EXTRA_KEYS = ["agreementItems","indexSeries","auditLog","sourceRegistry","importReview","documents","priceBaseAmounts","importFieldPreferences","importMappings","activityOptions"];
   function extraRows(data) {
     const rows=[];
     function add(collection,id,value){const json=JSON.stringify(value);for(let offset=0;offset<json.length;offset+=30000) rows.push({collection,id,part:offset/30000,json:json.slice(offset,offset+30000)});}
@@ -681,6 +681,7 @@
     if(window.LokalblickObjectModel)window.LokalblickObjectModel.normalize(canonical);
     window.LokalblickObjectModel?.stripAreas(canonical);
     ensureStableIds(canonical);
+    window.LokalblickAgreementItems?.strip(canonical);
     const workbook = XLSX.utils.book_new();
     const metadata = [
       ["Lokalblick modellversion", MODEL_VERSION],

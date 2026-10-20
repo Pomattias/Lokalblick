@@ -1,3 +1,7 @@
+import {legacyFinanceMap,validateFinance} from './finance-model.js';
+import {legacyAgreementItems} from './finance-revision.js';
+import {viewFields} from './view-fields.js';
+import {normalize as normalizeItem} from './model.js';
 import '../domain/calculations.js';
 import '../domain/recurring-costs.js';
 // These compatibility values are disposable projections for existing views and
@@ -54,3 +58,51 @@ export function applyLegacyCostEdit(view,next,year){
  }
  const index=rows.findIndex(row=>row.id===cost.id);if(index<0)rows.push(cost);else rows[index]=cost;
 }
+
+// Older workspaces may still expose one flat addition. Read it through the
+// same item model, then adopt it once when a user edits/adds an item.
+export function agreementWithItems(view,contract){
+ const stored=(view.agreementItems||[]).filter(item=>item.contractId===contract.id);
+ if(view.cleanModel||stored.length||Array.isArray(contract.items))return {...contract,items:stored.length?stored:contract.items||[]};
+ const raw={id:contract.id,valid_from:contract.start||null,valid_to:contract.end||null};
+ for(const [field,target]of Object.entries(legacyFinanceMap))raw[field]=contract[target];
+ if(raw.annual_rent==null&&contract.annualRent!=null)raw.annual_rent=0;
+ if(raw.annual_additions==null&&contract.annualAdditions!=null)raw.annual_additions=0;
+ const items=legacyAgreementItems(raw).map(record=>{
+  const row={id:record.id};for(const[field,target]of Object.entries(viewFields.agreement_items))if(record[field]!=null)row[target]=record[field];
+  const prefix=row.type==='base'?'rent':row.type==='tax'?null:'addition';
+  if(prefix){row.reportedAmount=contract[prefix==='rent'?'annualRent':'annualAdditions']??null;row.seriesBase=contract[prefix+'SeriesBase']??null;row.floor=contract[prefix+'Floor']!==false;}
+  return row;
+ });
+ return {...contract,items};
+}
+export function adoptAgreementItems(view,contractId){
+ const contract=(view.contracts||[]).find(row=>row.id===contractId);if(!contract)throw Error('Avtalet saknas.');
+ view.agreementItems ||= [];
+ if(view.cleanModel||view.agreementItems.some(item=>item.contractId===contractId))return;
+ const derived=agreementWithItems(view,contract);
+ for(const item of derived.items){if(view.agreementItems.some(row=>row.id===item.id))throw Error('Post-ID används redan.');view.agreementItems.push(item);}
+ const values=Object.fromEntries(financeKeys.filter(key=>contract[key]!=null).map(key=>[key,contract[key]]));
+ if(Object.keys(values).length)(view.auditLog ||= []).push({id:crypto.randomUUID(),collection:'contracts',recordId:contractId,action:'Hyra flyttad till separata avtalsposter',at:new Date().toISOString(),by:view.currentUser?.name||'Lokalblick',fields:[{field:'tidigare ekonomivillkor',from:values,to:null}]});
+}
+export function projectStoredAgreementItems(view){
+ for(const contract of view.contracts||[])if((view.agreementItems||[]).some(item=>item.contractId===contract.id))projectFinance({contracts:[contract],agreementItems:view.agreementItems});
+ return view;
+}
+export const financeKeys=[...Object.values(legacyFinanceMap),'annualRent','annualAdditions','rentFloor','additionFloor','rentSeriesBase','additionSeriesBase'];
+export function stripStoredAgreementFinance(view){
+ for(const contract of view.contracts||[])if((view.agreementItems||[]).some(item=>item.contractId===contract.id)){
+  for(const key of financeKeys)delete contract[key];delete contract.items;
+ }
+ return view;
+}
+export function validateAgreementItems(view){
+ const ids=new Set(),rows=[];
+ for(const row of view.agreementItems||[]){
+  if(ids.has(row.id))throw Error('Post-ID finns flera gånger.');ids.add(row.id);
+  if(!(view.contracts||[]).some(c=>c.id===row.contractId))throw Error('Avtalsposten saknar ett befintligt avtal.');
+  rows.push(normalizeItem('agreement_items',{id:row.id,...Object.fromEntries(Object.entries(viewFields.agreement_items).map(([field,target])=>[field,row[target]??null]))}));
+ }
+ validateFinance({agreement_items:rows});return view;
+}
+globalThis.LokalblickAgreementItems={project:projectStoredAgreementItems,strip:stripStoredAgreementFinance};

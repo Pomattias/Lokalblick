@@ -174,6 +174,6 @@ test('additional agreement fields appear once inside existing disclosures and pr
  const html=renderContractEditor(data,c,c.id,false,{portfolio:true});
  for(const field of ['terminatedOn','terminationReason','use','workplaceCount','hubCount','business','contractDocumentUrl','category'])assert.equal((html.match(new RegExp('name="'+field+'"','g'))||[]).length,1,field);
  assert.match(html,/value="KP Kontor- och personallokaler" selected/);
- const beforeDisclosures=html.split('data-contract-rent-terms')[0];assert.doesNotMatch(beforeDisclosures,/name="(?:terminatedOn|businessComment|employees)"/);
+ const beforeDisclosures=html.split('data-contract-notice-terms')[0];assert.doesNotMatch(beforeDisclosures,/name="(?:terminatedOn|businessComment|employees)"/);
  const legacy=renderContractEditor(data,c,c.id);assert.doesNotMatch(legacy,/name="(?:terminatedOn|terminationReason|businessComment|employees|apartmentArea|contractDocumentUrl|use)"/,'Budget editor retains its existing controls');
 });

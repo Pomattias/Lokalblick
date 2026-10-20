@@ -64,6 +64,7 @@
       savedAt: new Date().toISOString()
     };
     window.LokalblickObjectModel?.stripAreas(payload.data);
+    window.LokalblickAgreementItems?.strip(payload.data);
     try {
       const db = await openViewDb();
       const tx = db.transaction(VIEW_STORE, "readwrite");
@@ -152,6 +153,7 @@
     async save(data) {
       const safe = clone(data);
       window.LokalblickObjectModel?.stripAreas(safe);
+      window.LokalblickAgreementItems?.strip(safe);
       safe.isDemo = true;
       safe.sourceName = "Publik demodata";
       try { localStorage.setItem(DEMO_KEY, JSON.stringify(safe)); } catch (_) {}

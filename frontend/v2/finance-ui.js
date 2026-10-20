@@ -1,3 +1,4 @@
+import {agreementWithItems,adoptAgreementItems,validateAgreementItems} from '../lokaler/finance-view.js';
 import {itemTypes,costCategories,adjustmentMethods,validateFinance} from '../lokaler/finance-model.js';
 import {collectWorkspace} from '../lokaler/view-adapter.js';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -7,11 +8,12 @@ const input=(row,key,label,type='text',attrs='')=>`<label class="contract-field"
 const select=(row,key,label,values)=>`<label class="contract-field"><span class="field-name">${esc(label)}</span><select name="${key}">${choices(values,row[key])}</select></label>`;
 const C=()=>globalThis.LokalblickCalculations,R=()=>globalThis.LokalblickRecurringCosts;
 export function agreementItemsPanel(data,contract,year=new Date().getFullYear()){
+ contract=agreementWithItems(data,contract);
  const rows=C().agreementItemValues(contract,year,0,data.indexSeries);
  return `<section class="contract-section" data-contract-section="economics" data-finance-panel><div class="section-title"><h3>Hyra och tillägg</h3>${contract.id?`<button type="button" data-item-new="${esc(contract.id)}">Lägg till post</button>`:''}</div>
- <div class="table-wrap"><table><thead><tr><th>Post</th><th>Aktuellt, kr/år</th><th></th></tr></thead><tbody>${rows.map(({item,value,active})=>`<tr><td>${esc(item.name)}<small>${esc(itemTypes[item.type]||item.type)} · ${esc(item.start||'Tills vidare')} – ${esc(item.end||'tills vidare')}</small></td><td data-finance-label="Årstakt">${active?money(value.amount):'Ej aktuell'}${value.status==='Behöver kontroll'?'<small>Kontrollera villkor</small>':''}</td><td><button type="button" data-item-edit="${esc(item.id)}" data-item-contract="${esc(contract.id)}">Redigera</button></td></tr>`).join('')||'<tr><td colspan="3">Inga avtalsposter. Spara avtalet innan du lägger till poster.</td></tr>'}</tbody></table></div>
+ <div class="table-wrap"><table><thead><tr><th>Post</th><th>Aktuellt, kr/år</th><th></th></tr></thead><tbody>${rows.map(({item,value,active})=>`<tr data-agreement-item="${esc(item.id)}"><td><strong>${esc(itemTypes[item.type]||item.type)}</strong>${item.name&&item.name!==itemTypes[item.type]?`<small>${esc(item.name)}</small>`:''}<small> ${esc(item.start||'Tills vidare')} – ${esc(item.end||'tills vidare')}</small></td><td data-finance-label="Årstakt">${active?money(value.amount):'Ej aktuell'}${value.status==='Behöver kontroll'?'<small>Kontrollera villkor</small>':''}</td><td><button type="button" data-item-edit="${esc(item.id)}" data-item-contract="${esc(contract.id)}">Redigera</button></td></tr>`).join('')||'<tr><td colspan="3">Inga avtalsposter. Spara avtalet innan du lägger till poster.</td></tr>'}</tbody></table></div>
  <p><strong>Aktuell årstakt: ${money(rows.reduce((sum,row)=>sum+row.annualRate,0))}</strong><br><small>Kalenderår ${year}: ${money(C().agreementYearCost(contract,year,0,data.indexSeries))} · proportionerat efter faktiska datum</small></p>
- <small>Yta från objektet: ${esc(contract.area??'–')} m²${Number(contract.area)>0?' · Bashyra '+money(rows.filter(row=>row.item.type==='base').reduce((sum,row)=>sum+row.annualRate,0)/contract.area)+'/m²':''}</small></section>`;
+ <small>Yta från objektet: <span data-object-area>${esc(contract.area??'–')}</span> m² · Bashyra <span data-contract-rent-per-sqm>${Number(contract.area)>0?money(rows.filter(row=>row.item.type==='base').reduce((sum,row)=>sum+row.annualRate,0)/contract.area):'Ej beräknat'}</span>${Number(contract.area)>0?'/m²':''}</small></section>`;
 }
 export function propertyCostsPanel(data,propertyId,year=new Date().getFullYear()){
  const rows=(data.recurringCosts||[]).filter(row=>row.propertyId===propertyId);
@@ -27,10 +29,11 @@ function dialogForm(title,content,onSubmit){
 }
 function validateView(data){validateFinance(collectWorkspace(data));}
 export function openItemDialog(data,contractId,itemId,onSave){
- const old=(data.agreementItems||[]).find(row=>row.id===itemId),contract=data.contracts.find(row=>row.id===contractId);
- const row=old||{id:crypto.randomUUID(),contractId,type:'addition',name:'',baseAmount:0,adjustmentMethod:'none',start:contract.start||'',end:contract.end||'',floor:true};
+ const draft=structuredClone(data);adoptAgreementItems(draft,contractId);
+ const old=(draft.agreementItems||[]).find(row=>row.id===itemId),contract=data.contracts.find(row=>row.id===contractId);
+ const row=old||{id:crypto.randomUUID(),contractId,type:'',name:'',baseAmount:0,adjustmentMethod:'none',start:contract.start||'',end:contract.end||'',floor:true};
  const rule=(kind,html)=>`<div class="contract-grid" data-item-rule="${kind}">${html}</div>`;
- const content=`<div class="contract-grid">${select(row,'type','Typ',itemTypes)}${input(row,'name','Benämning','text','required maxlength="160"')}${input(row,'baseAmount','Grundbelopp, kr/år','number','required min="0" step="0.01"')}${input(row,'start','Fr.o.m.','date')}${input(row,'end','T.o.m.','date')}${select(row,'adjustmentMethod','Uppräkningsmetod',adjustmentMethods)}</div>
+ const content=`<div class="contract-grid">${select(row,'type','Kostnadsslag',{'':'Välj kostnadsslag',...itemTypes})}${input(row,'name','Benämning','text','required maxlength="160"')}${input(row,'baseAmount','Grundbelopp, kr/år','number','required min="0" step="0.01"')}${input(row,'start','Fr.o.m.','date')}${input(row,'end','T.o.m.','date')}${select(row,'adjustmentMethod','Uppräkningsmetod',adjustmentMethods)}</div>
  ${rule('year',input(row,'baseYear','Basår','number','min="1900" max="9998" step="1"'))}
  ${rule('kpi',input(row,'baseIndex','Bastal KPI','number','min="0" step="any"')+input({...row,indexPercent:row.indexPercent==null?'':row.indexPercent*100},'indexPercent','Indexandel, %','number','min="0" max="100" step="any"')+input(row,'seriesBase','KPI-seriens bas (tomt = 1980)'))}
  ${rule('fixed',input(row,'annualPercent','Årlig procent','number','min="-99.99" max="1000" step="any"'))}
@@ -38,15 +41,18 @@ export function openItemDialog(data,contractId,itemId,onSave){
  <div data-item-rule="kpi"><label><input name="floor" type="checkbox" ${row.floor!==false?'checked':''}> Lägst grundbelopp</label></div>
  <label><input name="reconcilable" type="checkbox" ${row.reconcilable?'checked':''}> Kan avräknas i framtiden</label><small>Basår avser KPI-basåret. Grundbeloppet gäller följande hyresår. Avräkning görs inte i denna version.</small>`;
  const dialog=dialogForm(old?'Redigera avtalspost':'Lägg till post',content,async values=>{
+  if(!values.type)throw Error('Välj kostnadsslag.');
   const method=values.adjustmentMethod,number=key=>values[key]===''||values[key]==null?null:Number(values[key]);
   if(method!=='none'&&!number('baseYear'))throw Error('Ange basår.');
   if(['kpi','kpi-limited'].includes(method)&&number('indexPercent')==null)throw Error('Ange indexandel.');
   if(method==='fixed'&&number('annualPercent')==null)throw Error('Ange årlig procent.');
   if(method==='kpi-limited'&&number('minPercent')==null&&number('maxPercent')==null)throw Error('Ange min eller max.');
   const next={...row,...values,id:row.id,contractId,baseAmount:number('baseAmount'),baseYear:method==='none'?null:number('baseYear'),baseIndex:['kpi','kpi-limited'].includes(method)?number('baseIndex'):null,indexPercent:['kpi','kpi-limited'].includes(method)?number('indexPercent')/100:null,annualPercent:method==='fixed'?number('annualPercent'):null,minPercent:method==='kpi-limited'?number('minPercent'):null,maxPercent:method==='kpi-limited'?number('maxPercent'):null,limitBasis:method==='kpi-limited'?values.limitBasis:null,seriesBase:['kpi','kpi-limited'].includes(method)?values.seriesBase:null,floor:method==='none'?true:values.floor==='on',reconcilable:values.reconcilable==='on'};
-  validateView({...data,agreementItems:[...(data.agreementItems||[]).filter(x=>x.id!==next.id),next]});await onSave(next);
+  validateAgreementItems({...draft,agreementItems:[...(draft.agreementItems||[]).filter(x=>x.id!==next.id),next]});await onSave(next);
  });
  const update=()=>{const method=dialog.querySelector('[name=adjustmentMethod]').value;dialog.querySelectorAll('[data-item-rule]').forEach(group=>{const k=group.dataset.itemRule;group.hidden=!(k==='year'?method!=='none':k==='kpi'?['kpi','kpi-limited'].includes(method):k==='fixed'?method==='fixed':method==='kpi-limited');group.querySelectorAll('input,select').forEach(field=>field.disabled=group.hidden);});};
+ const type=dialog.querySelector('[name=type]'),name=dialog.querySelector('[name=name]');let previousType=row.type;
+ type.onchange=()=>{if(!name.value.trim()||name.value===itemTypes[previousType])name.value=itemTypes[type.value]||'';previousType=type.value;};
  dialog.querySelector('[name=adjustmentMethod]').onchange=update;update();
  return dialog;
 }

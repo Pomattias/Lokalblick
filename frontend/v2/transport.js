@@ -1,3 +1,4 @@
+import {stripStoredAgreementFinance} from '../lokaler/finance-view.js';
 import { withCleanWorkspace } from '../lokaler/workspace-transport.js';
 import { normalize, clone } from "./model.js";
 const metadataKeys = [
@@ -25,6 +26,7 @@ export function createTransport() {
     },
     async save(data) {
       const payload = clone(data);
+      stripStoredAgreementFinance(payload);
       globalThis.LokalblickObjectModel.applyAreaChanges(responsibilityBaseline,payload);
       globalThis.LokalblickObjectModel.normalize(payload);
       globalThis.LokalblickBusinessModel.normalize(payload);
