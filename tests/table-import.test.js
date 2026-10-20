@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import XLSX
 import {importSchemas,prepareCleanImport} from '../frontend/lokaler/import-model.js';
 import {emptyData,normalize,validateData} from '../frontend/lokaler/model.js';
 import {profileWorkbook,fieldCatalog,mappingConflicts,combineImportSources} from '../frontend/services/import-engine.js';
-import {resolveFieldName,setMappingRow,mappingTemplate,relatedTables} from '../frontend/services/import-matching.js';
+import {resolveFieldName,setMappingRow,setPrimaryTable,mappingTemplate,relatedTables} from '../frontend/services/import-matching.js';
 import {columnPreviewHtml} from '../frontend/v2/import-mapping.js';
 import {createCleanEvaluator} from '../frontend/lokaler/import-worker-client.js';
 import {resolveImportChoices} from '../frontend/lokaler/import-conflicts.js';
@@ -53,6 +53,16 @@ test('ordinary dotted text is never silently treated as mapping instructions',()
 test('unknown explicit field names remain visible and require a current field or standalone exclusion',()=>{
  const workbook=book([['FastighetsID','Rubrik'],['Fastighet.FastighetsID','Avtal.BorttagetFält'],['F1','Text']]);const p=profile(workbook)[0];setMappingRow(workbook,p,true,importSchemas,XLSX);assert.equal(p.columns[1].target,'@unmapped');assert.match(p.columns[1].warning,/Okänt Lokalblick-fält/);assert.equal(p.dataStartRow,2);
 });
+test('changing the primary table cannot turn an unknown explicit field into a header-based guess',()=>{
+ const workbook=book([['FastighetsID','Grundhyra'],['Fastighet.FastighetsID','Avtal.BorttagetFält'],['F1',100000]]),p=profile(workbook)[0];setMappingRow(workbook,p,true,importSchemas,XLSX);
+ const warning=p.columns[1].warning;setPrimaryTable(workbook,p,'agreementItems',importSchemas,XLSX);
+ assert.equal(p.columns[1].target,'@unmapped');assert.equal(p.columns[1].matchSource,'explicit');assert.equal(p.columns[1].warning,warning);assert.equal(p.columns[0].target,'properties.id');assert.equal(p.dataStartRow,2);
+});
+test('a primary-table change refreshes automatic choices while preserving approved choices and exclusions',()=>{
+ const workbook=book([['ÄrendeID','Namn','Status','Övrigt'],['I1','Fiktivt ärende','Öppet','Bortvald text']],'Ärenden'),p=profile(workbook)[0];p.columns[1].approved=true;p.columns[3].target='@ignore';p.columns[3].approved=true;
+ assert.equal(p.columns[2].target,'activities.status');setPrimaryTable(workbook,p,'orders',importSchemas,XLSX);
+ assert.equal(p.columns[0].target,'orders.activityId');assert.equal(p.columns[1].target,'activities.title');assert.equal(p.columns[2].target,'orders.status');assert.equal(p.columns[3].target,'@ignore');assert.equal(p.tableConfidence,'selected');assert.equal(p.rowCount,1);
+});
 test('similar files reuse approved columns when the layout agrees; removed model fields do not remain available',()=>{
  const workbook=book(rows),first=run(workbook),other=book(rows,'Hyresavtal 2028');const p=profile(other,first.clean.workspace.importMappings)[0];assert(p.columns.every(c=>c.approved));assert.equal(p.columns[5].itemType,'base');
  const schemas=structuredClone(importSchemas);const contracts=schemas.find(s=>s.key==='contracts');contracts.columns=contracts.columns.filter(([field])=>field!=='start');delete contracts.fieldSpecs.start;
@@ -88,6 +98,11 @@ test('worker rechecks send only profiles/preferences and reuse the initialized p
 test('a populated item Type column remains authoritative over a misleading rent caption',()=>{
  const base=run(book(rows)).clean;
  const workbook=book([['PostID','AvtalsID','Typ','Benämning','Bashyra'],['heat-1','A1','Värme','Värme från extern fil',12500]],'Avtalsposter'),ps=profile(workbook),result=run(workbook,ps,base);assert.equal(ps[0].primaryTable,'agreementItems');assert.equal(ps[0].columns[4].itemType,undefined);assert.equal(result.report.blocking,0);assert.equal(result.clean.agreement_items.find(i=>i.id==='heat-1').type,'heat');assert.equal(result.clean.agreement_items.find(i=>i.id==='heat-1').base_amount,12500);
+});
+test('choosing the item table uses its Type column instead of retaining a wide-rent shortcut',()=>{
+ const base=run(book(rows)).clean,workbook=book([['PostID','AvtalsID','Typ','Bashyra','Benämning'],['heat-1','A1','Värme',12000,'Fiktivt värmetillägg']]),p=profile(workbook)[0];assert.equal(p.primaryTable,'contracts');assert.equal(p.columns[3].itemType,'base');
+ setPrimaryTable(workbook,p,'agreementItems',importSchemas,XLSX);assert.equal(p.columns[2].target,'agreementItems.type');assert.equal(p.columns[3].itemType,undefined);
+ const result=run(workbook,[p],base);assert.equal(result.report.blocking,0);assert.equal(result.clean.agreement_items.find(i=>i.id==='heat-1').type,'heat');assert.equal(result.clean.agreement_items.filter(i=>i.type==='base').length,1);
 });
 test('a second overlapping typed base item is a row review, not a complete-import exception',()=>{
  const base=run(book(rows)).clean,workbook=book([['PostID','AvtalsID','Bashyra'],['second-base','A1',100]],'Avtalsposter'),result=run(workbook,profile(workbook),base);assert.equal(result.report.blocking,1);assert.equal(result.clean.agreement_items.filter(i=>i.type==='base').length,1);assert.match(result.clean.workspace.importReview[0].reason,/Endast en bashyra/);

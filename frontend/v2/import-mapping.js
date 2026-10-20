@@ -1,4 +1,4 @@
-import {relatedTables,resolveFieldName,refreshTableProfile,suggestTableColumns,importIdentityWarnings,setMappingRow,mappingTemplate} from '../services/import-matching.js';
+import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate} from '../services/import-matching.js';
 import {importConflictGroups,resolveImportChoices} from '../lokaler/import-conflicts.js';
 import {columnPreferenceKey,importPreference} from '../services/import-preferences.js';
 import {issueCaption,collectionCaption} from './field-labels.js';
@@ -187,7 +187,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       if(event.target.hasAttribute('data-row-match')){draft.importRowMatches ||= {};draft.importRowMatches[event.target.dataset.rowMatch]=event.target.value;invalidate();return;}
       if(event.target.hasAttribute('data-import-table')||event.target.hasAttribute('data-mapping-row')){
         const isTable=event.target.hasAttribute('data-import-table'),profile=mapping.profiles[Number(isTable?event.target.dataset.importTable:event.target.dataset.mappingRow)];
-        if(isTable){profile.primaryTable=event.target.value;profile.tableConfidence='selected';for(const column of profile.columns)if(!column.approved){const suggestion=resolveFieldName(column.header,schemas,profile.primaryTable);column.target=suggestion?.target||'@unmapped';column.itemType=suggestion?.itemType;column.matchSource=suggestion?'alias':'unmatched';column.warning='';}refreshTableProfile(prepared.workbook,profile,schemas,window.XLSX);suggestTableColumns(profile,schemas);refreshTableProfile(prepared.workbook,profile,schemas,window.XLSX,{countRows:false});}
+        if(isTable)setPrimaryTable(prepared.workbook,profile,event.target.value,schemas,window.XLSX);
         else{const enabled=event.target.value==='yes';profile.mappingRowDecision=event.target.value==='ask'?null:event.target.value;if(enabled!==profile.mappingRow)setMappingRow(prepared.workbook,profile,enabled,schemas,window.XLSX);}
         invalidate();return;
       }
