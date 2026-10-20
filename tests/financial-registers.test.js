@@ -123,10 +123,10 @@ test('compact V2 panels show distinct run rate/calendar cost and missing actuals
 });
 
 test('new register sheets infer their own ID references and normalized JSON/boolean imports remain idempotent',async()=>{
- const {cleanProfiles}=await import('../frontend/lokaler/import-model.js');
+ const {importSchemas}=await import('../frontend/lokaler/import-model.js');const {profileWorkbook}=await import('../frontend/services/import-engine.js');
  const data=fixture();add(data,'agreement_items',item('base',{type:'base',sources:[{source:'original.xlsx',row:2}]}));add(data,'recurring_costs',cost({invoice_complete_years:[2027]}));add(data,'cost_evidence',invoice('INV','2027-01-01','2027-12-31',9000));
  const workbook=XLSX.read(await writeWorkbook(data,ExcelJS),{type:'array'}),names=['Kostnadsunderlag','Fastighetskostnader','Avtalsposter'];
- const profiles=cleanProfiles({profiles:names.map(name=>({name,headerRow:1,columns:XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1})[0].map((header,index)=>({header,index,target:'@unmapped'}))}))});
+ const selected={...workbook,SheetNames:names};const profiles=profileWorkbook(selected,importSchemas,XLSX,[],{reviewed:true});
  assert.equal(profiles[0].columns.find(c=>c.header==='KostnadsID').target,'costEvidence.costId');assert.equal(profiles[2].columns.find(c=>c.header==='AvtalsID').target,'agreementItems.contractId');
  const result=prepareCleanImport(workbook,profiles,fixture(),{fileName:'register.xlsx'},XLSX);assert.equal(result.report.review,0);assert.equal(result.clean.agreement_items.length,1);assert.equal(result.clean.recurring_costs.length,1);assert.equal(result.clean.cost_evidence.length,1);
  const again=prepareCleanImport(workbook,profiles,result.clean,{fileName:'register.xlsx'},XLSX);assert.equal(again.report.review,0);assert.equal(again.report.changes.length,0);

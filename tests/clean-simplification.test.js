@@ -1,3 +1,4 @@
+import {profileWorkbook} from '../frontend/services/import-engine.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,readdir} from 'node:fs/promises';
@@ -11,7 +12,7 @@ import {upgradeData,retiredFields} from '../frontend/lokaler/model-revision.js';
 import {writeWorkbook,readWorkbook} from '../frontend/lokaler/workbook.js';
 import {viewFields} from '../frontend/lokaler/view-fields.js';
 import {projectWorkspace,collectWorkspace} from '../frontend/lokaler/view-adapter.js';
-import {importSchemas,cleanProfiles,prepareCleanImport} from '../frontend/lokaler/import-model.js';
+import {importSchemas,prepareCleanImport} from '../frontend/lokaler/import-model.js';
 import {renderContractEditor} from '../frontend/v2/contract-editor.js';
 import {relationshipView} from '../frontend/v2/relationships.js';
 const oldData=()=>({...emptyData(),parties:[{id:'owner',name:'Ägaren'},{id:'tenant',name:'Hyresgästen'},{id:'our',name:'Vi',kind:'our'}],people:[{id:'P1',name:'Kontakt',party_id:'tenant'}],properties:[{id:'F1',name:'Fastighet',owner_party_id:'owner',kind:'Gammal typ',geo_source:'manual',geo_confirmed_by:'Test',geo_confirmed_at:'2026-01-01'}],objects:[{id:'O1',property_id:'F1',name:'Gammal benämning',area:100,apartment_count:3,usage:'Gammal typ',unit_id:'ORDBO'}],agreements:[{id:'internal-id',number:'9(1)',object_id:'O1',tenant_party_id:'tenant',annual_rent:123000,annual_additions:12000,annual_property_tax:6000,rent_adjustment_method:'none',addition_adjustment_method:'none',business_comment:'Daglig verksamhet',staff_count:'12 / 3',cost_center:'123'}],contacts:[{id:'C1',role:'tenant',person_id:'P1',agreement_id:'internal-id'},{id:'C2',role:'business',person_id:'P1',agreement_id:'internal-id'}],issues:[{id:'I1',property_id:'F1',title:'Ärende',phase:'Planering'}],workspace:{budgetPlans:[{year:2027,status:'Låst',rows:[{sourceType:'manual',sourceId:'MANUAL',amount:141000}]}],auditLog:[{id:'old-audit',collection:'contracts',recordId:'internal-id',fields:[{field:'business_comment',from:'Tidigare',to:'Daglig verksamhet'}]}]}});
@@ -79,7 +80,7 @@ test('old Avtalsnummer input maps to the sole identity and new descriptive field
  const headers=['FastighetsID','Fastighetsnamn','ObjektID','Avtalsnummer','Verksamhet','Antal arbetsplatser','Antal hubbplatser'];
  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([headers,['F1','Fastighet','O1','9(1)','Träffpunkt',12,3]]),'Underlag');
  const prepared={workbook:wb,profiles:[{name:'Underlag',headerRow:1,columns:headers.map((header,index)=>({header,index,target:'@unmapped'}))}]};
- const profiles=cleanProfiles(prepared);profiles[0].columns[1].target='properties.designation';const result=prepareCleanImport(wb,profiles,emptyData(),{fileName:'test.xlsx'},XLSX);
+ const profiles=profileWorkbook(wb,importSchemas,XLSX,[],{reviewed:true});profiles[0].columns[1].target='properties.designation';const result=prepareCleanImport(wb,profiles,emptyData(),{fileName:'test.xlsx'},XLSX);
  assert.equal(result.report.blocking,0);assert.equal(result.clean.agreements[0].id,'9(1)');assert.equal(result.clean.agreements[0].business,'Träffpunkt');assert.equal(result.clean.agreements[0].workplace_count,12);assert.equal(result.clean.agreements[0].hub_count,3);assert.equal(result.clean.parties.length,0);
  const log=result.clean.workspace.auditLog.find(e=>e.collection==='contracts'&&e.recordId==='9(1)');assert.equal(log.fields.find(f=>f.field==='business').provenance.row,2);assert.equal(log.fields.find(f=>f.field==='business').provenance.source,'test.xlsx');
 });

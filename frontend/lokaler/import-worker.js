@@ -1,9 +1,9 @@
-// Conversion runs off the UI thread; all libraries and data stay local.
+// Conversion runs off the UI thread; parsed Excel and base data stay in this worker.
 importScripts('./vendor/xlsx.full.min.js');
-self.onmessage = async event => {
- try {
-  const {prepareCleanImport}=await import('./import-model.js');
-  const {workbook,profiles,base,context}=event.data;
-  self.postMessage({result:prepareCleanImport(workbook,profiles,base,context,self.XLSX)});
- }catch(error){self.postMessage({error:error.message});}
+let input;
+const model=import('./import-model.js');
+self.onmessage=async event=>{
+ if(event.data.type==='init'){input=event.data;return;}
+ const {id,profiles,preferences,rowMatches}=event.data;
+ try{const {prepareCleanImport}=await model;self.postMessage({id,result:prepareCleanImport(input.workbook,profiles,input.base,{...input.context,preferences,rowMatches},self.XLSX)});}catch(error){self.postMessage({id,error:error.message});}
 };

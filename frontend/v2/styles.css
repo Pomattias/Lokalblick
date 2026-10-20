@@ -3919,3 +3919,12 @@ body:not([data-view="budget"]) .import-field-results [aria-pressed="true"] {back
  #editor-root .record-workspace [data-agreement-item] td:nth-child(2) {grid-column:2;grid-row:1;text-align:right;}
  #editor-root .record-workspace [data-agreement-item] td:last-child {grid-column:3;grid-row:1;}
 }
+
+/* Import-only controls; Budget keeps its existing presentation. */
+body:not([data-view="budget"]) .import-sheet-settings {display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;padding:9px 0;border-top:1px solid var(--line);font-size:12px;}
+body:not([data-view="budget"]) .import-sheet-settings>:is(strong,small) {grid-column:1/-1;overflow-wrap:anywhere;}
+body:not([data-view="budget"]) .import-sheet-settings label {font-size:11px;min-width:0;}
+body:not([data-view="budget"]) .import-sheet-settings select {width:100%;min-width:0;font-size:12px;}
+body:not([data-view="budget"]) .import-review-actions {flex-wrap:wrap;gap:6px;}
+body:not([data-view="budget"]) .import-field-picker select {width:100%;margin:5px 0;}
+@media(max-width:600px){body:not([data-view="budget"]) .import-sheet-settings {grid-template-columns:1fr;}}

@@ -6,7 +6,7 @@ const currencyField=field=>/^(baseRent|baseAdditions|annual.*|estimatedCost|orde
 const currencyHint=text=>/\b(?:kr|sek|tkr|mkr)\b|hyra|kostnad|belopp/i.test(text);
 const moneyScale=(value,header)=>typeof value==='string'&&/kr|sek|kronor/i.test(value)?1:/\bmkr\b/i.test(header)?1000000:/\btkr\b|tusen\s*(?:kr|kronor)/i.test(header)?1000:1;
 const emptyMarker=(value,column)=>column.emptyMarkers&&(
- /^[–—-]$/.test(String(value??'').trim())&&(dateField(column.target?.split('.')[1]||'')||numberField(column.target?.split('.')[1]||''))||
+ /^[–—-]$/.test(String(value??'').trim())&&(column.valueType==='date'||['number','integer','signed','coordinate'].includes(column.valueType)||dateField(column.target?.split('.')[1]||'')||numberField(column.target?.split('.')[1]||''))||
  /^(end|toDate)$/.test(column.target?.split('.')[1]||'')&&/^(?:tills\s*vidare|t[.\s]*v[.]?)$/i.test(String(value??'').trim())
 );
 export function parseNumber(value) {
@@ -41,12 +41,12 @@ export function interpretCell(cell,column,XLSX) {
  if(/(?:DocumentUrl|documentUrl)$/.test(field)){const raw=String(cell?.l?.Target||value).trim();return /^[–—-]$/.test(raw)&&column.emptyMarkers?'':raw;}
  if(column.transform==='text'||identityField(field))return typeof value==='number'&&/^0{2,}$/.test(cell.z||'')?XLSX.utils.format_cell({...cell,t:cell.t||'n'}):String(value);
  if(!field){if(column.format?.type==='date')return parseDate(value,XLSX,column.date1904,column.dateMode);if(['currency','number'].includes(column.format?.type))return parseNumber(value)*(column.format.type==='currency'?moneyScale(value,column.header||''):1);return String(value);}
- if(dateField(field))return parseDate(value,XLSX,column.date1904,column.dateMode);
- if(numberField(field)){
+ if(column.valueType==='date'||dateField(field))return parseDate(value,XLSX,column.date1904,column.dateMode);
+ if(['number','integer','coordinate','signed'].includes(column.valueType)||numberField(field)){
   const header=column.header||'';const n=parseNumber(value);
   let multiplier=moneyScale(value,header);
   if(column.transform==='thousands')multiplier=1000;
-  if(currencyField(field)&&(column.transform==='monthly'||/månadshyra|manadshyra|kr\s*\/\s*mån/i.test(header)))multiplier*=12;
+  if((currencyField(field)||column.itemType&&field==='baseAmount')&&(column.transform==='monthly'||/månadshyra|manadshyra|kr\s*\/\s*mån/i.test(header)))multiplier*=12;
   if(/Percent$|^rentSurchargeRate$/.test(field)&&typeof value==='number'&&cell.z?.includes('%'))return n*100;
   return n*multiplier;
  }
@@ -55,7 +55,7 @@ export function interpretCell(cell,column,XLSX) {
 export function profileFormat(cells,column,XLSX) {
  const field=column.target?.split('.')[1]||'',values=cells.filter(c=>c?.v!==''&&c?.v!=null&&!emptyMarker(c.v,column));
  const identityHint=!field&&/(?:^id$|nummer|(?:^|[ _])id$|kod|telefon|postnr)/i.test(column.header||'');
- let type=identityField(field)||identityHint?'text':dateField(field)?'date':numberField(field)?(currencyField(field)?'currency':'number'):field?'text':null;
+ let type=identityField(field)||identityHint?'text':column.valueType==='date'||dateField(field)?'date':['number','integer','coordinate','signed'].includes(column.valueType)||numberField(field)?(currencyField(field)?'currency':'number'):field?'text':null;
  if(!type&&values.length){
   const dateHint=/datum|fr[. ]?o[. ]?m|t[. ]?o[. ]?m/i.test(column.header||'');
   const dateLike=c=>c.t==='d'||XLSX.SSF.is_date?.(c.z||'')||typeof c.v==='string'&&/^(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4})$/.test(c.v.trim());

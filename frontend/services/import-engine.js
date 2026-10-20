@@ -1,3 +1,4 @@
+import {profileTables,schemaFields} from './import-matching.js';
 import {columnPreferenceKey} from './import-preferences.js';
 import '../domain/import-rules.js';
 import '../domain/responsibility-model.js';
@@ -25,6 +26,7 @@ const aliases = {
   'hyresgast':'contracts.tenantName', 'verksamhet':'contracts.businessName',
 };
 export function fieldCatalog(schemas,reviewed=false) {
+  if(schemas.every(s=>s.canonical))return schemaFields(schemas);
   const labels={businessId:'Verksamhet',personId:'Person',targetType:'Måltyp',targetId:'Mål',roleKey:'Rollnyckel',tenantPartyId:'Hyresgäst',tenantResponsiblePersonId:'Hyresgästens kontaktperson',businessPartyId:'Verksamhetens part',businessResponsiblePersonId:'Verksamhetsansvarig',ownerResponsiblePersonId:'Fastighetsägarens kontaktperson',orderedByPersonId:'Beställd av',sourceId:'Källans identifierare',objectId:'Objekt',propertyId:'Fastighet',contractId:'Avtal',activityId:'Aktivitet',organizationId:'Organisation',ownerPartyId:'Fastighetsägare',responsiblePersonId:'Ansvarig hos oss'};
   const legacyRelations=['sourceId','objectId','propertyId','contractId','activityId','organizationId','ownerPartyId','responsiblePersonId','personId','targetType','targetId','tenantPartyId','tenantResponsiblePersonId','businessId'];
   const reviewedLabels={costCenterPremises:'Kostnadsställe lokaler',costCenterOperations:'Kostnadsställe drift'};
@@ -36,13 +38,15 @@ export function mappingConflicts(profiles,personLinks=true){
     const targets=new Map();
     for(const [columnIndex,column] of profile.columns.entries()){
       if(column.target.startsWith('@')||personLinks&&personRole(column.target))continue;
-      if(!targets.has(column.target))targets.set(column.target,[]);
-      targets.get(column.target).push({columnIndex,header:column.header});
+      const destination=column.target+(column.itemType?'['+column.itemType+']':'');
+      if(!targets.has(destination))targets.set(destination,[]);
+      targets.get(destination).push({columnIndex,header:column.header});
     }
     return [...targets].filter(([,columns])=>columns.length>1).map(([target,columns])=>({profileIndex,target,columns}));
   });
 }
 export function profileWorkbook(workbook, schemas, XLSX, saved = [], options={}) {
+  if(schemas.every(s=>s.canonical))return profileTables(workbook,schemas,XLSX,saved,options);
   const fields = fieldCatalog(schemas,options.reviewed);
   const knownLabels=new Set(fields.map(f=>norm(f.label.split(' → ')[1])));
   return workbook.SheetNames.map(sheetKey => {
@@ -117,14 +121,14 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = [], options={})
 const convert=(cell,column,XLSX)=>interpretCell(cell,column,XLSX);
 export function retargetColumn(workbook,profile,column,target,XLSX) {
   if(column.target===target)return;
-  column.target=target;column.approved=true;
+  column.target=target;column.approved=true;column.matchSource='manual';column.warning='';delete column.itemType;
   column.identity=/\.(?:id|sourceId|number|designation|email|orderReference)$/.test(target);
   column.transform='auto';
   refreshColumnFormat(workbook,profile,column,XLSX);
 }
 export function refreshColumnFormat(workbook,profile,column,XLSX){
   const sheet=workbook.Sheets[profile.sheetKey||profile.name],range=sheet?.['!ref']?XLSX.utils.decode_range(sheet['!ref']):null,cells=[];
-  if(range)for(let r=profile.headerRow;r<=range.e.r;r++)cells.push(sheet[XLSX.utils.encode_cell({r,c:column.index+(profile.startColumn||0)})]);
+  if(range)for(let r=profile.dataStartRow??profile.headerRow;r<=range.e.r&&(!profile.canonical||cells.length<100);r++)cells.push(sheet[XLSX.utils.encode_cell({r,c:column.index+(profile.startColumn||0)})]);
   column.format=profileFormat(cells,{...column,target:contactSemanticTarget(column.target)},XLSX);
 }
 const identify=(...args)=>globalThis.LokalblickImportRules.identify(...args);
@@ -135,12 +139,13 @@ export async function fingerprint(buffer) {
 }
 // Internal sheet keys keep identically named sheets from separate files apart.
 // Original names and each workbook's date system travel with the source metadata.
-const parsedSources=new WeakMap();
+const parsedSources=new WeakMap(),parsedWorkbooks=new WeakMap();
 export function readImportSource(file,selectedSheets,XLSX){
   const key=JSON.stringify([...selectedSheets].sort());
   let cached=parsedSources.get(file);if(!cached){cached=new Map();parsedSources.set(file,cached);}
   if(cached.has(key))return cached.get(key);
-  const original=XLSX.read(file.buffer,{type:'array',cellDates:false,cellNF:true,sheets:selectedSheets});
+  const parsed=file.workbook||parsedWorkbooks.get(file)||XLSX.read(file.buffer,{type:'array',cellDates:false,cellNF:true});parsedWorkbooks.set(file,parsed);
+  const original={...parsed,SheetNames:[...parsed.SheetNames],Sheets:{...parsed.Sheets}};
   original.SheetNames=original.SheetNames.filter(name=>selectedSheets.includes(name));
   for(const name of original.SheetNames){
     const sheet=original.Sheets[name],extent={s:{r:Infinity,c:Infinity},e:{r:-1,c:-1}};

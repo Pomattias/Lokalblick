@@ -16,13 +16,24 @@ Om du har en tidigare arbetsyta öppen väljer du först **Ny ren arbetsyta**.
 Den anslutna äldre filen ändras inte.
 
 1. Öppna **Datakällor → Läs in underlag**. Flera filer/flikar kan väljas samtidigt.
-2. Kontrollera varje kolumns målfält. Välj **Importera inte** direkt för sådant
-   som ska lämnas utanför. Uppgifterna sparas inte som kompletterande extrafält.
+2. Godkänn föreslagen **Huvudtabell** per flik. Fältväljaren visar den tabellens
+   fält först; närliggande tabeller och sökning bland alla fält finns kvar.
+   Välj **Importera inte** direkt för kolumner som ska lämnas utanför.
+   Om raden under rubrikerna innehåller Lokalblick-fält väljer du
+   **Innehåller Lokalblick-fältnamn**. En identifierad möjlig matchningsrad
+   kräver ett aktivt ja/nej; vanlig data behandlas aldrig tyst som instruktion.
+   Exempel: `Fastighet.Fastighetsbeteckning`, `Avtal.Fr.o.m.`, `Avtal.Bashyra`.
+   Även stabila tekniska fält-ID:n kan användas. Okända/borttagna fält varnas.
+   Explicit matchningsrad går före tidigare godkända val, därefter aktuella
+   fältnamn/alternativa namn och automatiska förslag. Tidigare godkända val
+   kan återanvändas i liknande filer; en ändrad datarad tolkas inte som en mallrad.
 3. För namnkolumner väljs personrollen, exempelvis fastighetsägarens kontakt
    eller avtalets hyresgästkontakt. E-post/PersonID kan kopplas till respektive
    namnkolumn. Om enbart namn finns måste du bekräfta att kolumnens namn
    identifierar unika personer. Ett namn med flera möjliga personer kräver ID.
-4. Kontrollera resultatet per register. Identifierare, datatyper och kopplingar
+4. Gör klart fältvalen och välj **Kontrollera poster**. Ändrade fält startar
+   ingen ny fullständig konvertering förrän du begär kontrollen.
+   Kontrollera sedan resultatet per register. Identifierare, datatyper och kopplingar
    som inte går att fastställa visas med flik, källrad, kolumn och ursprungsvärde.
    Felaktiga rader blockeras som standard. Du kan aktivt välja **Importera endast
    godkända rader**; övriga rader sparas då i granskningsunderlaget med sina valda
@@ -244,3 +255,25 @@ Budgetens befintliga kontroller behålls.
 
 Importens felhantering kan verifieras med syntetiska data genom
 `node scripts/import-stability-browser-check.mjs` (Chromium/Playwright).
+
+### Tabellstyrd import och mall
+
+**Godkänn fältval och hämta mall** skapar en lokal Excelmall med originalrubriker
+och förifylld matchningsrad. Mallen innehåller inga verksamhetsrader.
+Ekonomifält pekar på **Avtalsposter** eller **Fastighetskostnader**, aldrig på
+avtalets lagrade grunduppgifter. Breda kolumner som Bashyra/Tillägg får en
+posttyp; ange **Gäller avtalspost** om flera belopp på samma rad ska skapa
+olika avtalsposter. En post per datarad använder vanliga PostID/AvtalsID.
+
+Kolumnmatchningen kommer direkt från modellens fältdefinitioner. Den tidigare
+`cleanProfiles`-översättningen från äldre fältlistor har avvecklats för aktuell
+import. Befintlig lagring, validering, ansvarskopplingar och beräkningsmotor
+återanvänds. Excel avkodas en gång per vald fil; den parsade arbetsboken och
+workern återanvänds under granskningen. Fältanalysen använder upp till 100
+exempelvärden, medan samtliga valda rader kontrolleras före sparning.
+
+En unik fastighetsbeteckning kan identifiera en befintlig post. Vid flera
+träffar väljs rätt fastighet i radens postgranskning. ID:n och relationer
+kontrolleras fortfarande innan importen får ändra data.
+
+Verifiera guiden med `npm run test:table-import-browser` (Chromium/Playwright).

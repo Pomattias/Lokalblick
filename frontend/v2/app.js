@@ -1,7 +1,7 @@
 import {openItemDialog,openPropertyCostDialog,openEvidenceDialog,propertyCostsPanel} from './finance-ui.js';
 import {projectFinance,applyContractFinanceEdit,applyLegacyCostEdit,adoptAgreementItems,projectStoredAgreementItems,validateAgreementItems} from '../lokaler/finance-view.js';
 import { createCleanEvaluator } from '../lokaler/import-worker-client.js';
-import { importSchemas, cleanProfiles } from '../lokaler/import-model.js';
+import { importSchemas } from '../lokaler/import-model.js';
 import {bindEditActions,decorateEditActions} from './edit-actions.js';
 import {mountCompactIssue,compactIssueJournal,toggleIssueText} from "./compact-issue.js";
 import {portfolioScope} from "./portfolio-context.js";
@@ -369,7 +369,7 @@ function chooseImportSheets(prepared) {
     const rows = (prepared.sheets || [])
       .map(
         (sheet, index) =>
-          `<label class="import-sheet"><input type="checkbox" data-import-sheet value="${esc(sheet.name)}" ${sheet.recommended ? "checked" : ""}><span><strong>${esc(sheet.sheetName||sheet.name)}</strong><small>${esc(sheet.fileName||"")} · ${esc(sheet.kind || "Övrig flik")}</small></span></label>`,
+          `<label class="import-sheet"><input type="checkbox" data-import-sheet value="${esc(sheet.name)}" ${sheet.recommended ? "checked" : ""}><span><strong>${esc(sheet.sheetName||sheet.name)}</strong><small>${esc(sheet.fileName||"")} · ${esc(sheet.kind || "Övrig flik")} · ${sheet.rows??0} datarader</small></span></label>`,
       )
       .join("");
     d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Välj flikar att läsa</h2><p><strong>${esc(prepared.fileName)}</strong></p></div></div><p>Lokalblick har hittat ${(prepared.sheets || []).length} flikar. Kända flikar är förvalda. Välj de flikar som hör ihop. Vi tolkar kolumnerna och sammanför fastigheter, objekt och avtal innan något sparas.</p><div class="import-sheet-tools"><button type="button" data-import-select="recommended">Föreslagna</button><button type="button" data-import-select="all">Markera alla</button><button type="button" data-import-select="none">Avmarkera alla</button></div><div class="import-sheet-list">${rows}</div><div class="actions import-dialog-actions"><button type="button" data-import-cancel>Avbryt</button><button type="button" class="primary-action" data-import-start>Tolka och koppla underlagen</button></div>`;
@@ -1170,11 +1170,10 @@ async function sourceAction(action) {
       progressDialog = showImportProgress(prepared.fileName, selectedSheets);
       updateImportProgress(progressDialog,{message:"Läser valda kolumner och föreslår fält…"});
       await new Promise(resolve=>setTimeout(resolve,0));
-      const mappingPrepared = await globalThis.LokalblickSourceService.prepareMapping(base, selectedSheets,{reviewed:true});
+      const cleanImport = !transport.company() && (data.isDemo || transport.cleanActive());
+      const mappingPrepared = await globalThis.LokalblickSourceService.prepareMapping(base, selectedSheets,{reviewed:true,...(cleanImport?{schemas:importSchemas}:{})});
       if(progressDialog?.open)progressDialog.close();
       progressDialog?.remove();progressDialog=null;
-      const cleanImport = !transport.company() && (data.isDemo || transport.cleanActive());
-      if(cleanImport)mappingPrepared.profiles=cleanProfiles(mappingPrepared);
       result = await previewImport(mappingPrepared, base,
         cleanImport?importSchemas:globalThis.LokalblickSourceService.schemas, actor(),
         cleanImport?createCleanEvaluator(mappingPrepared.workbook,transport.canonical(),{fileName:mappingPrepared.fileName,actor:data.isDemo?'Excelimport':actor()}):null);

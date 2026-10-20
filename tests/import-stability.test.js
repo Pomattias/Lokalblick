@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import XLSX from 'xlsx';
 import {emptyData,validateData} from '../frontend/lokaler/model.js';
-import {cleanProfiles,importSchemas,prepareCleanImport} from '../frontend/lokaler/import-model.js';
+import {importSchemas,prepareCleanImport} from '../frontend/lokaler/import-model.js';
 import {profileWorkbook,retargetColumn} from '../frontend/services/import-engine.js';
 import {columnPreferenceKey} from '../frontend/services/import-preferences.js';
 import {parseDate,interpretCell} from '../frontend/services/import-formats.js';
@@ -12,11 +12,11 @@ const profile=(name='Underlag')=>({name,headerRow:1,startColumn:0,fileName:'synt
 const sample=(id='1')=>['F'+id,'Testfastighet '+id,'Testgatan '+id,'O'+id,100,'A'+id,'2025-01-01','2029-12-31','https://example.invalid/'+id];
 const run=(book,base=emptyData(),profiles=[profile()],preferences={})=>prepareCleanImport(book,profiles,base,{fileName:'syntetiskt.xlsx',preferences},XLSX);
 
-test('saved exclusions and explicit targets survive clean alias suggestions and ambiguous source IDs require a choice',()=>{
- const columns=[{header:'Verksamhet',index:0,target:'@ignore',approved:true},{header:'Samordnare',index:1,target:'contracts.responsiblePersonId',approved:true},{header:'Adress',index:2,target:'properties.popularName',approved:true},{header:'Objektsnummer / Förvaltningsobjekt',index:3,target:'properties.sourceId'}];
- const next=cleanProfiles({profiles:[{name:'Lokalbestånd',columns}]}).at(0).columns;
- assert.deepEqual(next.map(c=>c.target),['@ignore','contracts.responsiblePersonId','properties.popularName','@unmapped']);
- columns[3].approved=true;assert.equal(cleanProfiles({profiles:[{name:'Lokalbestånd',columns}]}).at(0).columns[3].target,'properties.id');
+test('saved exclusions and manual targets survive suggestions in the actual current catalog',()=>{
+ const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['Verksamhet','Samordnare','Adress','Objektsnummer / Förvaltningsobjekt'],['Beskrivning','Testperson','Testadress','F1']]),'Lokalbestånd');
+ const initial=profileWorkbook(book,importSchemas,XLSX,[],{reviewed:true})[0];assert.equal(initial.columns[3].target,'@unmapped');
+ const saved={sheet:initial.name,signature:initial.signature,layoutSignature:initial.layoutSignature,columns:initial.columns.map(c=>({...c,target:c.index===0?'@ignore':c.index===1?'contracts.responsiblePersonId':c.index===2?'properties.popularName':'properties.id'}))};
+ const read=profileWorkbook(book,importSchemas,XLSX,[saved],{reviewed:true})[0];assert.deepEqual(read.columns.map(c=>c.target),['@ignore','contracts.responsiblePersonId','properties.popularName','properties.id']);
 });
 test('a descriptive conflict on an exact property ID preserves the field and imports independently identified children',()=>{
  const first=sample(),second=sample();second[1]='Annat namn';second[2]='Annan adress 2';second[3]='O2';second[5]='A2';

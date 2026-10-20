@@ -18,7 +18,7 @@ await page.route('https://**/*',async route=>{const url=route.request().url();if
 await page.route('**/api/geocode',route=>route.fulfill({status:503,contentType:'application/json',body:'{"ok":false,"error":"Test"}'}));
 await page.route('**/api/budget-index?*',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"Test"}'}));
 await page.addInitScript(bytes=>{window.showOpenFilePicker=async()=>[{name:'syntetiskt.xlsx',queryPermission:async()=>'granted',getFile:async()=>new File([new Uint8Array(bytes)],'syntetiskt.xlsx')}];},sourceBytes);
-const ready=()=>page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();
+const ready=async()=>{await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();if(await page.locator('[data-check-records]').count()){await page.locator('[data-check-records]').click();await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();}};
 const column=header=>page.locator('[data-import-column]').filter({has:page.locator('.import-column-name strong',{hasText:header})});
 const begin=async()=>{await page.locator('.sidebar [data-view=sources]').evaluate(node=>node.click());await page.locator('[data-source=import]').click();await page.locator('[data-import-sheet]').first().waitFor();await page.locator('[data-import-select=all]').click();await page.locator('[data-import-start]').click();await ready();for(const selector of ['[data-column-group=mapped]','[data-column-group=ignored]'])await page.locator(selector).evaluateAll(nodes=>nodes.forEach(n=>n.open=true));};
 try{
@@ -67,8 +67,8 @@ try{
   previewImport({fileName:'syntetiskt.xlsx',workbook,profiles:[{name:'Test',headerRow:1,columns:[column]}]}, {importFieldPreferences:{}},importSchemas,'Testare',evaluator).then(result=>{window.__previewResolved=result.selected;}).catch(error=>{window.__previewResolved=error.name;});
  });
  await ready();await page.locator('[data-ignore-column]').click();
- assert.equal(await page.locator('[data-apply]').isDisabled(),true,'Apply is disabled while evaluating');
- await page.locator('[data-ignore-column]').click();await ready();await page.waitForFunction(()=>window.__previewRevisions.includes(2));assert.equal(await page.locator('[data-apply]').isDisabled(),true,'Stale ignored result cannot enable Apply');
+ assert.equal(await page.locator('[data-apply]').isDisabled(),true,'Apply is disabled until checking changed field choices');await page.locator('[data-check-records]').click();
+ await page.locator('[data-column-group=ignored]').evaluate(node=>node.open=true);await page.locator('[data-ignore-column]').click();await ready();await page.waitForFunction(()=>window.__previewRevisions.includes(2));assert.equal(await page.locator('[data-apply]').isDisabled(),true,'Stale ignored result cannot enable Apply');
  await page.locator('[data-ignore-unmapped]').click();await ready();assert.equal(await page.locator('[data-apply]').isDisabled(),true,'No selected column can be imported');await page.locator('[data-cancel]').click();assert.deepEqual(errors,[]);
  console.log('PASS: real Excel import → worker → preview → explicit partial selection → SQLite; saved exclusions/date/link rules, row rollback, idempotent reimport, grouped enrichment, overall/per-record choices, mobile and stale preview protection.');console.log('Screenshots: '+artifacts);
 }catch(error){await page.screenshot({path:path.join(artifacts,'failure.png'),fullPage:true});throw error;}

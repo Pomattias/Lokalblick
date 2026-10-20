@@ -962,9 +962,9 @@
     for(const [fi,file] of files.entries()){
       emitImportProgress(onProgress,{stage:"read",message:"Läser "+file.name+"…"});
       const buffer=await file.arrayBuffer();await yieldImportUi();
-      const overview=XLSX.read(buffer,{type:"array",bookSheets:true,bookProps:true});preventCanonicalAsEnrichment(overview);
-      const own=(overview.SheetNames||[]).map((name,index)=>({name:files.length===1?name:"F"+fi+"S"+index,sheetName:name,fileName:file.name,index,...importSheetRole(name)}));
-      underlag.push({fileName:file.name||"Excelimport.xlsx",buffer,sheets:own});sheets.push(...own);
+      const overview=XLSX.read(buffer,{type:"array",cellDates:false,cellNF:true});preventCanonicalAsEnrichment(overview);
+      const own=(overview.SheetNames||[]).map((name,index)=>({name:files.length===1?name:"F"+fi+"S"+index,sheetName:name,fileName:file.name,index,rows:Math.max(0,meaningfulSheetInfo(overview.Sheets[name]).rows-1),...importSheetRole(name)}));
+      underlag.push({fileName:file.name||"Excelimport.xlsx",buffer,workbook:overview,sheets:own});sheets.push(...own);
     }
     const fileName=underlag.map(f=>f.fileName).join(", ");
     source.pendingImport={fileName,buffer:underlag.length===1?underlag[0].buffer:null,files:underlag,sheets};
@@ -1616,9 +1616,8 @@
         pending.preparedWorkbooks ||= new Map();
         pending.preparedWorkbooks.set(JSON.stringify([...selectedSheets].sort()),engine.readImportSource(pending.files[0],names,XLSX));
       }
-      return {workbook,profiles:engine.profileWorkbook(workbook,this.schemas,XLSX,data?.importMappings||[],options),
-        fingerprint:combined.fingerprint,fileName:pending.fileName,fileCount:pending.files?.length||1,
-        known:workbook.__importSources.some(s=>{const single={SheetNames:[s.sheetName],Sheets:{[s.sheetName]:workbook.Sheets[s.sheetKey]}};return Boolean(window.LokalblickMigrationAdapter?.detect(single)||window.LokalblickOperationalEnrichmentAdapter?.detect(single)||window.LokalblickProject2027Adapter?.detect(single)||window.LokalblickContractEnrichmentAdapter?.detect(single));})};
+      return {workbook,profiles:engine.profileWorkbook(workbook,options.schemas||this.schemas,XLSX,data?.importMappings||[],options),
+        fingerprint:combined.fingerprint,fileName:pending.fileName,fileCount:pending.files?.length||1};
     },
     importPreparedWorkbook:importPreparedWorkbook,
     importWorkbook:importWorkbook,
