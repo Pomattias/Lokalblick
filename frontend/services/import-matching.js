@@ -17,7 +17,8 @@ export function resolveFieldName(value,schemas,primary){
  if(direct){const itemType=typed?Object.entries(schemas.find(s=>s.key==='agreementItems')?.itemTypes||{}).find(([label])=>matchName(label)===matchName(typed[1]))?.[1]:null;if(typed&&!itemType)return null;return {...direct,...(itemType?{itemType}:{})};}
  const split=text.indexOf('.'),table=split>=0?schemas.find(s=>tableNames(s).includes(matchName(text.slice(0,split)))):null;
  const name=matchName((table?text.slice(split+1):text).replace(/[, ]+(?:kr|tkr|mkr|sek|m²|m2|kvm)(?:\/(?:år|mån))?$/i,'')),scope=table?fields.filter(f=>f.collection===table.key):fields;
- const hits=scope.filter(f=>[f.field,f.caption,...f.aliases].some(alias=>matchName(String(alias).replace(/[, ]+(?:kr|tkr|mkr|sek|m²|m2|kvm)(?:\/(?:år|mån))?$/i,''))===name));
+ let hits=scope.filter(f=>[f.field,f.caption,...f.aliases].some(alias=>matchName(String(alias).replace(/[, ]+(?:kr|tkr|mkr|sek|m²|m2|kvm)(?:\/(?:år|mån))?$/i,''))===name));
+ if(!hits.length&&table)hits=scope.filter(f=>f.aliases.some(alias=>matchName(alias)===matchName(text)));
  const generic=['belopp','arsbelopp','kostnad','typ','namn','kategori'].includes(name);
  const chosen=hits.length===1?(!table&&generic&&hits[0].collection!==primary&&!relatedTables(schemas,primary).includes(hits[0].collection)?null:hits[0]):hits.find(f=>f.collection===primary)||hits.find(f=>f.field==='id');
  if(chosen){const itemType=typed?Object.entries(schemas.find(s=>s.key==='agreementItems')?.itemTypes||{}).find(([label])=>matchName(label)===matchName(typed[1]))?.[1]:null;if(typed&&!itemType)return null;return {...chosen,...(itemType?{itemType}:{})};}
@@ -36,6 +37,55 @@ export function inferTable(name,headers,samples,schemas){
   return {key:schema.key,score};
  }).sort((a,b)=>b.score-a.score);
  return scores[0]?.score?{key:scores[0].key,confidence:scores[0].score>(scores[1]?.score||0)?'suggested':'review'}:{key:schemas.find(s=>s.key==='properties')?.key||schemas[0]?.key,confidence:'review'};
+}
+// Context refines suggestions only. Explicit rows, saved rules and manual choices
+// remain authoritative, and every destination must exist in the current catalog.
+export function suggestTableColumns(profile,schemas){
+ const fields=schemaFields(schemas),valid=new Set(fields.map(f=>f.target)),near=new Set([profile.primaryTable,...relatedTables(schemas,profile.primaryTable)]);
+ const automatic=column=>!column.approved&&column.matchSource!=='explicit';
+ const choose=(column,target,itemType,warning='')=>{if(!valid.has(target))return;column.target=target;column.itemType=itemType;column.matchSource='alias';column.warning=warning;};
+ const review=(column,warning)=>{column.target='@unmapped';delete column.itemType;column.matchSource='unmatched';column.warning=warning;};
+ const values=column=>(column.samples||[]).filter(present);
+ const roleColumns=()=>profile.columns.filter(c=>personRole(c.target));
+ for(const column of profile.columns.filter(automatic)){
+  const header=matchName(column.header),collection=column.target.split('.')[0];
+  if(['activities','orders'].includes(profile.primaryTable)&&(!near.has(collection)||collection==='orders'&&profile.primaryTable==='activities'||collection==='activities'&&profile.primaryTable==='orders')&&!column.target.startsWith('@')&&!column.header.includes('.'))review(column,'Detta fält hör till en annan tabell. Välj en uttrycklig koppling om uppgiften ska läsas in.');
+  if(header==='objektsnummerforvaltningsobjekt')review(column,'Rubriken kan avse ObjektID eller FastighetsID. Välj vilken identifierare kolumnen innehåller.');
+  if(header==='benamning'&&['properties','contracts'].includes(profile.primaryTable)&&profile.columns.some(c=>c.target==='properties.designation'))choose(column,'properties.popularName');
+  if(column.target==='properties.ownerPartyId'&&profile.columns.filter(c=>matchName(c.header)===header).length>1&&values(column).length&&values(column).every(v=>/^\+?[\d ()-]{7,}$/.test(String(v))))review(column,'Denna kolumn verkar innehålla telefonnummer trots rubriken Fastighetsägare. Välj rätt kontaktfält eller Importera inte.');
+  if(['orgnnr','orgnr','orgnummer','organisationsnummer'].includes(header)&&profile.primaryTable!=='organizations'){
+   const owners=profile.columns.some(c=>c.target==='properties.ownerPartyId'),tenants=profile.columns.some(c=>c.target==='contracts.tenantPartyId');
+   if(owners!==tenants)choose(column,owners?'properties.ownerOrganizationNumber':'contracts.tenantOrganizationNumber');
+   else review(column,'Välj om organisationsnumret tillhör fastighetsägaren eller hyresgästen.');
+  }
+  if(['emailforvaltare','epostforvaltare','forvaltarenr','telefonforvaltare'].includes(header)){
+   const owners=roleColumns().filter(c=>personRole(c.target).role==='owner');
+   if(owners.length===1){column.target='contact.'+owners[0].index+'.'+(/email|epost/.test(header)?'email':'phone');column.matchSource='alias';column.warning='';}
+   else review(column,'Välj först namnkolumnen för fastighetsägarens kontaktperson.');
+  }
+  if(header==='ursprungligtgiltigttom'||header==='ursprungligaavtalstid')review(column,'Ursprunglig avtalstid är inte samma uppgift som aktuell hyrestid. Välj ett befintligt fält eller Importera inte.');
+  if(/^hyra\d{4}$/.test(header)){
+   review(column,'Årsbeloppet kan redan vara uppräknat. Använd Grundhyra för bashyran; välj Källans rapporterade årsbelopp endast efter kontroll av år och indexvillkor.');
+  }
+  if(column.target==='agreementItems.baseYear'&&profile.primaryTable==='contracts'&&profile.columns.some(c=>c.target==='agreementItems.baseAmount'&&c.itemType==='base'))column.itemType='base';
+  if(header==='indexprocent'&&profile.primaryTable==='contracts'&&profile.columns.some(c=>c.target==='agreementItems.baseAmount'&&c.itemType==='base'))choose(column,'agreementItems.indexPercent','base','Kontrollera att procenten avser indexandel för bashyran.');
+  if(column.target==='agreementItems.baseAmount'&&column.format?.checked&&column.format.invalid===column.format.checked)review(column,'Kolumnen innehåller inte belopp. Text om vad som ingår får inte bli ett hyrestillägg.');
+  const spec=schemas.find(s=>s.key===column.target.split('.')[0])?.fieldSpecs?.[column.target.split('.')[1]];
+  if(spec?.type==='select'&&values(column).length&&values(column).every(v=>typeof v==='number'))review(column,'Numeriska koder behöver förklaras. Använd fältets benämningar: '+Object.values(spec.values||{}).join(', ')+'.');
+  if(column.target==='@unmapped'&&!column.filled){column.target='@ignore';column.warning='Tom kolumn. Du kan välja ett fält om den ska användas.';}
+  else if(column.target==='@unmapped'&&!column.warning)column.warning='Inget entydigt fält i den aktuella datamodellen. Välj ett fält med samma betydelse eller Importera inte.';
+ }
+ const groups=new Map();for(const column of profile.columns){if(column.target.startsWith('@')||personRole(column.target))continue;const key=column.target+(column.itemType?'['+column.itemType+']':'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(column);}
+ for(const columns of groups.values())if(columns.length>1)for(const column of columns.filter(automatic))review(column,'Flera kolumner föreslås till samma fält. Välj vilken som gäller; beloppen eller uppgifterna slås inte ihop automatiskt.');
+ for(const column of profile.columns)column.collection=column.target.split('.')[0];
+}
+export function importIdentityWarnings(profile,schemas){
+ const schema=schemas.find(s=>s.key===profile.primaryTable),selected=new Set(profile.columns.map(c=>c.target)),warnings=[];
+ if(!schema)return warnings;
+ const caption=field=>schema.columns.find(([key])=>key===field)?.[1]||field;
+ if(['contracts','activities','orders'].includes(schema.key)&&!selected.has(schema.key+'.id'))warnings.push('Koppla '+caption('id')+' för säker återimport. Lägg till en beständig identifierare i Excel om kolumnen saknas.');
+ if(schema.key==='orders'&&!selected.has('orders.activityId')&&!selected.has('activities.id'))warnings.push('Beställningarna behöver '+caption('activityId')+' för koppling till rätt ärende.');
+ return warnings;
 }
 export function profileTables(workbook,schemas,XLSX,saved=[],options={}){
  const fields=schemaFields(schemas),valid=new Set(fields.map(f=>f.target));
@@ -68,14 +118,13 @@ export function profileTables(workbook,schemas,XLSX,saved=[],options={}){
    return {header:String(header),index,target:ambiguous?'@unmapped':target,collection:target.split('.')[0],itemType:rule?rule.itemType:suggestion?.itemType,transform:rule?.transform||(/månadshyra/i.test(header)?'monthly':'auto'),date1904:Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904),dateMode:rule?.dateMode||'auto',invalidPolicy:rule?.invalidPolicy||'reject-row',emptyMarkers:true,approved:Boolean(rule),personFormat:rule?.personFormat,shared:rule?.shared===true,matchSource:rule?'saved':suggestion?'alias':'unmatched',warning:rule&&target==='@unmapped'?'Det tidigare fältet finns inte längre. Välj ett aktuellt fält.':''};
   }).filter(Boolean);
   if(primary==='agreementItems'&&profile.columns.some(c=>c.target==='agreementItems.type'))for(const c of profile.columns)if(!c.approved)delete c.itemType;
-  refreshTableProfile(workbook,profile,schemas,XLSX);return profile;
+  refreshTableProfile(workbook,profile,schemas,XLSX);suggestTableColumns(profile,schemas);refreshTableProfile(workbook,profile,schemas,XLSX,{countRows:false});return profile;
  });
 }
-export function refreshTableProfile(workbook,profile,schemas,XLSX){
+export function refreshTableProfile(workbook,profile,schemas,XLSX,{countRows=true}={}){
  const sheet=workbook.Sheets[profile.sheetKey||profile.name],range=XLSX.utils.decode_range(sheet['!ref']||'A1');
  const first=profile.headerRow+(profile.mappingRow?1:0);profile.dataStartRow=first;
- let rows=0;for(let r=first;r<=range.e.r;r++)if(profile.columns.some(c=>present(sheet[XLSX.utils.encode_cell({r,c:profile.startColumn+c.index})]?.v)))rows++;
- profile.rowCount=rows;
+ if(countRows){let rows=0;for(let r=first;r<=range.e.r;r++)if(profile.columns.some(c=>present(sheet[XLSX.utils.encode_cell({r,c:profile.startColumn+c.index})]?.v)))rows++;profile.rowCount=rows;}
  for(const column of profile.columns){
   const spec=schemas.find(s=>s.key===column.target.split('.')[0])?.fieldSpecs?.[column.target.split('.')[1]],cells=[];
   // Match only a representative sample; every imported value is validated later.

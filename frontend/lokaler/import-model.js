@@ -14,27 +14,31 @@ const validLink=value=>{try{const url=new URL(value);return /^https?:$/.test(url
 const hash=value=>{let h=2166136261;for(const char of value){h^=char.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(16);};
 const fieldAliases={
  organizations:{organizationNumber:['Orgnr','Org.nr','Organisationsnr']},
- properties:{designation:['Fastighet','Fastighetsbeteckning','Fast.bet','Fast.nr','Fastighetsnr'],id:['Fastighets-ID','Förvaltningsobjekt'],address:['Gatuadress','Postadress'],city:['Postort','Stad'],ownerPartyId:['Fastighetsägare PartID','Fastighetsägare namn']},
- objects:{id:['Objektnummer','Objektsnummer','Objektnr'],area:['Area','Lokalarea','Lokalyta kvm','BRA','kvm'],apartmentCount:['Lägenheter'],apartmentArea:['Lägenheter (yta)']},
- contracts:{id:['Avtalsnummer','Avtalsnr','Avtals-ID'],start:['Fr.o.m.','Start','Startdatum','Kontraktsstart','Gäller från','Giltigt fr.o.m.'],end:['T.o.m.','Slut','Slutdatum','Kontraktsslut','Giltigt t.o.m.'],business:['Kommentar verksamhet','Namn på verksamheten','Verksamhetsnamn'],category:['Lokalkategori (LEB)','Lokalkategori (EB)'],use:['Användning'],contractDocumentUrl:['Länk avtal (Huvudkontrakt)','Länk till huvudkontrakt']},
- activities:{title:['Ärendenamn','Aktivitet'],startDate:['Fr.o.m.','Startdatum'],endDate:['T.o.m.','Slutdatum']},
+ properties:{designation:['Fastighet','Fastighetsbeteckning','Fast.bet','Fast.nr','Fastighetsnr'],popularName:['Benämning'],id:['Fastighets-ID','Förvaltningsobjekt'],address:['Gatuadress','Postadress'],city:['Postort','Stad'],ownerPartyId:['Fastighetsägare PartID','Fastighetsägare namn','Hyresvärd','Lev.namn']},
+ objects:{id:['Objektnummer','Objektsnummer','Objektnr','Objekt. nr'],area:['Area','Lokalarea','Lokalyta kvm','Lokalyta (kvm)','BRA','kvm','m2'],apartmentCount:['Lägenheter'],apartmentArea:['Lägenheter (yta)']},
+ contracts:{id:['Avtalsnummer','Avtalsnr','Avtals-ID'],start:['Fr.o.m.','Start','Startdatum','Kontraktsstart','Gäller från','Giltigt fr.o.m.'],end:['T.o.m.','Slut','Slutdatum','Kontraktsslut','Giltigt t.o.m.','Aktuellt giltigt t.o.m.'],business:['Namn på verksamheten','Verksamhetsnamn'],comment:['Kommentar verksamhet'],category:['Lokalkategori','Lokalkategori (LEB)','Lokalkategori (EB)'],notice:['Säg upp avtal senast','Sägs upp senast'],noticePeriodMonths:['Uppsägningstid'],renewalPeriodMonths:['Förlängningstid'],use:['Användning'],contractDocumentUrl:['Länk avtal (Huvudkontrakt)','Länk till huvudkontrakt']},
+ activities:{title:['Ärendenamn','Aktivitet','Vad ska göras'],priority:['Prio'],notes:['Kommentar','Kommentarer'],startDate:['Fr.o.m.','Startdatum'],endDate:['T.o.m.','Slutdatum']},
+ orders:{title:['Produktnamn/beskrivning'],orderedAt:['Beställningsdatum'],deliveryText:['Leveransdatum'],status:['Status (Enbart beställt eller klart)']},
  people:{id:['Person-ID'],email:['Email','Epost'],phone:['Telefonnummer']}
 };
 export const importSchemas=Object.entries(viewCollections).map(([table,collection])=>{
  const spec=tables[table],fields=spec.fields.filter(f=>f.key!=='sources'),fieldSpecs=Object.fromEntries(fields.map(f=>[viewFields[table][f.key]||f.key,{...f,storageKey:f.key}]));
  const schema={key:collection,storage:table,canonical:true,sheet:spec.label,singular:spec.singular,fieldSpecs:{id:{type:'text',storageKey:'id'},...fieldSpecs},labelAliases:fieldAliases[collection]||{},columns:[['id',idLabels[table]],...fields.map(f=>[viewFields[table][f.key]||f.key,f.type==='ref'?idLabels[f.table]:f.label])],related:[],parents:[]};
+ if(collection==='activities')schema.aliases=['Aktiviteter','Årshjul'];
+ if(collection==='contracts')schema.aliases=['Hyresavtal','Lokallista','Lokalbestånd','Lokaldata'];
  if(table==='properties')schema.columns=schema.columns.map(c=>c[0]==='ownerPartyId'?[c[0],'Fastighetsägare']:c);
  const linked=partyNumberFields[table];
  if(linked){schema.columns.push([linked.key,linked.label]);schema.fieldSpecs[linked.key]={type:'text',storageTarget:'parties.organization_number'};schema.labelAliases={...schema.labelAliases,[linked.key]:[linked.label,'Organisationsnummer '+(linked.role==='owner'?'fastighetsägare':'hyresgäst'),'Orgnr ('+(linked.role==='owner'?'fastighetsägare':'hyresgäst')+')']};}
  if(['properties','contracts','activities','orders'].includes(collection)){
   const roles=collection==='properties'?[['ownerResponsiblePersonId','Fastighetsägarens kontaktperson'],['responsiblePersonId','Samordnare']]:collection==='contracts'?[['tenantResponsiblePersonId','Hyresgästens kontaktperson'],['responsiblePersonId','Samordnare']]:[['responsiblePersonId','Vår ansvarige']];
   schema.columns.push(...roles);for(const [key]of roles)schema.fieldSpecs[key]={type:'text'};
-  schema.labelAliases={...schema.labelAliases,responsiblePersonId:['Ansvarig hos oss','Vår kontaktperson','Avtalsansvarig','Vår ansvarige']};
+  schema.labelAliases={...schema.labelAliases,responsiblePersonId:['Ansvarig hos oss','Vår kontaktperson','Avtalsansvarig','Vår ansvarige','Ansvarig']};
   if(collection==='properties')schema.labelAliases.ownerResponsiblePersonId=['Fastighetsförvaltare','Förvaltare','Fastighetsägarens förvaltare'];
  }
  if(table==='agreements'){
   schema.columns=schema.columns.map(c=>c[0]==='tenantPartyId'?[c[0],'Hyresgäst']:c);
-  schema.shortcuts=Object.entries(legacyFinanceMap).map(([field,target])=>({target:'agreementItems.'+({annual_rent:'baseAmount',annual_additions:'baseAmount',annual_property_tax:'baseAmount',base_index:'baseIndex'}[field]||field.replace(/^(rent|addition)_/,'').split('_').map((s,i)=>i?s[0].toUpperCase()+s.slice(1):s).join('')),itemType:field==='annual_property_tax'?'tax':field.startsWith('addition')||field==='annual_additions'?'addition':'base',aliases:[legacyFinanceFields[field],...(field==='annual_rent'?['Årshyra','Hyresbelopp','Bashyra','Månadshyra']:field==='annual_additions'?['Tillägg','Bastillägg','Tilläggshyra']:field==='annual_property_tax'?['F-skatt per år','Fastighetsskatt']:[])]}));
+  schema.shortcuts=Object.entries(legacyFinanceMap).map(([field,target])=>({target:'agreementItems.'+({annual_rent:'baseAmount',annual_additions:'baseAmount',annual_property_tax:'baseAmount',base_index:'baseIndex'}[field]||field.replace(/^(rent|addition)_/,'').split('_').map((s,i)=>i?s[0].toUpperCase()+s.slice(1):s).join('')),itemType:field==='annual_property_tax'?'tax':field.startsWith('addition')||field==='annual_additions'?'addition':'base',aliases:[legacyFinanceFields[field],...(field==='annual_rent'?['Årshyra','Hyresbelopp','Bashyra','Grundhyra','Månadshyra']:field==='annual_additions'?['Tillägg','Bastillägg','Tilläggshyra']:field==='annual_property_tax'?['F-skatt per år','F-skatt','Fastighetsskatt']:[])]}));
+  schema.shortcuts.push(...Object.entries(tables.agreement_items.fields.find(f=>f.key==='type').values).filter(([type])=>!['base','addition','tax'].includes(type)).map(([itemType,label])=>({target:'agreementItems.baseAmount',itemType,aliases:[label]})));
  }
  if(table==='agreement_items')schema.itemTypes=Object.fromEntries(Object.entries(tables.agreement_items.fields.find(f=>f.key==='type').values).map(([value,label])=>[label,value]));
  return schema;
@@ -149,6 +153,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
       value=interpretCell(cell,{...column,target,valueType:spec?.type,emptyMarkers:true},XLSX);
      }else continue;
      const spec=mapping&&tables[mapping.table].fields.find(f=>f.key===mapping.field);
+     if(spec?.values&&present(value))value=Object.entries(spec.values).find(([id,label])=>key(id)===key(value)||key(label)===key(value))?.[0]||value;
      if(spec?.type==='url'&&present(value)&&!validLink(value)){
       if(column.invalidPolicy!=='review-field')throw Error(spec.label+' måste vara en fullständig länk som börjar med https:// eller http://.');
       const at=originFor(mapping.table,mapping.field),reason=spec.label+' är inte en fullständig webblänk';
@@ -178,6 +183,9 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     if(linkedNumbers.has('owner'))raw.properties ||= {};
     if(raw.properties){
      const p=raw.properties;
+     const propertyIds=[p.id,raw.objects?.property_id,raw.issues?.property_id].filter(present).map(text);
+     if(new Set(propertyIds).size>1)throw Error('FastighetsID och radens fastighetskoppling pekar på olika fastigheter.');
+     p.id ||= propertyIds[0];
      const matchingKey=JSON.stringify([source,profile.name,r+1]),named=p.name?propertyIdentities.get(key(p.name))||[]:[],atAddress=p.address?named.filter(row=>key(row.address)===key(p.address)):named;
      const candidates=atAddress.length?atAddress:named,chosen=context.rowMatches?.[matchingKey];
      if(!p.id&&!anchorProperty&&candidates.length>1&&!chosen)throw Object.assign(Error('Flera fastigheter har samma beteckning. Välj rätt fastighet under Granska poster.'),{collection:'properties',field:'designation',matchingKey,matches:candidates.map(row=>({id:row.id,label:row.name,detail:[row.address,row.city].filter(Boolean).join(' · ')}))});
@@ -219,7 +227,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      const objectId=a.object_id||object?.id;
      issue=merge('issues',{...a,id:text(a.id),object_id:objectId||null,property_id:objectId?null:a.property_id||property?.id||existing?.property_id},existing);
     }
-    if(raw.orders){const o=raw.orders;if(!o.id)throw Error('Beställningen behöver ett ID.');o.issue_id ||= issue?.id;if(!indexes.issues.has(o.issue_id))throw Error('Beställningen behöver ett befintligt ÄrendeID.');o.status=({Planerad:'draft',Beställd:'ordered',Klar:'done'})[o.status]||o.status;order=merge('orders',o,indexes.orders.get(o.id));}
+    if(raw.orders){const o=raw.orders;if(!o.id)throw Error('Beställningen behöver ett ID.');o.issue_id ||= issue?.id;if(!indexes.issues.has(o.issue_id))throw Error('Beställningen behöver ett befintligt ÄrendeID.');o.status=({Planerad:'draft',Beställd:'ordered',Beställt:'ordered',Klar:'done'})[o.status]||o.status;order=merge('orders',o,indexes.orders.get(o.id));}
     for(const [type,row]of itemRows){
      const shared=raw.agreement_items||{},agreementId=shared.agreement_id||agreement?.id,labels=tables.agreement_items.fields.find(f=>f.key==='type').values;
      if(!agreementId||!indexes.agreements.has(agreementId))throw Error('Avtalsposten behöver ett befintligt AvtalsID.');

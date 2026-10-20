@@ -75,6 +75,19 @@ Senaste resultatet per underlag sparas i befintligt källregister och följer me
 databasen och Excel-kopian. Det skapas för nya importer, inte retroaktivt.
 Bortval görs före importen och återanvänds nästa gång; det raderar inte tidigare data.
 
+Berikningsunderlag med flikarna **EXT**, **SF**, **Lokalbestånd**, **Fastighetslista**,
+**Lokaldata**, **Årshjul** och **Beställningar** använder samma importguide.
+Alternativa rubriker föreslår aktuella modellfält; Årshjul föreslår Ärenden.
+Förvaltarens e-post och telefon kopplas till personens namnkolumn.
+Verksamhet och Kommentar verksamhet går till skilda befintliga avtalsfält.
+Tomma okända kolumner väljs bort som förslag. Dubbla tillägg, ursprunglig avtalstid,
+redan uppräknad årshyra och oförklarade prioritetskoder kräver ett aktivt val.
+Text som ”ingår” tolkas inte som ett belopp. Saknas motsvarande fält i modellen
+visas detta; ingen extra informationslagring skapas. Ärenden behöver ÄrendeID,
+beställningar behöver BeställningsID och koppling till ÄrendeID. Guiden varnar
+om identifierarkolumnerna saknas. Lägg till beständiga ID:n i underlaget innan
+dessa flikar importeras; använd inte radnummer som byts när filen sorteras.
+
 Fastighetsägaren väljs på fastigheten och hyresgästen på avtalet. Deras
 organisationsnummer lagras en gång i **Parter → Organisationsnummer**, som text
 med tio siffror (visas som `000000-0000`). Numret kan ändras vid respektive
