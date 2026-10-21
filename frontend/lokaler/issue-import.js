@@ -6,7 +6,7 @@ const digest=value=>{let a=2166136261,b=5381;for(const char of JSON.stringify(va
 const homes=new Set(['properties.id','properties.sourceId','properties.designation','properties.address','objects.id','objects.number','objects.propertyId','activities.propertyId','activities.objectId','contracts.id']);
 // Match only existing records. Keep house numbers, suffixes and address ranges;
 // an address identifies a property, never an inferred object within it.
-const addressKey=value=>text(value).replace(/[‐‑‒–—]/g,'-').replace(/(\d)\s+([a-zåäö])(?=$|[\s,.])/g,'$1$2');
+export const importAddressKey=value=>text(value).replace(/[‐‑‒–—]/g,'-').replace(/\b(?:v\.?|väg|vägen)\s+(?=\d)/g,'väg ').replace(/(\d)\s+([a-zåäö])(?=$|[\s,.])/g,'$1$2');
 export function issueHomeMatcher(data){
  const index=(rows,values)=>{const map=new Map();for(const row of rows)for(const value of new Set(values(row).filter(Boolean))){if(!map.has(value))map.set(value,[]);map.get(value).push(row);}return map;};
  const ids=rows=>{
@@ -14,14 +14,14 @@ export function issueHomeMatcher(data){
   return value=>{const id=String(value??'').trim();return exact.has(id)?[exact.get(id)]:normalized.get(text(id))||(/^\d+$/.test(id)?numeric.get(id.replace(/^0+(?=\d)/,'')):null)||[];};
  };
  const objectIds=ids(data.objects),propertyIds=ids(data.properties),properties=new Map(data.properties.map(row=>[row.id,row]));
- const names=index(data.properties,row=>[text(row.name),text(row.popular_name)]),addresses=index(data.properties,row=>[addressKey(row.address)]);
+ const names=index(data.properties,row=>[text(row.name),text(row.popular_name)]),addresses=index(data.properties,row=>[importAddressKey(row.address)]);
  const intersect=(left,right)=>left.filter(row=>right.some(other=>other.id===row.id));
  return raw=>{
   const p=raw.properties||{},o=raw.objects||{},a=raw.issues||{};
   const objectInputs=[a.object_id,o.id].filter(value=>value!=null&&String(value).trim()),propertyInputs=[a.property_id,p.id,o.property_id].filter(value=>value!=null&&String(value).trim());
   const propertyClues=[];
   for(const input of propertyInputs){const hits=propertyIds(input);if(!hits.length)return {reason:'FastighetsID finns inte i fastighetsregistret.'};propertyClues.push(hits);}
-  const named=p.name?names.get(text(p.name))||[]:[],atAddress=p.address?addresses.get(addressKey(p.address))||[]:[];
+  const named=p.name?names.get(text(p.name))||[]:[],atAddress=p.address?addresses.get(importAddressKey(p.address))||[]:[];
   if(named.length)propertyClues.push(named);if(atAddress.length)propertyClues.push(atAddress);
   const cityFits=property=>!p.city||!property?.city||text(property.city)===text(p.city);
   if(objectInputs.length){

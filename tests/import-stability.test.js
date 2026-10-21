@@ -14,7 +14,7 @@ const run=(book,base=emptyData(),profiles=[profile()],preferences={})=>prepareCl
 
 test('saved exclusions and manual targets survive suggestions in the actual current catalog',()=>{
  const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['Verksamhet','Samordnare','Adress','Objektsnummer / Förvaltningsobjekt'],['Beskrivning','Testperson','Testadress','F1']]),'Lokalbestånd');
- const initial=profileWorkbook(book,importSchemas,XLSX,[],{reviewed:true})[0];assert.equal(initial.columns[3].target,'@unmapped');
+ const initial=profileWorkbook(book,importSchemas,XLSX,[],{reviewed:true})[0];assert.equal(initial.columns[3].target,'properties.id');
  const saved={sheet:initial.name,signature:initial.signature,layoutSignature:initial.layoutSignature,columns:initial.columns.map(c=>({...c,target:c.index===0?'@ignore':c.index===1?'contracts.responsiblePersonId':c.index===2?'properties.popularName':'properties.id'}))};
  const read=profileWorkbook(book,importSchemas,XLSX,[saved],{reviewed:true})[0];assert.deepEqual(read.columns.map(c=>c.target),['@ignore','contracts.responsiblePersonId','properties.popularName','properties.id']);
 });

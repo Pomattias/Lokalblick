@@ -40,7 +40,7 @@ function fieldResolver(schemas,fields=schemaFields(schemas)){
 export function resolveFieldName(value,schemas,primary){
  return fieldResolver(schemas)(value,primary);
 }
-export const issueNumberColumn=(profile,column)=>profile.primaryTable==='activities'&&['objektsnummer','objektnummer','objektnr','objektsnr','objektsnummerforvaltningsobjekt','forvaltningsobjekt','forvaltningsnummer'].includes(matchName(column.header));
+export const issueNumberColumn=(profile,column)=>profile.primaryTable==='activities'&&['objektsnummer','objektnummer','objektnr','objektsnr'].includes(matchName(column.header));
 // This is column evidence, not a fallback that changes the meaning of a chosen FK.
 // Explicit and approved choices always win; mixed or colliding numbers need a choice.
 export function suggestIssueNumberColumns(profiles,data){
@@ -82,7 +82,6 @@ export function suggestTableColumns(profile,schemas){
   if(['activities','orders'].includes(profile.primaryTable)&&(!near.has(collection)||collection==='orders'&&profile.primaryTable==='activities'||collection==='activities'&&profile.primaryTable==='orders')&&!column.target.startsWith('@')&&!column.header.includes('.'))review(column,'Detta fält hör till en annan tabell. Välj en uttrycklig koppling om uppgiften ska läsas in.');
   if(profile.primaryTable==='activities'&&column.target==='objects.id')choose(column,'activities.objectId');
   if(profile.primaryTable==='activities'&&column.target==='properties.id')choose(column,'activities.propertyId');
-  if(header==='objektsnummerforvaltningsobjekt')review(column,'Rubriken kan avse ObjektID eller FastighetsID. Välj vilken identifierare kolumnen innehåller.');
   if(header==='benamning'&&['properties','contracts'].includes(profile.primaryTable)&&profile.columns.some(c=>c.target==='properties.designation'))choose(column,'properties.popularName');
   if(column.target==='properties.ownerPartyId'&&profile.columns.filter(c=>matchName(c.header)===header).length>1&&values(column).length&&values(column).every(v=>/^\+?[\d ()-]{7,}$/.test(String(v))))review(column,'Denna kolumn verkar innehålla telefonnummer trots rubriken Fastighetsägare. Välj rätt kontaktfält eller Importera inte.');
   if(['orgnnr','orgnr','orgnummer','organisationsnummer'].includes(header)&&profile.primaryTable!=='organizations'){
@@ -162,7 +161,10 @@ export function profileTables(workbook,schemas,XLSX,saved=[],options={}){
   profile.columns=headers.map((header,index)=>{
    if(!present(header))return null;
    const duplicate=headers.filter(h=>matchName(h)===matchName(header)).length>1,matches=(previous?.columns||[]).filter(c=>matchName(c.header)===matchName(header));
-   const rule=duplicate?(previous?.layoutSignature===layoutSignature?matches.find(c=>c.index===index):null):matches.length===1?matches[0]:null;
+   const savedRule=duplicate?(previous?.layoutSignature===layoutSignature?matches.find(c=>c.index===index):null):matches.length===1?matches[0]:null;
+   // Correct obsolete object suggestions for captions the current model declares
+   // to be property identifiers. Explicit rows and saved exclusions still win.
+   const rule=savedRule&&['objects.id','contracts.objectId','activities.objectId'].includes(savedRule.target)&&match(header,'properties')?.target==='properties.id'?null:savedRule;
    const suggestion=match(header,primary);let target=rule?(valid.has(rule.target)||rule.target==='@ignore'||rule.target.startsWith('contact.')?rule.target:'@unmapped'):suggestion?.target||'@unmapped';
    if(rule?.contactHeader&&contactPart(target)){const contacts=headers.map((h,i)=>({h,i})).filter(c=>matchName(c.h)===matchName(rule.contactHeader));target=contacts.length===1?'contact.'+contacts[0].i+'.'+contactPart(target).field:'@unmapped';}
    return {header:String(header),index,target,collection:target.split('.')[0],itemType:rule?rule.itemType:suggestion?.itemType,transform:rule?.transform||(/månadshyra/i.test(header)?'monthly':'auto'),date1904:Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904),dateMode:rule?.dateMode||'auto',invalidPolicy:rule?.invalidPolicy||'reject-row',emptyMarkers:true,approved:Boolean(rule),personFormat:rule?.personFormat,shared:rule?.shared===true,matchSource:rule?'saved':suggestion?'alias':'unmatched',warning:rule&&target==='@unmapped'?'Det tidigare fältet finns inte längre. Välj ett aktuellt fält.':''};

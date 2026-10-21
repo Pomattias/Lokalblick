@@ -80,9 +80,9 @@ test('a property reference identifies name enrichment in mixed object rows; conf
  assert.equal(result.report.blocking,1);assert.match(result.clean.workspace.importReview[0].reason,/pekar på olika fastigheter/);assert.equal(result.clean.properties.length,0);assert.equal(result.clean.objects.length,0);
 });
 
-test('ambiguous object/property IDs stay explicit and dotted object abbreviations still resolve',()=>{
+test('management object captions identify properties and dotted object abbreviations still identify objects',()=>{
  const workbook=source(['Fastighetsbeteckning','Avtalsnummer','Objektsnummer / Förvaltningsobjekt','Objekt. nr'],[['Test 1','A1','F1','O1']],'Lokalbestånd'),p=profiles(workbook)[0];
- assert.equal(column(p,'Objektsnummer / Förvaltningsobjekt').target,'@unmapped');assert.match(column(p,'Objektsnummer / Förvaltningsobjekt').warning,/ObjektID eller FastighetsID/);assert.equal(column(p,'Objekt. nr').target,'objects.id');assert.equal(resolveFieldName('Objekt. nr',importSchemas,'properties').target,'objects.id');
+ assert.equal(column(p,'Objektsnummer / Förvaltningsobjekt').target,'properties.id');assert.equal(column(p,'Objekt. nr').target,'objects.id');assert.equal(resolveFieldName('Objekt. nr',importSchemas,'properties').target,'objects.id');
 });
 
 test('approved rules and explicit rows outrank new contextual proposals and can resolve duplicate captions',()=>{
