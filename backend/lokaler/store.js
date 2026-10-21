@@ -10,10 +10,12 @@ import {upgradeData} from '../../frontend/lokaler/model-revision.js';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 const keys = Object.keys(tables);
-function extendMaintenanceHomes(db) {
- // Current inspection workbooks/databases keep their IDs and observations.
- // Existing references remain intact while property and room scope are added.
+function extendRecordHomes(db) {
+ // Relax only the existing home constraints. IDs, optional fields, incoming
+ // references, observations and workspace snapshots remain intact.
  const names=[['spaces','object_id'],['inspections','object_id'],['inspection_points','part_id']].filter(([table,field])=>db.prepare('PRAGMA table_info('+table+')').all().some(column=>column.name===field&&column.notnull)).map(([table])=>table);
+ const issueSql=db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='issues'").get()?.sql;
+ if(issueSql&&/\(property_id IS NOT NULL\)\s*\+\s*\(object_id IS NOT NULL\)\s*=\s*1/.test(issueSql))names.push('issues');
  if(!names.length)return;
  db.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE');
  try {
@@ -22,9 +24,15 @@ function extendMaintenanceHomes(db) {
    const next=table+'_home_upgrade',sql=schema.slice(start,end).replace('IF NOT EXISTS '+table,next);
    const columns=db.prepare('PRAGMA table_info('+table+')').all().map(column=>column.name).join(',');
    db.exec(sql);
+   const created=new Set(db.prepare('PRAGMA table_info('+next+')').all().map(column=>column.name));
+   for(const column of db.prepare('PRAGMA table_info('+table+')').all())if(!created.has(column.name)){
+    const field=tables[table].fields.find(field=>field.key===column.name);
+    if(!field)throw Error('Okänt fält i '+table+': '+column.name);
+    db.exec('ALTER TABLE '+next+' ADD COLUMN '+column.name+' '+column.type+(field.type==='ref'?' REFERENCES '+field.table+'(id)':''));
+   }
    db.exec(`INSERT INTO ${next} (${columns}) SELECT ${columns} FROM ${table}; DROP TABLE ${table}; ALTER TABLE ${next} RENAME TO ${table};`);
   }
-  if(db.prepare('PRAGMA foreign_key_check').all().length)throw Error('Underhållets kopplingar kunde inte bevaras.');
+  if(db.prepare('PRAGMA foreign_key_check').all().length)throw Error('Posternas kopplingar kunde inte bevaras.');
   db.exec('COMMIT');
  } catch(error){db.exec('ROLLBACK');throw error;}
  finally{db.exec('PRAGMA foreign_keys=ON');}
@@ -62,7 +70,7 @@ export class LocalStore {
     for(const table of [...keys].reverse())db.exec('DROP TABLE IF EXISTS '+table);
     db.exec('DROP TABLE workspace');
    }
-   extendMaintenanceHomes(db);
+   extendRecordHomes(db);
    db.exec(schema);
    for (const [table, spec] of Object.entries(tables)) {
     const existing = new Set(db.prepare('PRAGMA table_info(' + table + ')').all().map(row => row.name));

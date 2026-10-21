@@ -1,3 +1,4 @@
+import {issueNeedsLink} from '../lokaler/issue-identity.js';
 // Reorder the existing issue form without replacing controls or persistence.
 // Installed only outside Budget, which retains its original editor and journal.
 const element=(tag,className,text)=>{
@@ -49,7 +50,7 @@ export function compactIssueJournal(form) {
   }
   notes.forEach((note,index)=>expandable(note.querySelector('p'),'issue-note-text-'+index,240));
 }
-export function mountCompactIssue(root,{isNew=false}={}) {
+export function mountCompactIssue(root,{isNew=false,issue={}}={}) {
   const form=root.querySelector('#edit-form[data-collection="activities"]');
   if(!form)return;
   const aside=form.closest('.issue-editor');
@@ -57,6 +58,7 @@ export function mountCompactIssue(root,{isNew=false}={}) {
   aside.classList.add('compact-issue');
   const heading=form.querySelector('.issue-heading');
   heading.querySelector('.issue-heading-text > small')?.remove();
+  if(issue.id)heading.querySelector('.issue-heading-text').append(element('small','',issue.id));
   const chips=element('div','issue-chips');
   for(const name of ['status','priority']){
     const field=form.querySelector(`[name="${name}"]`).closest('.issue-mode-field');
@@ -86,7 +88,7 @@ export function mountCompactIssue(root,{isNew=false}={}) {
   }
   if(!links.length&&property.querySelector('strong')?.textContent==='Ingen fastighet kopplad')property.textContent=home.querySelector('.issue-field-value').textContent;
   const extra=element('details','issue-extra');
-  extra.open=isNew;
+  extra.open=isNew||issueNeedsLink(issue);
   extra.append(element('summary','','Fler uppgifter'));
   const extraFields=element('div','issue-extra-fields');
   extraFields.append(home.querySelector('.issue-mode-field'),form.querySelector('.issue-compact-meta'));
@@ -95,6 +97,11 @@ export function mountCompactIssue(root,{isNew=false}={}) {
   description.querySelector('.issue-field-label').classList.add('visually-hidden');
   expandable(description.querySelector('.issue-field-value'),'issue-description-text');
   grid.append(home,description);
+  if(issueNeedsLink(issue)){
+    property.textContent='Att koppla';
+    const hints=[...new Set((issue.sources||[]).map(source=>source.homeHint).filter(Boolean))];
+    if(hints.length)home.append(element('small','',hints.join(' · ')));
+  }
 
   const history=form.querySelector('.activity-journal-history-group');
   const cost=history.querySelector('.issue-history-card:has(.issue-cost-edit)');

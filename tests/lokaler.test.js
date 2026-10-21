@@ -33,7 +33,7 @@ async function withStore(run, mode = 'sqlite') {
 test('ren modell: yta bara på objekt, obligatoriska kopplingar och verkliga datum', () => {
  assert.equal(tables.agreements.fields.some(f => /area|apartment/.test(f.key)), false);
  assert.equal(tables.objects.fields.some(f => /number|room/.test(f.key)), false);
- assert.throws(() => normalize('issues', { id: 'x', title: 'Test' }), /antingen/);
+ assert.equal(normalize('issues', { id: 'x', title: 'Test' }).property_id,null);
  assert.throws(() => normalize('issues', { id: 'x', title: 'Test', property_id: 'p', object_id: 'o' }), /antingen/);
  assert.throws(() => normalize('objects', { id: 'x', property_id: 'p', valid_from: '2026-02-30' }), /giltigt datum/);
  assert.throws(() => normalize('agreements', { id: 'x', object_id: 'o', number: 'n', area: 10 }), /finns inte/);

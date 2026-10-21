@@ -29,7 +29,7 @@ const additions = {
  orders: [['ordered_by','Beställd av','ref',{table:'people'}],['ordered_at','Beställd datum','date'],['final_cost','Slutkostnad','number'],['supplier','Leverantör']]
 };
 additions.parties.push(['organization_number','Organisationsnummer'],['investment_rule','Investeringsregel'],['investment_threshold','Investeringsgräns, kr','number'],['rent_surcharge_rate','Hyrespåslag, %','number']);
-additions.issues.push(['maintenance_completed_on','Underhåll utfört datum','date'],['maintenance_result','Bedömning efter underhåll','select',{values:maintenanceResults,valueAliases:assessmentAliases}]);
+additions.issues.push(['sources','Källor','json'],['maintenance_completed_on','Underhåll utfört datum','date'],['maintenance_result','Bedömning efter underhåll','select',{values:maintenanceResults,valueAliases:assessmentAliases}]);
 additions.issues.push(['action_kind','Åtgärdens karaktär'],['standard_enhancing','Standardhöjande','boolean'],['rent_surcharge_start','Hyrespåslag från','date'],['unit_id','Organisatorisk tillhörighet']);
 additions.orders.push(['reference','Beställningsreferens'],['delivery','Leverans'],['completed_at','Utförd','date'],['payment_status','Betalstatus'],['paid_at','Betald','date'],['invoice_comment','Fakturakommentar'],['owner_pays','Betalas av fastighetsägaren']);
 additions.contacts = [['cancelled','Makulerad','boolean',{default:false}]];
@@ -125,7 +125,7 @@ export function normalize(table, input, id) {
  if (output.planned_from && output.planned_to && output.planned_from > output.planned_to) throw Error('Tidplanens slutdatum kan inte vara före startdatum.');
  if(table==='issues'&&output.status==='done'&&['defect','urgent','unchecked'].includes(output.maintenance_result))throw Error('Betyg 1–2 innebär att en brist kvarstår. Behåll ärendet öppet.');
  if(table==='issues'&&Boolean(output.maintenance_completed_on)!==Boolean(output.maintenance_result))throw Error('Ange både utfört datum och skick efter underhåll.');
- if (table === 'issues' && ['property_id', 'object_id'].filter(key => output[key]).length !== 1) throw Error('Välj antingen Fastighet eller Objekt för ärendet.');
+ if (table === 'issues' && output.property_id && output.object_id) throw Error('Välj antingen Fastighet eller Objekt för ärendet.');
  if (['spaces','inspections'].includes(table) && ['property_id','object_id'].filter(key=>output[key]).length!==1) throw Error('Välj antingen Fastighet eller Objekt för underhållet.');
  if (table==='inspection_points'&&['space_id','part_id'].filter(key=>output[key]).length!==1)throw Error('Välj antingen Utrymme eller Del för besiktningspunkten.');
  if (table === 'contacts') {

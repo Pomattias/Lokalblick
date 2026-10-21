@@ -1,3 +1,4 @@
+import {issueNeedsLink} from '../lokaler/issue-identity.js';
 import {rentalTotals,tenantName,recordContext,isOpenIssue,contractPhase} from "./portfolio-context.js";
 import {isoDate} from "./date-format.js";
 import {fieldCaption} from "./field-labels.js";
@@ -303,8 +304,8 @@ function activityRows(data, items, portfolio=false) {
     const latest=notes[0];
     const date=latest?.at&&!Number.isNaN(Date.parse(latest.at))?isoDate(latest.at):null;
     return row([
-      `<strong><button type="button" class="text-button" data-edit="activities" data-id="${esc(x.record.id)}">${esc(x.title)}</button></strong><small>${esc(x.label)} · <button type="button" class="activity-note-link" data-open-activity-journal="${esc(x.record.id)}">Noteringar (${notes.length})${date?" · "+date:""}</button></small>`,
-      esc(propertyDesignation(property) || "–"),
+      `<strong><button type="button" class="text-button" data-edit="activities" data-id="${esc(x.record.id)}">${esc(x.title)}</button></strong><small>${portfolio?esc(x.record.id)+" · ":""}${esc(x.label)} · <button type="button" class="activity-note-link" data-open-activity-journal="${esc(x.record.id)}">Noteringar (${notes.length})${date?" · "+date:""}</button></small>`,
+      portfolio&&issueNeedsLink(x.record)?badge("Att koppla"):esc(propertyDesignation(property) || "–"),
       propertyAddressCell(property),
       esc(personLabel(data, responsible(data, x.collection, x.record))),
       badge(x.record.status),

@@ -1,5 +1,7 @@
 import {consolidateImportReviews} from './import-conflicts.js';
 import {refreshImportReceipt} from './import-receipt.js';
+import {nextIssueId} from './issue-identity.js';
+import {issueImportPlan} from './issue-import.js';
 import {importPreference} from '../services/import-preferences.js';
 import {legacyFinanceFields,legacyFinanceMap,validateFinance} from './finance-model.js';
 import {maintenanceTables} from './maintenance-model.js';
@@ -75,6 +77,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   emails=new Map(data.people.filter(row=>row.email).map(row=>[key(row.email),row]));
   personNames=new Map();for(const person of data.people){const k=key(person.name);if(!personNames.has(k))personNames.set(k,[]);personNames.get(k).push(person);}
  };rebuild();
+ const issuePlans=issueImportPlan(workbook,profiles,data.issues,context,XLSX);
  const rank=profile=>Math.min(...profile.columns.map(c=>{const m=fieldMap[c.target];return m&&viewCollections[m.table]===c.target.split('.')[0]?['parties','properties','people','objects','agreements','issues','orders','agreement_items','recurring_costs','cost_evidence',...Object.keys(maintenanceTables)].indexOf(m.table):99;}));
  const propertyProvider=profile=>profile.columns.some(c=>fieldMap[c.target]?.table==='properties'&&fieldMap[c.target]?.field==='id')?0:1;
  const priority=profile=>profile.columns.filter(column=>importPreference(data.workspace.importFieldPreferences,...column.target.split('.'),profile.fileName||context.fileName,profile,column)==='accept').length;
@@ -96,7 +99,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     const previous=existing?{...existing}:null;
     const values={...existing,...Object.fromEntries(Object.entries(record).filter(([,value])=>present(value)))};
     let normalized;try{normalized=normalize(table,values);}catch(error){const field=error.message.startsWith('ID ')?'id':error.message.startsWith('Slutdatum')?'valid_to':error.message.startsWith('Tidplanens')?'planned_to':tables[table].fields.find(f=>error.message.startsWith(f.label))?.key;const at=originFor(table,field);Object.assign(error,{...at,value:field?record[field]:null});throw error;}
-    if(normalized.sources&&existing?.sources)normalized.sources=[...new Map([...existing.sources,...normalized.sources].map(source=>[JSON.stringify(source),source])).values()];
+    if(table!=='issues'&&normalized.sources&&existing?.sources)normalized.sources=[...new Map([...existing.sources,...normalized.sources].map(source=>[JSON.stringify(source),source])).values()];
     if(existing)for(const field of Object.keys(record)){const value=normalized[field];if(field!=='id'&&field!=='sources'&&present(record[field])&&present(existing[field])&&JSON.stringify(existing[field])!==JSON.stringify(value)){
      const legacy=viewFields[table]?.[field]||field,collection=viewCollections[table]||table;
      const selectedTarget=columnFor(table,field)?.target.split('.')[1]||legacy;
@@ -171,12 +174,17 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      else if(mapping.table==='agreement_items'&&column.itemType){if(!itemRows.has(column.itemType))itemRows.set(column.itemType,{type:column.itemType});itemRows.get(column.itemType)[mapping.field]=value;}
      else{raw[mapping.table] ||= {};if(present(raw[mapping.table][mapping.field])&&raw[mapping.table][mapping.field]!==value)throw Error('Två kolumner ger olika identifierare eller värden.');raw[mapping.table][mapping.field]=value;}
      }catch(error){
-      if(!role&&!part)throw error;
+      if(!role&&!part)throw Object.assign(error,{collection:column.target.split('.')[0],field:column.target.split('.')[1],column:column.header,columnIndex:column.index,value:sourceValues.find(value=>value.index===column.index)?.raw});
       const index=role?column.index:part.index;if(!contacts.has(index))contacts.set(index,{column:profile.columns.find(c=>c.index===index),values:{}});
       const contact=contacts.get(index);contact.errors ||= [];contact.errors.push(column.header+': '+error.message);
      }
     }
+    // Parsing errors have a column. Record/relationship errors must never point
+    // at whichever column happened to be read last.
+    fieldInProgress='';columnInProgress=null;
     let property=null,object=null,agreement=null,issue=null,order=null;
+    const issuePlan=issuePlans.get(profile)?.get(r);
+    if(raw.issues&&issuePlan?.error)throw Object.assign(Error(issuePlan.error),{collection:'activities',field:'id'});
     if(raw.parties){const p=raw.parties,number=normalizeOrganizationNumber(p.organization_number),byName=p.id?indexes.parties.get(text(p.id)):partyNames.get(key(p.name)),byNumber=number&&partyNumbers.get(number);if(byName&&byNumber&&byName.id!==byNumber.id||p.id&&byNumber&&p.id!==byNumber.id)throw Error('PartID, namn och organisationsnummer pekar på olika parter.');const existing=byName||byNumber;const saved=merge('parties',{...p,id:existing?.id||text(p.id)||'PAR-'+crypto.randomUUID()},existing);partyNames.set(key(saved.name),saved);if(saved.organization_number)partyNumbers.set(saved.organization_number,saved);}
     const anchorAgreement=raw.agreements?.id&&indexes.agreements.get(text(raw.agreements.id));
     const anchorObject=indexes.objects.get(text(raw.objects?.id||raw.agreements?.object_id||raw.issues?.object_id||anchorAgreement?.object_id));
@@ -189,19 +197,21 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      p.id ||= propertyIds[0];
      const matchingKey=JSON.stringify([source,profile.name,r+1]),named=p.name?propertyIdentities.get(key(p.name))||[]:[],atAddress=p.address?named.filter(row=>key(row.address)===key(p.address)):named;
      const candidates=atAddress.length?atAddress:named,chosen=context.rowMatches?.[matchingKey];
-     if(!p.id&&!anchorProperty&&candidates.length>1&&!chosen)throw Object.assign(Error('Flera fastigheter har samma beteckning. Välj rätt fastighet under Granska poster.'),{collection:'properties',field:'designation',matchingKey,matches:candidates.map(row=>({id:row.id,label:row.name,detail:[row.address,row.city].filter(Boolean).join(' · ')}))});
+     if(!raw.issues&&!p.id&&!anchorProperty&&candidates.length>1&&!chosen)throw Object.assign(Error('Flera fastigheter har samma beteckning. Välj rätt fastighet under Granska poster.'),{collection:'properties',field:'designation',matchingKey,matches:candidates.map(row=>({id:row.id,label:row.name,detail:[row.address,row.city].filter(Boolean).join(' · ')}))});
      if(chosen)origin.matchingDecision={propertyId:chosen,method:'explicit-row-choice'};
      if(chosen&&(!candidates.some(row=>row.id===chosen)||p.id&&p.id!==chosen))throw Error('Det valda FastighetsID stämmer inte med radens identifierare.');
-     const existing=p.id?indexes.properties.get(text(p.id)):anchorProperty||(chosen?indexes.properties.get(chosen):candidates[0])||propertyNames.get(key(p.name||p.address)+'|'+key(p.address));
+     const existing=p.id?indexes.properties.get(text(p.id)):anchorProperty||(chosen?indexes.properties.get(chosen):candidates.length===1?candidates[0]:null)||(!candidates.length?propertyNames.get(key(p.name||p.address)+'|'+key(p.address)):null);
+     if(!raw.issues||existing){
      if(p.owner_party_id||linkedNumbers.has('owner'))p.owner_party_id=party(p.owner_party_id||existing?.owner_party_id,'owner');
      property=merge('properties',{...p,id:existing?.id||text(p.id)||'FAS-'+crypto.randomUUID(),name:p.name||existing?.name||p.address||p.id},existing);
      propertyNames.set(key(property.name)+'|'+key(property.address),property);if(!propertyIdentities.has(key(property.name)))propertyIdentities.set(key(property.name),[]);if(!propertyIdentities.get(key(property.name)).some(row=>row.id===property.id))propertyIdentities.get(key(property.name)).push(property);
+     }
     }
     const obj=raw.objects||{};
     const explicitObjectId=obj.id||raw.agreements?.object_id||raw.issues?.object_id;
     object=explicitObjectId?indexes.objects.get(text(explicitObjectId)):null;
     if(!object&&raw.agreements?.id)object=indexes.objects.get(indexes.agreements.get(text(raw.agreements.id))?.object_id);
-    if(raw.objects||raw.agreements){
+    if((raw.objects||raw.agreements)&&(!raw.issues||object)){
      const propertyId=obj.property_id||property?.id||object?.property_id;
      if(!propertyId||!indexes.properties.has(propertyId))throw Error('Objektet saknar ett befintligt FastighetsID.');
      if(!object&&!explicitObjectId&&!raw.agreements?.id)throw Error('Välj ObjektID eller AvtalsID för att identifiera objektet.');
@@ -221,12 +231,19 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      const saved=merge('people',{...p,id:existing?.id||text(p.id)||'PER-'+crypto.randomUUID()},existing);if(saved.email)emails.set(key(saved.email),saved);if(!personNames.has(key(saved.name)))personNames.set(key(saved.name),[]);if(!personNames.get(key(saved.name)).some(row=>row.id===saved.id))personNames.get(key(saved.name)).push(saved);
     }
     if(raw.issues){
-     const a=raw.issues;if(!a.id)throw Error('Ärendet behöver ÄrendeID för säker återimport.');
-     const existing=indexes.issues.get(text(a.id));
+     const a=raw.issues,existing=indexes.issues.get(text(a.id||issuePlan?.id));
      a.status=({Nytt:'open',Öppet:'open',Pågår:'ongoing',Klar:'done',Klart:'done',Avslutad:'done'})[a.status]||a.status;
      a.priority=({Låg:'low',Medel:'normal',Normal:'normal',Hög:'high'})[a.priority]||a.priority;
-     const objectId=a.object_id||object?.id;
-     issue=merge('issues',{...a,id:text(a.id),object_id:objectId||null,property_id:objectId?null:a.property_id||property?.id||existing?.property_id},existing);
+     const requestedObject=a.object_id||explicitObjectId,requestedProperty=a.property_id||raw.properties?.id;
+     const objectId=requestedObject?(indexes.objects.has(text(requestedObject))?text(requestedObject):null):object?.id;
+     const propertyId=requestedProperty?(indexes.properties.has(text(requestedProperty))?text(requestedProperty):null):property?.id;
+     // An unknown object must not silently turn into a property-level issue.
+     const home=objectId?{object_id:objectId,property_id:null}:!requestedObject&&propertyId?{object_id:null,property_id:propertyId}:existing?{object_id:existing.object_id,property_id:existing.property_id}:{object_id:null,property_id:null};
+     const homeHint=sourceValues.filter(value=>['properties','objects'].includes(value.target.split('.')[0])||['activities.propertyId','activities.objectId'].includes(value.target)).filter(value=>present(value.raw)).map(value=>value.column+': '+text(value.raw)).join(' · ');
+     const receipt={...issuePlan?.record,...origin,kind:'issue-import',...(homeHint?{homeHint}:{})};
+     const sources=[...(existing?.sources||[]).filter(item=>item.kind!=='issue-import'||item.source!==source||item.sheet!==profile.name),receipt];
+     const defaults=!existing&&!home.object_id&&!home.property_id?{include_in_budget:'Nej',budget_category:'Ej budget'}:{};
+     issue=merge('issues',{...defaults,...a,id:existing?.id||text(a.id)||nextIssueId(data.issues,data.workspace.settings ||= {}),...home,sources},existing);
     }
     if(raw.orders){const o=raw.orders;if(!o.id)throw Error('Beställningen behöver ett ID.');o.issue_id ||= issue?.id;if(!indexes.issues.has(o.issue_id))throw Error('Beställningen behöver ett befintligt ÄrendeID.');o.status=({Planerad:'draft',Beställd:'ordered',Beställt:'ordered',Klar:'done'})[o.status]||o.status;order=merge('orders',o,indexes.orders.get(o.id));}
     for(const [type,row]of itemRows){

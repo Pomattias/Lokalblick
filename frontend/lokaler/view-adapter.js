@@ -21,7 +21,7 @@ export function projectWorkspace(clean) {
  for(const object of out.objects){object.number=object.id;object.sourceId=object.id;object.predecessorIds=clean.object_links.filter(link=>link.successor_id===object.id).map(link=>link.predecessor_id);}
  for(const contract of out.contracts){const object=objects.get(contract.objectId);contract.propertyId=object?.propertyId||'';contract.area=object?.area;contract.objectAreaManaged=true;contract.apartmentArea=object?.apartmentArea;contract.tenantName=out.organizations.find(row=>row.id===contract.tenantPartyId)?.name||'';}
  for(const party of out.organizations)party.type ||= clean.properties.some(row=>row.owner_party_id===party.id)?'owner':'tenant';
- for(const issue of out.activities){issue.status=issueStatus[issue.status]||issue.status;issue.priority=priority[issue.priority]||issue.priority;issue.scopeType=issue.objectId?'object':'property';}
+ for(const issue of out.activities){issue.status=issueStatus[issue.status]||issue.status;issue.priority=priority[issue.priority]||issue.priority;issue.scopeType=issue.objectId?'object':issue.propertyId?'property':'';}
  for(const order of out.orders)order.status=orderStatus[order.status]||order.status;
  for(const contact of clean.contacts){
   const [table,field]=Object.entries(targetFields).find(([,field])=>contact[field])||[];

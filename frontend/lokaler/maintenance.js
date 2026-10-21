@@ -1,5 +1,6 @@
 // Small operations on the existing V2 workspace; persistence and audit stay shared.
 const id=prefix=>prefix+'-'+crypto.randomUUID();
+import {nextIssueId} from './issue-identity.js';
 import {maintenanceResults,needsMaintenanceAction} from './maintenance-model.js';
 export const maintenanceIsDone=status=>/^(utförd|utfört|slutförd|klar|klart|avslutad|done)$/i.test(String(status||'').trim());
 const isOpenIssue=issue=>issue&&!maintenanceIsDone(issue.status)&&!['Avslaget','Avbruten','Makulerad'].includes(issue.status);
@@ -79,7 +80,7 @@ export function linkMaintenanceIssue(data,pointId,issueId){
   const previous=data.inspectionPoints.find(row=>row.id!==point.id&&(point.partId?row.partId===point.partId:row.spaceId===point.spaceId)&&data.activities.some(issue=>issue.id===row.issueId&&isOpenIssue(issue)));
   if(previous){point.issueId=previous.issueId;return point.issueId;}
   const part=data.buildingParts.find(row=>row.id===point.partId),space=data.spaces.find(row=>row.id===(point.spaceId||part?.spaceId));
-  issueId=id('ARE');
+  issueId=nextIssueId(data.activities,data.settings ||= {});
   data.activities.push({id:issueId,...maintenanceHome(inspection),scopeType:inspection.objectId?'object':'property',title:space.name+(part?' · '+part.name:''),description:'',status:'Nytt',priority:'Medel',type:'Underhåll',includeInBudget:'Nej',budgetCategory:'Ej budget'});
  }
  point.issueId=issueId;return issueId;

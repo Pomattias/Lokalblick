@@ -1,3 +1,4 @@
+import {issueNeedsLink} from '../lokaler/issue-identity.js';
 import {activities,scope} from './model.js';
 
 const text = value => String(value||'').trim().toLocaleLowerCase('sv');
@@ -76,10 +77,10 @@ export function portfolioScope(data,selection={},local={}) {
   if(local.view==='activities') items=items.filter(item=>{
     const property=data.properties.find(row=>row.id===item.propertyId)||{};
     const contract=data.contracts.find(row=>row.id===item.record.contractId)||{};
-    return includes(query,item.title,item.record.description,item.record.type,property.designation,property.address,contract.number||contract.id,tenantName(data,contract))&&
+    return includes(query,item.record.id,item.title,item.record.description,item.record.type,property.designation,property.address,contract.number||contract.id,tenantName(data,contract))&&
       (!local.person||item.record.responsiblePersonId===local.person)&&
       (!local.type||local.type==='Alla'||item.record.type===local.type)&&
-      (local.status==='all'||(local.status==='closed'?!isOpenIssue(item.record):isOpenIssue(item.record)));
+      (local.status==='all'||(local.status==='unlinked'?issueNeedsLink(item.record):local.status==='closed'?!isOpenIssue(item.record):isOpenIssue(item.record)));
   });
   return {properties,contracts:contracts.filter(row=>contractPhase(data,row)==='current'),
     objects:objects.filter(row=>periodPhase(row)==='current'),allContracts:contracts,allObjects:objects,items};

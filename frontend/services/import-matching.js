@@ -95,7 +95,8 @@ export function importIdentityWarnings(profile,schemas){
  const schema=schemas.find(s=>s.key===profile.primaryTable),selected=new Set(profile.columns.map(c=>c.target)),warnings=[];
  if(!schema)return warnings;
  const caption=field=>schema.columns.find(([key])=>key===field)?.[1]||field;
- if(['contracts','activities','orders'].includes(schema.key)&&!selected.has(schema.key+'.id'))warnings.push('Koppla '+caption('id')+' för säker återimport. Lägg till en beständig identifierare i Excel om kolumnen saknas.');
+ if(['contracts','activities','orders'].includes(schema.key)&&!(schema.canonical&&schema.key==='activities')&&!selected.has(schema.key+'.id'))warnings.push('Koppla '+caption('id')+' för säker återimport. Lägg till en beständig identifierare i Excel om kolumnen saknas.');
+ if(schema.key==='activities'&&schema.canonical&&!selected.has('activities.id'))warnings.push('ÄrendeID skapas automatiskt. Återimport matchar tidigare ärenderader; osäkra träffar granskas. Saknad fastighets-/objektkoppling visas som Att koppla.');
  if(schema.key==='orders'&&!selected.has('orders.activityId')&&!selected.has('activities.id'))warnings.push('Beställningarna behöver '+caption('activityId')+' för koppling till rätt ärende.');
  return warnings;
 }

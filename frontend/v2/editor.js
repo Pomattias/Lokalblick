@@ -251,7 +251,8 @@ export function readEditor(form, record) {
   if (form.dataset?.collection === "activities") {
     if (!String(out.title || "").trim())
       throw Error("Ärendet behöver en rubrik.");
-    if (!String(out.type || "").trim())
+    const keepMissingType=form.dataset.recordId&&form.closest?.('.compact-issue')&&!String(record.type||'').trim();
+    if (!String(out.type || "").trim()&&!keepMissingType)
       throw Error("Välj ärendetyp.");
     const enhancing=form.querySelector('[name="enhancingToggle"]');
     if(enhancing && String(enhancing.checked)!==enhancing.dataset.initialChecked){

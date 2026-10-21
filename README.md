@@ -92,3 +92,16 @@ fastigheter, objekt, avtal, personer och personkopplingar. Kör `npm run lokaler
 för lokal SQLite-lagring, eller anslut en lokal Excel-arbetsbok i webbappen.
 Den separata prototypens startsida leder nu till den befintliga appen.
 Se [startguide och datamodell](START-LOKALER.md).
+
+Ärenden utan ÄrendeID får ett beständigt nummer, exempelvis `ÄR-000001`.
+Saknad eller osäker fastighets-/objektkoppling visas under **Ärenden → Status →
+Att koppla**. Välj koppling via Redigera → Fler uppgifter; nummer, personansvar
+och historik behålls. Inga tillfälliga fastigheter eller extra att-göra-poster skapas.
+
+Återimport från samma fil och flik använder sparad källidentitet, inte radnummer.
+Omflyttade rader stöds, liksom ändrade belopp och datum när ärendenamn och
+källans kopplingsuppgifter fortfarande är entydiga. Dubbletter och osäkra
+nya/ändrade rader granskas. Ange det skapade ÄrendeID i underlaget när namn eller
+koppling ändras, eller när underlaget byter fil-/fliknamn. Källidentitet och
+nummerserie sparas lokalt i samma Excel-arbetsbok eller SQLite-databas som övriga
+uppgifter. Ursprungliga källfiler skrivs inte om.

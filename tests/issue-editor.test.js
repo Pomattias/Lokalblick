@@ -145,6 +145,18 @@ test("missing title and reversed dates reject edits",()=>{
  } finally {globalThis.FormData=original;}
 });
 
+test('linking an existing untyped import does not require unrelated classification; Budget and new cases retain their rules',()=>{
+ const original=globalThis.FormData;
+ globalThis.FormData=class{forEach(cb){cb('Kontrollera koppling','title');cb('','type');cb('object:O1','issueHome');}};
+ try{
+  const record={id:'ÄR-000001',title:'Kontrollera koppling'},form={dataset:{collection:'activities',recordId:record.id},closest:()=>({}),querySelector:()=>null};
+  const next=readEditor(form,record);assert.equal(next.id,record.id);assert.equal(next.objectId,'O1');assert.equal(next.type,'');
+  assert.throws(()=>readEditor({...form,closest:()=>null},record),/Välj ärendetyp/,'Budget keeps its existing validation');
+  assert.throws(()=>readEditor({...form,dataset:{collection:'activities',recordId:''}},record),/Välj ärendetyp/);
+  assert.throws(()=>readEditor(form,{...record,type:'Underhåll'}),/Välj ärendetyp/,'A registered classification cannot be cleared accidentally');
+ }finally{globalThis.FormData=original;}
+});
+
 test("overview groups all types under Ärenden and Planera is another route",()=>{
  const all=overview(data,selection,{perspective:"Ärenden",issueType:"Alla",year:2027});
  assert.match(all,/data-perspective="Ärenden"/);

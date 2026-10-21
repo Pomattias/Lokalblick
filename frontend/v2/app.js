@@ -1,5 +1,6 @@
 import {openItemDialog,openPropertyCostDialog,openEvidenceDialog,propertyCostsPanel} from './finance-ui.js';
 import {maintenancePage,mountMaintenance,maintenanceIssueContext,mountMaintenanceCompletion} from './maintenance-ui.js';
+import {nextIssueId} from '../lokaler/issue-identity.js';
 import {prepareMaintenanceCompletion} from '../lokaler/maintenance.js';
 import {projectFinance,applyContractFinanceEdit,applyLegacyCostEdit,adoptAgreementItems,projectStoredAgreementItems,validateAgreementItems} from '../lokaler/finance-view.js';
 import { createCleanEvaluator } from '../lokaler/import-worker-client.js';
@@ -607,7 +608,7 @@ function render() {
   filterArea.innerHTML = filterState.show ? filters(data, portfolioView?{...selection,q:local.q}:selection, ui.view === "overview" ? ui.dashboardMode : undefined,
     portfolioView?{personLabel:'Fastighetsansvarig',searchLabel:searchLabels[ui.view],searchView:local.view,placeholder:searchLabels[ui.view],contextFilters:ui.view==="activities"?[
       {key:'type',caption:'Typ',selected:ui.issueType,items:[{id:'Alla',label:'Alla typer'},...[...new Set([...activityChoices(data,'type').map(row=>row.value),...(data.activities||[]).map(row=>row.type).filter(Boolean)])].map(value=>({id:value,label:value}))]},
-      {key:'status',caption:'Status',selected:issueFilters.status,items:[{id:'open',label:'Öppna'},{id:'all',label:'Alla statusar'},{id:'closed',label:'Avslutade'}]},
+      {key:'status',caption:'Status',selected:issueFilters.status,items:[{id:'open',label:'Öppna'},{id:'all',label:'Alla statusar'},{id:'closed',label:'Avslutade'},{id:'unlinked',label:'Att koppla'}]},
       {key:'person',caption:'Ärendeansvarig',selected:issueFilters.person,items:data.people.map(row=>({id:row.id,label:row.name}))}
     ]:[]}:{}) : "";
   filterArea.hidden = !filterState.show;
@@ -1082,7 +1083,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
     form.querySelector(':scope > .section-title')?.insertAdjacentHTML('beforebegin',recordBreadcrumb(data,col,result.record,trail));
   }
   if(col==="activities"&&ui.view!=="budget"){
-    mountCompactIssue(root,{isNew:!id});
+    mountCompactIssue(root,{isNew:!id,issue:result.record});
     mountMaintenanceCompletion(form,data,result.record);
     form.querySelector('.issue-main-section')?.insertAdjacentHTML('afterend',maintenanceIssueContext(data,id));
   }
@@ -1929,7 +1930,7 @@ document.addEventListener("submit", (event) => {
     await mutation((d) => {
       applyLinkedPartyNumber(d,col,next,actor());
       if (!id) {
-        next.id = d.cleanModel&&['contracts','objects'].includes(col)?String(next.id||'').trim():crypto.randomUUID();
+        next.id = col==='activities'&&ui.view!=='budget'?nextIssueId(d.activities,d.settings ||= {}):d.cleanModel&&['contracts','objects'].includes(col)?String(next.id||'').trim():crypto.randomUUID();
         if(!next.id)throw Error(col==='contracts'?'Ange AvtalsID (avtalsnumret).':'Ange ObjektID.');
         if(d[col].some(row=>row.id===next.id))throw Error('ID finns redan. Välj den befintliga posten.');
         next.propertyId = next.propertyId || selection.propertyId;

@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS issues (
  status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','ongoing','done')),
  priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high')),
  estimated_cost REAL CHECK(estimated_cost >= 0), planned_from TEXT, planned_to TEXT, notes TEXT,
- CHECK((property_id IS NOT NULL) + (object_id IS NOT NULL) = 1),
+ CHECK((property_id IS NOT NULL) + (object_id IS NOT NULL) <= 1),
  CHECK(planned_from IS NULL OR planned_to IS NULL OR planned_from <= planned_to)
 ) STRICT;
 CREATE TABLE IF NOT EXISTS orders (
