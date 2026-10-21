@@ -768,6 +768,8 @@ window.LokalblickDemoData = {
     },
     {
       "id": "ACT-DEMO-MAINT-DONE",
+      "maintenanceCompletedOn": "2025-10-22",
+      "maintenanceResult": "good",
       "objectId": "OBJ-DEMO-101-A",
       "scopeType": "object",
       "title": "Fäst lös tröskel i hall",
@@ -1031,7 +1033,7 @@ window.LokalblickDemoData = {
       "sheets": "Fastigheter, Objekt, Avtal, Verksamheter, Aktiviteter"
     }
   ],
-  "demoRevision": "2026-10-21-maintenance",
+  "demoRevision": "2026-10-21-maintenance-grades",
   "spaces": [
     {
       "id": "UTR-DEMO-KOK",

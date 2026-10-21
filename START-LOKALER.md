@@ -20,19 +20,29 @@ kök, hall eller toalett, med bedömning och fritext. Vid behov kan du fälla ut
 **Delar (valfritt)** och lägga till exempelvis tak, golv eller el med egna
 bedömningar. Inget m²-fält behövs för rummet. En rums- eller delbedömning startar
 en pågående besiktning vid behov. Datum och besiktningsperson ska vara ifyllda
-innan protokollet avslutas. Nya besiktningar börjar med **Ej kontrollerad**;
+innan protokollet avslutas. Nya besiktningar börjar med **Ej bedömd**;
 tidigare bedömningar bevaras i historiken. Bild- och dokumentreferenser finns
 under **Bild (förberett)**. Referenser till lokala filer laddas inte upp; de öppnas i
 företagets filhanterare. Denna etapp innehåller ingen bilduppladdning.
 
-**Brist** skapar direkt ett vanligt ärende av typen **Underhåll**. Ett redan länkat
+**2 Brist** och **1 Akut** skapar direkt ett vanligt ärende av typen **Underhåll**. Ett redan länkat
 ärende eller ett öppet ärende från samma rum/del vid en tidigare besiktning
 återanvänds. **Öppna ärende** visar åtgärd, ansvarig, prioritet, tidplan och kostnad.
 Ärendet visar besiktningsunderlaget med länk tillbaka; kommentarerna hämtas från
 besiktningen och lagras inte en gång till på ärendet. **OK** vid en senare kontroll
 ändrar inte tidigare bedömningar och avslutar inte ärendet automatiskt. Åtgärden
-avslutas i ärendet. Importerade brister kopplas på samma sätt. Äldre olänkade
+avslutas i ärendet. Vid **Utförd/Klar** anges **Utfört datum** och skicket
+**5 Utmärkt/nyskick, 4 Bra eller 3 OK**. Bedömning väljs aktivt efter åtgärden. Vid **2 Brist eller 1 Akut** ska ärendet
+fortsätta vara öppet. Dessa uppgifter sparas en gång på ärendet
+och visas i aktuell underhållsstatus, med datum även vid nästa besiktning.
+Originalbedömningen skrivs inte över; välj **Besiktningshistorik** för att se den.
+En ny besiktning börjar fortfarande med **Ej bedömd**. Om ärendet öppnas
+igen tas avslutsuppgifterna bort från aktuell status men bevaras i ärendets
+ändringshistorik. Importerade brister kopplas på samma sätt. Äldre olänkade
 brister kan kopplas till ett befintligt ärende via **Skapa underhållsärende**.
+**1 Akut** ger hög prioritet på ärendet. Samma skala används vid besiktning och
+efter en åtgärd. Äldre markeringar för Nyskick blir 5, Bra skick blir 4,
+Bra skick med anmärkningar blir 3 och Dåligt skick blir 2. Originaltexten behålls.
 Nya underhållsärenden tas inte automatiskt med i budget.
 
 Demon innehåller en köksbrist med nytt ärende, en pågående åtgärd i fastighetens

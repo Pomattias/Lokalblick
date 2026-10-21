@@ -53,7 +53,7 @@ export function collectWorkspace(view, baseline=emptyData()) {
    const contract=(view.contracts||[]).find(c=>c.id===row.contractId);
    record.object_id=row.objectId||contract?.objectId||null;
    record.property_id=record.object_id?null:row.propertyId||null;
-   record.status=Object.entries(issueStatus).find(([,label])=>label===row.status)?.[0]||(['Avslutad','Klar','Klart'].includes(row.status)?'done':row.status||'open');
+   record.status=Object.entries(issueStatus).find(([,label])=>label===row.status)?.[0]||(['Avslutad','Klar','Klart','Utförd','Utfört','Slutförd'].includes(row.status)?'done':row.status||'open');
    record.priority=Object.entries(priority).find(([,label])=>label===row.priority)?.[0]||row.priority||'normal';
   }
   if(table==='orders')record.status=Object.entries(orderStatus).find(([,label])=>label===row.status)?.[0]||row.status||'draft';

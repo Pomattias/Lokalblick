@@ -1,6 +1,9 @@
 // Small operations on the existing V2 workspace; persistence and audit stay shared.
 const id=prefix=>prefix+'-'+crypto.randomUUID();
-const isOpenIssue=issue=>issue&&!['Klar','Klart','Avslutad','done'].includes(issue.status);
+import {maintenanceResults,needsMaintenanceAction} from './maintenance-model.js';
+export const maintenanceIsDone=status=>/^(utförd|utfört|slutförd|klar|klart|avslutad|done)$/i.test(String(status||'').trim());
+const isOpenIssue=issue=>issue&&!maintenanceIsDone(issue.status)&&!['Avslaget','Avbruten','Makulerad'].includes(issue.status);
+export const maintenanceToday=()=>new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
 export function inspectionPoints(data,inspectionId){return data.inspectionPoints.filter(point=>point.inspectionId===inspectionId);}
 export const maintenanceHome=({objectId,propertyId})=>objectId?{objectId}:propertyId?{propertyId}:{};
 export const sameMaintenanceHome=(a,b)=>Boolean(a?.objectId||a?.propertyId)&&(a.objectId||null)===(b?.objectId||null)&&(a.propertyId||null)===(b?.propertyId||null);
@@ -46,8 +49,9 @@ export function updatePoint(data,pointId,values){
  const point=data.inspectionPoints.find(row=>row.id===pointId);if(!point)throw Error('Besiktningspunkten saknas.');
  if(data.inspections.find(row=>row.id===point.inspectionId)?.status!=='draft')throw Error('Starta en ny besiktning för att ändra bedömningen.');
  for(const key of Object.keys(values))if(!['assessment','comment','photoReference'].includes(key))throw Error('Uppgiften kan inte ändras här.');
+ if(needsMaintenanceAction(values.assessment)&&!needsMaintenanceAction(point.assessment)&&maintenanceIsDone(data.activities.find(row=>row.id===point.issueId)?.status))point.issueId=null;
  Object.assign(point,values);
- if(point.assessment==='defect')linkMaintenanceIssue(data,point.id);
+ if(needsMaintenanceAction(point.assessment)){const issueId=linkMaintenanceIssue(data,point.id);if(point.assessment==='urgent'){const issue=data.activities.find(row=>row.id===issueId);if(!['Hög','Akut'].includes(issue.priority))issue.priority='Hög';}}
 }
 export function assessSpace(data,spaceId,values){
  const space=data.spaces.find(row=>row.id===spaceId);if(!space)throw Error('Utrymmet saknas.');
@@ -79,4 +83,29 @@ export function linkMaintenanceIssue(data,pointId,issueId){
   data.activities.push({id:issueId,...maintenanceHome(inspection),scopeType:inspection.objectId?'object':'property',title:space.name+(part?' · '+part.name:''),description:'',status:'Nytt',priority:'Medel',type:'Underhåll',includeInBudget:'Nej',budgetCategory:'Ej budget'});
  }
  point.issueId=issueId;return issueId;
+}
+
+// Completion is a fact on the case, projected into maintenance without rewriting
+// the original observations or storing the same result on every inspection point.
+export function prepareMaintenanceCompletion(data,next,previous={},today=maintenanceToday()){
+ if(!data.inspectionPoints.some(point=>point.issueId===next.id))return next;
+ if(!maintenanceIsDone(next.status)){
+  if(maintenanceIsDone(previous.status)){next.maintenanceCompletedOn=null;next.maintenanceResult=null;}
+  return next;
+ }
+ const date=String(next.maintenanceCompletedOn||''),valid=/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(Date.parse(date+'T00:00:00Z'))&&new Date(date+'T00:00:00Z').toISOString().slice(0,10)===date;
+ if(!valid||date>today)throw Error('Ange ett giltigt utfört datum, senast idag.');
+ if(!Object.hasOwn(maintenanceResults,next.maintenanceResult))throw Error('Välj en bedömning 1–5 efter åtgärden.');
+ if(needsMaintenanceAction(next.maintenanceResult))throw Error('Betyg 1–2 innebär att en brist kvarstår. Behåll ärendet öppet.');
+ const latest=data.inspectionPoints.filter(point=>point.issueId===next.id&&needsMaintenanceAction(point.assessment)).map(point=>data.inspections.find(row=>row.id===point.inspectionId)?.inspectedOn||'').sort().at(-1);
+ if(latest&&date<latest)throw Error('Utfört datum kan inte vara före den senaste noterade bristen.');
+ return next;
+}
+export function maintenancePointCompletion(data,point){
+ const issue=data.activities.find(row=>row.id===point?.issueId);
+ return issue&&maintenanceIsDone(issue.status)&&issue.maintenanceCompletedOn&&maintenanceResults[issue.maintenanceResult]?{date:issue.maintenanceCompletedOn,result:issue.maintenanceResult,issueId:issue.id}:null;
+}
+export function maintenanceLastCompletion(data,point){
+ if(!point)return null;
+ return data.inspectionPoints.filter(row=>point.partId?row.partId===point.partId:row.spaceId===point.spaceId).map(row=>maintenancePointCompletion(data,row)).filter(Boolean).sort((a,b)=>b.date.localeCompare(a.date))[0]||null;
 }

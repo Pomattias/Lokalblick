@@ -1,4 +1,5 @@
 import {linkMaintenanceIssue} from './maintenance.js';
+import {needsMaintenanceAction} from './maintenance-model.js';
 import {parseDate,parseNumber} from '../services/import-formats.js';
 
 const text=value=>String(value??'').trim(),norm=value=>text(value).toLocaleLowerCase('sv').replace(/\s+/g,' ');
@@ -82,8 +83,8 @@ export async function profileMaintenanceWorkbook(book,XLSX,fileName){
     }
     if(!space){space={name:'Gemensamt',floor,sourceKey:[name,left,floor,'gemensamt'],points:[]};result.spaces.push(space);result.warnings.push('Några delar saknar tydligt utrymme. De visas under Gemensamt.');}
     const part=label,source={source:fileName,sheet:name,cell:coordinate(row,left),condition:condition.map(col=>text(value(r,col))||'Nyskick')};
-    if(condition.length>1)result.warnings.push(source.cell+': flera skickmarkeringar. Bedömningen lämnas Ej kontrollerad.');
-    space.points.push({name:part,assessment:condition.length!==1?'unchecked':condition[0]===c-1?'ok':'defect',comment,lastAction,sourcePlans,source});
+    if(condition.length>1)result.warnings.push(source.cell+': flera skickmarkeringar. Bedömningen lämnas Ej bedömd.');
+    space.points.push({name:part,assessment:condition.length!==1?'unchecked':condition[0]===c-1?'excellent':condition[0]===c?(/anmärk/i.test(text(value(r,c)))?'ok':'good'):'defect',comment,lastAction,sourcePlans,source});
    }
    if(!result.date)result.warnings.push('Besiktningsdatum saknas; inget datum antas.');
    if(!result.spaces.some(space=>space.points.length))continue;
@@ -145,7 +146,7 @@ export function applyMaintenanceImport(data,profiles,mapping){
      const partId=sourceId('DEL',[spaceId,norm(point.name),occurrence]);
      if(!data.buildingParts.some(row=>row.id===partId))data.buildingParts.push({id:partId,spaceId,name:point.name});
      data.inspectionPoints.push({id:sourceId('BEP',[inspectionId,point.source.cell]),inspectionId,partId,assessment:point.assessment,comment:point.comment,lastAction:point.lastAction,sourcePlans:point.sourcePlans,sources:[point.source]});
-     if(point.assessment==='defect')linkMaintenanceIssue(data,data.inspectionPoints.at(-1).id);
+     if(needsMaintenanceAction(point.assessment))linkMaintenanceIssue(data,data.inspectionPoints.at(-1).id);
      points++;
     }
    }

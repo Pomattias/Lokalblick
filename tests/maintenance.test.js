@@ -7,11 +7,12 @@ import {DatabaseSync} from 'node:sqlite';
 import {LocalStore} from '../backend/lokaler/store.js';
 import {emptyData,normalize,validateData,propertySummary} from '../frontend/lokaler/model.js';
 import {projectWorkspace,collectWorkspace} from '../frontend/lokaler/view-adapter.js';
-import {startInspection,addSpace,assessSpace,addPart,updatePoint,finishInspection,linkMaintenanceIssue,homeInspections} from '../frontend/lokaler/maintenance.js';
+import {startInspection,addSpace,assessSpace,addPart,updatePoint,finishInspection,linkMaintenanceIssue,homeInspections,prepareMaintenanceCompletion,maintenancePointCompletion,maintenanceLastCompletion} from '../frontend/lokaler/maintenance.js';
 import {profileMaintenanceWorkbook,applyMaintenanceImport} from '../frontend/lokaler/maintenance-import.js';
 import {writeWorkbook,readWorkbook} from '../frontend/lokaler/workbook.js';
 import {profileWorkbook} from '../frontend/services/import-engine.js';
 import {importSchemas,prepareCleanImport} from '../frontend/lokaler/import-model.js';
+import {fieldHistory} from '../frontend/v2/field-history.js';
 import {maintenancePage,maintenanceIssueContext} from '../frontend/v2/maintenance-ui.js';
 
 const fixture=()=>{
@@ -80,7 +81,7 @@ test('matrix extraction recognizes room headers, unmarked parts, comments and an
  assert.equal(profiles.length,1);assert.equal(ignored.length,1);assert.equal(block.date,'2026-10-20');assert.equal(block.inspector,'Testare');
  assert.deepEqual(block.spaces.map(row=>row.name),['Kök','Hall']);assert.equal(block.spaces[0].floor,'Våning 2');
  const points=block.spaces.flatMap(row=>row.points);assert.equal(points.length,5);
- assert.equal(points[0].assessment,'ok');assert.equal(points[1].assessment,'defect');assert.equal(points[2].assessment,'unchecked');
+ assert.equal(points[0].assessment,'excellent');assert.equal(points[1].assessment,'defect');assert.equal(points[2].assessment,'unchecked');
  assert.equal(points[0].lastAction,'Vet ej');assert.deepEqual(points[0].sourcePlans,[{year:2027,amount:10000},{year:2028,amount:2000}]);
  assert(block.notes.some(note=>note.includes('fristående')));assert(block.source.extra.some(row=>row.value==='Sammanfattande anteckning'));
  assert(!points.some(row=>/Samlad|Sammanfattning/.test(row.name)));
@@ -165,7 +166,7 @@ for(const mode of ['sqlite','excel'])test('maintenance storage: atomic graph, re
 });
 test('compact maintenance view keeps history optional and renders source text safely',()=>{
  const {data,space}=draftFixture();data.spaces[0].name='<script>bad</script>';
- const html=maintenancePage(data,{objectId:'O',open:[space]},true);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.match(html,/Ej kontrollerad/);assert.match(html,/<details class="maintenance-history"><summary>/);assert.doesNotMatch(html,/maintenance-history" open/);
+ const html=maintenancePage(data,{objectId:'O',open:[space]},true);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.match(html,/Ej bedömd/);assert.match(html,/<details class="maintenance-history"><summary>/);assert.doesNotMatch(html,/maintenance-history" open/);
 });
 test('an archived protocol only displays parts present at that visit',()=>{
  const {data,space,inspection}=draftFixture();data.inspectionPoints.forEach(point=>updatePoint(data,point.id,{assessment:'ok'}));finishInspection(data,inspection);addPart(data,space,'Ny del efter besiktningen');
@@ -253,8 +254,58 @@ test('a new visit reuses an open action, but a new defect after closure starts a
 });
 test('reimported inspection defects share an open case and keep comments solely on the original observations',async()=>{
  const data=viewFixture(),{profiles}=await profileMaintenanceWorkbook(matrixBook(),XLSX,'test.xlsx');applyMaintenanceImport(data,profiles,{Testobjekt:'O'});
- const defect=data.inspectionPoints.find(row=>row.assessment==='defect'),issue=defect.issueId;assert(issue);assert.equal(data.activities.length,2);assert.equal(data.activities[0].type,'Underhåll');
- applyMaintenanceImport(data,profiles,{Testobjekt:'O'});assert.equal(data.activities.length,2);
+ const defect=data.inspectionPoints.find(row=>row.assessment==='defect'),issue=defect.issueId;assert(issue);assert.equal(data.activities.length,1);assert.equal(data.activities[0].type,'Underhåll');
+ applyMaintenanceImport(data,profiles,{Testobjekt:'O'});assert.equal(data.activities.length,1);
  const changed=structuredClone(profiles);changed[0].blocks[0].fingerprint+='-second';changed[0].blocks[0].date='2027-10-20';applyMaintenanceImport(data,changed,{Testobjekt:'O'});
- assert.equal(data.activities.length,2);assert.equal(data.inspectionPoints.filter(row=>row.issueId===issue).length,2);assert.equal(data.activities[0].description,'');collectWorkspace(data,fixture());
+ assert.equal(data.activities.length,1);assert.equal(data.inspectionPoints.filter(row=>row.issueId===issue).length,2);assert.equal(data.activities[0].description,'');collectWorkspace(data,fixture());
+});
+
+test('one assessment scale accepts grades 1–5, preserves current identifiers and escalates urgent cases',()=>{
+ const expected={1:'urgent',2:'defect',3:'ok',4:'good',5:'excellent'};
+ for(const [grade,key]of Object.entries(expected)){
+  assert.equal(normalize('inspection_points',{id:'Q',inspection_id:'I',space_id:'S',assessment:Number(grade)}).assessment,key);
+ }
+ for(const value of [0,6,'Okänt'])assert.throws(()=>normalize('inspection_points',{id:'Q',inspection_id:'I',space_id:'S',assessment:value}),/Ogiltigt|Bedömning/);
+ assert.equal(normalize('inspection_points',{id:'Q',inspection_id:'I',space_id:'S',assessment:'OK'}).assessment,'ok');
+ const {data}=draftFixture(),point=data.inspectionPoints[0];updatePoint(data,point.id,{assessment:'defect'});const issueId=point.issueId;
+ updatePoint(data,point.id,{assessment:'urgent'});assert.equal(point.issueId,issueId);assert.equal(data.activities.length,1);assert.equal(data.activities[0].priority,'Hög');
+ updatePoint(data,point.id,{assessment:'good'});assert.equal(data.activities[0].status,'Nytt');
+});
+test('completion stores the resulting grade and actual date once on the case, while preserving inspection evidence',()=>{
+ const {data,space,inspection}=draftFixture();data.inspectionPoints.forEach((point,index)=>updatePoint(data,point.id,{assessment:index?'good':'urgent'}));finishInspection(data,inspection);
+ const point=data.inspectionPoints[0],issue=data.activities[0],baseline=collectWorkspace(data,fixture()),snapshot=structuredClone(data.inspectionPoints);
+ Object.assign(issue,prepareMaintenanceCompletion(data,{...issue,status:'Utförd',maintenanceCompletedOn:'2026-10-21',maintenanceResult:'excellent'},issue,'2026-10-21'));
+ assert.deepEqual(data.inspectionPoints,snapshot);const clean=collectWorkspace(data,baseline);assert.equal(clean.issues[0].maintenance_result,'excellent');assert.equal(clean.issues[0].maintenance_completed_on,'2026-10-21');assert.equal(clean.issues[0].status,'done');assert.equal(clean.inspection_points[0].maintenance_result,undefined);assert.equal(clean.inspection_points[0].assessment,'urgent');assert.deepEqual(clean.workspace.budgetPlans,baseline.workspace.budgetPlans);
+ const current=maintenancePage(data,{objectId:'O',open:[space]},false),historical=maintenancePage(data,{objectId:'O',inspectionId:inspection,historical:true,open:[space]},false);
+ assert.match(current,/data-status="excellent"/);assert.match(current,/Åtgärdad 2026-10-21/);assert.match(current,/0 brister/);assert.match(historical,/data-status="urgent"/);assert.doesNotMatch(historical,/data-status="excellent"/);
+ const next=startInspection(data,{objectId:'O'},'2027-10-20','P'),fresh=data.inspectionPoints.find(row=>row.inspectionId===next&&row.partId===point.partId);
+ assert.equal(fresh.assessment,'unchecked');assert(!fresh.issueId);assert.equal(maintenanceLastCompletion(data,fresh).date,'2026-10-21');assert.match(maintenancePage(data,{objectId:'O',open:[space]},true),/Åtgärdad 2026-10-21/);
+ const reopened=prepareMaintenanceCompletion(data,{...issue,status:'Pågår'},issue,'2027-10-20');Object.assign(issue,reopened);assert.equal(issue.maintenanceCompletedOn,null);assert.equal(issue.maintenanceResult,null);assert.equal(maintenancePointCompletion(data,point),null);
+});
+test('finishing a case requires an actual date and an explicit resulting grade, and unresolved grades keep the case open',()=>{
+ const {data}=draftFixture();updatePoint(data,data.inspectionPoints[0].id,{assessment:'defect'});const issue=data.activities[0],good={...issue,status:'Klar',maintenanceCompletedOn:'2026-10-21',maintenanceResult:'good'};
+ for(const patch of [{maintenanceResult:''},{maintenanceResult:'urgent'},{maintenanceResult:'defect'},{maintenanceCompletedOn:''},{maintenanceCompletedOn:'2026-02-30'},{maintenanceCompletedOn:'2026-10-22'},{maintenanceCompletedOn:'2026-10-19'}])assert.throws(()=>prepareMaintenanceCompletion(data,{...good,...patch},issue,'2026-10-21'),/datum|bedömning|1–2/);
+ assert.equal(prepareMaintenanceCompletion(data,good,issue,'2026-10-21').maintenanceResult,'good');
+ assert.throws(()=>normalize('issues',{id:'A',object_id:'O',title:'T',status:'done',maintenance_result:'2',maintenance_completed_on:'2026-10-21'}),/1–2/);
+ assert.throws(()=>normalize('issues',{id:'A',object_id:'O',title:'T',maintenance_result:'good'}),/både/);
+});
+test('a visit started before an action finishes stays unassessed; a newly observed urgent defect opens a new case',()=>{
+ const {data,inspection}=draftFixture();data.inspectionPoints.forEach((point,index)=>updatePoint(data,point.id,{assessment:index?'ok':'defect'}));const first=data.inspectionPoints[0],issue=data.activities[0];finishInspection(data,inspection);
+ const next=startInspection(data,{objectId:'O'},'2026-10-21','P'),point=data.inspectionPoints.find(row=>row.inspectionId===next&&row.partId===first.partId);assert.equal(point.issueId,issue.id);
+ Object.assign(issue,prepareMaintenanceCompletion(data,{...issue,status:'Klar',maintenanceResult:'ok',maintenanceCompletedOn:'2026-10-21'},issue,'2026-10-21'));
+ const html=maintenancePage(data,{objectId:'O'},true);assert.match(html,/3 ej bedömda/);assert.equal(point.assessment,'unchecked');
+ updatePoint(data,point.id,{assessment:'urgent'});assert.notEqual(point.issueId,issue.id);assert.equal(first.issueId,issue.id);assert.equal(data.activities.length,2);assert.equal(data.activities[1].priority,'Hög');
+});
+for(const mode of ['sqlite','excel'])test('completion date and all five grades survive '+mode+' and Excel roundtrip without changing Budget or history',async()=>{
+ const dir=await mkdtemp(path.join(os.tmpdir(),'maintenance-result-')),file=path.join(dir,mode==='excel'?'local.xlsx':'local.sqlite');let store=await LocalStore.open({file,mode});
+ try{
+  await store.replace(fixture(),0);const data=projectWorkspace(store.snapshot().data),space=addSpace(data,{propertyId:'F'},'Kök','',[]),inspection=assessSpace(data,space,{assessment:'urgent',comment:'Originalobservation'});Object.assign(data.inspections[0],{inspectorId:'P',inspectedOn:'2026-10-20'});finishInspection(data,inspection);
+  const baseline=collectWorkspace(data,store.snapshot().data);await store.replace(baseline,1);const issue=data.activities[0];Object.assign(issue,prepareMaintenanceCompletion(data,{...issue,status:'Klar',maintenanceCompletedOn:'2026-10-21',maintenanceResult:'excellent'},issue,'2026-10-21'));
+  const clean=collectWorkspace(data,baseline);await store.replace(clean,2);await store.close();store=await LocalStore.open({file,mode});assert.deepEqual(JSON.parse(JSON.stringify(store.snapshot().data)),clean);assert.deepEqual(await readWorkbook(await writeWorkbook(clean,ExcelJS),ExcelJS),clean);assert.deepEqual(clean.workspace.budgetPlans,baseline.workspace.budgetPlans);assert.deepEqual(clean.inspection_points,baseline.inspection_points);
+ }finally{await store.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test('completion history uses canonical Swedish captions and assessment labels',()=>{
+ const data={auditLog:[{collection:'activities',recordId:'A',fields:[{field:'maintenanceCompletedOn',from:null,to:'2026-10-21'},{field:'maintenanceResult',from:null,to:'excellent'}]}]};
+ const html=fieldHistory(data,'activities',{id:'A'},importSchemas);assert.match(html,/Underhåll utfört datum/);assert.match(html,/Bedömning efter underhåll/);assert.match(html,/5 · Utmärkt/);assert.doesNotMatch(html,/maintenanceCompletedOn|maintenanceResult/);
 });

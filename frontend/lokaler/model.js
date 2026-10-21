@@ -1,7 +1,7 @@
 import '../domain/calculations.js';
 import { workspaceKeys,viewFields } from './view-fields.js';
 import {financeTables,validateFinance} from './finance-model.js';
-import {maintenanceTables,maintenanceResponsibilities,validateMaintenance} from './maintenance-model.js';
+import {maintenanceTables,maintenanceResponsibilities,maintenanceResults,assessmentAliases,validateMaintenance} from './maintenance-model.js';
 // One model is used by the local SQL store, Excel store and user interface.
 export const roles = { owner: 'Fastighetsägarens kontakt', coordinator: 'Vår ansvarige', tenant: 'Hyresgästens kontakt' };
 export const statuses = { open: 'Öppet', ongoing: 'Pågår', done: 'Klart', draft: 'Utkast', ordered: 'Beställd' };
@@ -29,6 +29,7 @@ const additions = {
  orders: [['ordered_by','Beställd av','ref',{table:'people'}],['ordered_at','Beställd datum','date'],['final_cost','Slutkostnad','number'],['supplier','Leverantör']]
 };
 additions.parties.push(['organization_number','Organisationsnummer'],['investment_rule','Investeringsregel'],['investment_threshold','Investeringsgräns, kr','number'],['rent_surcharge_rate','Hyrespåslag, %','number']);
+additions.issues.push(['maintenance_completed_on','Underhåll utfört datum','date'],['maintenance_result','Bedömning efter underhåll','select',{values:maintenanceResults,valueAliases:assessmentAliases}]);
 additions.issues.push(['action_kind','Åtgärdens karaktär'],['standard_enhancing','Standardhöjande','boolean'],['rent_surcharge_start','Hyrespåslag från','date'],['unit_id','Organisatorisk tillhörighet']);
 additions.orders.push(['reference','Beställningsreferens'],['delivery','Leverans'],['completed_at','Utförd','date'],['payment_status','Betalstatus'],['paid_at','Betald','date'],['invoice_comment','Fakturakommentar'],['owner_pays','Betalas av fastighetsägaren']);
 additions.contacts = [['cancelled','Makulerad','boolean',{default:false}]];
@@ -99,6 +100,7 @@ export function normalize(table, input, id) {
  if (typeof output.id !== 'string' || !/^[^\u0000-\u001f\u007f]{1,100}$/u.test(output.id)) throw Error('ID måste vara 1–100 tecken utan kontrolltecken.');
  for (const f of spec.fields) {
   let value = input[f.key] ?? f.default ?? null;
+  if(f.valueAliases&&value!=null)value=f.valueAliases[String(value).trim()]??value;
   if (typeof value === 'string') value = value.trim() || null;
   if (f.required && value == null) throw Error(`${f.label} måste fyllas i.`);
   if (value != null) {
@@ -121,6 +123,8 @@ export function normalize(table, input, id) {
  if (table === 'properties' && (output.latitude != null && Math.abs(output.latitude) > 90 || output.longitude != null && Math.abs(output.longitude) > 180)) throw Error('Ogiltiga koordinater.');
  if (output.valid_from && output.valid_to && output.valid_from > output.valid_to) throw Error('Slutdatum kan inte vara före startdatum.');
  if (output.planned_from && output.planned_to && output.planned_from > output.planned_to) throw Error('Tidplanens slutdatum kan inte vara före startdatum.');
+ if(table==='issues'&&output.status==='done'&&['defect','urgent','unchecked'].includes(output.maintenance_result))throw Error('Betyg 1–2 innebär att en brist kvarstår. Behåll ärendet öppet.');
+ if(table==='issues'&&Boolean(output.maintenance_completed_on)!==Boolean(output.maintenance_result))throw Error('Ange både utfört datum och skick efter underhåll.');
  if (table === 'issues' && ['property_id', 'object_id'].filter(key => output[key]).length !== 1) throw Error('Välj antingen Fastighet eller Objekt för ärendet.');
  if (['spaces','inspections'].includes(table) && ['property_id','object_id'].filter(key=>output[key]).length!==1) throw Error('Välj antingen Fastighet eller Objekt för underhållet.');
  if (table==='inspection_points'&&['space_id','part_id'].filter(key=>output[key]).length!==1)throw Error('Välj antingen Utrymme eller Del för besiktningspunkten.');

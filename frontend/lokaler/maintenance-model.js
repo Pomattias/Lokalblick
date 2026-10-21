@@ -1,13 +1,16 @@
 // The inspection records use the same canonical tables, validation and Excel codec
 // as the rest of Lokalblick. Forecasts are source evidence, never booked costs.
 const f=(key,label,type='text',extra={})=>({key,label,type,...extra});
-export const assessments={unchecked:'Ej kontrollerad',ok:'OK',defect:'Brist'};
+export const maintenanceResults={excellent:'5 · Utmärkt/nyskick',good:'4 · Bra',ok:'3 · OK',defect:'2 · Brist',urgent:'1 · Akut'};
+export const assessments={unchecked:'Ej bedömd',...maintenanceResults};
+export const assessmentAliases={'5':'excellent','4':'good','3':'ok','2':'defect','1':'urgent',Nyskick:'excellent',Utmärkt:'excellent',Bra:'good',OK:'ok',Brist:'defect',Akut:'urgent','Ej kontrollerad':'unchecked'};
+export const needsMaintenanceAction=assessment=>assessment==='defect'||assessment==='urgent';
 export const maintenanceResponsibilities={owner:'Fastighetsägaren',tenant:'Hyresgästen'};
 export const maintenanceTables={
  spaces:{label:'Utrymmen',singular:'Utrymme',prefix:'UTR',fields:[f('object_id','Objekt','ref',{table:'objects'}),f('property_id','Fastighet','ref',{table:'properties'}),f('name','Utrymme','text',{required:true}),f('floor','Våning eller placering')]},
  building_parts:{label:'Delar',singular:'Del',prefix:'DEL',fields:[f('space_id','Utrymme','ref',{table:'spaces',required:true}),f('name','Del','text',{required:true}),f('responsibility','Underhållsansvar','select',{values:maintenanceResponsibilities})]},
  inspections:{label:'Besiktningar',singular:'Besiktning',prefix:'BEH',fields:[f('object_id','Objekt','ref',{table:'objects'}),f('property_id','Fastighet','ref',{table:'properties'}),f('inspected_on','Besiktningsdatum','date'),f('inspector_id','Besiktningsperson','ref',{table:'people'}),f('status','Protokollstatus','select',{values:{draft:'Pågående',completed:'Avslutad'},default:'draft'}),f('notes','Noteringar','textarea'),f('sources','Källspårning','json')]},
- inspection_points:{label:'Besiktningspunkter',singular:'Besiktningspunkt',prefix:'BEP',fields:[f('inspection_id','Besiktning','ref',{table:'inspections',required:true}),f('part_id','Del','ref',{table:'building_parts'}),f('space_id','Utrymme','ref',{table:'spaces'}),f('assessment','Bedömning','select',{values:assessments,default:'unchecked'}),f('comment','Kommentar','textarea'),f('last_action','Senast åtgärdad enligt källa'),f('photo_reference','Foto eller dokumentreferens'),f('issue_id','Ärende','ref',{table:'issues'}),f('source_plans','Importerad planering','json'),f('sources','Källspårning','json')]}
+ inspection_points:{label:'Besiktningspunkter',singular:'Besiktningspunkt',prefix:'BEP',fields:[f('inspection_id','Besiktning','ref',{table:'inspections',required:true}),f('part_id','Del','ref',{table:'building_parts'}),f('space_id','Utrymme','ref',{table:'spaces'}),f('assessment','Bedömning','select',{values:assessments,valueAliases:assessmentAliases,default:'unchecked'}),f('comment','Kommentar','textarea'),f('last_action','Senast åtgärdad enligt källa'),f('photo_reference','Foto eller dokumentreferens'),f('issue_id','Ärende','ref',{table:'issues'}),f('source_plans','Importerad planering','json'),f('sources','Källspårning','json')]}
 };
 export function validateMaintenance(data,before){
  const spaces=new Map(data.spaces.map(row=>[row.id,row])),parts=new Map(data.building_parts.map(row=>[row.id,row])),inspections=new Map(data.inspections.map(row=>[row.id,row])),issues=new Map(data.issues.map(row=>[row.id,row])),objects=new Map(data.objects.map(row=>[row.id,row]));

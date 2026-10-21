@@ -1,5 +1,6 @@
 import {openItemDialog,openPropertyCostDialog,openEvidenceDialog,propertyCostsPanel} from './finance-ui.js';
-import {maintenancePage,mountMaintenance,maintenanceIssueContext} from './maintenance-ui.js';
+import {maintenancePage,mountMaintenance,maintenanceIssueContext,mountMaintenanceCompletion} from './maintenance-ui.js';
+import {prepareMaintenanceCompletion} from '../lokaler/maintenance.js';
 import {projectFinance,applyContractFinanceEdit,applyLegacyCostEdit,adoptAgreementItems,projectStoredAgreementItems,validateAgreementItems} from '../lokaler/finance-view.js';
 import { createCleanEvaluator } from '../lokaler/import-worker-client.js';
 import { importSchemas } from '../lokaler/import-model.js';
@@ -75,7 +76,7 @@ let mapViewState;
 let mapScopeKey;
 const searches={properties:"",objects:"",contracts:"",activities:""};
 const issueFilters={status:"open",person:""};
-const maintenanceState={propertyId:'',objectId:'',inspectionId:'',q:'',filter:'all',open:[]};
+const maintenanceState={propertyId:'',objectId:'',inspectionId:'',historical:false,q:'',filter:'all',open:[]};
 const isPortfolioView=()=>["properties","objects","contracts","activities","map"].includes(ui.view);
 const portfolioLocal=()=>({view:ui.view==="map"?"properties":ui.view,q:searches[ui.view==="map"?"properties":ui.view]||"",...(ui.view==="activities"?{...issueFilters,type:ui.issueType}:{})});
 const recordSource=()=>ui.view==="activities"?{}:isPortfolioView()?portfolioLocal():{};
@@ -923,6 +924,7 @@ function setEditorReadMode(readOnly){
       if(field.matches("[data-context-new-issue]"))field.disabled=!canEdit();
       continue;
     }
+    if(field.closest?.('[data-maint-completion]')){field.disabled=editor.readOnly||field.closest('[data-maint-completion]').hidden;continue;}
     if(field.matches("[data-cost-year]")){field.disabled=!editor.readOnly;continue;}
     if(field.matches("[data-item-new],[data-item-edit],[data-cost-new],[data-cost-edit],[data-cost-evidence]")){field.disabled=!canEdit();continue;}
     if(field.matches("[data-activity-journal-note],[data-activity-journal-save],[data-issue-expand],[data-editor-close],[data-editor-activate],[data-editor-tab]"))continue;
@@ -1037,7 +1039,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
     const items=data[collection]||[];
     root.querySelector('[data-assignment-target]').innerHTML='<option value="">Välj post</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.number||x.title||x.designation||x.id)}</option>`).join('');
   };
-  root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,globalThis.LokalblickSourceService.schemas));
+  root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,ui.view!=='budget'&&col==='activities'?importSchemas:globalThis.LokalblickSourceService.schemas));
   const form=root.querySelector("#edit-form");
   // New property/object/contract forms previously had no edit-state class,
   // so the perimeter disappeared when the observer refreshed the DOM.
@@ -1081,6 +1083,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
   }
   if(col==="activities"&&ui.view!=="budget"){
     mountCompactIssue(root,{isNew:!id});
+    mountMaintenanceCompletion(form,data,result.record);
     form.querySelector('.issue-main-section')?.insertAdjacentHTML('afterend',maintenanceIssueContext(data,id));
   }
   if(form){
@@ -1272,13 +1275,13 @@ document.addEventListener("click", (event) =>
     if(b.dataset.maintInspection){
       const inspection=data.inspections.find(row=>row.id===b.dataset.maintInspection);if(!inspection||!closeEditor())return;
       maintenanceState.objectId=inspection.objectId||'';maintenanceState.propertyId=inspection.propertyId||data.objects.find(row=>row.id===inspection.objectId)?.propertyId||'';
-      maintenanceState.inspectionId=inspection.id;maintenanceState.q='';maintenanceState.filter='all';maintenanceState.open=b.dataset.spaceId?[b.dataset.spaceId]:[];ui.view='maintenance';render();return;
+      maintenanceState.inspectionId=inspection.id;maintenanceState.historical=true;maintenanceState.q='';maintenanceState.filter='all';maintenanceState.open=b.dataset.spaceId?[b.dataset.spaceId]:[];ui.view='maintenance';render();return;
     }
     if(b.dataset.maintenanceRecord){
       if(!closeEditor())return;
       maintenanceState.objectId=b.dataset.maintenanceRecord==='objects'?b.dataset.id:'';
       maintenanceState.propertyId=maintenanceState.objectId?data.objects.find(row=>row.id===maintenanceState.objectId)?.propertyId||'':b.dataset.id;
-      maintenanceState.inspectionId='';maintenanceState.q='';maintenanceState.open=[];maintenanceState.filter='all';ui.view='maintenance';render();return;
+      maintenanceState.inspectionId='';maintenanceState.historical=false;maintenanceState.q='';maintenanceState.open=[];maintenanceState.filter='all';ui.view='maintenance';render();return;
     }
     if(b.hasAttribute("data-issue-expand")){toggleIssueText(b);return;}
     if(b.dataset.contextRecord){
@@ -1920,6 +1923,7 @@ document.addEventListener("submit", (event) => {
       next.geoConfirmedAt=new Date().toISOString();
       next.geoConfirmedBy=actor();
     }
+    if(col==='activities'&&ui.view!=='budget')prepareMaintenanceCompletion(data,next,editor.record);
     if(col==='contracts'&&!next.objectId)throw Error('Välj vilket objekt avtalet tillhör');
     const noteDraft=col==="activities"?String(event.target.querySelector("[data-activity-journal-note]")?.value||"").trim():"";
     await mutation((d) => {
