@@ -10,6 +10,25 @@ import {upgradeData} from '../../frontend/lokaler/model-revision.js';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 const keys = Object.keys(tables);
+function extendMaintenanceHomes(db) {
+ // Current inspection workbooks/databases keep their IDs and observations.
+ // Existing references remain intact while property and room scope are added.
+ const names=[['spaces','object_id'],['inspections','object_id'],['inspection_points','part_id']].filter(([table,field])=>db.prepare('PRAGMA table_info('+table+')').all().some(column=>column.name===field&&column.notnull)).map(([table])=>table);
+ if(!names.length)return;
+ db.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE');
+ try {
+  for(const table of names){
+   const start=schema.indexOf('CREATE TABLE IF NOT EXISTS '+table+' ('),end=schema.indexOf(') STRICT;',start)+') STRICT;'.length;
+   const next=table+'_home_upgrade',sql=schema.slice(start,end).replace('IF NOT EXISTS '+table,next);
+   const columns=db.prepare('PRAGMA table_info('+table+')').all().map(column=>column.name).join(',');
+   db.exec(sql);
+   db.exec(`INSERT INTO ${next} (${columns}) SELECT ${columns} FROM ${table}; DROP TABLE ${table}; ALTER TABLE ${next} RENAME TO ${table};`);
+  }
+  if(db.prepare('PRAGMA foreign_key_check').all().length)throw Error('Underhållets kopplingar kunde inte bevaras.');
+  db.exec('COMMIT');
+ } catch(error){db.exec('ROLLBACK');throw error;}
+ finally{db.exec('PRAGMA foreign_keys=ON');}
+}
 export class ConflictError extends Error { constructor(message) { super(message); this.status = 409; } }
 export class LocalStore {
  static async open({ file, mode = 'sqlite' }) {
@@ -43,6 +62,7 @@ export class LocalStore {
     for(const table of [...keys].reverse())db.exec('DROP TABLE IF EXISTS '+table);
     db.exec('DROP TABLE workspace');
    }
+   extendMaintenanceHomes(db);
    db.exec(schema);
    for (const [table, spec] of Object.entries(tables)) {
     const existing = new Set(db.prepare('PRAGMA table_info(' + table + ')').all().map(row => row.name));

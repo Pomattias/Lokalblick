@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
 import os from 'node:os';import path from 'node:path';
 import ExcelJS from 'exceljs';import XLSX from 'xlsx';
+import {DatabaseSync} from 'node:sqlite';
 import {LocalStore} from '../backend/lokaler/store.js';
-import {emptyData,normalize,validateData} from '../frontend/lokaler/model.js';
+import {emptyData,normalize,validateData,propertySummary} from '../frontend/lokaler/model.js';
 import {projectWorkspace,collectWorkspace} from '../frontend/lokaler/view-adapter.js';
-import {startInspection,addSpace,addPart,updatePoint,finishInspection,linkMaintenanceIssue} from '../frontend/lokaler/maintenance.js';
+import {startInspection,addSpace,assessSpace,addPart,updatePoint,finishInspection,linkMaintenanceIssue,homeInspections} from '../frontend/lokaler/maintenance.js';
 import {profileMaintenanceWorkbook,applyMaintenanceImport} from '../frontend/lokaler/maintenance-import.js';
 import {writeWorkbook,readWorkbook} from '../frontend/lokaler/workbook.js';
 import {profileWorkbook} from '../frontend/services/import-engine.js';
@@ -28,26 +29,26 @@ function matrixBook(){
  XLSX.utils.book_append_sheet(book,sheet,'Testobjekt');XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['Sammanställning'],['Total',12000]]),'Sammanställning');return book;
 }
 const viewFixture=()=>projectWorkspace(fixture());
-const draftFixture=()=>{const data=viewFixture(),space=addSpace(data,'O','Kök','2',['Tak','Golv','El']),inspection=startInspection(data,'O','2026-10-20','P');return {data,space,inspection};};
+const draftFixture=()=>{const data=viewFixture(),space=addSpace(data,{objectId:'O'},'Kök','2',['Tak','Golv','El']),inspection=startInspection(data,{objectId:'O'},'2026-10-20','P');return {data,space,inspection};};
 
 test('maintenance reuses object-room-part structure and a new visit never copies old assessments',()=>{
  const {data,space,inspection}=draftFixture();
  assert.equal(data.spaces.length,1);assert.equal(data.buildingParts.length,3);
  assert(data.inspectionPoints.every(row=>row.assessment==='unchecked'));
  assert.throws(()=>finishInspection(data,inspection),/Kontrollera alla/);
- assert.throws(()=>startInspection(data,'O','2026-10-21','P'),/redan/);
+ assert.throws(()=>startInspection(data,{objectId:'O'},'2026-10-21','P'),/redan/);
  for(const point of data.inspectionPoints)updatePoint(data,point.id,{assessment:'ok',comment:'Förra besiktningen'});
  finishInspection(data,inspection);const clean=collectWorkspace(data,fixture());
- const next=startInspection(data,'O','2027-10-20','P');
+ const next=startInspection(data,{objectId:'O'},'2027-10-20','P');
  assert(data.inspectionPoints.filter(row=>row.inspectionId===next).every(row=>row.assessment==='unchecked'&&!row.comment));
  assert.equal(data.spaces[0].id,space);assert.equal(data.buildingParts.length,3);validateData(collectWorkspace(data,clean));
 });
 test('spaces distinguish floors and duplicate parts or spaces require a deliberate different label',()=>{
- const data=viewFixture();addSpace(data,'O','Hall','1',['Tak','Tak','Golv']);addSpace(data,'O','Hall','2',['Tak']);
+ const data=viewFixture();addSpace(data,{objectId:'O'},'Hall','1',['Tak','Tak','Golv']);addSpace(data,{objectId:'O'},'Hall','2',['Tak']);
  assert.equal(data.spaces.length,2);assert.equal(data.buildingParts.length,3);
- assert.throws(()=>addSpace(data,'O','hall','1',[]),/finns redan/);
+ assert.throws(()=>addSpace(data,{objectId:'O'},'hall','1',[]),/finns redan/);
  assert.throws(()=>addPart(data,data.spaces[0].id,'Tak'),/finns redan/);
- const inspection=startInspection(data,'O','2026-10-20','P');addPart(data,data.spaces[0].id,'El');
+ const inspection=startInspection(data,{objectId:'O'},'2026-10-20','P');addPart(data,data.spaces[0].id,'El');
  assert.equal(data.inspectionPoints.filter(row=>row.inspectionId===inspection).length,4);
 });
 test('closed points stay immutable across the canonical boundary; issue links remain possible',()=>{
@@ -71,7 +72,7 @@ test('issue linkage supports an existing issue and inherits its current data, ne
 });
 test('unfinished links to an existing issue survive the next visit without copying its observation',()=>{
  const {data,inspection}=draftFixture();data.inspectionPoints.forEach(point=>updatePoint(data,point.id,{assessment:'defect'}));const issueId=linkMaintenanceIssue(data,data.inspectionPoints[0].id);finishInspection(data,inspection);
- const next=startInspection(data,'O','2027-10-20','P'),point=data.inspectionPoints.find(row=>row.inspectionId===next&&row.issueId);
+ const next=startInspection(data,{objectId:'O'},'2027-10-20','P'),point=data.inspectionPoints.find(row=>row.inspectionId===next&&row.issueId);
  assert.equal(point.issueId,issueId);assert.equal(point.assessment,'unchecked');assert.equal(data.activities.length,1);
 });
 test('matrix extraction recognizes room headers, unmarked parts, comments and annual plans but not derived summaries',async()=>{
@@ -147,10 +148,10 @@ test('normal tabular Excel import uses the same canonical maintenance fields and
   ['Utrymmen',[['UtrymmesID','ObjektID','Utrymme'],['S','O','Kök']]],
   ['Delar',[['DelID','UtrymmesID','Del'],['D','S','Tak']]],
   ['Besiktningar',[['BesiktningsID','ObjektID','Besiktningsdatum','Protokollstatus'],['I','O','2026-10-20','Pågående']]],
-  ['Besiktningspunkter',[['BesiktningspunktID','BesiktningsID','DelID','Bedömning'],['Q','I','D','OK']]]
+  ['Besiktningspunkter',[['BesiktningspunktID','BesiktningsID','DelID','UtrymmesID','Bedömning'],['Q','I','D','','OK'],['Q2','I','','S','Brist']]]
  ])XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet(rows),name);
  const profiles=profileWorkbook(book,importSchemas,XLSX);for(const profile of profiles)for(const column of profile.columns)column.approved=true;
- const result=prepareCleanImport(book,profiles,fixture(),{},XLSX);assert.equal(result.report.blocking,0,JSON.stringify(result.clean.workspace.importReview));assert.equal(result.clean.inspection_points.length,1);assert.equal(result.clean.inspection_points[0].assessment,'ok');
+ const result=prepareCleanImport(book,profiles,fixture(),{},XLSX);assert.equal(result.report.blocking,0,JSON.stringify(result.clean.workspace.importReview));assert.equal(result.clean.inspection_points.length,2);assert.equal(result.clean.inspection_points[0].assessment,'ok');assert.equal(result.clean.inspection_points[1].space_id,'S');assert.equal(result.clean.inspection_points[1].part_id,null);
 });
 for(const mode of ['sqlite','excel'])test('maintenance storage: atomic graph, read-only history and reopen in '+mode,async()=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),'maintenance-')),file=path.join(dir,mode==='excel'?'local.xlsx':'local.sqlite');let store=await LocalStore.open({file,mode});
@@ -169,4 +170,61 @@ test('compact maintenance view keeps history optional and renders source text sa
 test('an archived protocol only displays parts present at that visit',()=>{
  const {data,space,inspection}=draftFixture();data.inspectionPoints.forEach(point=>updatePoint(data,point.id,{assessment:'ok'}));finishInspection(data,inspection);addPart(data,space,'Ny del efter besiktningen');
  const html=maintenancePage(data,{objectId:'O',inspectionId:inspection,open:[space]},false);assert.doesNotMatch(html,/Ny del efter besiktningen/);assert.match(html,/Tak/);
+});
+test('a property without objects can own assessed rooms and issues without a fabricated object',()=>{
+ const data=viewFixture();data.objects=[];
+ const home={propertyId:'F'},space=addSpace(data,home,'Entré','Bottenplan',[]),inspection=assessSpace(data,space,{assessment:'defect',comment:'Fuktfläck',photoReference:'C:\\Besiktningar\\entre.jpg'});Object.assign(data.inspections[0],{inspectedOn:'2026-10-21',inspectorId:'P'});
+ const point=data.inspectionPoints[0];linkMaintenanceIssue(data,point.id);finishInspection(data,inspection);
+ const clean=collectWorkspace(data,fixture());assert.equal(clean.objects.length,0);assert.equal(clean.spaces[0].property_id,'F');assert.equal(clean.spaces[0].object_id,null);assert.equal(clean.inspections[0].property_id,'F');assert.equal(clean.inspection_points[0].space_id,space);assert.equal(clean.inspection_points[0].part_id,null);assert.equal(clean.issues[0].property_id,'F');assert.equal(clean.issues[0].object_id,null);assert.equal(clean.issues[0].include_in_budget,'Nej');
+ const html=maintenancePage(data,{propertyId:'F',open:[space]},false);assert.match(html,/Entré/);assert.doesNotMatch(html,/m²/);assert.match(html,/Fuktfläck/);assert.doesNotMatch(html,/Ny del/);
+});
+test('property and object inspections have separate scope, validation and pending visits',()=>{
+ const data=viewFixture();
+ addSpace(data,{propertyId:'F'},'Hall','1',['Tak']);addSpace(data,{objectId:'O'},'Hall','1',['Tak']);
+ const propertyInspection=startInspection(data,{propertyId:'F'},'2026-10-21','P'),objectInspection=startInspection(data,{objectId:'O'},'2026-10-21','P');
+ assert.equal(homeInspections(data,{propertyId:'F'}).length,1);assert.equal(homeInspections(data,{objectId:'O'}).length,1);
+ assert(data.inspectionPoints.some(point=>point.inspectionId===propertyInspection));assert(data.inspectionPoints.some(point=>point.inspectionId===objectInspection));
+ const clean=collectWorkspace(data,fixture()),broken=structuredClone(clean);broken.inspection_points[0].inspection_id=objectInspection;assert.throws(()=>validateData(broken),/samma objekt eller fastighet/);
+ for(const table of ['spaces','inspections']){assert.throws(()=>normalize(table,{id:'x',name:'Hall'}),/antingen|finns inte/);assert.throws(()=>normalize(table,{id:'x',object_id:'O',property_id:'F',...(table==='spaces'?{name:'Hall'}:{})}),/antingen/);}
+ assert.throws(()=>addSpace(data,{objectId:'O',propertyId:'F'},'Fel','',[]),/befintlig/);
+});
+test('room assessments share visits and immutable history with optional parts, without duplicating space data',()=>{
+ const data=viewFixture(),space=addSpace(data,{objectId:'O'},'Toalett','',[]);
+ const inspection=assessSpace(data,space,{assessment:'defect',comment:'Läckage',photoReference:'bild.jpg'}),point=data.inspectionPoints[0];
+ Object.assign(data.inspections[0],{inspectorId:'P',inspectedOn:'2026-10-21'});
+ assert.equal(assessSpace(data,space,{comment:'Läckage vid dörr'}),inspection);assert.equal(data.inspectionPoints.length,1);
+ const part=addPart(data,space,'El');updatePoint(data,data.inspectionPoints.find(row=>row.partId===part).id,{assessment:'ok'});
+ const issue=linkMaintenanceIssue(data,point.id);assert.equal(data.activities[0].title,'Toalett');finishInspection(data,inspection);
+ const baseline=collectWorkspace(data,fixture());assert.equal(propertySummary(baseline,'F').area,100);
+ const changed=structuredClone(baseline);changed.inspection_points[0].comment='Omskriven';assert.throws(()=>validateData(changed,baseline),/Avslutade/);
+ assert.throws(()=>normalize('inspection_points',{id:'x',inspection_id:inspection,part_id:part,space_id:space}),/antingen/);
+ assert.throws(()=>normalize('inspection_points',{id:'x',inspection_id:inspection}),/antingen/);
+ const next=startInspection(data,{objectId:'O'},'2027-10-21','P'),nextPoints=data.inspectionPoints.filter(row=>row.inspectionId===next);
+ assert.equal(nextPoints.length,2);assert(nextPoints.every(row=>row.assessment==='unchecked'&&!row.comment&&!row.photoReference));assert.equal(nextPoints.find(row=>row.spaceId===space).issueId,issue);
+ assert.deepEqual(collectWorkspace(data,baseline).workspace.budgetPlans,baseline.workspace.budgetPlans);
+});
+for(const mode of ['sqlite','excel'])test('property-level room observations and photo references survive '+mode+' and Excel roundtrip',async()=>{
+ const dir=await mkdtemp(path.join(os.tmpdir(),'maintenance-property-')),file=path.join(dir,mode==='excel'?'local.xlsx':'local.sqlite');let store=await LocalStore.open({file,mode});
+ try{
+  await store.replace(fixture(),0);const data=projectWorkspace(store.snapshot().data),home={propertyId:'F'};const space=addSpace(data,home,'Gård','Utomhus',[]),inspection=assessSpace(data,space,{assessment:'defect',comment:'Ojämnt underlag',photoReference:'https://example.invalid/bild.jpg'});Object.assign(data.inspections[0],{inspectedOn:'2026-10-21',inspectorId:'P'});finishInspection(data,inspection);
+  const clean=collectWorkspace(data,store.snapshot().data);await store.replace(clean,1);await store.close();store=await LocalStore.open({file,mode});assert.deepEqual(JSON.parse(JSON.stringify(store.snapshot().data)),clean);
+  assert.deepEqual(await readWorkbook(await writeWorkbook(clean,ExcelJS),ExcelJS),clean);
+ }finally{await store.close();await rm(dir,{recursive:true,force:true});}
+});
+test('current object-only SQLite maintenance tables gain property scope without losing IDs, history or Budget',async()=>{
+ const dir=await mkdtemp(path.join(os.tmpdir(),'maintenance-scope-')),file=path.join(dir,'current.sqlite');let store=await LocalStore.open({file});
+ try{
+  const {data,inspection}=draftFixture();data.inspectionPoints.forEach(point=>updatePoint(data,point.id,{assessment:'ok',comment:'Bevaras'}));finishInspection(data,inspection);await store.replace(collectWorkspace(data,fixture()),0);const before=JSON.parse(JSON.stringify(store.snapshot()));await store.close();
+  const db=new DatabaseSync(file);
+  db.exec(`PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE;
+   CREATE TABLE spaces_original(id TEXT PRIMARY KEY NOT NULL,object_id TEXT NOT NULL REFERENCES objects(id),name TEXT NOT NULL,floor TEXT) STRICT;
+   INSERT INTO spaces_original SELECT id,object_id,name,floor FROM spaces; DROP TABLE spaces; ALTER TABLE spaces_original RENAME TO spaces;
+   CREATE TABLE inspections_original(id TEXT PRIMARY KEY NOT NULL,object_id TEXT NOT NULL REFERENCES objects(id),inspected_on TEXT,inspector_id TEXT REFERENCES people(id),status TEXT NOT NULL DEFAULT 'draft',notes TEXT,sources TEXT) STRICT;
+   INSERT INTO inspections_original SELECT id,object_id,inspected_on,inspector_id,status,notes,sources FROM inspections; DROP TABLE inspections; ALTER TABLE inspections_original RENAME TO inspections;
+   CREATE TABLE inspection_points_original(id TEXT PRIMARY KEY NOT NULL,inspection_id TEXT NOT NULL REFERENCES inspections(id),part_id TEXT NOT NULL REFERENCES building_parts(id),assessment TEXT NOT NULL DEFAULT 'unchecked',comment TEXT,last_action TEXT,photo_reference TEXT,issue_id TEXT REFERENCES issues(id),source_plans TEXT,sources TEXT,UNIQUE(inspection_id,part_id)) STRICT;
+   INSERT INTO inspection_points_original SELECT id,inspection_id,part_id,assessment,comment,last_action,photo_reference,issue_id,source_plans,sources FROM inspection_points; DROP TABLE inspection_points; ALTER TABLE inspection_points_original RENAME TO inspection_points;
+   COMMIT;`);db.close();
+  store=await LocalStore.open({file});assert.deepEqual(JSON.parse(JSON.stringify(store.snapshot())),before);assert.equal(store.db.prepare('PRAGMA foreign_key_check').all().length,0);
+  const next=projectWorkspace(store.snapshot().data);const room=addSpace(next,{propertyId:'F'},'Gård','',[]);assessSpace(next,room,{assessment:'ok',comment:'Ny rumsbedömning'});await store.replace(collectWorkspace(next,store.snapshot().data),before.version);assert.equal(store.snapshot().data.spaces.filter(row=>row.property_id==='F').length,1);assert.deepEqual(store.snapshot().data.workspace.budgetPlans,before.data.workspace.budgetPlans);
+ }finally{await store.close();await rm(dir,{recursive:true,force:true});}
 });

@@ -3936,7 +3936,7 @@ body[data-view="sources"] .import-receipt [data-receipt-review] {margin:8px 0}
 /* Maintenance only. Shared screens, especially Budget, keep their layout. */
 .maintenance-page { font-size: var(--ui-font-data); }
 .maintenance-page > .section-title { justify-content:flex-end; }
-.maintenance-page .maintenance-toolbar { display:grid; grid-template-columns:2fr 2fr 1fr; gap:8px; margin:12px 0; }
+.maintenance-page .maintenance-toolbar { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,2fr) minmax(0,2fr) minmax(100px,1fr); gap:8px; margin:12px 0; }
 .maintenance-page label,.maintenance-dialog label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
 .maintenance-page input,.maintenance-page select,.maintenance-dialog input,.maintenance-dialog select,.maintenance-dialog textarea { width:100%; min-width:0; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--paper); color:var(--ink); }
 .maintenance-page button,.maintenance-dialog button { min-height:30px; padding:5px 9px; }
@@ -3974,6 +3974,7 @@ body[data-view="sources"] .import-receipt [data-receipt-review] {margin:8px 0}
 @media(max-width:640px) {
  .maintenance-page .maintenance-toolbar { grid-template-columns:minmax(0,2fr) minmax(100px,1fr); }
  .maintenance-page .maintenance-toolbar > label:first-child { grid-column:1/-1; }
+ .maintenance-page .maintenance-toolbar > label:nth-child(2) { grid-column:1/-1; }
  .maintenance-page .section-title { align-items:flex-start; flex-wrap:wrap; gap:8px; }
  .maintenance-page .maintenance-part { grid-template-columns:minmax(0,1fr) 130px auto; gap:6px; }
  .maintenance-page .maintenance-part:has(.maintenance-part-actions > :nth-child(2)) .maintenance-part-actions { grid-column:1/-1; }

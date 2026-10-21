@@ -2,7 +2,7 @@ import {recordContext,isOpenIssue} from './portfolio-context.js';
 import {contextTabs,contextContracts,contextIssueFilters,contextIssues,currentContacts} from './context-ui.js';
 import {esc} from './views.js';
 
-export function mountWorkspace(root,{data,collection,id,selection,source,canEdit,saved={}}) {
+export function mountWorkspace(root,{data,collection,id,selection,source,canEdit,showMaintenance=true,saved={}}) {
   if(!id||!['properties','objects','contracts'].includes(collection))return null;
   const form=root.querySelector('#edit-form'),aside=root.querySelector('.editor');
   const heading=form.querySelector(':scope > .section-title');
@@ -22,8 +22,8 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
   if(collection==='objects'){
     form.querySelector('nav.tabs')?.remove();
     for(const section of form.querySelectorAll('[data-editor-section]'))section.hidden=false;
-    if(current.cleanModel){const maintenance=document.createElement('button');maintenance.type='button';maintenance.className='text-button';maintenance.dataset.objectMaintenance=id;maintenance.textContent='Öppna underhåll';heading.append(maintenance);}
   }
+  if(showMaintenance&&current.cleanModel&&['properties','objects'].includes(collection)){const maintenance=document.createElement('button');maintenance.type='button';maintenance.className='text-button';maintenance.dataset.maintenanceRecord=collection;maintenance.dataset.id=id;maintenance.textContent='Öppna underhåll';heading.append(maintenance);}
   const state={tab:collection==='contracts'?'info':'contracts',status:'open',person:'',q:'',all:false,...saved};
   const info=document.createElement('section');info.dataset.contextPanel='info';
   for(const node of [...form.children])if(node!==heading)info.appendChild(node);

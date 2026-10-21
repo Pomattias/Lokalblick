@@ -35,6 +35,7 @@ additions.contacts = [['cancelled','Makulerad','boolean',{default:false}]];
 for (const [table, fields] of Object.entries(additions)) tables[table].fields.push(...fields.map(args => field(...args)));
 Object.assign(tables, financeTables);
 tables.objects.fields.push(field('maintenance_responsibility','Underhållsansvar','select',{values:maintenanceResponsibilities}));
+tables.properties.fields.push(field('maintenance_responsibility','Underhållsansvar','select',{values:maintenanceResponsibilities}));
 Object.assign(tables,maintenanceTables);
 export const idLabels = { parties: 'PartID', people: 'PersonID', properties: 'FastighetsID', objects: 'ObjektID', agreements: 'AvtalsID', issues: 'ÄrendeID', orders: 'BeställningsID', contacts: 'KopplingsID', object_links: 'FörändringsID', agreement_items:'PostID', recurring_costs:'KostnadsID', cost_evidence:'UnderlagsID' };
 export const emptyData = () => ({ ...Object.fromEntries(Object.keys(tables).map(key => [key, []])), workspace: {} });
@@ -48,6 +49,8 @@ export const propertyId = (data, table, row) => {
  if (table === 'properties') return row.id;
  if (row.property_id) return row.property_id;
  if (row.object_id) return find(data, 'objects', row.object_id)?.property_id;
+ if (row.space_id) return propertyId(data,'spaces',find(data,'spaces',row.space_id));
+ if (row.part_id) return propertyId(data,'building_parts',find(data,'building_parts',row.part_id));
  if (row.cost_id) return find(data,'recurring_costs',row.cost_id)?.property_id;
  if (row.issue_id) return propertyId(data, 'issues', find(data, 'issues', row.issue_id));
  if (row.agreement_id) return propertyId(data, 'agreements', find(data, 'agreements', row.agreement_id));
@@ -119,6 +122,8 @@ export function normalize(table, input, id) {
  if (output.valid_from && output.valid_to && output.valid_from > output.valid_to) throw Error('Slutdatum kan inte vara före startdatum.');
  if (output.planned_from && output.planned_to && output.planned_from > output.planned_to) throw Error('Tidplanens slutdatum kan inte vara före startdatum.');
  if (table === 'issues' && ['property_id', 'object_id'].filter(key => output[key]).length !== 1) throw Error('Välj antingen Fastighet eller Objekt för ärendet.');
+ if (['spaces','inspections'].includes(table) && ['property_id','object_id'].filter(key=>output[key]).length!==1) throw Error('Välj antingen Fastighet eller Objekt för underhållet.');
+ if (table==='inspection_points'&&['space_id','part_id'].filter(key=>output[key]).length!==1)throw Error('Välj antingen Utrymme eller Del för besiktningspunkten.');
  if (table === 'contacts') {
   if (['property_id', 'agreement_id', 'issue_id', 'order_id'].filter(key => output[key]).length !== 1) throw Error('Välj exakt en koppling för personen.');
   if (output.role === 'owner' && !output.property_id) throw Error('Fastighetsägarens kontakt kopplas till fastigheten.');

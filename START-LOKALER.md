@@ -12,20 +12,26 @@ befintliga flöde; de konverteras inte automatiskt.
 
 ## Underhåll och besiktningar
 
-Öppna **Underhåll** eller **Öppna underhåll** på ett objekt. Välj objekt,
-lägg till utrymmen (med våning/placering) och deras delar, exempelvis Kök → Tak.
-Starta en besiktning med datum och besiktningsperson. Alla delar börjar som
-**Ej kontrollerad**. Välj **OK** eller **Brist**; kommentarer och foto-/dokumentreferenser
-öppnas med **Notera**. Referenser till lokala filer laddas inte upp; de öppnas i
+Öppna **Underhåll** eller **Öppna underhåll** på en fastighet eller ett objekt.
+Fastighetens gemensamma delar kopplas direkt till fastigheten; objektets delar
+kopplas till objektet. Det skapas inget extra objekt för fastighetens underhåll.
+Välj fastighet och eventuellt objekt och lägg till rum/utrymmen, exempelvis
+kök, hall eller toalett, med bedömning och fritext. Vid behov kan du fälla ut
+**Delar (valfritt)** och lägga till exempelvis tak, golv eller el med egna
+bedömningar. Inget m²-fält behövs för rummet. En rums- eller delbedömning startar
+en pågående besiktning vid behov. Datum och besiktningsperson ska vara ifyllda
+innan protokollet avslutas. Nya besiktningar börjar med **Ej kontrollerad**;
+tidigare bedömningar bevaras i historiken. Bild- och dokumentreferenser finns
+under **Bild (förberett)**. Referenser till lokala filer laddas inte upp; de öppnas i
 företagets filhanterare. Denna etapp innehåller ingen bilduppladdning.
 
 **Hantera brist** skapar ett vanligt ärende eller länkar till ett befintligt på
 samma objekt/fastighet. Ansvarig, prioritet, tidplan och åtgärdskostnad hanteras
 enbart i ärendet. Ett öppet ärende kan återanvändas vid nästa besiktning.
-Avsluta när samtliga delar är kontrollerade. Avslutade protokoll bevaras;
+Avsluta när samtliga bedömningar är kontrollerade. Avslutade protokoll bevaras;
 historik öppnas aktivt. En ny besiktning återanvänder delarna men inga gamla
 bedömningar eller kommentarer. Underhållsansvar (ägare/hyresgäst) kan anges
-gemensamt på objektet och ändras för en enskild del.
+gemensamt på fastigheten/objektet och ändras för en enskild del.
 
 **Läs in besiktningar** tolkar matriser med skickkolumner, kommentarer och
 årsbelopp eller tidsintervall. Koppla valda flikar till befintliga ObjektID och
