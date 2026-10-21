@@ -85,7 +85,7 @@ test('ambiguous record matching offers candidates, accepts only an explicit vali
 });
 test('numeric scaling, monthly rent and invalid calendars remain correctly typed through real item fields',()=>{
  const data=emptyData();data.properties.push(normalize('properties',{id:'F1',name:'Test 1'}));const workbook=book([['FastighetsID','ObjektID','Avtalsnr','Månadshyra','Kontraktsstart'],['F1','O1','A1',10000,'2027-02-01']]),result=run(workbook,profile(workbook),data);assert.equal(result.report.blocking,0);assert.equal(result.clean.agreement_items[0].base_amount,120000);
- workbook.Sheets['Hyresavtal 2027'].E2.v='2027-02-30';assert.equal(run(workbook,profile(workbook),data).report.blocking,1);
+ workbook.Sheets['Hyresavtal 2027'].E2.v='2027-02-30';const invalid=run(workbook,profile(workbook),data);assert.equal(invalid.report.blocking,0);assert.equal(invalid.clean.agreements[0].valid_from,null);assert.equal(invalid.clean.workspace.importReview[0].fieldRejected,true);assert.equal(invalid.clean.agreement_items[0].base_amount,120000);
 });
 test('one parsed workbook is reused when selecting another set of sheets',async()=>{
  const workbook=book(rows);XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([['FastighetsID'],['F1']]),'Fastigheter');let reads=0;const xlsx={...XLSX,read(...args){reads++;return XLSX.read(...args);}},file={fileName:'syntetiskt.xlsx',buffer:XLSX.write(workbook,{type:'array'}),sheets:workbook.SheetNames.map(name=>({name,sheetName:name}))};await combineImportSources([file],[file.sheets[0].name],xlsx);await combineImportSources([file],['Fastigheter'],xlsx);assert.equal(reads,1);

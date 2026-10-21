@@ -105,3 +105,10 @@ nya/ändrade rader granskas. Ange det skapade ÄrendeID i underlaget när namn e
 koppling ändras, eller när underlaget byter fil-/fliknamn. Källidentitet och
 nummerserie sparas lokalt i samma Excel-arbetsbok eller SQLite-databas som övriga
 uppgifter. Ursprungliga källfiler skrivs inte om.
+
+Importen granskas och sparas samlat, med återkoppling per berört register i ordningen
+Fastigheter → Objekt → Avtal → Ärenden. Valfria datum, tal och länkar som inte kan
+tolkas lämnas för komplettering; övriga säkert kopplade uppgifter läses in. Tidigare
+sparade värden behålls. Ekonomiska villkor, besiktningsresultat, identifierare och
+relationer måste fortfarande valideras. Återkommande problem grupperas i
+granskningen, medan varje berörd post, källfil, flik, rad och felvärde finns kvar.

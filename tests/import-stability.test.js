@@ -24,16 +24,16 @@ test('a descriptive conflict on an exact property ID preserves the field and imp
  assert.equal(result.clean.properties[0].name,first[1]);assert.equal(result.clean.properties[0].address,first[2]);assert.equal(result.report.review,2);
  assert(result.clean.workspace.importReview.every(r=>!r.rowRejected&&!r.blocking&&r.recordId==='F1'));assert(result.clean.agreements.every(a=>result.clean.objects.some(o=>o.id===a.object_id&&o.property_id==='F1')));validateData(result.clean);
 });
-test('invalid date and link rows remain atomic, carry exact cells and values, and do not poison valid records',()=>{
+test('invalid optional dates and links retain safely identified rows and preserve exact failed cells',()=>{
  const good=sample(),badDate=sample('2'),badLink=sample('3');badDate[6]='Se avtal';badLink[8]='streamToClient';const base=emptyData(),before=structuredClone(base),result=run(workbook([good,badDate,badLink]),base);
- assert.deepEqual(base,before);assert.equal(result.report.rows,3);assert.equal(result.report.blocking,2);assert.equal(result.clean.agreements.length,1);assert.deepEqual(result.clean.properties.map(p=>p.id),['F1']);
+ assert.deepEqual(base,before);assert.equal(result.report.rows,3);assert.equal(result.report.blocking,0);assert.equal(result.clean.agreements.length,3);assert.deepEqual(result.clean.properties.map(p=>p.id),['F1','F2','F3']);assert(result.clean.workspace.importReview.every(review=>review.fieldRejected&&!review.rowRejected));
  const date=result.clean.workspace.importReview.find(r=>r.row===3),link=result.clean.workspace.importReview.find(r=>r.row===4);
- assert.equal(date.column,headers[6]);assert.equal(date.value,'Se avtal');assert.equal(date.collection,'contracts');assert.equal(link.column,headers[8]);assert.equal(link.value,'streamToClient');assert(date.sourceValues.some(v=>v.target==='contracts.id'&&v.raw==='A2'));
- const html=columnPreviewHtml({fileName:'syntetiskt.xlsx'},{profiles:[profile()]},result,importSchemas);assert.match(html,/Visa fel per källrad/);assert.match(html,/Rad 3/);assert.match(html,/Se avtal/);assert.match(html,/data-import-safe-rows/);assert.match(html,/data-apply class="primary-action" disabled/);
+ assert.equal(date.column,headers[6]);assert.equal(date.value,'Se avtal');assert.equal(date.collection,'contracts');assert.equal(link.column,headers[8]);assert.equal(link.value,'streamToClient');assert.equal(date.recordId,'A2');assert.equal(date.sourceValues[0].raw,'Se avtal');
+ const html=columnPreviewHtml({fileName:'syntetiskt.xlsx'},{profiles:[profile()]},result,importSchemas);assert.match(html,/Att kontrollera/);assert.match(html,/Rad 3/);assert.match(html,/Se avtal/);assert.doesNotMatch(html,/data-import-safe-rows/);assert.doesNotMatch(html,/data-apply class="primary-action" disabled/);
  const explicit=columnPreviewHtml({fileName:'syntetiskt.xlsx'},{profiles:[profile()]},result,importSchemas,{}, {allowPartial:true});assert.doesNotMatch(explicit,/data-apply class="primary-action" disabled/);validateData(result.clean);
 });
-test('invalid optional link is retained for review only after an explicit column choice; valid hyperlinks use their target',()=>{
- const bad=sample();bad[8]='streamToClient';const book=workbook([bad]),p=profile();assert.equal(run(book).report.blocking,1);
+test('invalid optional links are automatically held for completion; valid hyperlinks use their target',()=>{
+ const bad=sample();bad[8]='streamToClient';const book=workbook([bad]),p=profile();assert.equal(run(book).report.blocking,0);
  p.columns[8].invalidPolicy='review-field';const chosen=run(book,emptyData(),[p]);assert.equal(chosen.report.blocking,0);assert.equal(chosen.clean.agreements.length,1);assert.equal(chosen.clean.agreements[0].main_contract_url,null);assert.equal(chosen.clean.workspace.importReview[0].value,'streamToClient');assert.equal(chosen.clean.workspace.importReview[0].recordId,'A1');
  book.Sheets.Underlag.I2.l={Target:'https://example.invalid/document.pdf'};const linked=run(book);assert.equal(linked.report.review,0);assert.equal(linked.clean.agreements[0].main_contract_url,'https://example.invalid/document.pdf');
 });
@@ -73,7 +73,7 @@ test('column rules follow unique headers when reordered and an explicit reset ma
 });
 test('post-import canonical reviews resolve against the exact property; rejected rows and invalid held links cannot be approved',async()=>{
  const {resolveReview}=await import('../frontend/v2/model.js'),{sources}=await import('../frontend/v2/views.js');
- const first=sample(),second=sample();second[2]='Ny adress';second[3]='O2';second[5]='A2';const bad=sample('3');bad[6]='Se avtal';
+ const first=sample(),second=sample();second[2]='Ny adress';second[3]='O2';second[5]='A2';const bad=sample('3');bad[3]='';bad[5]='';
  const result=run(workbook([first,second,bad])),view=result.data,conflict=view.importReview.find(r=>!r.rowRejected);
  const rejected=view.importReview.find(r=>r.rowRejected);const rendered=sources(view,{status:()=>({}),company:()=>false});
  assert.match(rendered,/Raden lästes inte in/);assert.ok(!rendered.includes('data-review="'+rejected.id+'" data-decision="accept"'));

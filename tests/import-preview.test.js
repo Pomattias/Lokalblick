@@ -5,11 +5,11 @@ const schemas=[{key:'contracts',sheet:'Avtal',columns:[['number','Avtalsnummer']
 const prepared={fileName:'Test.xlsx'};
 const mapping={profiles:[{name:'Lokallista',rowCount:154,columns:[{header:'Avtalsnr',target:'contracts.number',identity:true,examples:['A-1'],filled:154},{header:'t.o.m.',target:'contracts.end',examples:['2027-12-31'],filled:154}]}]};
 test('one vertical row per column offers a direct field picker and an independent exclusion',()=>{
- const result={data:{importReview:[]},report:{decisions:Array.from({length:154},(_,i)=>({sheet:'Lokallista',row:i+2,collection:'contracts',classification:'B',reason:'Hemvist saknas'})),changes:[]}};
+ const result={data:{importReview:Array.from({length:154},(_,i)=>({id:'r'+i,status:'pending',source:'Test.xlsx',sheet:'Lokallista',row:i+2,collection:'contracts',rowRejected:true,reason:'Hemvist saknas'}))},report:{changes:[]}};
  const html=columnPreviewHtml(prepared,mapping,result,schemas);
  assert.equal((html.match(/data-preview-map=/g)||[]).length,2);
  assert.equal((html.match(/data-ignore-column=/g)||[]).length,2);
- assert.equal((html.match(/Hemvist saknas/g)||[]).length,1);
+ assert.equal((html.match(/<p>Hemvist saknas<\/p>/g)||[]).length,1);
  assert.ok(html.includes('Avtal → Avtalsnummer'));
  assert.ok(!html.includes('data-preview-collection'));assert.ok(!html.includes('sheet-preview'));assert.ok(!html.includes('Kompletterande information'));
  assert.ok(html.includes('Används för att identifiera och koppla poster.'));

@@ -56,7 +56,7 @@ test('all selected values are validated together and a failed period change leav
 });
 test('global overwrite never bypasses ID, reference or date errors',()=>{
  const result=prepare([sheet(['properties.id','objects.id','objects.area'],[['F2','O1',200]])],base());assert.equal(result.report.blocking,1);assert.equal(importConflictGroups(result).length,0);const chosen=resolveImportChoices(result,{mode:'replace'});assert.equal(chosen.clean.objects[0].property_id,'F1');assert.equal(chosen.clean.objects[0].area,100);
- const bad=prepare([sheet(['contracts.id','contracts.start'],[['A1','Se avtal']])],base());assert.equal(bad.report.blocking,1);assert.equal(importConflictGroups(bad).length,0);
+ const bad=prepare([sheet(['contracts.id','contracts.start'],[['A1','Se avtal']])],base());assert.equal(bad.report.blocking,0);assert.equal(importConflictGroups(bad).length,0);assert.equal(bad.clean.agreements[0].valid_from,base().agreements[0].valid_from);assert.equal(bad.clean.workspace.importReview[0].fieldRejected,true);assert.equal(resolveImportChoices(bad,{mode:'replace'}).clean.agreements[0].valid_from,base().agreements[0].valid_from);
 });
 test('choices are limited to this import and do not change pending reviews from other files',()=>{
  const data=base();data.workspace.importReview=[{id:'old',kind:'canonical-conflict',status:'pending',source:'annan-fil.xlsx',sheet:'Annat',collection:'properties',recordId:'F1',field:'address',current:'Testgatan 1',proposed:'Annat förslag'}];

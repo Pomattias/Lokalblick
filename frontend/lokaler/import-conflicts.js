@@ -7,6 +7,25 @@ const editable=review=>review.kind==='canonical-conflict'&&!review.blocking&&!re
 const tableFor=collection=>Object.keys(viewCollections).find(table=>viewCollections[table]===collection);
 const fieldFor=(table,field)=>Object.keys(viewFields[table]||{}).find(key=>viewFields[table][key]===field);
 export const conflictKey=review=>JSON.stringify([review.collection,review.recordId,review.field]);
+// Presentation is derived from the existing reviews. Keep per-record provenance
+// intact while showing one question for each recurring kind of problem.
+export function importReviewGroups(reviews){
+ const groups=new Map();
+ for(const review of reviews.filter(row=>row.status==='pending')){
+  const category=review.rowRejected||review.blocking?'blocked':review.personLinkRejected?'contacts':editable(review)?'values':'fields';
+  const key=JSON.stringify([category,review.collection,review.field,review.reason]);
+  if(!groups.has(key))groups.set(key,{key,category,collection:review.collection,field:review.field,reason:review.reason,reviews:[],rows:new Set(),records:new Set()});
+  const group=groups.get(key);group.reviews.push(review);
+  for(const at of review.occurrences||[review])group.rows.add(JSON.stringify([at.source,at.sheet,at.row]));
+  if(review.recordId)group.records.add(review.recordId);
+ }
+ const order=['blocked','contacts','fields','values'];
+ return [...groups.values()].map(({rows,records,...group})=>({...group,rowCount:rows.size,recordCount:records.size})).sort((a,b)=>order.indexOf(a.category)-order.indexOf(b.category));
+}
+export function importTableRows(counts){
+ const roots=['properties','objects','contracts','activities'];
+ return counts.filter(row=>row.created||row.updated||row.unchanged||row.review).sort((a,b)=>(roots.indexOf(a.collection)<0?roots.length:roots.indexOf(a.collection))-(roots.indexOf(b.collection)<0?roots.length:roots.indexOf(b.collection)));
+}
 // Repeated source rows are provenance for one value choice, never extra records.
 export function consolidateImportReviews(reviews){
  const values=new Map(),out=[];

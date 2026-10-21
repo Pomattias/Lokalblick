@@ -95,17 +95,17 @@ test('linking an imported issue keeps ID, own responsibility, audit and reimport
 test('date and number failures point to the actual source column, never the last selected field',()=>{
  const rows=[['Fel datum','O1','',1000,'inte ett datum',''],['Fel belopp','O1','','okänt','2027-01-01','']],{workbook,profiles}=prepare(rows);
  const result=prepareCleanImport(workbook,profiles,fixture(),{},XLSX),reviews=result.clean.workspace.importReview;
- assert.equal(result.report.blocking,2);assert.equal(reviews[0].column,'Planerad start');assert.equal(reviews[0].value,'inte ett datum');assert.equal(reviews[1].column,'Kostnad');assert.equal(reviews[1].value,'okänt');
+ assert.equal(result.report.blocking,0);assert.equal(result.clean.issues.length,2);assert(reviews.every(review=>review.fieldRejected&&!review.rowRejected));assert.equal(reviews[0].column,'Planerad start');assert.equal(reviews[0].value,'inte ett datum');assert.equal(reviews[1].column,'Kostnad');assert.equal(reviews[1].value,'okänt');
  const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas);
  assert.match(html,/Kolumn: Planerad start/);assert(!html.includes('Kolumn: Betalas som hyrespåslag'));
 });
-test('a 158-row source imports the 144 valid ID-less cases and isolates real date/number errors',()=>{
+test('a 158-row source keeps all identifiable cases and leaves only the 14 invalid optional values for completion',()=>{
  const rows=[...Array.from({length:144},(_,i)=>['Ärende '+i,'O1','',1000,'2027-01-01','']),...Array.from({length:11},(_,i)=>['Datumfel '+i,'O1','',1000,'osäkert datum','']),...Array.from({length:3},(_,i)=>['Beloppsfel '+i,'O1','','okänt','2027-01-01',''])];
- const result=run(rows);assert.equal(result.clean.issues.length,144);assert.equal(result.report.blocking,14);assert.equal(result.report.rows,158);
+ const result=run(rows);assert.equal(result.clean.issues.length,158);assert.equal(result.report.blocking,0);assert.equal(result.report.rows,158);
  assert(result.clean.workspace.importReview.slice(0,11).every(review=>review.column==='Planerad start'));
  assert(result.clean.workspace.importReview.slice(11).every(review=>review.column==='Kostnad'));
- assert.equal(result.clean.workspace.sourceRegistry[0].receipt.readRows,144);
- const again=run(rows,result.clean);assert.equal(again.clean.issues.length,144);assert.equal(again.report.blocking,14);
+ assert.equal(result.clean.workspace.sourceRegistry[0].receipt.readRows,158);
+ const again=run(rows,result.clean);assert.equal(again.clean.issues.length,158);assert.equal(again.report.blocking,0);assert.equal(again.clean.workspace.importReview.length,14);
 });
 test('an optional empty issue column does not fail an unrelated property import',()=>{
  const result=run([['F1','Test 1','']],fixture(),['properties.id','properties.designation','activities.title']);
