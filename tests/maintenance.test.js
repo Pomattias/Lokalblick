@@ -12,7 +12,7 @@ import {profileMaintenanceWorkbook,applyMaintenanceImport} from '../frontend/lok
 import {writeWorkbook,readWorkbook} from '../frontend/lokaler/workbook.js';
 import {profileWorkbook} from '../frontend/services/import-engine.js';
 import {importSchemas,prepareCleanImport} from '../frontend/lokaler/import-model.js';
-import {maintenancePage} from '../frontend/v2/maintenance-ui.js';
+import {maintenancePage,maintenanceIssueContext} from '../frontend/v2/maintenance-ui.js';
 
 const fixture=()=>{
  const data=emptyData();
@@ -52,7 +52,7 @@ test('spaces distinguish floors and duplicate parts or spaces require a delibera
  assert.equal(data.inspectionPoints.filter(row=>row.inspectionId===inspection).length,4);
 });
 test('closed points stay immutable across the canonical boundary; issue links remain possible',()=>{
- const {data,inspection}=draftFixture();data.inspectionPoints.forEach(point=>updatePoint(data,point.id,{assessment:'defect'}));finishInspection(data,inspection);
+ const {data,inspection}=draftFixture();data.inspectionPoints.forEach((point,index)=>updatePoint(data,point.id,{assessment:index?'ok':'defect'}));finishInspection(data,inspection);
  const baseline=collectWorkspace(data,fixture()),changed=structuredClone(baseline);changed.inspection_points[0].comment='Efterhandsändring';
  assert.throws(()=>validateData(changed,baseline),/Avslutade besiktningspunkter/);
  assert.throws(()=>updatePoint(data,data.inspectionPoints[0].id,{comment:'Fel'}),/ny besiktning/);
@@ -71,7 +71,7 @@ test('issue linkage supports an existing issue and inherits its current data, ne
  const broken=structuredClone(clean);broken.issues[0].object_id='O2';assert.throws(()=>validateData(broken),/samma objekt/);
 });
 test('unfinished links to an existing issue survive the next visit without copying its observation',()=>{
- const {data,inspection}=draftFixture();data.inspectionPoints.forEach(point=>updatePoint(data,point.id,{assessment:'defect'}));const issueId=linkMaintenanceIssue(data,data.inspectionPoints[0].id);finishInspection(data,inspection);
+ const {data,inspection}=draftFixture();data.inspectionPoints.forEach((point,index)=>updatePoint(data,point.id,{assessment:index?'ok':'defect'}));const issueId=linkMaintenanceIssue(data,data.inspectionPoints[0].id);finishInspection(data,inspection);
  const next=startInspection(data,{objectId:'O'},'2027-10-20','P'),point=data.inspectionPoints.find(row=>row.inspectionId===next&&row.issueId);
  assert.equal(point.issueId,issueId);assert.equal(point.assessment,'unchecked');assert.equal(data.activities.length,1);
 });
@@ -227,4 +227,34 @@ test('current object-only SQLite maintenance tables gain property scope without 
   store=await LocalStore.open({file});assert.deepEqual(JSON.parse(JSON.stringify(store.snapshot())),before);assert.equal(store.db.prepare('PRAGMA foreign_key_check').all().length,0);
   const next=projectWorkspace(store.snapshot().data);const room=addSpace(next,{propertyId:'F'},'Gård','',[]);assessSpace(next,room,{assessment:'ok',comment:'Ny rumsbedömning'});await store.replace(collectWorkspace(next,store.snapshot().data),before.version);assert.equal(store.snapshot().data.spaces.filter(row=>row.property_id==='F').length,1);assert.deepEqual(store.snapshot().data.workspace.budgetPlans,before.data.workspace.budgetPlans);
  }finally{await store.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test('a noted defect automatically opens one maintenance case with linked source evidence and inherited responsibility',()=>{
+ const {data}=draftFixture(),point=data.inspectionPoints[0];
+ updatePoint(data,point.id,{assessment:'defect',comment:'Spricka <kontrollera>',photoReference:'lokal-bild.jpg'});
+ assert.equal(data.activities.length,1);const issue=data.activities[0];
+ assert.equal(point.issueId,issue.id);assert.equal(issue.type,'Underhåll');assert.equal(issue.objectId,'O');assert.equal(issue.scopeType,'object');assert.equal(issue.includeInBudget,'Nej');assert.equal(issue.description,'');assert.equal(issue.responsiblePersonId,undefined);
+ updatePoint(data,point.id,{comment:'Förtydligad observation'});updatePoint(data,point.id,{assessment:'defect'});assert.equal(data.activities.length,1);
+ assert.equal(maintenanceIssueContext(data,undefined),'');assert.equal(maintenanceIssueContext(data,''),'');const html=maintenanceIssueContext(data,issue.id);assert.match(html,/Förtydligad observation/);assert.match(html,/Öppna besiktning/);assert.match(html,/Kök/);assert.match(html,/data-space-id/);
+ const clean=collectWorkspace(data,fixture());assert.equal(clean.inspection_points[0].comment,'Förtydligad observation');assert.equal(clean.issues[0].description,null);
+ updatePoint(data,point.id,{assessment:'ok'});assert.equal(data.activities[0].status,'Nytt');assert.equal(point.issueId,issue.id);
+});
+test('a new visit reuses an open action, but a new defect after closure starts a new case without changing history',()=>{
+ const {data,inspection}=draftFixture(),point=data.inspectionPoints[0];
+ data.inspectionPoints.forEach((row,index)=>updatePoint(data,row.id,{assessment:index?'ok':'defect'}));
+ const firstIssue=point.issueId;finishInspection(data,inspection);
+ const second=startInspection(data,{objectId:'O'},'2027-01-10','P'),secondPoint=data.inspectionPoints.find(row=>row.inspectionId===second&&row.partId===point.partId);
+ updatePoint(data,secondPoint.id,{assessment:'defect'});assert.equal(secondPoint.issueId,firstIssue);assert.equal(data.activities.length,1);
+ for(const row of data.inspectionPoints.filter(row=>row.inspectionId===second&&row.id!==secondPoint.id))updatePoint(data,row.id,{assessment:'ok'});finishInspection(data,second);
+ data.activities[0].status='Klar';const baseline=collectWorkspace(data,fixture());
+ const third=startInspection(data,{objectId:'O'},'2028-01-10','P'),thirdPoint=data.inspectionPoints.find(row=>row.inspectionId===third&&row.partId===point.partId);
+ assert(!thirdPoint.issueId);updatePoint(data,thirdPoint.id,{assessment:'defect'});assert.notEqual(thirdPoint.issueId,firstIssue);assert.equal(data.activities.length,2);assert.equal(point.issueId,firstIssue);assert.equal(secondPoint.issueId,firstIssue);
+ collectWorkspace(data,baseline);
+});
+test('reimported inspection defects share an open case and keep comments solely on the original observations',async()=>{
+ const data=viewFixture(),{profiles}=await profileMaintenanceWorkbook(matrixBook(),XLSX,'test.xlsx');applyMaintenanceImport(data,profiles,{Testobjekt:'O'});
+ const defect=data.inspectionPoints.find(row=>row.assessment==='defect'),issue=defect.issueId;assert(issue);assert.equal(data.activities.length,2);assert.equal(data.activities[0].type,'Underhåll');
+ applyMaintenanceImport(data,profiles,{Testobjekt:'O'});assert.equal(data.activities.length,2);
+ const changed=structuredClone(profiles);changed[0].blocks[0].fingerprint+='-second';changed[0].blocks[0].date='2027-10-20';applyMaintenanceImport(data,changed,{Testobjekt:'O'});
+ assert.equal(data.activities.length,2);assert.equal(data.inspectionPoints.filter(row=>row.issueId===issue).length,2);assert.equal(data.activities[0].description,'');collectWorkspace(data,fixture());
 });

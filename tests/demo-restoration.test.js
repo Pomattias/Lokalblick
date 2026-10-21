@@ -27,3 +27,28 @@ test("never override a connected Excel file using another browser snapshot",()=>
  assert.equal(shouldRestoreViewSnapshot({...snapshot,meta:{...snapshot.meta,fileName:"current.xlsx"}},{mode:"local-excel",connected:true,fileName:"current.xlsx"}),true);
  assert.equal(shouldRestoreViewSnapshot(snapshot,{mode:"company-api",connected:false}),false);
 });
+
+test("maintenance demo presents new, ongoing and completed cases with observations in their actual home",()=>{
+ const window={};new Function("window",fs.readFileSync(new URL("../frontend/data/demo-data.js",import.meta.url),"utf8"))(window);
+ const data=normalize(window.LokalblickDemoData),cases=data.activities.filter(row=>row.id.startsWith('ACT-DEMO-MAINT-'));
+ assert.equal(cases.length,3);assert.deepEqual(cases.map(row=>row.status).sort(),['Klar','Nytt','Pågår']);
+ assert(cases.every(row=>row.type==='Underhåll'&&row.includeInBudget==='Nej'));
+ for(const point of data.inspectionPoints.filter(row=>row.assessment==='defect')){
+  const issue=data.activities.find(row=>row.id===point.issueId),inspection=data.inspections.find(row=>row.id===point.inspectionId);assert(issue);
+  assert.equal(issue.objectId||null,inspection.objectId||null);if(!inspection.objectId)assert.equal(issue.propertyId,inspection.propertyId);
+ }
+ assert(data.spaces.some(row=>row.name==='Toalett'));assert(data.inspectionPoints.some(row=>row.spaceId&&row.assessment==='unchecked'));
+ const closed=data.inspectionPoints.find(row=>row.issueId==='ACT-DEMO-MAINT-DONE');assert(data.inspectionPoints.some(row=>row.partId===closed.partId&&row.assessment==='ok'));
+ assert(data.inspections.some(row=>row.propertyId&&!row.objectId));assert.equal(data.isDemo,true);assert(data.demoRevision);
+});
+test("an old cached demo receives the new examples; current demo edits survive reload and imported data is left alone",async()=>{
+ const window={};new Function("window",fs.readFileSync(new URL("../frontend/data/demo-data.js",import.meta.url),"utf8"))(window);
+ const old=structuredClone(window.LokalblickDemoData);delete old.demoRevision;old.inspections=[];old.inspectionPoints=[];
+ const values=new Map([['lokalblick-public-demo-v1',JSON.stringify(old)],['separate-import-workspace','untouched']]);
+ const localStorage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+ new Function('window','localStorage',fs.readFileSync(new URL('../frontend/services/data-service.js',import.meta.url),'utf8'))(window,localStorage);
+ const refreshed=await window.LokalblickDemoDataService.load();assert(refreshed.inspections.length>0);
+ refreshed.inspectionPoints[0].comment='Ändrat i demot';await window.LokalblickDemoDataService.save(refreshed);
+ assert.equal((await window.LokalblickDemoDataService.load()).inspectionPoints[0].comment,'Ändrat i demot');
+ const reset=await window.LokalblickDemoDataService.reset();assert.notEqual(reset.inspectionPoints[0].comment,'Ändrat i demot');assert.equal(values.get('separate-import-workspace'),'untouched');
+});

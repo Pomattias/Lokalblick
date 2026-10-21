@@ -3981,3 +3981,9 @@ body[data-view="sources"] .import-receipt [data-receipt-review] {margin:8px 0}
  .maintenance-page .maintenance-comment { max-width:100%; white-space:normal; }
  .maintenance-page .maintenance-space > summary span { display:block; margin:3px 0 0 16px; }
 }
+
+/* Inspection evidence stays in its case, without changing Budget editors. */
+.compact-issue .maintenance-case-source { margin:8px 0; font-size:12px; }
+.compact-issue .maintenance-case-source > div { padding:8px 0; border-bottom:1px solid var(--line); }
+.compact-issue .maintenance-case-source small { display:block; color:var(--muted); }
+.compact-issue .maintenance-case-source .maintenance-note { white-space:pre-wrap; overflow-wrap:anywhere; }

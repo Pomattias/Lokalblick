@@ -25,9 +25,21 @@ tidigare bedömningar bevaras i historiken. Bild- och dokumentreferenser finns
 under **Bild (förberett)**. Referenser till lokala filer laddas inte upp; de öppnas i
 företagets filhanterare. Denna etapp innehåller ingen bilduppladdning.
 
-**Hantera brist** skapar ett vanligt ärende eller länkar till ett befintligt på
-samma objekt/fastighet. Ansvarig, prioritet, tidplan och åtgärdskostnad hanteras
-enbart i ärendet. Ett öppet ärende kan återanvändas vid nästa besiktning.
+**Brist** skapar direkt ett vanligt ärende av typen **Underhåll**. Ett redan länkat
+ärende eller ett öppet ärende från samma rum/del vid en tidigare besiktning
+återanvänds. **Öppna ärende** visar åtgärd, ansvarig, prioritet, tidplan och kostnad.
+Ärendet visar besiktningsunderlaget med länk tillbaka; kommentarerna hämtas från
+besiktningen och lagras inte en gång till på ärendet. **OK** vid en senare kontroll
+ändrar inte tidigare bedömningar och avslutar inte ärendet automatiskt. Åtgärden
+avslutas i ärendet. Importerade brister kopplas på samma sätt. Äldre olänkade
+brister kan kopplas till ett befintligt ärende via **Skapa underhållsärende**.
+Nya underhållsärenden tas inte automatiskt med i budget.
+
+Demon innehåller en köksbrist med nytt ärende, en pågående åtgärd i fastighetens
+entré samt en åtgärdad brist i hallen med en senare OK-bedömning. Toaletten kan
+användas för att prova en ny rumsbedömning. Alla exempel är syntetiska. **Återställ
+demo** återställer exemplen utan att ändra någon ansluten Excel-fil.
+
 Avsluta när samtliga bedömningar är kontrollerade. Avslutade protokoll bevaras;
 historik öppnas aktivt. En ny besiktning återanvänder delarna men inga gamla
 bedömningar eller kommentarer. Underhållsansvar (ägare/hyresgäst) kan anges

@@ -1,3 +1,4 @@
+import {linkMaintenanceIssue} from './maintenance.js';
 import {parseDate,parseNumber} from '../services/import-formats.js';
 
 const text=value=>String(value??'').trim(),norm=value=>text(value).toLocaleLowerCase('sv').replace(/\s+/g,' ');
@@ -143,7 +144,9 @@ export function applyMaintenanceImport(data,profiles,mapping){
      const occurrence=(occurrences.get(norm(point.name))||0)+1;occurrences.set(norm(point.name),occurrence);
      const partId=sourceId('DEL',[spaceId,norm(point.name),occurrence]);
      if(!data.buildingParts.some(row=>row.id===partId))data.buildingParts.push({id:partId,spaceId,name:point.name});
-     data.inspectionPoints.push({id:sourceId('BEP',[inspectionId,point.source.cell]),inspectionId,partId,assessment:point.assessment,comment:point.comment,lastAction:point.lastAction,sourcePlans:point.sourcePlans,sources:[point.source]});points++;
+     data.inspectionPoints.push({id:sourceId('BEP',[inspectionId,point.source.cell]),inspectionId,partId,assessment:point.assessment,comment:point.comment,lastAction:point.lastAction,sourcePlans:point.sourcePlans,sources:[point.source]});
+     if(point.assessment==='defect')linkMaintenanceIssue(data,data.inspectionPoints.at(-1).id);
+     points++;
     }
    }
    imported++;

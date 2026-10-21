@@ -1,5 +1,6 @@
 // Small operations on the existing V2 workspace; persistence and audit stay shared.
 const id=prefix=>prefix+'-'+crypto.randomUUID();
+const isOpenIssue=issue=>issue&&!['Klar','Klart','Avslutad','done'].includes(issue.status);
 export function inspectionPoints(data,inspectionId){return data.inspectionPoints.filter(point=>point.inspectionId===inspectionId);}
 export const maintenanceHome=({objectId,propertyId})=>objectId?{objectId}:propertyId?{propertyId}:{};
 export const sameMaintenanceHome=(a,b)=>Boolean(a?.objectId||a?.propertyId)&&(a.objectId||null)===(b?.objectId||null)&&(a.propertyId||null)===(b?.propertyId||null);
@@ -12,7 +13,7 @@ export function startInspection(data,home,inspectedOn,inspectorId){
  data.inspections.push(row);
  const spaces=new Set(data.spaces.filter(row=>sameMaintenanceHome(row,home)).map(row=>row.id));
  const existingPoints=[...data.inspectionPoints];
- const carryIssue=matches=>existingPoints.filter(point=>matches(point)&&point.issueId).find(point=>data.activities.some(issue=>issue.id===point.issueId&&!['Klar','Klart','Avslutad'].includes(issue.status)))?.issueId;
+ const carryIssue=matches=>existingPoints.filter(point=>matches(point)&&point.issueId).find(point=>data.activities.some(issue=>issue.id===point.issueId&&isOpenIssue(issue)))?.issueId;
  for(const part of data.buildingParts.filter(row=>spaces.has(row.spaceId))){
   const issueId=carryIssue(point=>point.partId===part.id);
   data.inspectionPoints.push({id:id('BEP'),inspectionId:row.id,partId:part.id,assessment:'unchecked',...(issueId?{issueId}:{})});
@@ -46,6 +47,7 @@ export function updatePoint(data,pointId,values){
  if(data.inspections.find(row=>row.id===point.inspectionId)?.status!=='draft')throw Error('Starta en ny besiktning för att ändra bedömningen.');
  for(const key of Object.keys(values))if(!['assessment','comment','photoReference'].includes(key))throw Error('Uppgiften kan inte ändras här.');
  Object.assign(point,values);
+ if(point.assessment==='defect')linkMaintenanceIssue(data,point.id);
 }
 export function assessSpace(data,spaceId,values){
  const space=data.spaces.find(row=>row.id===spaceId);if(!space)throw Error('Utrymmet saknas.');
@@ -69,9 +71,12 @@ export function linkMaintenanceIssue(data,pointId,issueId){
   const issue=data.activities.find(row=>row.id===issueId),propertyId=inspection.propertyId||data.objects.find(row=>row.id===inspection.objectId)?.propertyId;
   if(!issue||(issue.objectId?issue.objectId!==inspection.objectId:issue.propertyId!==propertyId))throw Error('Välj ett ärende på samma objekt eller fastighet.');
  }else{
+  // Repeated observations of the same physical target share an open case.
+  const previous=data.inspectionPoints.find(row=>row.id!==point.id&&(point.partId?row.partId===point.partId:row.spaceId===point.spaceId)&&data.activities.some(issue=>issue.id===row.issueId&&isOpenIssue(issue)));
+  if(previous){point.issueId=previous.issueId;return point.issueId;}
   const part=data.buildingParts.find(row=>row.id===point.partId),space=data.spaces.find(row=>row.id===(point.spaceId||part?.spaceId));
   issueId=id('ARE');
-  data.activities.push({id:issueId,...maintenanceHome(inspection),scopeType:inspection.objectId?'object':'property',title:space.name+(part?' · '+part.name:''),description:point.comment||'',status:'Nytt',priority:'Medel',type:'Underhåll',includeInBudget:'Nej',budgetCategory:'Ej budget'});
+  data.activities.push({id:issueId,...maintenanceHome(inspection),scopeType:inspection.objectId?'object':'property',title:space.name+(part?' · '+part.name:''),description:'',status:'Nytt',priority:'Medel',type:'Underhåll',includeInBudget:'Nej',budgetCategory:'Ej budget'});
  }
  point.issueId=issueId;return issueId;
 }

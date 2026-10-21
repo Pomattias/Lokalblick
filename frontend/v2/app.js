@@ -1,5 +1,5 @@
 import {openItemDialog,openPropertyCostDialog,openEvidenceDialog,propertyCostsPanel} from './finance-ui.js';
-import {maintenancePage,mountMaintenance} from './maintenance-ui.js';
+import {maintenancePage,mountMaintenance,maintenanceIssueContext} from './maintenance-ui.js';
 import {projectFinance,applyContractFinanceEdit,applyLegacyCostEdit,adoptAgreementItems,projectStoredAgreementItems,validateAgreementItems} from '../lokaler/finance-view.js';
 import { createCleanEvaluator } from '../lokaler/import-worker-client.js';
 import { importSchemas } from '../lokaler/import-model.js';
@@ -651,8 +651,8 @@ function render() {
   if(ui.view==='objects')content.innerHTML=objectList(data,selection,viewUi);
   content.onclick=null;content.onchange=null;
   if(ui.view==='maintenance'){
-    content.innerHTML=maintenancePage(data,maintenanceState,canEdit()&&Boolean(data.cleanModel));
-    mountMaintenance(content,{data:()=>data,state:maintenanceState,editable:canEdit()&&Boolean(data.cleanModel),mutate:mutation,notify:notice,openRecord:openEditor});
+    content.innerHTML=maintenancePage(data,maintenanceState,canEdit()&&Boolean(data.cleanModel||data.isDemo));
+    mountMaintenance(content,{data:()=>data,state:maintenanceState,editable:canEdit()&&Boolean(data.cleanModel||data.isDemo),mutate:mutation,notify:notice,openRecord:openEditor});
   }
   for(const table of content.querySelectorAll("table[data-list-key]"))restoreSmartTableState(table,listTableStates.get(table.dataset.listKey));
   if (ui.view === "plan") content.innerHTML = planning(data, selection, ui);
@@ -918,8 +918,8 @@ function setEditorReadMode(readOnly){
   }
   for(const field of form.querySelectorAll("input, select, textarea, button")){
     if(!canEdit()&&field.matches("[data-activity-journal-note],[data-activity-journal-save]")){field.disabled=true;continue;}
-    if(field.matches("[data-context-record],[data-context-back],[data-maintenance-record]")||field.closest?.(".context-tabs,.context-breadcrumb,.context-scope,[data-context-panel=contracts],[data-context-panel=issues]")){
-      if(field.matches("[data-context-tab],[data-context-record],[data-context-back],[data-context-show-all],[data-maintenance-record]"))field.disabled=!editor.readOnly;
+    if(field.matches("[data-context-record],[data-context-back],[data-maintenance-record],[data-maint-inspection]")||field.closest?.(".context-tabs,.context-breadcrumb,.context-scope,[data-context-panel=contracts],[data-context-panel=issues]")){
+      if(field.matches("[data-context-tab],[data-context-record],[data-context-back],[data-context-show-all],[data-maintenance-record],[data-maint-inspection]"))field.disabled=!editor.readOnly;
       if(field.matches("[data-context-new-issue]"))field.disabled=!canEdit();
       continue;
     }
@@ -1079,7 +1079,10 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
     if(navigation.tab||navigation.editing)editor.workspace?.setTab(navigation.tab||'info');
     form.querySelector(':scope > .section-title')?.insertAdjacentHTML('beforebegin',recordBreadcrumb(data,col,result.record,trail));
   }
-  if(col==="activities"&&ui.view!=="budget")mountCompactIssue(root,{isNew:!id});
+  if(col==="activities"&&ui.view!=="budget"){
+    mountCompactIssue(root,{isNew:!id});
+    form.querySelector('.issue-main-section')?.insertAdjacentHTML('afterend',maintenanceIssueContext(data,id));
+  }
   if(form){
     if(col!=="activities")prepareEditorModeFields(form);
     editor.initialSnapshot=editorSnapshot(form);
@@ -1266,6 +1269,11 @@ document.addEventListener("click", (event) =>
     }
     const b = event.target.closest("button");
     if (!b || b.disabled) return;
+    if(b.dataset.maintInspection){
+      const inspection=data.inspections.find(row=>row.id===b.dataset.maintInspection);if(!inspection||!closeEditor())return;
+      maintenanceState.objectId=inspection.objectId||'';maintenanceState.propertyId=inspection.propertyId||data.objects.find(row=>row.id===inspection.objectId)?.propertyId||'';
+      maintenanceState.inspectionId=inspection.id;maintenanceState.q='';maintenanceState.filter='all';maintenanceState.open=b.dataset.spaceId?[b.dataset.spaceId]:[];ui.view='maintenance';render();return;
+    }
     if(b.dataset.maintenanceRecord){
       if(!closeEditor())return;
       maintenanceState.objectId=b.dataset.maintenanceRecord==='objects'?b.dataset.id:'';

@@ -738,6 +738,48 @@ window.LokalblickDemoData = {
       "endDate": "2027-03-31",
       "unitId": "HOF",
       "description": "Områdesgemensam aktivitet utan fastighetskoppling (avsiktligt testfall)."
+    },
+    {
+      "id": "ACT-DEMO-MAINT-NEW",
+      "objectId": "OBJ-DEMO-101-A",
+      "scopeType": "object",
+      "title": "Kontrollera och laga spricka i kökstak",
+      "type": "Underhåll",
+      "status": "Nytt",
+      "priority": "Medel",
+      "description": "Kontrollera orsaken och välj lämplig åtgärd.",
+      "includeInBudget": "Nej",
+      "budgetCategory": "Ej budget"
+    },
+    {
+      "id": "ACT-DEMO-MAINT-ONGOING",
+      "propertyId": "DEMO-301",
+      "scopeType": "property",
+      "title": "Åtgärda entrébelysning",
+      "type": "Underhåll",
+      "status": "Pågår",
+      "priority": "Medel",
+      "description": "Elektriker undersöker armatur och drivdon.",
+      "estimatedCost": 12000,
+      "startDate": "2026-10-20",
+      "endDate": "2026-11-06",
+      "includeInBudget": "Nej",
+      "budgetCategory": "Ej budget"
+    },
+    {
+      "id": "ACT-DEMO-MAINT-DONE",
+      "objectId": "OBJ-DEMO-101-A",
+      "scopeType": "object",
+      "title": "Fäst lös tröskel i hall",
+      "type": "Underhåll",
+      "status": "Klar",
+      "priority": "Medel",
+      "description": "Tröskeln har fästs och kontrollerats.",
+      "estimatedCost": 6000,
+      "startDate": "2025-10-20",
+      "endDate": "2025-10-22",
+      "includeInBudget": "Nej",
+      "budgetCategory": "Ej budget"
     }
   ],
   "orders": [
@@ -987,6 +1029,127 @@ window.LokalblickDemoData = {
       "review": 0,
       "importedAt": "2026-10-13T09:00:00+02:00",
       "sheets": "Fastigheter, Objekt, Avtal, Verksamheter, Aktiviteter"
+    }
+  ],
+  "demoRevision": "2026-10-21-maintenance",
+  "spaces": [
+    {
+      "id": "UTR-DEMO-KOK",
+      "objectId": "OBJ-DEMO-101-A",
+      "name": "Kök",
+      "floor": "Entréplan"
+    },
+    {
+      "id": "UTR-DEMO-HALL",
+      "objectId": "OBJ-DEMO-101-A",
+      "name": "Hall",
+      "floor": "Entréplan"
+    },
+    {
+      "id": "UTR-DEMO-WC",
+      "objectId": "OBJ-DEMO-101-A",
+      "name": "Toalett",
+      "floor": "Entréplan"
+    },
+    {
+      "id": "UTR-DEMO-ENTRE",
+      "propertyId": "DEMO-301",
+      "name": "Entré",
+      "floor": "Gemensamt"
+    }
+  ],
+  "buildingParts": [
+    {
+      "id": "DEL-DEMO-KOK-TAK",
+      "spaceId": "UTR-DEMO-KOK",
+      "name": "Tak",
+      "responsibility": "owner"
+    },
+    {
+      "id": "DEL-DEMO-KOK-GOLV",
+      "spaceId": "UTR-DEMO-KOK",
+      "name": "Golv",
+      "responsibility": "tenant"
+    },
+    {
+      "id": "DEL-DEMO-HALL-GOLV",
+      "spaceId": "UTR-DEMO-HALL",
+      "name": "Golv",
+      "responsibility": "owner"
+    },
+    {
+      "id": "DEL-DEMO-ENTRE-EL",
+      "spaceId": "UTR-DEMO-ENTRE",
+      "name": "Belysning",
+      "responsibility": "owner"
+    }
+  ],
+  "inspections": [
+    {
+      "id": "BEH-DEMO-OLD",
+      "objectId": "OBJ-DEMO-101-A",
+      "inspectedOn": "2025-10-15",
+      "inspectorId": "P1",
+      "status": "completed"
+    },
+    {
+      "id": "BEH-DEMO-NOW",
+      "objectId": "OBJ-DEMO-101-A",
+      "inspectedOn": "2026-10-20",
+      "inspectorId": "P1",
+      "status": "draft"
+    },
+    {
+      "id": "BEH-DEMO-PROPERTY",
+      "propertyId": "DEMO-301",
+      "inspectedOn": "2026-10-19",
+      "inspectorId": "P2",
+      "status": "completed"
+    }
+  ],
+  "inspectionPoints": [
+    {
+      "id": "BEP-DEMO-HALL-OLD",
+      "inspectionId": "BEH-DEMO-OLD",
+      "partId": "DEL-DEMO-HALL-GOLV",
+      "assessment": "defect",
+      "comment": "Lös tröskel med snubbelrisk.",
+      "issueId": "ACT-DEMO-MAINT-DONE"
+    },
+    {
+      "id": "BEP-DEMO-KOK-TAK",
+      "inspectionId": "BEH-DEMO-NOW",
+      "partId": "DEL-DEMO-KOK-TAK",
+      "assessment": "defect",
+      "comment": "Spricka i takets färgskikt. Kontrollera orsak före lagning.",
+      "issueId": "ACT-DEMO-MAINT-NEW"
+    },
+    {
+      "id": "BEP-DEMO-KOK-GOLV",
+      "inspectionId": "BEH-DEMO-NOW",
+      "partId": "DEL-DEMO-KOK-GOLV",
+      "assessment": "ok"
+    },
+    {
+      "id": "BEP-DEMO-HALL-GOLV",
+      "inspectionId": "BEH-DEMO-NOW",
+      "partId": "DEL-DEMO-HALL-GOLV",
+      "assessment": "ok",
+      "comment": "Tröskeln sitter fast efter utförd åtgärd."
+    },
+    {
+      "id": "BEP-DEMO-WC",
+      "inspectionId": "BEH-DEMO-NOW",
+      "spaceId": "UTR-DEMO-WC",
+      "assessment": "unchecked"
+    },
+    {
+      "id": "BEP-DEMO-ENTRE-EL",
+      "inspectionId": "BEH-DEMO-PROPERTY",
+      "partId": "DEL-DEMO-ENTRE-EL",
+      "assessment": "defect",
+      "comment": "Belysningen blinkar vid entrédörren.",
+      "issueId": "ACT-DEMO-MAINT-ONGOING"
     }
   ]
 };

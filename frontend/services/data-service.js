@@ -139,7 +139,7 @@
           parsed &&
           Array.isArray(parsed.properties) && parsed.properties.length > 0 &&
           Array.isArray(parsed.contracts) && parsed.contracts.length > 0;
-        if (!hasCoreDemoData) {
+        if (!hasCoreDemoData || parsed.demoRevision !== window.LokalblickDemoData.demoRevision) {
           localStorage.removeItem(DEMO_KEY);
           return clone(window.LokalblickDemoData);
         }
