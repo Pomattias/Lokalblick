@@ -99,7 +99,7 @@ export function mountCompactIssue(root,{isNew=false,issue={}}={}) {
   grid.append(home,description);
   if(issueNeedsLink(issue)){
     property.textContent='Att koppla';
-    const hints=[...new Set((issue.sources||[]).map(source=>source.homeHint).filter(Boolean))];
+    const hints=[...new Set((issue.sources||[]).map(source=>[source.homeHint,source.matchingDecision?.reason].filter(Boolean).join(' · ')).filter(Boolean))];
     if(hints.length)home.append(element('small','',hints.join(' · ')));
   }
 

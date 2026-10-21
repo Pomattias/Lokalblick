@@ -40,6 +40,24 @@ function fieldResolver(schemas,fields=schemaFields(schemas)){
 export function resolveFieldName(value,schemas,primary){
  return fieldResolver(schemas)(value,primary);
 }
+export const issueNumberColumn=(profile,column)=>profile.primaryTable==='activities'&&['objektsnummer','objektnummer','objektnr','objektsnr','objektsnummerforvaltningsobjekt','forvaltningsobjekt','forvaltningsnummer'].includes(matchName(column.header));
+// This is column evidence, not a fallback that changes the meaning of a chosen FK.
+// Explicit and approved choices always win; mixed or colliding numbers need a choice.
+export function suggestIssueNumberColumns(profiles,data){
+ const key=value=>String(value??'').normalize('NFKC').trim().toLocaleLowerCase('sv').replace(/^0+(?=\d+$)/,'');
+ const ids=rows=>new Set((rows||[]).map(row=>key(row.id)));
+ const properties=ids(data?.properties),objects=ids(data?.objects);let changed=false;
+ for(const profile of profiles)for(const column of profile.columns){
+  if(!issueNumberColumn(profile,column)||column.approved||column.matchSource==='explicit'||column.target==='@ignore')continue;
+  const samples=(column.samples||[]).filter(present).map(key);if(!samples.length)continue;
+  const property=samples.every(value=>properties.has(value)&&!objects.has(value)),object=samples.every(value=>objects.has(value)&&!properties.has(value));
+  const target=property?'activities.propertyId':object?'activities.objectId':'@unmapped';
+  changed ||= column.target!==target;column.target=target;column.collection=target.split('.')[0];column.identity=true;
+  column.matchSource=target==='@unmapped'?'unmatched':'alias';
+  column.warning=property?'Numren matchar FastighetsID/förvaltningsnummer i registret.':object?'Numren matchar ObjektID i registret.':'Ange om numret avser FastighetsID/förvaltningsnummer eller ObjektID.';
+ }
+ return changed;
+}
 function inferTable(name,headers,samples,schemas,match){
  const scores=schemas.map(schema=>{
   const names=tableNames(schema),sheet=matchName(name);let score=names.some(n=>n.length>3&&sheet.includes(n))?30:0;
@@ -62,6 +80,8 @@ export function suggestTableColumns(profile,schemas){
  for(const column of profile.columns.filter(automatic)){
   const header=matchName(column.header),collection=column.target.split('.')[0];
   if(['activities','orders'].includes(profile.primaryTable)&&(!near.has(collection)||collection==='orders'&&profile.primaryTable==='activities'||collection==='activities'&&profile.primaryTable==='orders')&&!column.target.startsWith('@')&&!column.header.includes('.'))review(column,'Detta fält hör till en annan tabell. Välj en uttrycklig koppling om uppgiften ska läsas in.');
+  if(profile.primaryTable==='activities'&&column.target==='objects.id')choose(column,'activities.objectId');
+  if(profile.primaryTable==='activities'&&column.target==='properties.id')choose(column,'activities.propertyId');
   if(header==='objektsnummerforvaltningsobjekt')review(column,'Rubriken kan avse ObjektID eller FastighetsID. Välj vilken identifierare kolumnen innehåller.');
   if(header==='benamning'&&['properties','contracts'].includes(profile.primaryTable)&&profile.columns.some(c=>c.target==='properties.designation'))choose(column,'properties.popularName');
   if(column.target==='properties.ownerPartyId'&&profile.columns.filter(c=>matchName(c.header)===header).length>1&&values(column).length&&values(column).every(v=>/^\+?[\d ()-]{7,}$/.test(String(v))))review(column,'Denna kolumn verkar innehålla telefonnummer trots rubriken Fastighetsägare. Välj rätt kontaktfält eller Importera inte.');
@@ -147,7 +167,7 @@ export function profileTables(workbook,schemas,XLSX,saved=[],options={}){
    if(rule?.contactHeader&&contactPart(target)){const contacts=headers.map((h,i)=>({h,i})).filter(c=>matchName(c.h)===matchName(rule.contactHeader));target=contacts.length===1?'contact.'+contacts[0].i+'.'+contactPart(target).field:'@unmapped';}
    return {header:String(header),index,target,collection:target.split('.')[0],itemType:rule?rule.itemType:suggestion?.itemType,transform:rule?.transform||(/månadshyra/i.test(header)?'monthly':'auto'),date1904:Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904),dateMode:rule?.dateMode||'auto',invalidPolicy:rule?.invalidPolicy||'reject-row',emptyMarkers:true,approved:Boolean(rule),personFormat:rule?.personFormat,shared:rule?.shared===true,matchSource:rule?'saved':suggestion?'alias':'unmatched',warning:rule&&target==='@unmapped'?'Det tidigare fältet finns inte längre. Välj ett aktuellt fält.':''};
   }).filter(Boolean);
-  refreshSuggestions(workbook,profile,schemas,XLSX);return profile;
+  refreshSuggestions(workbook,profile,schemas,XLSX);if(options.referenceData)suggestIssueNumberColumns([profile],options.referenceData);return profile;
  });
 }
 export function refreshTableProfile(workbook,profile,schemas,XLSX){

@@ -1616,7 +1616,7 @@
         pending.preparedWorkbooks ||= new Map();
         pending.preparedWorkbooks.set(JSON.stringify([...selectedSheets].sort()),engine.readImportSource(pending.files[0],names,XLSX));
       }
-      return {workbook,profiles:engine.profileWorkbook(workbook,options.schemas||this.schemas,XLSX,data?.importMappings||[],options),
+      return {workbook,profiles:engine.profileWorkbook(workbook,options.schemas||this.schemas,XLSX,data?.importMappings||[],{...options,referenceData:data}),
         fingerprint:combined.fingerprint,fileName:pending.fileName,fileCount:pending.files?.length||1};
     },
     importPreparedWorkbook:importPreparedWorkbook,
