@@ -149,7 +149,6 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
     field("Organisatorisk tillhörighet",select("unitId",verksamhetChoices,c,x=>x[0],x=>x[1],"Välj tillhörighet"))+
     field("Lokalkategori",categorySelect)+
     field("Hyresgäst enligt källa",input(c,"tenantName","text",true))+
-    field("Verksamhetspart",select("businessPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
     (presentation.portfolio?
       field('Användning',input(c,'use','text',company&&!!id))+
       field('Antal medarbetare',input(c,'employees','number',false,'min="0" step="any"'))+
