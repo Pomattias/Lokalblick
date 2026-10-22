@@ -1,3 +1,4 @@
+import {handleBudgetAction} from './budget-actions.js';
 import {openItemDialog,openPropertyCostDialog,openEvidenceDialog,propertyCostsPanel} from './finance-ui.js';
 import {maintenancePage,mountMaintenance,maintenanceIssueContext,mountMaintenanceCompletion} from './maintenance-ui.js';
 import {nextIssueId} from '../lokaler/issue-identity.js';
@@ -1643,65 +1644,8 @@ document.addEventListener("click", (event) =>
           : {},
       );
     }
-    if (b.dataset.budgetAdjust) showBudgetAdjustment(b.dataset.budgetAdjust);
-    if (b.hasAttribute("data-budget-reopen") && confirm('Skapa ny budgetversion '+ui.year+'? Den låsta versionen sparas i historiken.')) {
-      await mutation(d=>{
-        const plan=d.budgetPlans.find(p=>Number(p.year)===ui.year);
-        globalThis.LokalblickBudgetFollowup.beginVersion(plan,'Ny arbetsbudget från låst version',actor());
-      });
-      await loadBudgetIndex(ui.year);
-    }
-    if (b.hasAttribute("data-budget-index")) { await loadBudgetIndex(ui.year,true); return; }
-    if (b.hasAttribute("data-budget-index-reset")) {
-      const plan=data.budgetPlans.find(p=>Number(p.year)===ui.year);
-      if (plan?.status==="Låst")throw Error("Skapa en ny budgetversion först");
-      if (Number(plan?.preliminaryIndex)>0) {
-        await mutation(d=>{
-          const target=d.budgetPlans.find(p=>Number(p.year)===ui.year);
-          if(!target||target.status==="Låst")throw Error("Budgeten är låst");
-          target.preliminaryIndex=0;
-          target.preliminaryIndexUpdatedAt=new Date().toISOString();
-          target.preliminaryIndexUpdatedBy=actor();
-          target.targets=calc().summarize(calc().budgetProposal(d,ui.year));
-        });
-      } else render();
-      return;
-    }
-    if (b.hasAttribute("data-budget-create"))
-      await mutation((d) => {
-        const live = calc().budgetRows(d, ui.year);
-        d.budgetPlans.push({
-          year: ui.year,
-          status: "Arbetsbudget",
-          createdAt: new Date().toISOString(),
-          preliminaryIndex: 0,
-          adjustments: {},
-          lines: [],
-          targets: calc().summarize(live),
-          notes: {},
-        });
-      });
-    if (b.hasAttribute("data-budget-lock") && confirm('Lås budget '+ui.year+' som baslinje?'))
-      await mutation((d) => {
-        const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
-        if (!plan || plan.status === "Låst") return;
-        const live = calc().budgetProposal(d, ui.year,{strict:true});
-        const lockedIndex = calc().budgetIndex(
-          d,
-          ui.year,
-          plan.preliminaryIndex,
-        );
-        plan.lines = live.map(line=>({...line,lockedAt:new Date().toISOString(),lockedBy:actor(),indexSnapshot:clone(lockedIndex),sourceSnapshot:clone((d[line.sourceType==='contract'?'contracts':'activities']||[]).find(x=>x.id===line.sourceId)||{})}));
-        plan.targets=calc().summarize(plan.lines);
-        plan.lockedIndexMonth=lockedIndex.month;
-        plan.lockedIndexStatus=lockedIndex.status;
-        plan.lockedIndexYear = lockedIndex.year;
-        plan.lockedIndexValue = lockedIndex.value;
-        plan.lockedIndexSource = lockedIndex.source;
-        plan.status = "Låst";
-        plan.lockedAt = new Date().toISOString();
-        plan.lockedBy = actor();
-      });
+    await handleBudgetAction(b,{getData:()=>data,ui,mutation,actor,render,
+      showBudgetAdjustment,loadBudgetIndex,calc,clone});
   }),
 );
 document.addEventListener("input",event=>{

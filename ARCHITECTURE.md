@@ -1,125 +1,104 @@
-> **2026-10-15: Clean model decision.** Only `frontend/v2/` is the active app.
-> The V1 app and migration of previous Lokalblick tables were retired.
-> `activities` stores all cases (project, maintenance, operation, wish,
-> investigation); `recurringCosts` stores annual expenses associated with
-> property or contract; `orders` and `assignments` are separate canonical
-> relations. External Excel/LEB import remains supported. Local file, internal
-> database and approved external database must share one authenticated API;
-> database connectors remain an architectural target, not a completed feature.
-> Published CPI determines ordinary rent; manual KPI belongs exclusively
-> to the budget scenario. Locked budget versions stay immutable.
-
 # Lokalblick architecture
 
-## Separation
+This describes the implemented `utveckling` runtime. Start with
+[the developer guide](docs/DEVELOPER_START.md) for the reading order,
+terminology and a five-day introduction. Older dated documents record decisions
+at that time; the definitions in `frontend/lokaler/model.js`, `finance-model.js`
+and `maintenance-model.js` describe the current clean storage schema.
 
-```
-frontend/
-  UI, tables, charts, forms
-  services/data-service.js   <- public demo adapter
-  data/demo-data.js          <- synthetic data only
+## Active app and model boundaries
 
-backend/
-  API contract
-  authentication boundary
-  M365 repository boundary
-  server-side LEB refresh
-```
+`frontend/v2/` is the only active UI. `frontend/lokaler/` holds the clean storage
+model and adapters used by that UI; it is not a second app. The older company
+and source-workbook flows remain supported through compatibility adapters.
 
-The frontend must not know whether production data is stored in SharePoint
-Lists, Dataverse, or another approved Microsoft 365 store. It only knows the
-API contract.
-
-## Environments
-
-### Public demo
-GitHub Pages. Synthetic data only. No LEB import. No company data.
-
-### Company / Teams
-Authenticated with Microsoft Entra ID. The same frontend is hosted inside the
-company environment and points to the authenticated backend. The backend reads
-and writes the approved Microsoft 365 data sources.
-
-## Provider substitution (not data migration)
-
-UI and business logic stay reusable. Only these adapters change:
-
-```
-demo dataService  ->  m365 API dataService
-demo auth         ->  Entra ID
-GitHub Pages      ->  company-hosted web app / Teams tab
+```text
+V2 UI and view model (contracts, activities, assignments)
+  -> frontend/v2/transport.js
+  -> frontend/lokaler/workspace-transport.js
+      -> local browser workspace / browser Excel
+      -> local SQLite or server Excel API
+      -> older company or source-workbook transport
 ```
 
+`view-fields.js` translates field names. `view-adapter.js` projects clean data
+into the V2 view and collects edits back into storage. For example, `agreements`
+becomes `contracts`, `issues` becomes `activities`, and `contacts` becomes
+`assignments`. Derived views do not create duplicate stored facts.
 
-## Map boundary
+Clean recurring costs belong to properties. Each agreement item carries its
+own amount, period and adjustment rules. Older source/company formats retain
+read compatibility; a shared UI does not mean their persisted formats match.
 
-The public demo may use public map tiles with synthetic coordinates only. Production property addresses are not geocoded from the browser. Coordinates are supplied by the authenticated backend using an organization-approved map/geocoding provider.
+## Implemented runtimes
 
+| Runtime | Entry point | Persistence authority |
+| --- | --- | --- |
+| Synthetic demo, including public Pages/Vercel | `frontend/v2/index.html`; `npm run company` serves it locally | Demo service in browser storage |
+| Clean local browser workspace | `withCleanWorkspace`, selected in Datakällor | IndexedDB until a workbook is attached |
+| Clean browser Excel | `BrowserExcel` through `withCleanWorkspace` | Explicitly selected local workbook; IndexedDB retains the handle |
+| Local SQLite | `npm run lokaler` -> `backend/lokaler/server.mjs` | `LocalStore`, default `local-data/lokaler.sqlite` |
+| Local server Excel | `npm run lokaler:excel` | `LocalStore`, default `local-data/lokaler.xlsx` |
+| Older company-local API | `npm run company:api` -> `backend/company/server.js` | Read-only LEB source plus backend JSON overlays |
+| Older source-workbook mode | `frontend/services/source-service.js` | Selected workbook; changes remain pending until write succeeds |
 
-## Provider adapters
+`npm run company` starts `backend/server.mjs`: assets, geocoding and budget
+index endpoints. It is not the general business-data persistence API.
+The company-local and lokaler servers bind to loopback by default and enforce
+local request boundaries. They do not implement Entra ID sign-in.
 
-Lokalblick is intentionally provider-neutral.
+Use Node.js 24 LTS for local development and CI. The lokaler store uses
+`node:sqlite`. The older `engines >=20` declaration covers earlier runtime
+paths and does not establish SQLite support on Node 20.
 
-### Map
+## Persistence and private-data boundary
 
-```
-app.js
-  -> LokalblickMapService
-      -> LeafletMapAdapter (demo)
-      -> AzureMapsAdapter (future)
-      -> MapboxAdapter (future)
-      -> customer GIS adapter (future)
-```
+In API runtimes, saved changes go through the selected backend. In browser
+workspace/Excel runtimes, local browser storage and direct workbook access are
+implemented features. They must not be mistaken for API persistence or a
+completed centrally authenticated deployment.
 
-The UI never calls a map SDK directly.
+Imported source files remain read-only. Saving a Lokalblick workbook, whether
+through the browser or local server, writes the explicitly chosen working file.
+See [START-LOKALER.md](START-LOKALER.md) for concurrency, backups and file limits.
+The public demo uses synthetic data. Real company data, raw documents and
+credentials belong in an approved company environment, outside Git and public
+preview environments. Never place provider secrets in frontend assets.
 
-### Data
+## Import and mutation boundaries
 
-```
-Lokalblick API
-  -> LokalblickRepository
-      -> M365SourceAdapter
-      -> ExternalApiSourceAdapter
-      -> SQL/Dataverse adapter
-      -> other customer source adapters
-```
+Import schema/aliases live in `frontend/lokaler/import-schema.js`. Stable
+identity helpers live in `import-identities.js`; their hash inputs must remain
+compatible with saved provenance and reimports. `prepareCleanImport` works on
+copies, validates records and creates review entries. `import-result.js`
+validates the complete prepared data and adds counts, receipts and audit history.
+Preparing an import does not persist it. The UI reviews the result, then uses
+the selected transport to save it.
 
-All adapters return the same normalized Lokalblick model. Teams is one host, not the product boundary.
+The row checkpoint mechanism retains an already validated portion of a source
+row if a later dependent record fails. It does not relax identity, relation or
+financial validation. Regression examples live in `tests/import-completion.test.js`
+and `tests/table-import.test.js`.
 
+UI budget buttons are routed by `frontend/v2/budget-actions.js`. The existing
+app mutation function remains responsible for validation, audit, persistence
+and rollback. Calculations stay in `frontend/domain/calculations.js`; historical
+budget operations stay in `frontend/domain/budget-followup.js`.
 
-## Public vs private security boundary
+## Provider targets and geocoding
 
-The user-facing architecture is intentionally explained as three zones:
+Authenticated Entra ID/M365 access, external APIs and further database
+providers are architectural targets. `backend/src/data-repository.js` and the
+M365/external API adapters include unimplemented methods. Do not assume these
+are working integrations from their class names or API contract alone.
 
-1. Public/external Lokalblick product: UI, map rendering and sign-in shell.
-2. Authenticated API/connector boundary: authorization, normalization, filtering and logging.
-3. Customer-controlled private data environment: master data, raw documents, system credentials and source APIs.
+A future hosted company runtime must authorize the records and fields returned
+to each user. Source credentials and raw master files stay behind that boundary.
+Teams is a possible host, not a separate product or storage model.
 
-Only the records and fields an authenticated user is authorized to view cross from the private environment to the frontend. Source credentials and raw master data never belong in public frontend assets.
-
-
-## Backend is the persistence authority
-
-For every non-demo runtime, the backend is the single persistence authority.
-
-The frontend may:
-- fetch data from the Lokalblick API
-- display data
-- edit data in forms
-- hold temporary unsaved UI state
-
-The frontend must not:
-- persist business data in localStorage, IndexedDB or browser files
-- become a second source of truth
-- write directly to Excel, SharePoint, SQL or other source systems
-- store API keys, credentials or source-system secrets
-
-Every saved create/update/delete action goes through the Lokalblick API and is persisted by the backend.
-
-Source/master data such as LEB may remain read-only in its source system. Lokalblick-created data and overlays — including activities, people, assignments, recurring costs, orders, budgets, coordinates and object complements — are persisted in backend-controlled storage.
-
-The public GitHub Pages demo is the only exception: synthetic demo state may use browser storage because it contains no real customer data.
-
+Map presentation uses `LokalblickMapService` and the Leaflet adapter. Production
+addresses are geocoded through an organization-approved backend provider; the
+local backend supports Azure Maps. Public demo maps use synthetic positions.
 
 ## Annual budget invariant
 

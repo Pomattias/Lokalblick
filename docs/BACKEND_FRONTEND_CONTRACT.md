@@ -1,5 +1,11 @@
 # Backend/frontend contract
 
+This contract describes the older `backend/company/` runtime. The clean
+SQLite/server-Excel runtime uses `/api/lokaler` and
+`POST /api/lokaler/workspace`, with version checks; browser Excel/IndexedDB
+uses a local transport. See [the current runtime matrix](../ARCHITECTURE.md)
+before choosing an integration path.
+
 The company server serves the existing frontend assets from the same origin.
 For the local company runtime only, the server supplies an API-backed
 `/services/data-service.js`; the repository's public-demo frontend and its
