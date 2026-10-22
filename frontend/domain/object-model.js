@@ -44,31 +44,49 @@
     return data;
   }
   const propertyId=(data,record)=>record.objectId?(data.objects||[]).find(o=>o.id===record.objectId)?.propertyId||record.propertyId||'':record.propertyId||'';
-  // Compatibility projections keep existing consumers (including Budget)
-  // unchanged. Managed area is persisted only on the object.
+  // The OBJECT is the only persistent owner of area. Contracts may receive
+  // an ephemeral projection for older budget/list consumers, never a stored copy.
   function projectAreas(data){
-    for(const c of data.contracts||[])if(c.objectAreaManaged===true){
+    for(const c of data.contracts||[]){
       const o=(data.objects||[]).find(o=>o.id===c.objectId);
       if(o&&meaningful(o.area))c.area=o.area;else delete c.area;
     }
     return data;
   }
   function stripAreas(data){
-    for(const c of data.contracts||[])if(c.objectAreaManaged===true)delete c.area;
+    for(const c of data.contracts||[]){
+      delete c.area;
+      delete c.apartmentArea;
+      delete c.commonArea;
+      delete c.objectAreaManaged;
+    }
     return data;
   }
   function applyAreaChanges(before,data){
-    const changed=new Set();
+    // Editing a contract must never alter an object, including during bulk save.
+    // Only the object editor may change an object's area.
     for(const c of data.contracts||[]){
       const previous=(before?.contracts||[]).find(old=>old.id===c.id);
-      if(c.objectAreaManaged!==true||!previous||!Object.hasOwn(c,'area')||c.area===previous.area)continue;
-      const object=(data.objects||[]).find(object=>object.id===c.objectId),oldObject=(before.objects||[]).find(object=>object.id===c.objectId);
-      if(!object)continue;
-      if(c.area!==''&&(!Number.isFinite(Number(c.area))||Number(c.area)<0))throw TypeError('Objektets yta måste vara ett positivt tal eller tomt');
-      if(object.area!==oldObject?.area&&object.area!==c.area)throw TypeError('Olika ytor har angetts för samma objekt');
-      object.area=c.area;changed.add(object.id);
+      if(!previous||!Object.hasOwn(c,'area'))continue;
+      const o=(data.objects||[]).find(o=>o.id===c.objectId);
+      if(o&&meaningful(o.area)&&Number(c.area)!==Number(o.area)&&Number(c.area)!==Number(previous.area))
+        throw TypeError('Yta ändras på objektet, aldrig på avtalet');
     }
-    return changed;
+    return new Set();
+  }
+  // A historical contract may point at the latest object version. Resolve
+  // dated predecessors for an as-of lookup; ambiguous splits require review.
+  function objectAt(data,objectId,at){
+    const objects=data.objects||[];
+    let candidates=[objects.find(o=>o.id===objectId)].filter(Boolean),visited=new Set();
+    while(candidates.length){
+      const matching=candidates.filter(o=>(!o.start||o.start<=at)&&(!o.end||o.end>=at));
+      if(matching.length===1)return matching[0];
+      if(matching.length>1)throw TypeError('Flera historiska objekt gäller samma datum');
+      const next=candidates.flatMap(o=>(o.predecessorIds||[]).map(id=>objects.find(p=>p.id===id)).filter(Boolean)).filter(o=>!visited.has(o.id));
+      candidates.forEach(o=>visited.add(o.id));candidates=next;
+    }
+    return null;
   }
   function adoptAreas(data){
     normalize(data);
@@ -79,5 +97,5 @@
     }
     return data;
   }
-  root.LokalblickObjectModel={normalize,validate,propertyId,projectAreas,stripAreas,adoptAreas,applyAreaChanges};
+  root.LokalblickObjectModel={normalize,validate,propertyId,projectAreas,stripAreas,adoptAreas,applyAreaChanges,objectAt};
 })(typeof window==='undefined'?globalThis:window);
