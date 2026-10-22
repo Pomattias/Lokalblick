@@ -31,6 +31,7 @@ export function createTransport() {
       globalThis.LokalblickObjectModel.normalize(payload);
       globalThis.LokalblickBusinessModel.normalize(payload);
       globalThis.LokalblickBusinessModel.validate(payload,responsibilityBaseline);
+      globalThis.LokalblickBusinessModel.strip(payload);
       globalThis.LokalblickResponsibility.normalize(payload);
       globalThis.LokalblickResponsibility.validate(payload,responsibilityBaseline);
       globalThis.LokalblickObjectModel.stripAreas(payload);
