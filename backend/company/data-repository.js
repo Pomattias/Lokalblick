@@ -10,7 +10,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const USER_ENTITIES = [
-  "assignments", "objects", "organizations", "people", "orders", "activities",
+  "assignments", "objects", "organizations", "people", "businesses", "contractBusinesses", "orders", "activities",
   "recurringCosts", "agreementItems", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
 ];
 const CORE_ENTITIES = ["properties", "contracts"];
@@ -61,13 +61,6 @@ function ensureStoreShape(value) {
   for(const entity of USER_ENTITIES) {
     if(Array.isArray(entities[entity]))
       store.entities[entity]=structuredClone(entities[entity]);
-  }
-  const retired=['businesses','contractBusinesses'].filter(key=>entities[key]?.length);
-  if(retired.length){
-    let metadata=store.entities.budgetData.find(row=>row.id==='lokalblick-v2-workspace');
-    if(!metadata){metadata={id:'lokalblick-v2-workspace',workspace:{}};store.entities.budgetData.push(metadata);}
-    metadata.workspace ||= {};metadata.workspace.auditLog ||= [];
-    metadata.workspace.auditLog.push({id:randomUUID(),collection:'schema',action:'Verksamhetsregister avvecklade',by:'Lokalblick',at:new Date().toISOString(),fields:retired.map(key=>({field:key,from:structuredClone(entities[key]),to:null}))});
   }
   for(const entity of CORE_ENTITIES) {
     if(Array.isArray(value.deleted?.[entity]))
@@ -227,7 +220,7 @@ export class LokalblickRepository {
     await this.writeQueue;
     const base=await this.bootstrap(),revision=this.revision();
     if(payload.baseRevision&&payload.baseRevision!==revision){const e=Error('Arbetsytan har ändrats. Läs om underlaget innan import.');e.statusCode=409;throw e;}
-    const entities=['properties','objects','contracts','organizations','people','activities','orders','recurringCosts'];
+    const entities=['properties','objects','contracts','organizations','people','businesses','contractBusinesses','activities','orders','recurringCosts'];
     const candidate={...base,...structuredClone(payload.data)};
     for(const entity of entities){if(!Array.isArray(candidate[entity]))throw TypeError(entity+' måste vara en lista');const ids=new Set();for(const row of candidate[entity]){validateRecord(row);if(ids.has(row.id))throw TypeError('Dubbelt ID i '+entity);ids.add(row.id);}}
     const proposed=globalThis.LokalblickImportRules.reconcile(base,{data:candidate,report:payload.report||{}},null,payload.report?.fileName||'Excelimport');
@@ -243,6 +236,7 @@ export class LokalblickRepository {
     globalThis.LokalblickResponsibility.validate(data);
     globalThis.LokalblickBusinessModel.validate(data);
     globalThis.LokalblickRecurringCosts.validateCosts(data);
+    globalThis.LokalblickBusinessModel.validate(data);
     for(const collection of ['properties','objects','contracts','activities','orders'])for(const row of data[collection]||[]){
       for(const [field,value] of Object.entries(row)){
         if(value==null||value==='')continue;
@@ -318,6 +312,9 @@ export class LokalblickRepository {
       });
     }
     const preparedResponsibility=globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickBusinessModel.normalize(prepared));
+    if(!Object.hasOwn(payload,'businesses'))payload.businesses=structuredClone(preparedResponsibility.businesses);
+    if(!Object.hasOwn(payload,'contractBusinesses'))payload.contractBusinesses=structuredClone(preparedResponsibility.contractBusinesses);
+    globalThis.LokalblickBusinessModel.strip(payload);
     globalThis.LokalblickResponsibility.validate(preparedResponsibility,currentData);
     globalThis.LokalblickBusinessModel.validate(preparedResponsibility,currentData);
     globalThis.LokalblickObjectModel.stripAreas(payload);
@@ -471,7 +468,7 @@ export class LokalblickRepository {
     if(responsibility.assignments.some(a=>a.personId===id&&entity==='people'||a.organizationId===id&&entity==='organizations'||a.targetType===Object.keys(globalThis.LokalblickResponsibility.types).find(k=>globalThis.LokalblickResponsibility.types[k]===entity)&&a.targetId===id))throw TypeError('Post med ansvarshistorik får inte raderas');
     if(entity==='organizations'&&(responsibility.contracts.some(c=>c.tenantPartyId===id)))throw TypeError('Part med verksamhet eller hyresavtal får inte raderas');
     if(entity==='assignments')throw TypeError('Ansvar avslutas med till-datum; historiken får inte raderas');
-    if(entity==='agreementItems'){const data=await this.bootstrap();data.agreementItems.push(record);validateAgreementItems(data);}
+    if(entity==='agreementItems'){const data=await this.bootstrap();data.agreementItems=data.agreementItems.filter(item=>item.id!==id);validateAgreementItems(data);}
     if(entity==='objects'){const data=await this.bootstrap();if(data.contracts.some(c=>c.objectId===id)||data.activities.some(a=>a.objectId===id)||data.objects.some(o=>(o.predecessorIds||[]).includes(id)))throw TypeError('Objekt med avtal, aktiviteter eller historik får inte raderas');}
     if (CORE_ENTITIES.includes(entity)) {
       const records = await this.list(entity);
