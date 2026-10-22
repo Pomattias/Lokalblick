@@ -15,7 +15,7 @@
     ], display:["Fastighetsägare","Ansvarig hos fastighetsägaren","Ansvarig hos oss"] },
     { sheet:"Objekt",key:"objects",prefix:"OBJ",columns:[
       ["id","_id",true],["propertyId","_propertyId",true],["sourceId","_sourceId",true],
-      ["number","Objektnummer"],["name","Objektnamn"],["area","Objektarea, m²"],["category","Objektkategori"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],["unitId","Verksamhet"],
+      ["number","Objektnummer"],["name","Objektnamn"],["area","Objektarea, m²"],["category","Objektkategori"],["use","Verksamhetstyp"],["unitId","Verksamhet"],
       ["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"],["start","Giltigt fr.o.m."],["end","Giltigt t.o.m."],["predecessorIds","_predecessorIds",true],["comment","Kommentar"]
     ],labelAliases:{number:["Objektnr","Objektsnummer","Objektsnr"],area:["Objektarea","Objektyta"]},display:["Fastighet","Adress","Föregående objekt"] },
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
