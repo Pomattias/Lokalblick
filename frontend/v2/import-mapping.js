@@ -1,4 +1,4 @@
-import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate,issueNumberColumn,suggestIssueNumberColumns,resolveFieldName} from '../services/import-matching.js';
+import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate,issueNumberColumn,suggestIssueNumberColumns,resolveFieldName,skippedFinancialSuggestions} from '../services/import-matching.js';
 import {importConflictGroups,resolveImportChoices,importReviewGroups,importTableRows} from '../lokaler/import-conflicts.js';
 import {columnPreferenceKey,importPreference} from '../services/import-preferences.js';
 import {issueCaption,collectionCaption} from './field-labels.js';
@@ -60,6 +60,11 @@ function destinationSummary(profile,schemas,profileIndex){
   const summary=categories.length?categories.map(type=>esc(Object.entries(schema.itemTypes||{}).find(([,value])=>value===type)?.[0]||type)+' ('+columns.filter(column=>column.itemType===type).length+')').join(' · '):columns.map(column=>esc(column.header)).join(' · ');
   return `<li data-import-destination="${esc(schema.key)}"><div><button type="button" data-open-import-destination="${profileIndex}:${esc(schema.key)}">${esc(collectionCaption(schema))}</button> <small>(${columns.length} ${columns.length===1?'kolumn':'kolumner'})</small></div><span>${summary}</span></li>`;
  }).join('')}</ul>${groups.has('agreementItems')?'<small>Varje hyres- och tilläggstyp blir en egen avtalspost, kopplad via AvtalsID. Öppna ett register ovan för att granska kolumnerna.</small>':''}</div>`;
+}
+function skippedFinancialHtml(suggestions,schemas){
+ if(!suggestions.length)return '';
+ const fields=new Map(fieldCatalog(schemas,true).map(field=>[field.target,field]));
+ return `<section class="import-financial-suggestions" data-skipped-financial><div class="section-title"><h3>Hyreskolumner att koppla på nytt</h3><button type="button" data-restore-financial="all">Använd ${suggestions.length} förslag</button></div><small>Sparade bortval eller äldre fältkopplingar hindrar dessa kolumner från att läsas in. Granska de nya förslagen till Avtalsposter och välj vilka du vill använda.</small><ul>${suggestions.map(({key,column})=>{const type=Object.entries(schemas.find(s=>s.key==='agreementItems')?.itemTypes||{}).find(([,type])=>type===column.itemType)?.[0];return `<li><div><strong>${esc(column.header)}</strong><small>${esc(fields.get(column.target)?.label)}${type?' · '+esc(type):''}</small></div><button type="button" data-restore-financial="${key}">Använd förslag</button></li>`;}).join('')}</ul></section>`;
 }
 function importValueChoices(groups,options){
  if(!groups.length)return '';
@@ -129,6 +134,7 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
   const groups=[['conflict','Dubbelkopplingar',(_column,key)=>duplicateKeys.has(key)],['pending','Behöver väljas',pending],['mapped','Föreslagna kopplingar',(column,key)=>selected(column)&&!duplicateKeys.has(key)],['ignored','Importeras inte',column=>column.target==='@ignore']];
   return `<h2>2. Granska kolumnernas fördelning</h2><p>${esc(prepared.fileName)}. En Excel-flik kan berika flera register. Varje kolumn matchas separat mot ett befintligt fält. Granska förslagen eller välj Importera inte.</p>
     <p class="import-selection-status" role="status">${included} kolumner läses in · ${all.length-included-unmapped} väljs bort${unmapped?' · '+unmapped+' behöver väljas':''}</p>
+    ${skippedFinancialHtml(options.financialSuggestions||[],schemas)}
     ${duplicates.length?`<div data-mapping-conflicts role="alert"><strong>Rätta dubbelkopplingarna före import</strong>${duplicates.map(group=>`<p>${esc(mapping.profiles[group.profileIndex].name)}: ${esc(group.columns.map(column=>column.header).join(' och '))} är kopplade till ${esc(fieldLabel(fields.find(field=>field.target===group.target)||{label:group.target}))}. Välj vilket fält varje kolumn ska fylla.</p>`).join('')}</div>`:''}
     ${mapping.profiles.filter(p=>p.canonical).map((profile,pi)=>`<section class="import-sheet-settings"><strong>${esc(profile.fileName||prepared.fileName)} · ${esc(profile.name)}</strong><small>${profile.rowCount} datarader · ${profile.tableConfidence==='review'?'Kontrollera förslagens utgångspunkt':'Automatisk utgångspunkt för förslag'}</small><label>Utgångspunkt för förslag<select data-import-table="${pi}" aria-label="Utgångspunkt för ${esc(profile.name)}">${schemas.map(s=>`<option value="${esc(s.key)}" ${s.key===profile.primaryTable?'selected':''}>${esc(s.sheet)}</option>`).join('')}</select></label><label>Rad ${profile.headerRow+1} efter rubrikerna<select data-mapping-row="${pi}" aria-label="Matchningsrad för ${esc(profile.name)}">${profile.mappingRowSuggested?'<option value="ask">En möjlig matchningsrad hittades – välj</option>':''}<option value="no" ${profile.mappingRowDecision==='no'||!profile.mappingRowSuggested&&!profile.mappingRow?'selected':''}>Vanlig datarad</option><option value="yes" ${profile.mappingRow?'selected':''}>Innehåller Lokalblick-fältnamn</option></select></label><small>Valet hjälper Lokalblick att tolka rubriker. Kolumnerna kan fortfarande gå till olika register.</small>${destinationSummary(profile,schemas,pi)}${importIdentityWarnings(profile,schemas).map(warning=>`<small role="alert">${esc(warning)}</small>`).join('')}</section>`).join('')}
     <div class="import-column-groups">${groups.map(([group,label,test])=>{
@@ -150,6 +156,8 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
 export async function previewImport(prepared,base,schemas,actor,evaluator=null) {
   const mapping={profiles:reviewProfiles(prepared.profiles,schemas)},fields=fieldCatalog(schemas,true);
   const draft=structuredClone(base);draft.importFieldPreferences ||= {};
+  const financialSuggestions=mapping.profiles.flatMap((profile,pi)=>skippedFinancialSuggestions(prepared.workbook,profile,schemas,window.XLSX).map(column=>({key:pi+':'+profile.columns.findIndex(c=>c.index===column.index),column})));
+  const pendingFinancialSuggestions=()=>financialSuggestions.filter(({key})=>{const [pi,ci]=key.split(':').map(Number),profile=mapping.profiles[pi],column=profile.columns[ci];return !profile.mappingRow&&!['recurringCosts','costEvidence'].includes(profile.primaryTable)&&column.matchSource==='saved'&&['@ignore','@unmapped'].includes(column.target);});
   suggestIssueNumberColumns(mapping.profiles,base);
   const context={fingerprint:prepared.fingerprint,fileName:prepared.fileName,schemas,actor,strictColumns:true,personLinks:true,objectAreas:true,allowMappingConflicts:true};
   const evaluate=()=>{const profiles=mapping.profiles.map(profile=>({...profile,columns:profile.columns.map(column=>pending(column)?{...column,target:'@ignore'}:column)}));return evaluator?evaluator(profiles,draft):prepareMappedImport(prepared.workbook,profiles,draft,{...context,rowMatches:draft.importRowMatches},window.XLSX);};
@@ -168,7 +176,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     const disclosureKey=node=>node.dataset.columnGroup?'group:'+node.dataset.columnGroup:node.dataset.exampleKey?'example:'+node.dataset.exampleKey:node.dataset.reviewProblem?'review:'+node.dataset.reviewProblem:node.hasAttribute('data-import-errors')?'errors':node.hasAttribute('data-import-value-choices')?'value-choices':null;
     const render=state=>{
       let error;try{result=resolveImportChoices(rawResult,{mode:conflictMode,choices:conflictChoices},actor);}catch(failure){error=failure;result=null;}
-      d.innerHTML=columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial,stale,conflicts:importConflictGroups(rawResult),conflictMode,conflictChoices});d.setAttribute('aria-busy','false');
+      d.innerHTML=columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial,stale,conflicts:importConflictGroups(rawResult),conflictMode,conflictChoices,financialSuggestions:pendingFinancialSuggestions()});d.setAttribute('aria-busy','false');
       for(const group of d.querySelectorAll('details'))if(state.open.has(disclosureKey(group)))group.open=state.open.get(disclosureKey(group));
       if(state.focusAttr)d.querySelector(`[${state.focusAttr}="${state.focusValue}"]`)?.focus({preventScroll:true});
       for(const node of d.querySelectorAll('[data-column-rule]')){const {profile,column}=locate(node.dataset.columnRule);node.value=importPreference(draft.importFieldPreferences,...column.target.split('.'),profile.fileName||prepared.fileName,profile,column)||'';}
@@ -202,6 +210,11 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     d.addEventListener('click',async event=>{
       const button=event.target.closest('button');if(!button)return;
       try{
+        if(button.hasAttribute('data-restore-financial')){
+          const proposals=pendingFinancialSuggestions().filter(proposal=>button.dataset.restoreFinancial==='all'||proposal.key===button.dataset.restoreFinancial);
+          for(const proposal of proposals){const {column}=locate(proposal.key);Object.assign(column,proposal.column,{approved:true,matchSource:'manual'});}
+          invalidate();return;
+        }
         if(button.hasAttribute('data-open-import-destination')){
           const [pi,collection]=button.dataset.openImportDestination.split(':'),profile=mapping.profiles[pi];
           const ci=profile.columns.findIndex(column=>column.target.startsWith(collection+'.'));

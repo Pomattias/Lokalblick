@@ -52,7 +52,7 @@ function services() {
     "services/operational-enrichment-adapter.js",
     "services/source-service.js",
   ])
-    vm.runInContext(fs.readFileSync("frontend/" + file, "utf8"), context);
+    vm.runInContext(fs.readFileSync("frontend/" + file, "utf8"), context, {filename:fs.realpathSync("frontend/"+file),importModuleDynamically:vm.constants.USE_MAIN_CONTEXT_DEFAULT_LOADER});
   context.window.LokalblickCalculations = context.LokalblickCalculations;
   context.window.LokalblickSupplementalAdapter =
     context.LokalblickSupplementalAdapter;

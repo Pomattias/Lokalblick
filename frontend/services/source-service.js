@@ -958,12 +958,17 @@
       });
     }
     if(!files.length){const e=Error("Importen avbröts");e.name="AbortError";throw e;}
+    const {financialSheetHint}=await import('./import-matching.js'),{importSchemas}=await import('../lokaler/import-model.js');
     const underlag=[],sheets=[];
     for(const [fi,file] of files.entries()){
       emitImportProgress(onProgress,{stage:"read",message:"Läser "+file.name+"…"});
       const buffer=await file.arrayBuffer();await yieldImportUi();
       const overview=XLSX.read(buffer,{type:"array",cellDates:false,cellNF:true});preventCanonicalAsEnrichment(overview);
-      const own=(overview.SheetNames||[]).map((name,index)=>({name:files.length===1?name:"F"+fi+"S"+index,sheetName:name,fileName:file.name,index,rows:Math.max(0,meaningfulSheetInfo(overview.Sheets[name]).rows-1),...importSheetRole(name)}));
+      const own=(overview.SheetNames||[]).map((name,index)=>{
+        const info=meaningfulSheetInfo(overview.Sheets[name]),named=importSheetRole(name);
+        const role=named.recommended?named:financialSheetHint(overview.Sheets[name],name,info.ref,importSchemas,XLSX)||named;
+        return {name:files.length===1?name:"F"+fi+"S"+index,sheetName:name,fileName:file.name,index,rows:Math.max(0,info.rows-1),...role};
+      });
       underlag.push({fileName:file.name||"Excelimport.xlsx",buffer,workbook:overview,sheets:own});sheets.push(...own);
     }
     const fileName=underlag.map(f=>f.fileName).join(", ");

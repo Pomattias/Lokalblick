@@ -161,6 +161,23 @@ function formatTableColumn(column,schemas,cells,XLSX){
  column.format=profileFormat(cells,{...column,valueType:spec?.type},XLSX);
  column.identity=column.target.endsWith('.id')||spec?.type==='ref';column.valueType=spec?.type;
 }
+// Saved exclusions remain choices. Offer a fresh, typed suggestion separately
+// when the current model recognizes a previously skipped financial column.
+export function skippedFinancialSuggestions(workbook,profile,schemas,XLSX){
+ if(!schemas.some(s=>s.key==='agreementItems')||['recurringCosts','costEvidence'].includes(profile.primaryTable)||profile.mappingRow)return [];
+ const match=fieldResolver(schemas),draft=structuredClone(profile),candidates=new Set();
+ const sheet=workbook.Sheets[profile.sheetKey||profile.name],last=XLSX.utils.decode_range(sheet?.['!ref']||'A1').e.r;
+ for(const column of draft.columns){
+  if(column.matchSource!=='saved'||!['@ignore','@unmapped'].includes(column.target)||!column.filled)continue;
+  const field=match(column.header,'contracts');if(!field?.target?.startsWith('agreementItems.'))continue;
+  Object.assign(column,{target:field.target,itemType:field.itemType,approved:false,matchSource:'alias',warning:''});candidates.add(column.index);
+  const cells=[];for(let r=profile.dataStartRow??profile.headerRow;r<=last&&cells.length<100;r++){const cell=sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})];if(present(cell?.v))cells.push(cell);}
+  formatTableColumn(column,schemas,cells,XLSX);
+ }
+ if(!candidates.size)return [];
+ suggestTableColumns(draft,schemas);
+ return draft.columns.filter(column=>candidates.has(column.index)&&column.target.startsWith('agreementItems.'));
+}
 function refreshSuggestions(workbook,profile,schemas,XLSX){
  if(profile.primaryTable==='agreementItems'&&profile.columns.some(c=>c.target==='agreementItems.type'))for(const column of profile.columns)if(!column.approved&&column.matchSource!=='explicit')delete column.itemType;
  const samples=refreshTableProfile(workbook,profile,schemas,XLSX);
@@ -208,6 +225,18 @@ export function profileTables(workbook,schemas,XLSX,saved=[],options={}){
   }).filter(Boolean);
   refreshSuggestions(workbook,profile,schemas,XLSX);if(options.referenceData)suggestIssueNumberColumns([profile],options.referenceData);return profile;
  });
+}
+// Sheet names are hints too. Inspect only a bounded sample of an unknown
+// sheet, using the same model and matcher as the full reviewed import.
+export function financialSheetHint(sheet,name,contentRef,schemas,XLSX){
+ if(!contentRef)return null;
+ const range=XLSX.utils.decode_range(contentRef),end={r:Math.min(range.e.r,range.s.r+49),c:Math.min(range.e.c,range.s.c+255)},sample={};
+ for(let r=range.s.r;r<=end.r;r++)for(let c=range.s.c;c<=end.c;c++){const address=XLSX.utils.encode_cell({r,c});if(sheet[address])sample[address]=sheet[address];}
+ sample['!ref']=XLSX.utils.encode_range({s:range.s,e:end});
+ const profile=profileTables({SheetNames:[name],Sheets:{[name]:sample}},schemas,XLSX)[0];
+ const amounts=profile.columns.filter(column=>column.target==='agreementItems.baseAmount');
+ if(!amounts.length||!profile.columns.some(column=>['contracts.id','agreementItems.contractId'].includes(column.target)))return null;
+ return {kind:'Avtal & avtalsposter',recommended:true,financialColumns:amounts.map(column=>column.header)};
 }
 export function refreshTableProfile(workbook,profile,schemas,XLSX){
  const sheet=workbook.Sheets[profile.sheetKey||profile.name],range=XLSX.utils.decode_range(sheet['!ref']||'A1');
