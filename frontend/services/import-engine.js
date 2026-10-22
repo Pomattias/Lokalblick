@@ -16,14 +16,14 @@ const aliases = {
   'fastbet':'properties.designation', 'fastighetsbeteckning':'properties.designation',
   'adress':'properties.address', 'gatuadress':'properties.address', 'ort':'properties.city', 'postort':'properties.city',
   'forvaltningsobjekt':'properties.sourceId',
-  'verksamhetsid':'businesses.sourceId','verksamhetsnamn':'businesses.name','avtalverksamhet':'contractBusinesses.contractId','nyttjadarea':'contractBusinesses.usedArea','kostnadsandel':'contractBusinesses.costSharePercent',
+  'verksamhetsid':'businesses.sourceId','verksamhetsnamn':'businesses.name','namnpaverksamheten':'businesses.name','verksamhetsbeskrivning':'businesses.description','avtalverksamhet':'contractBusinesses.contractId','kostnadsandel':'contractBusinesses.costSharePercent',
   'aktivitetsid':'activities.sourceId', 'projektid':'activities.sourceId',
   'objektnr':'objects.number', 'objektnummer':'objects.number', 'objektsnummer':'objects.number',
   'avtalsnr':'contracts.number', 'avtalsnummer':'contracts.number',
-  'bra':'contracts.area', 'lokalarea':'contracts.area', 'kvm':'contracts.area',
+  'bra':'objects.area', 'lokalarea':'objects.area', 'kvm':'objects.area',
   'arshyra':'contracts.baseRent', 'manadshyra':'contracts.baseRent',
   'epost':'people.email', 'email':'people.email', 'telefon':'people.phone',
-  'hyresgast':'contracts.tenantName', 'verksamhet':'contracts.businessName',
+  'hyresgast':'contracts.tenantName', 'verksamhet':'businesses.name',
 };
 export function fieldCatalog(schemas,reviewed=false) {
   if(schemas.every(s=>s.canonical))return schemaFields(schemas);
@@ -92,7 +92,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = [], options={})
       if(/^(?:id|identifierare|kallansidentifierare)$/.test(h)&&fields.some(f=>f.target===inferred+'.sourceId'))contextualTarget=inferred+'.sourceId';
       // Recognized source captions are still only suggestions: every column
       // goes through the same reviewed mapping, including explicit exclusions.
-      const sourceTarget=options.reviewed?({objektsnummerforvaltningsobjekt:'properties.sourceId',postadress:'properties.address',lokalytakvm:'contracts.area',avtalsid:'contracts.number',...(inferred==='contracts'?{kostnadsstalle:'contracts.costCenterPremises'}:{})})[h]:'';
+      const sourceTarget=options.reviewed?({objektsnummerforvaltningsobjekt:'properties.sourceId',postadress:'properties.address',lokalytakvm:'objects.area',avtalsid:'contracts.number',...(inferred==='contracts'?{kostnadsstalle:'contracts.costCenterPremises'}:{})})[h]:'';
       let target=rule?.target || sourceTarget || contextualTarget || aliases[h] || aliases[fieldName(header)] || candidate?.target || (options.reviewed?'@unmapped':'@extra');
       const contact=contactPart(target);
       if(contact&&rule?.contactHeader){
