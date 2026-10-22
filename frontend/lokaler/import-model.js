@@ -16,6 +16,7 @@ const text=value=>String(value??'').trim(),key=value=>text(value).replace(/\s+/g
 const validLink=value=>{try{const url=new URL(value);return /^https?:$/.test(url.protocol)&&!!url.hostname&&!/\s/.test(value);}catch{return false;}};
 const hash=value=>{let h=2166136261;for(const char of value){h^=char.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(16);};
 const fieldAliases={
+ agreementItems:{start:['Fr.o.m.','Startdatum','Gäller från'],end:['T.o.m.','Slutdatum','Gäller till'],indexPercent:['Indexprocent','Indexandel, %'],adjustmentMethod:['Justeringsregel']},
  organizations:{organizationNumber:['Orgnr','Org.nr','Organisationsnr']},
  properties:{designation:['Fastighet','Fastighetsbeteckning','Fast.bet','Fast.nr','Fastighetsnr'],popularName:['Benämning'],id:['Fastighets-ID','Förvaltningsobjekt','Objektsnummer / Förvaltningsobjekt','Förvaltningsnummer'],address:['Gatuadress','Postadress','Fastighetsadress'],city:['Postort','Stad'],ownerPartyId:['Fastighetsägare PartID','Fastighetsägare namn','Hyresvärd','Lev.namn']},
  objects:{id:['Objektnummer','Objektsnummer','Objektnr','Objekt. nr','Objekt nr','Objekt','Objekt-ID','Objekts-ID'],area:['Area','Lokalarea','Lokalyta kvm','Lokalyta (kvm)','BRA','kvm','m2'],apartmentCount:['Lägenheter'],apartmentArea:['Lägenheter (yta)']},

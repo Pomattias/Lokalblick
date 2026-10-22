@@ -17,6 +17,22 @@ function fieldResolver(schemas,fields=schemaFields(schemas)){
  const types=new Map(Object.entries(schemas.find(s=>s.key==='agreementItems')?.itemTypes||{}).map(([label,type])=>[matchName(label),type]));
  const shortcuts=schemas.flatMap(s=>(s.shortcuts||[]).map(shortcut=>({...shortcut,owner:s.key})));
  const shortcutNames=shortcuts.map(shortcut=>({shortcut,names:new Set(shortcut.aliases.map(fieldName))}));
+ // Item categories and field names come from the current model. A heading
+ // such as “Värme basår” selects that item's field, not a shared agreement term.
+ const itemFields=names.filter(row=>row.field.collection==='agreementItems'&&row.field.field!=='id'&&row.field.type!=='ref');
+ const validItemTypes=new Set(types.values());
+ const itemNames=[...types].map(([name,type])=>({name,type}));
+ for(const {shortcut,names}of shortcutNames)if(shortcut.target==='agreementItems.baseAmount'&&validItemTypes.has(shortcut.itemType))for(const name of names)itemNames.push({name,type:shortcut.itemType});
+ itemNames.sort((a,b)=>b.name.length-a.name.length);
+ const itemField=(name)=>{
+  for(const item of itemNames){
+   const rest=name.startsWith(item.name)?name.slice(item.name.length):name.endsWith(item.name)?name.slice(0,-item.name.length):null;
+   if(!rest)continue;
+   const hits=itemFields.filter(row=>row.names.has(rest));
+   if(hits.length===1)return {...hits[0].field,itemType:item.type};
+  }
+  return null;
+ };
  const typedField=(field,typed)=>{const itemType=typed?types.get(matchName(typed[1])):null;return typed&&!itemType?null:{...field,...(itemType?{itemType}:{})};};
  return (value,primary)=>{
   const raw=String(value??'').trim();if(!raw)return null;
@@ -26,6 +42,8 @@ function fieldResolver(schemas,fields=schemaFields(schemas)){
   if(direct)return typedField(direct,typed);
   const split=text.indexOf('.'),table=split>=0?tables.find(t=>t.names.includes(matchName(text.slice(0,split))))?.schema:null;
   const name=fieldName(table?text.slice(split+1):text);
+  const scoped=(!table&&['contracts','agreementItems'].includes(primary)||table?.key==='agreementItems')&&itemField(name);
+  if(scoped&&!typed)return scoped;
   let hits=names.filter(f=>(!table||f.field.collection===table.key)&&f.names.has(name)).map(f=>f.field);
   if(!hits.length&&table)hits=fields.filter(f=>f.collection===table.key&&f.aliases.some(alias=>matchName(alias)===matchName(text)));
   const generic=['belopp','arsbelopp','kostnad','typ','namn','kategori'].includes(name);
@@ -65,13 +83,23 @@ function inferTable(name,headers,samples,schemas,match){
   // ID-shaped values strengthen a named ID column; data never acts as instructions.
   if(samples.some(row=>row.some(v=>typeof v==='number')))score+=headers.some(h=>schema.columns.some(([f,label])=>schema.fieldSpecs?.[f]?.type==='number'&&matchName(label)===matchName(h)))?1:0;
   return {key:schema.key,score};
- }).sort((a,b)=>b.score-a.score);
+ });
+ // Several amount columns describe one agreement with multiple items. Count
+ // that evidence for agreements too; a row-per-item list has its own ID/type.
+ const categories=new Set(headers.map(header=>match(header,'contracts')).filter(field=>field?.target==='agreementItems.baseAmount'&&field.itemType).map(field=>field.itemType));
+ const itemRows=headers.some(header=>['agreementItems.id','agreementItems.type'].includes(match(header,'agreementItems')?.target));
+ const agreements=scores.find(row=>row.key==='contracts'),items=scores.find(row=>row.key==='agreementItems');
+ if(agreements&&items&&categories.size>1&&!itemRows&&headers.some(header=>match(header,'contracts')?.target==='contracts.id'))agreements.score+=items.score;
+ scores.sort((a,b)=>b.score-a.score);
  return scores[0]?.score?{key:scores[0].key,confidence:scores[0].score>(scores[1]?.score||0)?'suggested':'review'}:{key:schemas.find(s=>s.key==='properties')?.key||schemas[0]?.key,confidence:'review'};
 }
 // Context refines suggestions only. Explicit rows, saved rules and manual choices
 // remain authoritative, and every destination must exist in the current catalog.
 export function suggestTableColumns(profile,schemas){
  const fields=schemaFields(schemas),valid=new Set(fields.map(f=>f.target)),near=new Set([profile.primaryTable,...relatedTables(schemas,profile.primaryTable)]);
+ const match=fieldResolver(schemas),costSheet=['recurringCosts','costEvidence'].includes(profile.primaryTable);
+ const agreementContext=!costSheet&&(['contracts','agreementItems'].includes(profile.primaryTable)||profile.columns.some(c=>['contracts.id','agreementItems.contractId'].includes(c.target)));
+ const perRow=profile.primaryTable==='agreementItems'&&profile.columns.some(c=>c.target==='agreementItems.type');
  const automatic=column=>!column.approved&&column.matchSource!=='explicit';
  const choose=(column,target,itemType,warning='')=>{if(!valid.has(target))return;column.target=target;column.itemType=itemType;column.matchSource='alias';column.warning=warning;};
  const review=(column,warning)=>{column.target='@unmapped';delete column.itemType;column.matchSource='unmatched';column.warning=warning;};
@@ -79,6 +107,8 @@ export function suggestTableColumns(profile,schemas){
  const roleColumns=()=>profile.columns.filter(c=>personRole(c.target));
  for(const column of profile.columns.filter(automatic)){
   const header=matchName(column.header),collection=column.target.split('.')[0];
+  const financial=agreementContext&&match(column.header,'contracts');
+  if(financial?.target?.startsWith('agreementItems.'))choose(column,financial.target,perRow?undefined:financial.itemType);
   if(['activities','orders'].includes(profile.primaryTable)&&(!near.has(collection)||collection==='orders'&&profile.primaryTable==='activities'||collection==='activities'&&profile.primaryTable==='orders')&&!column.target.startsWith('@')&&!column.header.includes('.'))review(column,'Detta fält hör till en annan tabell. Välj en uttrycklig koppling om uppgiften ska läsas in.');
   if(profile.primaryTable==='activities'&&column.target==='objects.id')choose(column,'activities.objectId');
   if(profile.primaryTable==='activities'&&column.target==='properties.id')choose(column,'activities.propertyId');
@@ -98,13 +128,20 @@ export function suggestTableColumns(profile,schemas){
   if(/^hyra\d{4}$/.test(header)){
    review(column,'Årsbeloppet kan redan vara uppräknat. Använd Grundhyra för bashyran; välj Källans rapporterade årsbelopp endast efter kontroll av år och indexvillkor.');
   }
-  if(column.target==='agreementItems.baseYear'&&profile.primaryTable==='contracts'&&profile.columns.some(c=>c.target==='agreementItems.baseAmount'&&c.itemType==='base'))column.itemType='base';
-  if(header==='indexprocent'&&profile.primaryTable==='contracts'&&profile.columns.some(c=>c.target==='agreementItems.baseAmount'&&c.itemType==='base'))choose(column,'agreementItems.indexPercent','base','Kontrollera att procenten avser indexandel för bashyran.');
+  if(header==='indexprocent'&&agreementContext&&profile.columns.some(c=>c.target==='agreementItems.baseAmount'&&c.itemType==='base'))choose(column,'agreementItems.indexPercent','base','Kontrollera att procenten avser indexandel för bashyran.');
   if(column.target==='agreementItems.baseAmount'&&column.format?.checked&&column.format.invalid===column.format.checked)review(column,'Kolumnen innehåller inte belopp. Text om vad som ingår får inte bli ett hyrestillägg.');
   const spec=schemas.find(s=>s.key===column.target.split('.')[0])?.fieldSpecs?.[column.target.split('.')[1]];
   if(spec?.type==='select'&&values(column).length&&values(column).every(v=>typeof v==='number'))review(column,'Numeriska koder behöver förklaras. Använd fältets benämningar: '+Object.values(spec.values||{}).join(', ')+'.');
   if(column.target==='@unmapped'&&!column.filled){column.target='@ignore';column.warning='Tom kolumn. Du kan välja ett fält om den ska användas.';}
   else if(column.target==='@unmapped'&&!column.warning)column.warning='Inget entydigt fält i den aktuella datamodellen. Välj ett fält med samma betydelse eller Importera inte.';
+ }
+ // A wide sheet may contain multiple item categories. Unqualified item
+ // conditions must not leak into every item through the shared row payload.
+ const itemTypes=[...new Set(profile.columns.filter(c=>c.target.startsWith('agreementItems.')&&c.itemType).map(c=>c.itemType))];
+ for(const column of profile.columns.filter(automatic))if(column.target.startsWith('agreementItems.')&&!column.itemType&&!['id','contractId','type'].includes(column.target.split('.')[1])&&!perRow&&itemTypes.length){
+  const type=itemTypes.length===1?itemTypes[0]:itemTypes.includes('base')?'base':null;
+  if(type)choose(column,column.target,type,itemTypes.length>1?'Villkoret föreslås för Bashyra. Kontrollera posttypen.':'');
+  else review(column,'Flera avtalsposter finns. Ange vilken post villkoret gäller, exempelvis Värme basår.');
  }
  const groups=new Map();for(const column of profile.columns){if(column.target.startsWith('@')||personRole(column.target))continue;const key=column.target+(column.itemType?'['+column.itemType+']':'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(column);}
  for(const columns of groups.values())if(columns.length>1)for(const column of columns.filter(automatic))review(column,'Flera kolumner föreslås till samma fält. Välj vilken som gäller; beloppen eller uppgifterna slås inte ihop automatiskt.');
