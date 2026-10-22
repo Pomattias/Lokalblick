@@ -21,16 +21,16 @@
     { sheet:"Avtal", key:"contracts", prefix:"AVT", columns:[
       ["id","_id",true],["sourceId","_sourceId",true],["sourceSheet","_sourceSheet",true],["sourceRow","_sourceRow",true],
       ["objectId","_objectId",true],["propertyId","_propertyId",true],["responsiblePersonId","_responsiblePersonId",true],
-      ["number","Avtalsnummer"],["source","Källa"],["area","Area"],["category","Lokalkategori"],["tenantName","Hyresgäst enligt källa"],["use","Verksamhetstyp"],["businessName","Namn på verksamheten"],
+      ["number","Avtalsnummer"],["source","Källa"],["category","Lokalkategori"],["tenantName","Hyresgäst enligt källa"],["use","Verksamhetstyp"],
       ["start","Start"],["end","Slut"],["moveInDate","Inflyttning"],["moveOutDate","Utflyttning"],["comment","Kommentar"],["noticePeriodMonths","Uppsägningstid månader"],["renewalPeriodMonths","Förlängningstid månader"],["originalTerm","Ursprunglig avtalstid"],
-      ["terminatedOn","Uppsagd den"],["terminationReason","Uppsägningsorsak"],["businessComment","Kommentar verksamhet"],
+      ["terminatedOn","Uppsagd den"],["terminationReason","Uppsägningsorsak"],
       ["baseRent","Bashyra"],["baseAdditions","Bastillägg"],["rentBaseYear","Hyra basår"],["rentBaseIndex","Hyra bastal (KPI)"],["rentIndexPercent","Hyra uppräkning %"],["additionBaseYear","Tillägg basår"],["additionBaseIndex","Tillägg bastal (KPI)"],["additionIndexPercent","Tillägg uppräkning %"],
       ["rentAdjustmentMethod","Hyra justeringsregel"],["rentAnnualPercent","Hyra fast årlig uppräkning %"],["rentMinPercent","Hyra minsta uppräkning %"],["rentMaxPercent","Hyra högsta uppräkning %"],["rentLimitBasis","Hyra min/max gäller"],
         ["additionAdjustmentMethod","Tillägg justeringsregel"],["additionAnnualPercent","Tillägg fast årlig uppräkning %"],["additionMinPercent","Tillägg minsta uppräkning %"],["additionMaxPercent","Tillägg högsta uppräkning %"],["additionLimitBasis","Tillägg min/max gäller"],
         ["annualPropertyTax","F-skatt per år"],
       ["costCenterOperations","Kstl drift"],["costCenterPremises","Kstl lokaler"],["ekotObject","Objekt i Ekot"],["contractDocumentUrl","Avtals-PDF"],["contractDocumentName","Avtalsdokument"],["contractDocumentKind","Dokumenttyp"],
       ["mediaWaste","Sopor"],["mediaElectricity","El"],["mediaWater","VA"],["mediaHeating","Värme"],["mediaHotWater","VV"],["mediaVentilation","Vent"],["mediaOutdoor","Utem."],["mediaPropertyTax","F-skatt ingår"],
-      ["unitId","_unitId",true],["employees","Anställda"],["users","Brukare"],["rooms","Rum"],["commonArea","Gemensam yta"],["apartmentArea","Lägenhetsyta"],
+      ["unitId","_unitId",true],["employees","Anställda"],["users","Brukare"],["rooms","Rum"],
       ["enrichmentSource","_enrichmentSource",true],["enrichmentSourceRow","_enrichmentSourceRow",true],["enrichmentTargetYear","_enrichmentTargetYear",true]
     ], display:["Objekt","Fastighet","Adress","Verksamhet","Verksamhetsansvarig"] },
     { sheet:"Parter", key:"organizations", prefix:"PART", columns:[
@@ -57,6 +57,17 @@
       ["startYear","Från år"],["endYear","Till år"]
     ],
     display:["Fastighet","Avtal"]
+  });
+  // One verksamhet register. Contracts link to businesses; neither names nor
+  // descriptions are stored a second time on contracts.
+  SCHEMAS.push({
+    sheet:"Verksamheter",key:"businesses",prefix:"BUS",
+    columns:[["id","_id",true],["sourceId","_sourceId",true],["name","Verksamhet"],["type","Verksamhetstyp"],["description","Verksamhetsbeskrivning"],["organizationId","_organizationId",true],["unitId","Organisatorisk tillhörighet"],["status","Status"]],
+    display:["Part"]
+  },{
+    sheet:"AvtalVerksamhet",key:"contractBusinesses",prefix:"CB",
+    columns:[["id","_id",true],["contractId","_contractId",true],["businessId","_businessId",true],["fromDate","Giltigt fr.o.m."],["toDate","Giltigt t.o.m."],["costSharePercent","Kostnadsandel %"]],
+    display:["Avtal","Verksamhet"]
   });
   SCHEMAS.find(s=>s.key==='objects').columns.push(['areaType','Areatyp']);
   SCHEMAS.forEach(function(schema) { schema.fields = schema.columns.map(function(column){ return column[0]; }); });
@@ -469,7 +480,7 @@
   function canonicalizeModel(data) {
     data=data||{};
     ["properties","objects","contracts","organizations","people","assignments","orders",
-     "activities","recurringCosts","agreementItems","auditLog","sourceRegistry",
+     "activities","recurringCosts","businesses","contractBusinesses","agreementItems","auditLog","sourceRegistry",
      "importReview","documents"].forEach(key=>{
        if(!Array.isArray(data[key])) data[key]=[];
      });
@@ -680,6 +691,7 @@
     const canonical=canonicalizeModel(clone(data||{}));
     if(window.LokalblickObjectModel)window.LokalblickObjectModel.normalize(canonical);
     window.LokalblickObjectModel?.stripAreas(canonical);
+    window.LokalblickBusinessModel?.strip(canonical);
     ensureStableIds(canonical);
     window.LokalblickAgreementItems?.strip(canonical);
     const workbook = XLSX.utils.book_new();
