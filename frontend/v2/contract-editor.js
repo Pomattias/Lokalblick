@@ -4,19 +4,6 @@ import { esc, options, calc, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
 import {partyNumberInput} from './party-fields.js';
 
-// Existing Budget editor controls remain scoped to Budget.
-function businessControls(data,c){
- const at=globalThis.LokalblickResponsibility.today();
- const links=(data.contractBusinesses||[]).filter(l=>l.contractId===c.id&&!l.cancelled&&(!l.fromDate||l.fromDate<=at)&&(!l.toDate||l.toDate>=at));
- const ids=links.map(l=>l.businessId);
- const mainId=ids[0]||"";
- const businesses=data.businesses||[];
- const primary=`<label>Verksamhet<select name="businessIds" aria-label="Verksamhet"><option value="">Ingen verksamhet vald</option>${businesses.map(b=>`<option value="${esc(b.id)}" ${mainId===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`;
- const extras=`<details><summary>Flera verksamheter delar avtalet${ids.length>1?' ('+ids.length+' kopplade)':''}</summary><div style="display:grid;gap:8px">${businesses.filter(b=>b.id!==mainId).map(b=>`<label><input type="checkbox" name="businessIds" value="${esc(b.id)}" ${ids.includes(b.id)?'checked':''}> ${esc(b.name)}</label>`).join('')}</div></details>`;
- const main=businesses.find(b=>b.id===mainId);
- return `<section class="contract-section"><h3>Verksamhet</h3>${primary}${extras}${main?.description?'<p class="contract-help">Verksamhetsbeskrivning: '+esc(main.description)+'</p>':''}<small>Verksamhetsnamn och beskrivning redigeras i verksamhetsregistret, inte på avtalet. Kopplingen har egen giltighetstid.</small></section>`;
-}
-
 const CATEGORIES = ["Kontor", "Förråd", "Äldreboende", "LSS-boende", "Bostad", "Daglig verksamhet", "Verksamhetslokal", "Övrigt"];
 const money = n => new Intl.NumberFormat("sv-SE", {maximumFractionDigits:0}).format(Number(n)||0) + " kr";
 const field = (caption, control, note="") => '<label class="contract-field"><span class="field-name">' + esc(fieldCaption('contracts',control,caption)) + '</span>' + control + (note ? '<small>'+esc(note)+'</small>' : '') + '</label>';
@@ -105,6 +92,8 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
     (!id&&!c.propertyId ? field("Fastighet",select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")) : "")+
     (presentation.portfolio?field("AvtalsID",input({...c,id:c.number||c.id},"id","text",Boolean(id),'required maxlength="100"')):field("Avtalsnummer",input(c,"number","text",masterLocked)))+
     field("Hyresgäst",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
+    field("Verksamhet",input(c,"businessName"))+
+    field("Verksamhetsbeskrivning",'<textarea name="businessDescription" rows="3">'+esc(c.businessDescription||'')+'</textarea>')+
     (data.cleanModel&&presentation.portfolio?field('Orgnr hyresgäst',partyNumberInput(data,'contracts',c)):'')+
     field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>x.number||x.name||x.id,"Välj objekt"))+
     field("Fastighetsägare",display(ownerName))+
@@ -153,7 +142,6 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
   const additional = presentation.portfolio?('<details class="contract-secondary" data-contract-context><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
     field("Lokalkategori",categorySelect)+
     field('Användning',input(c,'use','text',company&&!!id))+
-    businessControls(data,c)+
     field('Antal arbetsplatser',input(c,'workplaceCount','number',false,'min="0" step="1"'))+
     field('Antal hubbplatser',input(c,'hubCount','number',false,'min="0" step="1"'))+
     field('Länk till huvudkontrakt',input(c,'contractDocumentUrl'))+
@@ -166,7 +154,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
       field('Användning',input(c,'use','text',company&&!!id))+
       field('Antal medarbetare',input(c,'employees','number',false,'min="0" step="any"'))+
       field('Lägenhetsyta, m²',input(c,'apartmentArea','number',false,'min="0" step="any"'))+
-      field('Kommentar verksamhet','<textarea name="businessComment" rows="2">'+esc(c.businessComment||'')+'</textarea>')+
+
       field('Länk till huvudkontrakt',input(c,'contractDocumentUrl')):"")+
     '</div>'+businessControls(data,c)+
     (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+'</details>');
