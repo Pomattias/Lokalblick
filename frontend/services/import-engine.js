@@ -38,7 +38,7 @@ export function mappingConflicts(profiles,personLinks=true){
     const targets=new Map();
     for(const [columnIndex,column] of profile.columns.entries()){
       if(column.target.startsWith('@')||personLinks&&personRole(column.target))continue;
-      const destination=column.target+(column.itemType?'['+column.itemType+']':'');
+      const destination=column.target+(column.itemType?'['+(column.itemKey||column.itemType)+']':'');
       if(!targets.has(destination))targets.set(destination,[]);
       targets.get(destination).push({columnIndex,header:column.header});
     }
@@ -121,7 +121,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = [], options={})
 const convert=(cell,column,XLSX)=>interpretCell(cell,column,XLSX);
 export function retargetColumn(workbook,profile,column,target,XLSX) {
   if(column.target===target)return;
-  column.target=target;column.approved=true;column.matchSource='manual';column.warning='';delete column.itemType;
+  column.target=target;column.approved=true;column.matchSource='manual';column.warning='';delete column.itemType;delete column.itemKey;delete column.itemAmbiguous;
   column.identity=/\.(?:id|sourceId|number|designation|email|orderReference)$/.test(target);
   column.transform='auto';
   refreshColumnFormat(workbook,profile,column,XLSX);

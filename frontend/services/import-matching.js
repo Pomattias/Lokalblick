@@ -33,7 +33,7 @@ function fieldResolver(schemas,fields=schemaFields(schemas)){
   }
   return null;
  };
- const typedField=(field,typed)=>{const itemType=typed?types.get(matchName(typed[1])):null;return typed&&!itemType?null:{...field,...(itemType?{itemType}:{})};};
+ const typedField=(field,typed)=>{const slot=typed?.[1].match(/^(.*?)\s+#([1-9]\d*)$/),itemType=typed?types.get(matchName(slot?slot[1]:typed[1])):null;return typed&&!itemType?null:{...field,...(itemType?{itemType,...(slot?{itemKey:Number(slot[2])===1?itemType:itemType+':'+Number(slot[2])}:{})}:{})};};
  return (value,primary)=>{
   const raw=String(value??'').trim();if(!raw)return null;
   if(['importerainte','ignorera','ignore'].includes(matchName(raw)))return {target:'@ignore'};
@@ -57,6 +57,31 @@ function fieldResolver(schemas,fields=schemaFields(schemas)){
 }
 export function resolveFieldName(value,schemas,primary){
  return fieldResolver(schemas)(value,primary);
+}
+// A wide sheet has one item per amount column, not one per category. Keys are
+// import metadata: the records still live only in the current agreement_items.
+// Keep saved slots even when an amount is excluded, so another item cannot move
+// into its place on reimport. Explicit mapping rows carry the same slots.
+export function assignAgreementItemKeys(profile){
+ const columns=profile.columns,amounts=columns.filter(c=>c.target==='agreementItems.baseAmount'&&c.itemType);
+ const valid=c=>c.itemType&&new RegExp('^'+c.itemType+'(?::[2-9]\\d*|:1\\d+)?$').test(c.itemKey||'');
+ const reserved=new Set(columns.filter(c=>valid(c)&&['agreementItems.baseAmount','@ignore'].includes(c.target)).map(c=>c.itemKey));
+ for(const column of amounts){
+  if(valid(column))continue;
+  let n=1;while(reserved.has(n===1?column.itemType:column.itemType+':'+n))n++;
+  column.itemKey=n===1?column.itemType:column.itemType+':'+n;reserved.add(column.itemKey);
+ }
+ const perRow=profile.primaryTable==='agreementItems'&&columns.some(c=>c.target==='agreementItems.type');
+ for(const column of columns){
+  delete column.itemAmbiguous;
+  if(column.target==='agreementItems.baseAmount'&&!column.itemType&&!perRow)column.itemAmbiguous=true;
+  if(!column.target.startsWith('agreementItems.')||['id','contractId','type','baseAmount'].includes(column.target.split('.')[1]))continue;
+  const matches=amounts.filter(c=>c.itemType===column.itemType);
+  if(matches.length===1){if(valid(column)&&column.itemKey!==matches[0].itemKey)column.itemAmbiguous=true;else column.itemKey=matches[0].itemKey;}
+  else if(matches.length>1&&!matches.some(c=>c.itemKey===column.itemKey))column.itemAmbiguous=true;
+  else if(!column.itemType&&amounts.length&&!perRow)column.itemAmbiguous=true;
+ }
+ return amounts;
 }
 export const issueNumberColumn=(profile,column)=>profile.primaryTable==='activities'&&['objektsnummer','objektnummer','objektnr','objektsnr'].includes(matchName(column.header));
 // This is column evidence, not a fallback that changes the meaning of a chosen FK.
@@ -143,7 +168,8 @@ export function suggestTableColumns(profile,schemas){
   if(type)choose(column,column.target,type,itemTypes.length>1?'Villkoret föreslås för Bashyra. Kontrollera posttypen.':'');
   else review(column,'Flera avtalsposter finns. Ange vilken post villkoret gäller, exempelvis Värme basår.');
  }
- const groups=new Map();for(const column of profile.columns){if(column.target.startsWith('@')||personRole(column.target))continue;const key=column.target+(column.itemType?'['+column.itemType+']':'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(column);}
+ assignAgreementItemKeys(profile);
+ const groups=new Map();for(const column of profile.columns){if(column.target.startsWith('@')||personRole(column.target))continue;const key=column.target+(column.itemType?'['+(column.itemKey||column.itemType)+']':'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(column);}
  for(const columns of groups.values())if(columns.length>1)for(const column of columns.filter(automatic))review(column,'Flera kolumner föreslås till samma fält. Välj vilken som gäller; beloppen eller uppgifterna slås inte ihop automatiskt.');
  for(const column of profile.columns)column.collection=column.target.split('.')[0];
 }
@@ -206,7 +232,7 @@ export function profileTables(workbook,schemas,XLSX,saved=[],options={}){
   });
   const headers=matrix[headerIndex]||[],signature=JSON.stringify(headers.filter(present).map(matchName).sort()),layoutSignature=JSON.stringify(headers.map(matchName));
   const candidates=saved.filter(s=>s.signature===signature),exact=candidates.find(s=>s.sheet===name&&(!source?.fileName||s.fileName===source.fileName));
-  const previous=exact||(candidates.length&&candidates.every(s=>JSON.stringify(s.columns.map(c=>[matchName(c.header),c.target,c.itemType]))===JSON.stringify(candidates[0].columns.map(c=>[matchName(c.header),c.target,c.itemType])))?candidates[0]:null);
+  const previous=exact||(candidates.length&&candidates.every(s=>JSON.stringify(s.columns.map(c=>[matchName(c.header),c.target,c.itemType,c.itemKey]))===JSON.stringify(candidates[0].columns.map(c=>[matchName(c.header),c.target,c.itemType,c.itemKey])))?candidates[0]:null);
   const inference=inferTable(name,headers,matrix.slice(headerIndex+1,headerIndex+9),schemas,match),primary=valid.size&&schemas.some(s=>s.key===previous?.primaryTable)?previous.primaryTable:inference.key;
   const profile={name,sheetKey,fileName:source?.fileName,fingerprint:source?.fingerprint,signature,layoutSignature,headerIndex,headerRow:start+headerIndex+1,startColumn:range.s.c,primaryTable:primary,inferred:primary,tableConfidence:inference.confidence,canonical:true};
   const possible=matrix[headerIndex+1]||[],nonempty=possible.filter(present),qualified=nonempty.filter(v=>/^[^.]+\..+/.test(String(v))&&match(v,primary));
@@ -221,7 +247,7 @@ export function profileTables(workbook,schemas,XLSX,saved=[],options={}){
    const rule=savedRule&&['objects.id','contracts.objectId','activities.objectId'].includes(savedRule.target)&&match(header,'properties')?.target==='properties.id'?null:savedRule;
    const suggestion=match(header,primary);let target=rule?(valid.has(rule.target)||rule.target==='@ignore'||rule.target.startsWith('contact.')?rule.target:'@unmapped'):suggestion?.target||'@unmapped';
    if(rule?.contactHeader&&contactPart(target)){const contacts=headers.map((h,i)=>({h,i})).filter(c=>matchName(c.h)===matchName(rule.contactHeader));target=contacts.length===1?'contact.'+contacts[0].i+'.'+contactPart(target).field:'@unmapped';}
-   return {header:String(header),index,target,collection:target.split('.')[0],itemType:rule?rule.itemType:suggestion?.itemType,transform:rule?.transform||(/månadshyra/i.test(header)?'monthly':'auto'),date1904:Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904),dateMode:rule?.dateMode||'auto',invalidPolicy:rule?.invalidPolicy||'reject-row',emptyMarkers:true,approved:Boolean(rule),personFormat:rule?.personFormat,shared:rule?.shared===true,matchSource:rule?'saved':suggestion?'alias':'unmatched',warning:rule&&target==='@unmapped'?'Det tidigare fältet finns inte längre. Välj ett aktuellt fält.':''};
+   return {header:String(header),index,target,collection:target.split('.')[0],itemType:rule?rule.itemType:suggestion?.itemType,itemKey:rule?.itemKey||suggestion?.itemKey,transform:rule?.transform||(/månadshyra/i.test(header)?'monthly':'auto'),date1904:Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904),dateMode:rule?.dateMode||'auto',invalidPolicy:rule?.invalidPolicy||'reject-row',emptyMarkers:true,approved:Boolean(rule),personFormat:rule?.personFormat,shared:rule?.shared===true,matchSource:rule?'saved':suggestion?'alias':'unmatched',warning:rule&&target==='@unmapped'?'Det tidigare fältet finns inte längre. Välj ett aktuellt fält.':''};
   }).filter(Boolean);
   refreshSuggestions(workbook,profile,schemas,XLSX);if(options.referenceData)suggestIssueNumberColumns([profile],options.referenceData);return profile;
  });
@@ -256,16 +282,16 @@ export function refreshTableProfile(workbook,profile,schemas,XLSX){
 export function setMappingRow(workbook,profile,enabled,schemas,XLSX){
  profile.mappingRow=enabled;const match=fieldResolver(schemas);
  for(const column of profile.columns){
-  if(enabled){const mappingValue=workbook.Sheets[profile.sheetKey||profile.name][XLSX.utils.encode_cell({r:profile.headerRow,c:profile.startColumn+column.index})]?.v;column.beforeMapping={target:column.target,itemType:column.itemType,approved:column.approved,matchSource:column.matchSource};const field=match(mappingValue,profile.primaryTable)||(contactPart(String(mappingValue))?{target:String(mappingValue)}:null);column.target=field?.target||'@unmapped';column.itemType=field?.itemType;column.matchSource='explicit';column.approved=Boolean(field);column.warning=!field?'Okänt Lokalblick-fält: '+String(mappingValue||'(tomt)')+'. Välj fält eller Importera inte.':'';}
+  if(enabled){const mappingValue=workbook.Sheets[profile.sheetKey||profile.name][XLSX.utils.encode_cell({r:profile.headerRow,c:profile.startColumn+column.index})]?.v;column.beforeMapping={target:column.target,itemType:column.itemType,itemKey:column.itemKey,approved:column.approved,matchSource:column.matchSource};const field=match(mappingValue,profile.primaryTable)||(contactPart(String(mappingValue))?{target:String(mappingValue)}:null);column.target=field?.target||'@unmapped';column.itemType=field?.itemType;column.itemKey=field?.itemKey;column.matchSource='explicit';column.approved=Boolean(field);column.warning=!field?'Okänt Lokalblick-fält: '+String(mappingValue||'(tomt)')+'. Välj fält eller Importera inte.':'';}
   else{Object.assign(column,column.beforeMapping||{target:'@unmapped',matchSource:'unmatched',approved:false});column.warning='';delete column.beforeMapping;}
  }
  const contacts=new Set(contactFields(profile).map(f=>f.target));for(const column of profile.columns)if(contactPart(column.target)&&!contacts.has(column.target)){column.target='@unmapped';column.warning='Kontaktfältet saknar sin namnkolumn. Välj aktuell personkoppling.';}
- refreshTableProfile(workbook,profile,schemas,XLSX);
+ refreshTableProfile(workbook,profile,schemas,XLSX);assignAgreementItemKeys(profile);
 }
 export function mappingTemplate(workbook,profiles,schemas,XLSX){
  const result=XLSX.utils.book_new(),fields=schemaFields(schemas);
  for(const [pi,profile]of profiles.entries()){
-  const labels=profile.columns.map(column=>{if(column.target==='@ignore')return 'Importera inte';if(contactFields(profile).some(f=>f.target===column.target))return column.target;const field=fields.find(f=>f.target===column.target);if(!field)throw Error('Godkänn samtliga kolumnval före export av mallen.');const schema=schemas.find(s=>s.key===field.collection),type=column.itemType&&Object.entries(schema.itemTypes||{}).find(([,v])=>v===column.itemType)?.[0];return schema.sheet+'.'+field.caption+(type?' ['+type+']':'');});
+  const labels=profile.columns.map(column=>{if(column.target==='@ignore')return 'Importera inte';if(contactFields(profile).some(f=>f.target===column.target))return column.target;const field=fields.find(f=>f.target===column.target);if(!field)throw Error('Godkänn samtliga kolumnval före export av mallen.');const schema=schemas.find(s=>s.key===field.collection),type=column.itemType&&Object.entries(schema.itemTypes||{}).find(([,v])=>v===column.itemType)?.[0];return schema.sheet+'.'+field.caption+(type?' ['+type+(column.itemKey&&(column.itemKey.includes(':')||profile.columns.some(c=>c.itemType===column.itemType&&c.itemKey?.includes(':')))?' #'+(column.itemKey.split(':')[1]||'1'):'')+']':'');});
   // A template contains headers and mapping only, never source business data.
   const sheet=XLSX.utils.aoa_to_sheet([profile.columns.map(c=>c.header),labels]);sheet['!cols']=profile.columns.map(()=>({wch:28}));
   let name=profile.name.slice(0,31);if(result.SheetNames.includes(name))name=name.slice(0,27)+' '+(pi+1);XLSX.utils.book_append_sheet(result,sheet,name);

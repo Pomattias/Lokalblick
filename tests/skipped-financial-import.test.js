@@ -22,10 +22,10 @@ test('individual acceptance preserves other saved exclusions and explicit or cur
  for(const c of ps[0].columns)if(c.target==='@ignore')c.matchSource='manual';assert.equal(skippedFinancialSuggestions(book,ps[0],importSchemas,XLSX).length,0);
  const mapping=source(['FastighetsID','Avtalsnummer','Grundhyra'],['Fastighet.FastighetsID','Avtal.AvtalsID','Importera inte']);XLSX.utils.sheet_add_aoa(mapping.Sheets.Avtal,[['F1','A1',100000]],{origin:'A3'});const p=profiles(mapping)[0];setMappingRow(mapping,p,true,importSchemas,XLSX);assert.equal(skippedFinancialSuggestions(mapping,p,importSchemas,XLSX).length,0);
 });
-test('recovering saved mappings never invents amounts from included-service text, duplicates, annual reports or empty fields',()=>{
+test('recovering saved mappings never invents amounts from included-service text, annual reports or empty fields',()=>{
  const book=source(['FastighetsID','Avtalsnummer','Grundhyra','Värme','Tillägg','Tillägg','Hyra 2026','Kyla'],['F1','A1',100000,'Ingår',5000,6000,115000,'']),first=previouslySkipped(book),p=profiles(book,first.clean.workspace.importMappings)[0];
  for(const c of p.columns)if(c.target==='@unmapped')Object.assign(c,{target:'@ignore',matchSource:'saved'});
- const proposed=skippedFinancialSuggestions(book,p,importSchemas,XLSX);assert.deepEqual(proposed.map(c=>c.header),['Grundhyra']);
+ const proposed=skippedFinancialSuggestions(book,p,importSchemas,XLSX);assert.deepEqual(proposed.map(c=>c.header),['Grundhyra','Tillägg','Tillägg']);assert.equal(new Set(proposed.map(c=>c.itemKey)).size,3);
  p.primaryTable='recurringCosts';assert.equal(skippedFinancialSuggestions(book,p,importSchemas,XLSX).length,0);
 });
 test('fresh proposals respect current field definitions and never target removed fields',()=>{

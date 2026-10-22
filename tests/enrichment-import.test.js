@@ -40,14 +40,14 @@ test('Lokalbestånd keeps descriptive business text, comments, ownership numbers
  const restored=await readWorkbook(await writeWorkbook(result.clean,ExcelJS),ExcelJS);assert.deepEqual(restored,JSON.parse(JSON.stringify(result.clean)));validateData(restored);
 });
 
-test('duplicate additions, already indexed yearly rent and text about included services are not guessed into money',()=>{
+test('each monetary column becomes a separate item while indexed reports and included-service text need review',()=>{
  const workbook=source(['FastighetsID','Avtalsnummer','Grundhyra','Tillägg','Hyra 2026','Tillägg','F-skatt','f-skatt','Basår','Index procent','Värme','El','VA','Sopor'],[['F1','A1',100000,5000,110000,5500,1000,'Ja',2025,.94,'Ingår','Nej','Ja','Ingår']]),ps=profiles(workbook),p=ps[0];
  workbook.Sheets.Lokaldata.J2.z='0%';const refreshed=profiles(workbook)[0];
  assert.equal(column(p,'Grundhyra').target,'agreementItems.baseAmount');assert.equal(column(p,'Grundhyra').itemType,'base');assert.equal(column(p,'Hyra 2026').target,'@unmapped');assert.match(column(p,'Hyra 2026').warning,/redan vara uppräknat/);
- for(const c of p.columns.filter(c=>c.header==='Tillägg')){assert.equal(c.target,'@unmapped');assert.match(c.warning,/Flera kolumner/);}
+ assert.deepEqual(p.columns.filter(c=>c.header==='Tillägg').map(c=>[c.target,c.itemType,c.itemKey]),[['agreementItems.baseAmount','addition','addition'],['agreementItems.baseAmount','addition','addition:2']]);
  for(const header of ['f-skatt','Värme','El','VA','Sopor']){assert.equal(column(p,header).target,'@unmapped');assert.match(column(p,header).warning,/inte belopp/);}
  assert.equal(column(p,'F-skatt').itemType,'tax');assert.equal(column(p,'Basår').itemType,'base');assert.equal(column(p,'Index procent').itemType,'base');assert.equal(mappingConflicts(ps).length,0);
- const result=run(workbook,[refreshed]);assert.equal(result.report.blocking,0);assert.equal(result.clean.agreement_items.length,2);const base=result.clean.agreement_items.find(i=>i.type==='base');assert.equal(base.base_amount,100000);assert.equal(base.reported_amount,null);assert.equal(base.index_share,.94);assert.equal(result.clean.agreement_items.find(i=>i.type==='tax').base_amount,1000);
+ const result=run(workbook,[refreshed]);assert.equal(result.report.blocking,0);assert.equal(result.clean.agreement_items.length,4);assert.deepEqual(result.clean.agreement_items.filter(i=>i.type==='addition').map(i=>i.base_amount),[5000,5500]);const base=result.clean.agreement_items.find(i=>i.type==='base');assert.equal(base.base_amount,100000);assert.equal(base.reported_amount,null);assert.equal(base.index_share,.94);assert.equal(result.clean.agreement_items.find(i=>i.type==='tax').base_amount,1000);
 });
 
 test('numeric service columns use actual item categories and never become property expenses',()=>{
