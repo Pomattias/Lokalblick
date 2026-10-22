@@ -32,10 +32,10 @@
     }else{
      let business=candidates[0];
      if(!business){
-      business={id:'BUS|'+encodeURIComponent(c.id),name:legacyName,type:c.use||'',description:String(c.businessComment||'').trim(),organizationId,unitId:c.unitId||'',status:'active'};
+      business={id:'BUS|'+c.id,name:legacyName,type:c.use||'',description:String(c.businessComment||'').trim(),organizationId,unitId:c.unitId||'',status:'active'};
       data.businesses.push(business);
      }else if(!business.description&&present(c.businessComment))business.description=String(c.businessComment).trim();
-     data.contractBusinesses.push({id:'CB|'+encodeURIComponent(c.id)+'|'+encodeURIComponent(business.id),contractId:c.id,businessId:business.id,fromDate:'',toDate:''});
+     data.contractBusinesses.push({id:'CB|'+c.id,contractId:c.id,businessId:business.id,fromDate:'',toDate:''});
     }
    }
    const first=currentLinks(data,c.id)[0];
