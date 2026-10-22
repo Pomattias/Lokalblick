@@ -66,6 +66,27 @@ function ensureStoreShape(value) {
     if(Array.isArray(value.deleted?.[entity]))
       store.deleted[entity]=structuredClone(value.deleted[entity]);
   }
+  // One-time adoption of rows created by the short-lived separate
+  // verksamhet model. No additional table is kept in the active store.
+  const retiredBusinesses=new Map((Array.isArray(entities.businesses)?entities.businesses:[]).map(row=>[row.id,row]));
+  const retiredLinks=Array.isArray(entities.contractBusinesses)?entities.contractBusinesses.filter(row=>!row.cancelled):[];
+  const byContract=new Map();
+  for(const link of retiredLinks){
+    if(!link.contractId||!retiredBusinesses.has(link.businessId))continue;
+    const list=byContract.get(link.contractId)||[];
+    list.push(retiredBusinesses.get(link.businessId));
+    byContract.set(link.contractId,list);
+  }
+  for(const [contractId,linked] of byContract){
+    const unique=[...new Map(linked.map(row=>[row.id,row])).values()];
+    if(unique.length>1)throw new TypeError('Avtal '+contractId+' har flera verksamheter i den tidigare modellen. Kontrollera och välj en verksamhet innan den tas bort.');
+    const business=unique[0];
+    const existing=store.entities.contractOverlays.find(row=>row.contractId===contractId);
+    const overlay=existing||{id:contractId,contractId};
+    if(!overlay.businessName)overlay.businessName=business.name||'';
+    if(!overlay.businessDescription)overlay.businessDescription=business.description||'';
+    if(!existing)store.entities.contractOverlays.push(overlay);
+  }
   store.imported=structuredClone(value.imported||{properties:[],contracts:[]});
   store.updatedAt=typeof value.updatedAt==="string"?value.updatedAt:null;
   // No conversion from projects, maintenance, wishes, driftCosts or contacts.
