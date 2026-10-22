@@ -51,7 +51,7 @@ test('bulk approval creates one new property and one object for successive lease
  const s=source(['Avtalsnummer','From','Tom'],[['SF1213-001-03','2027-01-01','2027-12-31'],['SF1213-001-04','2028-01-01','2028-12-31']]),pending=run(s),choices=Object.assign({},...pending.report.linkProposals.map(approve)),r=run(s,emptyData(),choices);
  assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects.length,1);assert.equal(r.clean.agreements.length,2);assert.equal(r.report.linkProposals.filter(p=>p.approved).length,2);validateData(r.clean);
 });
-test('a known address with a different stored ID uses the existing address proposal and OB fallback without duplicating the property',()=>{
- const b=fixture(),s=source(['Avtalsnummer','Adress'],[['SF9999-001-03','Testgatan 1']]),pending=run(s,b),p=pending.report.linkProposals[0];assert.equal(p.matches[0].id,'SF1213');assert.equal(p.inferredIds,undefined);
- const r=run(s,b,approve(p));assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects[0].property_id,'SF1213');assert.equal(r.clean.objects[0].id,'OB-SF9999-001-03');validateData(r.clean);
+test('a known address with another number requires a choice and can retain the stored property ID',()=>{
+ const b=fixture(),s=source(['Avtalsnummer','Adress'],[['SF9999-001-03','Testgatan 1']]),pending=run(s,b),p=pending.report.linkProposals[0];assert.deepEqual(p.matches.map(m=>m.id),['SF9999','SF1213']);assert.equal(p.requiresSelection,true);
+ const r=run(s,b,{[p.matchingKey]:{propertyId:'SF1213',signature:p.signature}});assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects[0].property_id,'SF1213');assert.equal(r.clean.objects[0].id,'OB-SF9999-001-03');validateData(r.clean);
 });

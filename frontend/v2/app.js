@@ -57,7 +57,7 @@ import {
 } from "./views.js";
 import { editorHtml, readEditor } from "./editor.js";
 import { previewImport } from "./import-mapping.js";
-import { fieldHistory } from "./field-history.js";
+import { fieldHistory,recordHistory } from "./field-history.js";
 import { planActivityPeriod, planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
 import { attachPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
 import { contextPersonSelect, newPersonDefaults, personFormHtml,
@@ -138,7 +138,7 @@ function captureChanges(before){
 }
 function showHistory(type='',id=''){
   const collection={contract:'contracts',activity:'activities',order:'orders',recurringCost:'recurringCosts'}[type]||type;
-  const entries=data.auditLog.slice().reverse().filter(h=>!collection||(h.collection===collection&&String(h.recordId)===String(id)));
+  const entries=collection==='properties'?recordHistory(data,collection,String(id)).slice().reverse():data.auditLog.slice().reverse().filter(h=>!collection||(h.collection===collection&&String(h.recordId)===String(id)));
   const d=document.createElement('dialog');d.className='followup-dialog';
   d.innerHTML='<h2>Ändringshistorik</h2>'+(entries.length?'':'<p>Ingen sparad ändringshistorik för detta objekt.</p>')+entries.map(h=>'<article><strong>'+esc(h.action)+' · '+esc(h.collection)+' · '+esc(h.recordId)+'</strong><p>'+esc(h.by)+' · '+esc(isoDateTime(h.at))+'</p><ul>'+(h.fields||[]).map(f=>'<li>'+esc(f.label||f.field)+': '+esc(typeof f.from==='object'?JSON.stringify(f.from):f.from)+' → '+esc(typeof f.to==='object'?JSON.stringify(f.to):f.to)+'</li>').join('')+'</ul></article>').join('')+'<form method="dialog"><button>Stäng</button></form>';
   document.body.append(d);d.onclose=()=>d.remove();d.showModal();

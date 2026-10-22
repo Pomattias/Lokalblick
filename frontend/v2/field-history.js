@@ -1,9 +1,14 @@
+import {propertyHistoryIds} from '../lokaler/property-identity.js';
 import {esc} from './views.js';
+export function recordHistory(data,collection,id){
+ const ids=collection==='properties'?propertyHistoryIds(data.auditLog,id):new Set([id]);
+ return (data.auditLog||[]).filter(e=>e.collection===collection&&ids.has(e.recordId));
+}
 export function fieldHistory(data,collection,record,schemas) {
   const schema=schemas.find(s=>s.key===collection);
   const value=(field,input,json=false)=>schema?.fieldSpecs?.[field]?.values?.[input]??(json&&typeof input==='object'?JSON.stringify(input):input);
   const name=field=>schema?.columns.find(c=>c[0]===field)?.[1]||field;
-  const history=(data.auditLog||[]).filter(e=>e.collection===collection&&e.recordId===record.id);
+  const history=collection==='properties'?recordHistory(data,collection,record.id):(data.auditLog||[]).filter(e=>e.collection===collection&&e.recordId===record.id);
   const origins=Object.entries(record.provenance||{}).filter(([,v])=>v&&typeof v==='object');
   const extras=record.supplemental||[];
   if(!origins.length&&!history.length&&!extras.length)return '';
