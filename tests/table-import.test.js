@@ -110,3 +110,27 @@ test('a second overlapping typed base item is a row review, not a complete-impor
 test('contact column mappings can be exported and reimported with the owning person role',()=>{
  const workbook=book([['FastighetsID','Fastighetsnamn','Samordnare','E-post'],['F1','Test 1','Anna Test','anna@example.invalid']],'Fastigheter'),ps=profile(workbook),p=ps[0];p.columns[3].target='contact.2.email';p.columns[3].approved=true;const template=mappingTemplate(workbook,ps,importSchemas,XLSX);XLSX.utils.sheet_add_aoa(template.Sheets.Fastigheter,[['F1','Test 1','Anna Test','anna@example.invalid']],{origin:'A3'});const again=profile(template)[0];setMappingRow(template,again,true,importSchemas,XLSX);assert.equal(again.columns[3].target,'contact.2.email');const result=run(template,[again]);assert.equal(result.report.blocking,0);assert.equal(result.clean.contacts.length,1);assert.equal(result.clean.people[0].email,'anna@example.invalid');
 });
+
+test('missing object IDs use OB- plus the exact agreement ID and stay stable across rows and reimport',()=>{
+ const workbook=book([['FastighetsID','Avtalsnummer','Area','Bashyra'],['001213','001213-0001-03',120,100000],['001213','001213-0001-03',120,100000],['001213','A-02',80,50000]]),first=run(workbook);
+ assert.equal(first.report.review,0);assert.deepEqual(first.clean.objects.map(o=>[o.id,o.property_id]),[['OB-001213-0001-03','001213'],['OB-A-02','001213']]);assert.deepEqual(first.clean.agreements.map(a=>[a.id,a.object_id]),[['001213-0001-03','OB-001213-0001-03'],['A-02','OB-A-02']]);assert.equal(first.clean.agreement_items.length,2);
+ const again=run(workbook,profile(workbook,first.clean.workspace.importMappings),first.clean);assert.equal(again.report.review,0);assert.equal(again.clean.objects.length,2);assert.equal(again.clean.agreements.length,2);validateData(again.clean);
+});
+test('an explicitly imported object ID takes precedence over the OB- fallback',()=>{
+ const workbook=book([['FastighetsID','ObjektID','Avtalsnummer'],['1213','1213-0001','1213-0001-03']]),result=run(workbook);
+ assert.equal(result.report.review,0);assert.equal(result.clean.objects[0].id,'1213-0001');assert.equal(result.clean.agreements[0].object_id,'1213-0001');
+});
+test('an existing agreement keeps its linked object when reimport has no object ID',()=>{
+ const original=book([['FastighetsID','ObjektID','Avtalsnummer','Area'],['1213','OBJ-existing','A1',120]]),base=run(original).clean,workbook=book([['FastighetsID','Avtalsnummer','Area'],['1213','A1',120]]),result=run(workbook,profile(workbook),base);
+ assert.equal(result.report.review,0);assert.equal(result.clean.objects.length,1);assert.equal(result.clean.agreements[0].object_id,'OBJ-existing');
+});
+test('an existing generated object is reused only on the matching property; conflicting property stays in review',()=>{
+ const original=book([['properties.id','objects.id'],['1213','OB-A1']],'Objekt'),base=run(original).clean,valid=book([['FastighetsID','Avtalsnummer'],['1213','A1']]),matched=run(valid,profile(valid),base);
+ assert.equal(matched.report.review,0);assert.equal(matched.clean.objects.length,1);assert.equal(matched.clean.agreements[0].object_id,'OB-A1');
+ const conflicting=book([['FastighetsID','Avtalsnummer'],['OTHER','A1']]),result=run(conflicting,profile(conflicting),base);
+ assert.equal(result.report.review,1);assert.match(result.data.importReview[0].reason,/OB-A1.*annan fastighet/);assert.equal(result.clean.objects.length,1);assert.equal(result.clean.objects[0].property_id,'1213');assert.equal(result.clean.agreements.length,0);validateData(result.clean);
+});
+test('OB- generation respects ID length without truncating or hashing an imported agreement ID',()=>{
+ const workbook=book([['FastighetsID','Avtalsnummer'],['1213','A'.repeat(97)],['1213','B'.repeat(98)]]),result=run(workbook);
+ assert.equal(result.clean.objects.length,1);assert.equal(result.clean.objects[0].id,'OB-'+'A'.repeat(97));assert.equal(result.clean.agreements[0].id,'A'.repeat(97));assert.match(result.data.importReview[0].reason,/för långt.*OB-/);assert.equal(result.report.review,1);validateData(result.clean);
+});

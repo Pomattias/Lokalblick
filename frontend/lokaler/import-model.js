@@ -321,7 +321,14 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      const propertyId=issueContext?object.property_id:obj.property_id||property?.id||object?.property_id;
      if(!propertyId||!indexes.properties.has(propertyId))throw Error('Objektet saknar ett befintligt FastighetsID.');
      if(!object&&!explicitObjectId&&!raw.agreements?.id)throw Error('Välj ObjektID eller AvtalsID för att identifiera objektet.');
-     object=merge('objects',{...obj,id:object?.id||text(explicitObjectId)||'OBJ-'+hash(propertyId+'|'+raw.agreements.id),property_id:propertyId},object);
+     const objectId=object?.id||text(explicitObjectId)||'OB-'+text(raw.agreements.id);
+     if(!object&&!explicitObjectId){
+      try{normalize('agreements',{id:text(raw.agreements.id),object_id:objectId});}catch(error){throw Object.assign(error,originFor('agreements','id'),{value:raw.agreements.id});}
+      if(objectId.length>100)throw Error('AvtalsID är för långt för att skapa ObjektID med OB-. Ange ett eget ObjektID, högst 100 tecken.');
+      object=indexes.objects.get(objectId);
+      if(object&&object.property_id!==propertyId)throw Error('Det skapade ObjektID '+objectId+' finns redan på en annan fastighet. Ange rätt ObjektID.');
+     }
+     object=merge('objects',{...obj,id:objectId,property_id:propertyId},object);
     }
     if(explicitObjectId||knownObject)checkpoint();recordStage='contracts';
     if(deferredError)throw deferredError;
