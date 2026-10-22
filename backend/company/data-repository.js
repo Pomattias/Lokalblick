@@ -10,7 +10,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const USER_ENTITIES = [
-  "assignments", "objects", "organizations", "people", "businesses", "contractBusinesses", "orders", "activities",
+  "assignments", "objects", "organizations", "people", "orders", "activities",
   "recurringCosts", "agreementItems", "budgetData", "coordinates", "contractOverlays", "propertyOverlays"
 ];
 const CORE_ENTITIES = ["properties", "contracts"];
@@ -220,7 +220,7 @@ export class LokalblickRepository {
     await this.writeQueue;
     const base=await this.bootstrap(),revision=this.revision();
     if(payload.baseRevision&&payload.baseRevision!==revision){const e=Error('Arbetsytan har ändrats. Läs om underlaget innan import.');e.statusCode=409;throw e;}
-    const entities=['properties','objects','contracts','organizations','people','businesses','contractBusinesses','activities','orders','recurringCosts'];
+    const entities=['properties','objects','contracts','organizations','people','activities','orders','recurringCosts'];
     const candidate={...base,...structuredClone(payload.data)};
     for(const entity of entities){if(!Array.isArray(candidate[entity]))throw TypeError(entity+' måste vara en lista');const ids=new Set();for(const row of candidate[entity]){validateRecord(row);if(ids.has(row.id))throw TypeError('Dubbelt ID i '+entity);ids.add(row.id);}}
     const proposed=globalThis.LokalblickImportRules.reconcile(base,{data:candidate,report:payload.report||{}},null,payload.report?.fileName||'Excelimport');
@@ -236,7 +236,6 @@ export class LokalblickRepository {
     globalThis.LokalblickResponsibility.validate(data);
     globalThis.LokalblickBusinessModel.validate(data);
     globalThis.LokalblickRecurringCosts.validateCosts(data);
-    globalThis.LokalblickBusinessModel.validate(data);
     for(const collection of ['properties','objects','contracts','activities','orders'])for(const row of data[collection]||[]){
       for(const [field,value] of Object.entries(row)){
         if(value==null||value==='')continue;
@@ -312,9 +311,6 @@ export class LokalblickRepository {
       });
     }
     const preparedResponsibility=globalThis.LokalblickResponsibility.normalize(globalThis.LokalblickBusinessModel.normalize(prepared));
-    if(!Object.hasOwn(payload,'businesses'))payload.businesses=structuredClone(preparedResponsibility.businesses);
-    if(!Object.hasOwn(payload,'contractBusinesses'))payload.contractBusinesses=structuredClone(preparedResponsibility.contractBusinesses);
-    globalThis.LokalblickBusinessModel.strip(payload);
     globalThis.LokalblickResponsibility.validate(preparedResponsibility,currentData);
     globalThis.LokalblickBusinessModel.validate(preparedResponsibility,currentData);
     globalThis.LokalblickObjectModel.stripAreas(payload);
