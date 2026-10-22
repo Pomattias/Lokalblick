@@ -32,7 +32,9 @@ export function upgradeData(input){
   if(Object.keys(removed).length)retired.push({table,id:row.id,values:removed});
   if(table==='agreements'){
    row.id=ids.get(row.id);
-   if(row.business_comment!=null&&!row.business)row.business=row.business_comment;
+   if(row.business!=null&&row.business_name==null)row.business_name=row.business;
+   if(row.business_comment!=null&&row.business_description==null)row.business_description=row.business_comment;
+   delete row.business;
   }
   for(const key of Object.keys(fields))delete row[key];
  }
