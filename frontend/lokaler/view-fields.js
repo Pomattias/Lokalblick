@@ -14,6 +14,13 @@ Object.assign(viewFields, {
  recurring_costs:{property_id:'propertyId',category:'category',name:'name',annual_amount:'annualAmount',valid_from:'start',valid_to:'end',invoice_complete_years:'invoiceCompleteYears',sources:'sources'},
  cost_evidence:{cost_id:'costId',type:'type',year:'year',amount:'amount',selected:'selected',invoice_reference:'invoiceReference',invoice_date:'invoiceDate',valid_from:'start',valid_to:'end',document_url:'documentUrl',sources:'sources'}
 });
+Object.assign(viewCollections,{
+ businesses:'businesses',contract_businesses:'contractBusinesses'
+});
+Object.assign(viewFields,{
+ businesses:{name:'name',type:'type',description:'description',organization_id:'organizationId',unit_id:'unitId',status:'status'},
+ contract_businesses:{agreement_id:'contractId',business_id:'businessId',valid_from:'fromDate',valid_to:'toDate',cost_share_percent:'costSharePercent',cancelled:'cancelled'}
+});
 export const workspaceKeys = ['budgetPlans','indexSeries','priceBaseAmounts','auditLog','sourceRegistry','importReview','documents','importMappings','importFieldPreferences','activityOptions','currentUser','investmentThreshold','rentSurchargeRate','settings'];
 Object.assign(viewCollections,{spaces:'spaces',building_parts:'buildingParts',inspections:'inspections',inspection_points:'inspectionPoints'});
 viewFields.objects.maintenance_responsibility='maintenanceResponsibility';
