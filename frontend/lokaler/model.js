@@ -18,6 +18,23 @@ export const tables = {
  contacts: { label: 'Personkopplingar', singular: 'Personkoppling', prefix: 'KOP', fields: [field('person_id', 'Person', 'ref', { table: 'people', required: true }), field('role', 'Roll', 'select', { values: roles, required: true }), field('property_id', 'Fastighet', 'ref', { table: 'properties' }), field('agreement_id', 'Avtal', 'ref', { table: 'agreements' }), field('issue_id', 'Ärende', 'ref', { table: 'issues' }), field('order_id', 'Beställning', 'ref', { table: 'orders' }), field('valid_from', 'Giltigt fr.o.m.', 'date'), field('valid_to', 'Giltigt t.o.m.', 'date')] },
  object_links: { label: 'Objektförändringar', singular: 'Objektförändring', prefix: 'AND', fields: [field('predecessor_id', 'Tidigare objekt', 'ref', { table: 'objects', required: true }), field('successor_id', 'Nytt objekt', 'ref', { table: 'objects', required: true })] }
 };
+// The business registry is shared by all agreements; links retain dates.
+Object.assign(tables,{
+ businesses:{label:'Verksamheter',singular:'Verksamhet',prefix:'BUS',fields:[
+  field('name','Verksamhet','text',{required:true}),
+  field('type','Verksamhetstyp'),field('description','Verksamhetsbeskrivning','textarea'),
+  field('organization_id','Part','ref',{table:'parties'}),
+  field('unit_id','Organisatorisk tillhörighet'),field('status','Status')
+ ]},
+ contract_businesses:{label:'AvtalVerksamhet',singular:'Avtalets verksamhet',prefix:'CB',fields:[
+  field('agreement_id','Avtal','ref',{table:'agreements',required:true}),
+  field('business_id','Verksamhet','ref',{table:'businesses',required:true}),
+  field('valid_from','Giltigt fr.o.m.','date'),
+  field('valid_to','Giltigt t.o.m.','date'),
+  field('cost_share_percent','Kostnadsandel %','number'),
+  field('cancelled','Annullerad','boolean',{default:false})
+ ]}
+});
 // Explicit additions preserve the existing overview, map and financial terms.
 const additions = {
  parties: [['kind','Typ'],['owner_class','Ägarklass']],
