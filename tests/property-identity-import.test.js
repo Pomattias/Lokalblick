@@ -11,6 +11,7 @@ import {readWorkbook,writeWorkbook} from '../backend/lokaler/workbook.js';
 function book(sheets){const b=XLSX.utils.book_new();for(const [name,rows] of sheets)XLSX.utils.book_append_sheet(b,XLSX.utils.aoa_to_sheet(rows),name);return b;}
 const profile=(b,saved=[])=>profileWorkbook(b,importSchemas,XLSX,saved,{reviewed:true});
 const run=(b,seed=emptyData(),profiles=profile(b,seed.workspace.importMappings),context={})=>prepareCleanImport(b,profiles,seed,{fileName:'syntetiska-fastigheter.xlsx',...context},XLSX);
+const approvals=result=>Object.fromEntries(result.report.linkProposals.map(p=>[p.matchingKey,{propertyId:p.matches[0].id,signature:p.signature}]));
 const list=[['Förvaltningsobjekt','Gatuadress','Avtalsnummer','Area'],['1058','Testgatan 1A','A1',100],['1058','Testgatan 1 A','A2',200]];
 const stock=[['Objektsnummer / Förvaltningsobjekt','Fastighetsbeteckning','Adress','Avtalsnummer','Lokalyta (kvm)'],['1058','TESTET 1','Testgatan 1A','A1',100],['1058','TESTET 1','Testgatan 1 A','A2',200]];
 test('both management-number captions target the actual property identifier, on any worksheet',()=>{
@@ -26,7 +27,7 @@ test('both management-number captions target the actual property identifier, on 
 });
 test('address-only enrichment joins a named property without replacing the name with its address',()=>{
  const b=book([['Lokallista',list],['Lokalbestånd',stock],['Fastighetslista',[['Postadress','Fastighetsägare'],['Testgatan 1A','Fiktiv ägare']]],['Lokaldata',[['Adress','Fastighetsnamn','Avtalsnummer'],['Testgatan 1 A','Testgatan 1 A','A3']]]]);
- const result=run(b);assert.equal(result.report.blocking,0);assert.equal(result.report.review,0);assert.equal(result.clean.properties.length,1);assert.equal(result.clean.properties[0].name,'TESTET 1');assert.equal(result.clean.agreements.length,3);assert(result.clean.objects.every(o=>o.property_id==='1058'));assert.equal(result.clean.parties.length,1);
+ const pending=run(b);assert.equal(pending.report.linkProposals.length,2);assert.equal(pending.clean.agreements.length,2);const result=run(b,emptyData(),profile(b),{rowMatches:approvals(pending)});assert.equal(result.report.blocking,0);assert.equal(result.report.review,0);assert.equal(result.clean.properties.length,1);assert.equal(result.clean.properties[0].name,'TESTET 1');assert.equal(result.clean.agreements.length,3);assert(result.clean.objects.every(o=>o.property_id==='1058'));assert.equal(result.clean.parties.length,1);
 });
 test('a genuine designation replaces an address fallback on a verified ID and address',()=>{
  const b=book([['A',[['FastighetsID','Adress'],['1058','Testgatan 1']]],['B',[['FastighetsID','Fastighetsnamn','Adress'],['1058','TESTET 1','Testgatan 1']]]]),first=run(b);
@@ -46,9 +47,9 @@ test('an ID always checks the address: differences are reviewed, conflicting kno
 test('shared addresses require disambiguation, while different houses, suffixes and ranges are never merged',()=>{
  const seed=emptyData();seed.properties.push(normalize('properties',{id:'F1',name:'TESTET 1',address:'Testgatan 1A'}),normalize('properties',{id:'F2',name:'TESTET 2',address:'Testgatan 1A'}));
  const b=book([['Fastigheter',[['Adress','Populärnamn'],['Testgatan 1 A','Fiktivt namn']]]]),ambiguous=run(b,seed);assert.equal(ambiguous.report.blocking,1);assert.equal(ambiguous.clean.properties.length,2);assert.equal(ambiguous.clean.workspace.importReview[0].matches.length,2);
- const chosen=run(b,seed,profile(b),{rowMatches:{[ambiguous.clean.workspace.importReview[0].matchingKey]:'F2'}});assert.equal(chosen.report.blocking,0);assert.equal(chosen.clean.properties[1].popular_name,'Fiktivt namn');
+ const chosen=run(b,seed,profile(b),{rowMatches:{[ambiguous.clean.workspace.importReview[0].matchingKey]:{propertyId:'F2',signature:ambiguous.report.linkProposals[0].signature}}});assert.equal(chosen.report.blocking,0);assert.equal(chosen.clean.properties[1].popular_name,'Fiktivt namn');
  for(const address of ['Testgatan 1B','Testgatan 11A','Testgatan 1–3']){const result=run(book([['Fastigheter',[['Adress'],[address]]]]),seed);assert.equal(result.clean.properties.length,3,address);}
- const abbr=emptyData();abbr.properties.push(normalize('properties',{id:'F1',name:'TESTET 1',address:'Testpersons väg 24'}));const result=run(book([['Fastigheter',[['Adress'],['Testpersons v 24']]]]),abbr);assert.equal(result.clean.properties.length,1);assert.equal(result.report.review,0);
+ const abbr=emptyData();abbr.properties.push(normalize('properties',{id:'F1',name:'TESTET 1',address:'Testpersons väg 24'}));const result=run(book([['Fastigheter',[['Adress'],['Testpersons v 24']]]]),abbr);assert.equal(result.clean.properties.length,1);assert.equal(result.report.blocking,1);assert.equal(result.report.linkProposals[0].matches[0].id,'F1');
 });
 test('obsolete saved object targets are corrected, exclusions and explicit mapping rows remain authoritative',()=>{
  const b=book([['Lokalbestånd',stock]]),p=profile(b)[0],old={sheet:p.name,signature:p.signature,layoutSignature:p.layoutSignature,primaryTable:p.primaryTable,columns:p.columns.map(c=>({...c,target:c.index===0?'objects.id':c.target}))};

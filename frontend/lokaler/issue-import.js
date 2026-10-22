@@ -32,7 +32,7 @@ export function issueHomeMatcher(data){
    const object=objects[0];return {object,property:properties.get(object.property_id),method:atAddress.length?'object-and-address':'object-id'};
   }
   let hits=propertyClues[0]||[];for(const clue of propertyClues.slice(1))hits=intersect(hits,clue);hits=hits.filter(cityFits);
-  if(hits.length!==1)return {reason:hits.length?'Flera fastigheter matchar uppgifterna. Komplettera med FastighetsID, fastighetsnamn eller ort.':'Ingen entydig fastighet matchar adressen och övriga fastighetsuppgifter.'};
+  if(hits.length!==1)return {...(!propertyInputs.length&&hits.length?{candidates:hits}:{}),reason:hits.length?'Flera fastigheter matchar uppgifterna. Komplettera med FastighetsID, fastighetsnamn eller ort.':'Ingen entydig fastighet matchar adressen och övriga fastighetsuppgifter.'};
   return {property:hits[0],method:propertyInputs.length?'property-id':atAddress.length?'property-address':'property-name'};
  };
 }

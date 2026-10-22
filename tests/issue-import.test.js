@@ -69,13 +69,13 @@ test('an identical issue under another filename is reviewed rather than silently
  const result=prepareCleanImport(workbook,profiles,first.clean,{},XLSX);
  assert.equal(result.report.blocking,1);assert.equal(result.clean.issues.length,1);assert.match(result.clean.workspace.importReview[0].reason,/annan fil eller flik/);assert.match(result.clean.workspace.importReview[0].reason,/ÄR-000001/);
 });
-test('ambiguous property names and unknown IDs leave issues Att koppla with source hints',()=>{
+test('ambiguous property names need approval and unknown names leave issues Att koppla with source hints',()=>{
  const base=fixture();base.properties.push(normalize('properties',{id:'F2',name:'Test 1',address:'Testgatan 2'}));
  const result=run([['Ventilation','Test 1'],['Tak','Fiktiv okänd']],base,['activities.title','properties.designation']);
- assert.equal(result.report.blocking,0);assert(result.data.activities.every(issueNeedsLink));assert.equal(result.clean.properties.length,2);
- assert.match(result.clean.issues[0].sources[0].homeHint,/Test 1/);
+ assert.equal(result.report.blocking,1);assert(result.data.activities.every(issueNeedsLink));assert.equal(result.clean.properties.length,2);assert.equal(result.report.linkProposals[0].matches.length,2);
+ assert.match(result.clean.issues[0].sources[0].homeHint,/Fiktiv okänd/);
  const safe=run([['Unik koppling','Test 1','Testgatan 1']],base,['activities.title','properties.designation','properties.address']);
- assert.equal(safe.clean.issues[0].property_id,'F1');
+ assert.equal(safe.clean.issues.length,0);assert.equal(safe.report.linkProposals[0].matches[0].id,'F1');
 });
 test('linking an imported issue keeps ID, own responsibility, audit and reimport identity',()=>{
  const first=run([['Att reda ut','','',4000]]),view=projectWorkspace(first.clean),id=view.activities[0].id;

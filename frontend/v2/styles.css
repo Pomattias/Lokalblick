@@ -3994,3 +3994,17 @@ body[data-view="sources"] .import-receipt [data-receipt-review] {margin:8px 0}
 #editor-root .compact-issue .maintenance-completion[hidden] { display:none; }
 
 .maintenance-page .maintenance-status[data-status=urgent] { color:#a12222; font-weight:600; }
+
+/* Address suggestions use the import's existing row choices, not automatic links. */
+body:not([data-view="budget"]) .import-link-proposals {margin-block:12px;font-size:12px;}
+body:not([data-view="budget"]) .import-link-proposals .section-title {justify-content:space-between;gap:8px;flex-wrap:wrap;}
+body:not([data-view="budget"]) .import-link-proposals ul {list-style:none;padding:0;margin:6px 0;}
+body:not([data-view="budget"]) .import-link-proposals li {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere;}
+body:not([data-view="budget"]) .import-link-proposals small {display:block;color:var(--muted);font-size:11px;}
+body:not([data-view="budget"]) .import-link-proposals select {width:100%;min-width:0;font-size:12px;}
+body:not([data-view="budget"]) .import-link-approval {display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:12px;}
+@media(max-width:600px){
+ body:not([data-view="budget"]) .import-link-proposals li {grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;}
+ body:not([data-view="budget"]) .import-link-proposals li>div {grid-column:1;}
+ body:not([data-view="budget"]) .import-link-proposals .import-link-approval {grid-column:2;grid-row:1/3;}
+}
