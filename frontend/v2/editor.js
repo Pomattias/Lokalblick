@@ -169,6 +169,8 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
         ? "" : (existing > 1 ? existing : existing * 100);
       control = `<input name="${key}" type="number" step="any" min="0" max="100" value="${esc(displayed)}" placeholder="0–100">`;
     }
+    else if(col==="businesses"&&key==="description")
+      control = `<textarea name="description" rows="4">${esc(record.description||"")}</textarea>`;
     else if (key === "rentSurchargeStartDate")
       control = `<input name="${key}" type="date" value="${esc(record[key]||"")}">`;
     else if (key === "unitId")
