@@ -511,7 +511,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
   if (!item || item.status !== "pending")
     throw Error("Förslaget är redan hanterat");
 
-  if(item.kind==='canonical-conflict'&&(item.rowRejected||!item.recordId||!Object.hasOwn(item,'proposed'))){
+  if(item.kind==='canonical-conflict'&&(item.rowRejected||item.recordRejected||!item.recordId||!Object.hasOwn(item,'proposed'))){
     if(decision==='accept')throw Error('Rätta värdet eller kopplingen i underlaget och läs in på nytt. Raden har inte importerats eller fältet har lämnats oförändrat.');
     item.status='rejected';item.resolvedBy=actor;item.resolvedAt=new Date().toISOString();return;
   }

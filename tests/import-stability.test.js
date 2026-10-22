@@ -59,9 +59,9 @@ test('duplicate header mappings are reused only with the same recorded layout an
  let read=profileWorkbook(book,schemas,XLSX,[saved],{reviewed:true})[0];assert(read.columns.every(c=>!c.approved));saved.layoutSignature=p.layoutSignature;read=profileWorkbook(book,schemas,XLSX,[saved],{reviewed:true})[0];assert.deepEqual(read.columns.map(c=>c.target),['people.name','people.email']);
  retargetColumn(book,read,read.columns[0],'@ignore',XLSX);assert.equal(read.columns[0].approved,true);
 });
-test('period constraints become row reviews instead of aborting the complete import',()=>{
+test('period constraints become record reviews instead of aborting the complete import',()=>{
  const base=run(workbook([sample()])).clean;base.objects[0].valid_from='2025-01-01';base.objects[0].valid_to='2029-12-31';const row=sample();row[5]='A2';row[6]='2030-01-01';row[7]='2035-12-31';const result=run(workbook([row]),base);
- assert.equal(result.report.blocking,1);assert.equal(result.clean.agreements.length,1);assert.match(result.clean.workspace.importReview[0].reason,/objektets giltighetstid/);validateData(result.clean);
+ assert.equal(result.report.blocking,0);assert.equal(result.clean.agreements.length,1);assert.equal(result.clean.workspace.importReview[0].recordRejected,true);assert.match(result.clean.workspace.importReview[0].reason,/objektets giltighetstid/);validateData(result.clean);
 });
 
 test('column rules follow unique headers when reordered and an explicit reset masks old file-wide rules',async()=>{
@@ -75,8 +75,8 @@ test('post-import canonical reviews resolve against the exact property; rejected
  const {resolveReview}=await import('../frontend/v2/model.js'),{sources}=await import('../frontend/v2/views.js');
  const first=sample(),second=sample();second[2]='Ny adress';second[3]='O2';second[5]='A2';const bad=sample('3');bad[3]='';bad[5]='';
  const result=run(workbook([first,second,bad])),view=result.data,conflict=view.importReview.find(r=>!r.rowRejected);
- const rejected=view.importReview.find(r=>r.rowRejected);const rendered=sources(view,{status:()=>({}),company:()=>false});
- assert.match(rendered,/Raden lästes inte in/);assert.ok(!rendered.includes('data-review="'+rejected.id+'" data-decision="accept"'));
+ const rejected=view.importReview.find(r=>r.recordRejected);const rendered=sources(view,{status:()=>({}),company:()=>false});
+ assert.match(rendered,/En del av raden lästes inte in/);assert.ok(!rendered.includes('data-review="'+rejected.id+'" data-decision="accept"'));
  resolveReview(view,conflict.id,'accept','','Testare');assert.equal(view.properties[0].address,'Ny adress');assert.equal(view.contracts.length,2);assert(view.auditLog.some(e=>e.collection==='properties'&&e.recordId==='F1'&&e.fields.some(f=>f.field==='address'&&f.to==='Ny adress')));
  assert.throws(()=>resolveReview(view,rejected.id,'accept','','Testare'),/läs in på nytt/);assert.equal(rejected.status,'pending');resolveReview(view,rejected.id,'reject','','Testare');assert.equal(view.contracts.length,2);assert.equal(rejected.status,'rejected');
  const p=profile();p.columns[8].invalidPolicy='review-field';const invalid=sample();invalid[8]='https://';const held=run(workbook([invalid]),emptyData(),[p]);assert.equal(held.clean.agreements.length,1);assert.throws(()=>resolveReview(held.data,held.data.importReview[0].id,'accept','','Testare'),/läs in på nytt/);

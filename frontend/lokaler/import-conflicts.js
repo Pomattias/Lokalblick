@@ -3,7 +3,7 @@ import {viewCollections,viewFields} from './view-fields.js';
 import {projectWorkspace} from './view-adapter.js';
 import {refreshImportReceipt} from './import-receipt.js';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-const editable=review=>review.kind==='canonical-conflict'&&!review.blocking&&!review.rowRejected&&review.recordId&&Object.hasOwn(review,'proposed');
+const editable=review=>review.kind==='canonical-conflict'&&!review.blocking&&!review.rowRejected&&!review.recordRejected&&review.recordId&&Object.hasOwn(review,'proposed');
 const tableFor=collection=>Object.keys(viewCollections).find(table=>viewCollections[table]===collection);
 const fieldFor=(table,field)=>Object.keys(viewFields[table]||{}).find(key=>viewFields[table][key]===field);
 export const conflictKey=review=>JSON.stringify([review.collection,review.recordId,review.field]);

@@ -23,7 +23,7 @@ test('receipt counts only affected records and repeated rows never inflate recor
  assert.equal(table.unchanged,1);assert.equal(table.created,0);assert.equal(table.updated,0);assert.equal(saved.readRows,2);assert.equal(saved.columns[0].read,2);assert.equal(result.clean.properties.length,3);
 });
 test('a rejected row contributes no records or successful values and remains separate in the receipt',()=>{
- const {result}=prepare([['FastighetsID','Fastighetsnamn','Latitud'],['F1','Test 1',55],['F2','Felaktig rad','ogiltigt']]),saved=receipt(result);
+ const {result}=prepare([['FastighetsID','Fastighetsnamn','Latitud'],['F1','Test 1',55],['F2\ninvalid','Felaktig rad','ogiltigt']]),saved=receipt(result);
  assert.equal(saved.rows,2);assert.equal(saved.readRows,1);assert.equal(saved.rejectedRows,1);assert.equal(saved.tables.find(row=>row.collection==='properties').created,1);assert.equal(result.clean.properties.length,1);
  for(const column of saved.columns){assert.equal(column.read,1);assert.equal(column.skipped,1);}
  const html=importReceiptHtml(result.data.sourceRegistry[0],result.data);assert.match(html,/1 rad lämnades utanför/);assert.match(html,/data-receipt-review/);

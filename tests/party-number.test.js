@@ -26,9 +26,9 @@ test('later property/agreement-ID rows enrich existing party links and conflicti
  assert.equal(changed.report.blocking,0);assert.equal(changed.report.review,2);assert.equal(changed.clean.parties.length,2);
  const selected=resolveImportChoices(changed,{mode:'replace'});assert.equal(selected.report.review,0);assert.equal(selected.clean.parties.find(p=>p.name==='Testägare').organization_number,'000003-0003');assert.equal(selected.clean.parties.find(p=>p.name==='Testhyresgäst').organization_number,'000004-0004');
 });
-test('contradicting identities and malformed numbers roll back the source row',()=>{
+test('contradicting identities stay blocked while malformed optional numbers are held',()=>{
  const first=prepare(rows).result.clean;
- for(const value of ['000002-0002','not-a-number']){const changed=structuredClone(rows);changed[1][3]=value;const result=prepare(changed,first).result;assert.equal(result.report.blocking,1);assert.equal(result.clean.parties.length,2);assert.equal(result.clean.properties[0].owner_party_id,first.properties[0].owner_party_id);}
+ for(const value of ['000002-0002','not-a-number']){const changed=structuredClone(rows);changed[1][3]=value;const result=prepare(changed,first).result;assert.equal(result.report.blocking,value==='not-a-number'?0:1);assert.equal(result.clean.parties.length,2);assert.equal(result.clean.properties[0].owner_party_id,first.properties[0].owner_party_id);assert.deepEqual(result.clean.parties,first.parties);if(value==='not-a-number')assert(result.clean.workspace.importReview[0].fieldRejected);}
  assert.equal(normalizeOrganizationNumber('000001 0001'),'000001-0001');assert.equal(normalizeOrganizationNumber(''),null);
  const duplicate=structuredClone(first);duplicate.parties[1].organization_number='0000010001';assert.throws(()=>validateData(duplicate),/Organisationsnumret finns flera gånger/);
 });

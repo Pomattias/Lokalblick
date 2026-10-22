@@ -38,7 +38,7 @@ test('reversed optional dates are held together; an agreement still cannot escap
  const {result}=prepare(fields,[reversed]);assert.equal(result.report.blocking,0);assert.equal(result.clean.agreements[0].valid_from,null);assert.equal(result.clean.agreements[0].valid_to,null);assert.equal(result.clean.workspace.importReview.length,2);
  const base=prepare(fields,[row()]).result.clean;base.objects[0].valid_from='2025-01-01';base.objects[0].valid_to='2029-12-31';
  const invalid=row();invalid[4]='A2';invalid[5]='Se avtal';const blocked=prepare(fields,[invalid],base).result;
- assert.equal(blocked.report.blocking,1);assert.equal(blocked.clean.agreements.length,1);assert(blocked.clean.workspace.importReview.every(review=>review.rowRejected));
+ assert.equal(blocked.report.blocking,0);assert.equal(blocked.clean.agreements.length,1);assert(blocked.clean.workspace.importReview.some(review=>review.recordRejected));assert.equal(blocked.clean.properties.length,1);
 });
 test('rent amounts, item index terms, identity and relationship conflicts remain blocking',()=>{
  const base=prepare(fields,[row()]).result.clean;
@@ -85,4 +85,52 @@ test('held source values, field receipt counts and Budget survive the actual Exc
  const restored=await readWorkbook(await writeWorkbook(result.clean));assert.deepEqual(restored,JSON.parse(JSON.stringify(result.clean)));
  const stat=restored.workspace.sourceRegistry[0].receipt.columns.find(column=>column.target==='contracts.start');assert.equal(stat.read,0);assert.equal(stat.skipped,1);assert.equal(stat.review,1);
  assert.equal(restored.workspace.importReview[0].value,'Se avtal');assert.equal(restored.workspace.importReview[0].recordId,'A1');
+});
+
+test('missing and invalid owner/tenant organisation numbers never discard property names or valid contracts',()=>{
+ const targets=['properties.id','properties.designation','properties.address','properties.ownerPartyId','properties.ownerOrganizationNumber','objects.id','contracts.id','contracts.tenantPartyId','contracts.tenantOrganizationNumber','contracts.start'];
+ for(const value of ['-','Uppgift saknas','Privat','123','12345678901']){
+  const {result}=prepare(targets,[['F1','TESTET 1','Testgatan 1','Fiktiv ägare',value,'O1','A1','Fiktiv hyresgäst',value,'Uppgift saknas']]);
+  assert.equal(result.report.blocking,0,value);assert.equal(result.clean.properties[0].name,'TESTET 1');assert.equal(result.clean.agreements.length,1);assert.equal(result.clean.parties.length,2);assert(result.clean.parties.every(row=>row.organization_number===null));assert(result.clean.workspace.importReview.every(review=>!review.rowRejected));validateData(result.clean);
+  assert.equal(result.clean.agreements[0].valid_from,null);
+  const orgReviews=result.clean.workspace.importReview.filter(review=>review.field==='organizationNumber');assert.equal(orgReviews.length,value==='-'?0:2);assert(orgReviews.every(review=>review.recordId&&review.fieldRejected));
+  assert.equal(result.clean.workspace.sourceRegistry[0].receipt.readRows,1);
+ }
+});
+test('invalid replacement org numbers preserve saved numbers; corrected imports fill missing values with stable party links',()=>{
+ const fields=['properties.id','properties.designation','properties.ownerPartyId','properties.ownerOrganizationNumber','objects.id','contracts.id','contracts.tenantPartyId','contracts.tenantOrganizationNumber'];
+ const good=['F1','TESTET 1','Fiktiv ägare','0000000000','O1','A1','Fiktiv nyttjare','1111111111'],first=prepare(fields,[good]).result;
+ const bad=[...good];bad[3]='okänt';bad[7]='fel';const later=prepare(fields,[bad],first.clean).result;
+ assert.deepEqual(later.clean.parties,first.clean.parties);assert.equal(later.report.blocking,0);assert(later.clean.workspace.importReview.every(review=>review.current&&review.recordId));
+ const missing=prepare(fields,[bad]).result,fixed=prepare(fields,[good],missing.clean).result;
+ assert.equal(fixed.clean.parties.length,2);assert.equal(fixed.clean.properties[0].owner_party_id,missing.clean.properties[0].owner_party_id);assert.equal(fixed.clean.agreements[0].tenant_party_id,missing.clean.agreements[0].tenant_party_id);assert.equal(fixed.clean.workspace.importReview.length,0);
+});
+test('bad agreement identity leaves safely matched properties and explicit objects intact without fabricated contract objects',()=>{
+ for(const explicit of [false,true]){
+  const targets=['properties.id','properties.designation','properties.address',...(explicit?['objects.id','objects.area']:[]),'contracts.id','contracts.start'];
+  const values=['F1','TESTET 1','Testgatan 1',...(explicit?['O1',100]:[]),'A1\nA2','Se respektive avtal'];
+  const {result,profiles}=prepare(targets,[values]);assert.equal(result.report.blocking,0);assert.equal(result.clean.properties[0].name,'TESTET 1');assert.equal(result.clean.agreements.length,0);assert.equal(result.clean.objects.length,explicit?1:0);
+  const review=result.clean.workspace.importReview.find(row=>row.recordRejected);assert(review);assert.equal(review.collection,'contracts');assert.equal(review.field,'id');assert.equal(review.value,'A1\nA2');
+  const receipt=result.clean.workspace.sourceRegistry[0].receipt;assert.equal(receipt.readRows,1);assert.equal(receipt.rejectedRows,0);assert.equal(receipt.partialRows,1);assert.equal(receipt.columns.find(row=>row.target==='properties.designation').read,1);assert.equal(receipt.columns.find(row=>row.target==='contracts.id').read,0);assert.equal(receipt.columns.find(row=>row.target==='contracts.id').skipped,1);
+  const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas);assert.doesNotMatch(html,/data-apply class="primary-action" disabled/);assert.match(html,/Övriga säkert identifierade uppgifter/);
+  assert.throws(()=>resolveReview(result.data,review.id,'accept','','Testare'),/läs in på nytt/);assert.equal(resolveImportChoices(result,{mode:'replace'}).clean.agreements.length,0);validateData(result.clean);
+ }
+});
+test('optional enum and coordinates are held individually and valid defaults remain usable',()=>{
+ const {result}=prepare(['properties.id','properties.designation','properties.latitude','properties.longitude','objects.id','contracts.id','activities.id','activities.title','activities.propertyId','activities.status'],[['F1','TESTET 1',100,12,'O1','A1','I1','Kontroll','F1','okänd status']]);
+ assert.equal(result.report.blocking,0);assert.equal(result.clean.properties.length,1);assert.equal(result.clean.properties[0].latitude,null);assert.equal(result.clean.properties[0].longitude,null);assert.equal(result.clean.issues[0].status,'open');assert.equal(result.clean.workspace.importReview.length,3);validateData(result.clean);
+});
+test('financial parse errors preserve verified parent data but never modify rent amounts or invent zero rent',()=>{
+ const seed=prepare([...fields,'contracts.baseRent'],[[...row(),120000]]).result.clean;seed.workspace.budgetPlans=[{id:'locked',locked:true,snapshot:{amount:1234}}];
+ const original=structuredClone(seed.agreement_items),{result}=prepare(['properties.id','properties.designation','properties.address','objects.id','objects.area','contracts.id','contracts.baseRent'],[['F1','TESTET 1','Testgatan 1','O1',150,'A1','okänd hyra']],seed);
+ assert.equal(result.report.blocking,0);assert.equal(result.clean.objects[0].area,100,'Conflicting saved object area stays a review');assert.equal(result.clean.properties[0].address,'Testgatan 1');assert.deepEqual(result.clean.agreement_items,original);assert.deepEqual(result.clean.workspace.budgetPlans,seed.workspace.budgetPlans);assert(result.clean.workspace.importReview.some(row=>row.recordRejected));validateData(result.clean);
+});
+test('reimport repairs an address fallback with a verified name despite invalid unrelated fields, and preserves genuine names',async()=>{
+ const initial=prepare(['properties.id','properties.address'],[['F1','Testgatan 1']]).result.clean;initial.workspace.budgetPlans=[{id:'locked',locked:true,snapshot:{amount:987}}];
+ const targets=['properties.id','properties.designation','properties.address','properties.ownerPartyId','properties.ownerOrganizationNumber','contracts.id','contracts.start'];
+ const values=['F1','TESTET 1','Testgatan 1','Fiktiv ägare','Uppgift saknas','A1\nA2','okänt datum'];
+ const {result}=prepare(targets,[values],initial);assert.equal(result.clean.properties[0].name,'TESTET 1');assert.equal(result.clean.objects.length,0);assert.equal(result.clean.workspace.sourceRegistry[0].receipt.partialRows,1);
+ const restored=await readWorkbook(await writeWorkbook(result.clean)),again=prepare(targets,[values],restored).result;assert.equal(again.clean.properties.length,1);assert.equal(again.clean.parties.length,1);assert.equal(again.clean.properties[0].name,'TESTET 1');assert.deepEqual(again.clean.workspace.budgetPlans,initial.workspace.budgetPlans);
+ assert(again.clean.workspace.auditLog.some(row=>row.collection==='properties'&&row.fields.some(field=>field.field==='designation'&&field.to==='TESTET 1')));
+ const renamed=structuredClone(restored);renamed.properties[0].name='Manuellt riktigt namn';const protectedName=prepare(targets,[values],renamed).result;assert.equal(protectedName.clean.properties[0].name,'Manuellt riktigt namn');assert(protectedName.clean.workspace.importReview.some(row=>row.field==='designation'));
 });

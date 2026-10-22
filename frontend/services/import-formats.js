@@ -6,6 +6,7 @@ const currencyField=field=>/^(baseRent|baseAdditions|annual.*|estimatedCost|orde
 const currencyHint=text=>/\b(?:kr|sek|tkr|mkr)\b|hyra|kostnad|belopp/i.test(text);
 const moneyScale=(value,header)=>typeof value==='string'&&/kr|sek|kronor/i.test(value)?1:/\bmkr\b/i.test(header)?1000000:/\btkr\b|tusen\s*(?:kr|kronor)/i.test(header)?1000:1;
 const emptyMarker=(value,column)=>column.emptyMarkers&&(
+ /(?:organizationNumber|OrganizationNumber)$/.test(column.target?.split('.')[1]||'')&&/^[–—-]$/.test(String(value??'').trim())||
  /^[–—-]$/.test(String(value??'').trim())&&(column.valueType==='date'||['number','integer','signed','coordinate'].includes(column.valueType)||dateField(column.target?.split('.')[1]||'')||numberField(column.target?.split('.')[1]||''))||
  /^(end|toDate)$/.test(column.target?.split('.')[1]||'')&&/^(?:tills\s*vidare|t[.\s]*v[.]?)$/i.test(String(value??'').trim())
 );

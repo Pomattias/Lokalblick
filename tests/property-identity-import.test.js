@@ -28,11 +28,11 @@ test('address-only enrichment joins a named property without replacing the name 
  const b=book([['Lokallista',list],['Lokalbestånd',stock],['Fastighetslista',[['Postadress','Fastighetsägare'],['Testgatan 1A','Fiktiv ägare']]],['Lokaldata',[['Adress','Fastighetsnamn','Avtalsnummer'],['Testgatan 1 A','Testgatan 1 A','A3']]]]);
  const result=run(b);assert.equal(result.report.blocking,0);assert.equal(result.report.review,0);assert.equal(result.clean.properties.length,1);assert.equal(result.clean.properties[0].name,'TESTET 1');assert.equal(result.clean.agreements.length,3);assert(result.clean.objects.every(o=>o.property_id==='1058'));assert.equal(result.clean.parties.length,1);
 });
-test('a genuine designation replaces an address fallback created in this import, not a saved user value',()=>{
+test('a genuine designation replaces an address fallback on a verified ID and address',()=>{
  const b=book([['A',[['FastighetsID','Adress'],['1058','Testgatan 1']]],['B',[['FastighetsID','Fastighetsnamn','Adress'],['1058','TESTET 1','Testgatan 1']]]]),first=run(b);
  assert.equal(first.clean.properties.length,1);assert.equal(first.clean.properties[0].name,'TESTET 1');assert.equal(first.report.review,0);
  const initial=run(book([['A',[['FastighetsID','Adress'],['1058','Testgatan 1']]]])),later=run(book([['B',[['FastighetsID','Fastighetsnamn','Adress'],['1058','TESTET 1','Testgatan 1']]]]),initial.clean);
- assert.equal(later.clean.properties[0].name,'Testgatan 1');assert.equal(later.report.review,1);assert.equal(resolveImportChoices(later,{mode:'replace'}).clean.properties[0].name,'TESTET 1');
+ assert.equal(later.clean.properties[0].name,'TESTET 1');assert.equal(later.report.review,0);assert.equal(resolveImportChoices(later,{mode:'replace'}).clean.properties[0].name,'TESTET 1');
 });
 test('an ID always checks the address: differences are reviewed, conflicting known identities are blocked',()=>{
  const seed=run(book([['Lokallista',list]])).clean;
