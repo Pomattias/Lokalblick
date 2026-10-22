@@ -4,6 +4,18 @@
  const key=value=>String(value??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('sv');
  function normalize(data){
   data.organizations ||= [];data.contracts ||= [];data.importReview ||= [];
+  // Adopt data from the short-lived join model once, before retiring it.
+  const retiredBusinesses=new Map((data.businesses||[]).map(row=>[row.id,row]));
+  for(const contract of data.contracts){
+   const links=(data.contractBusinesses||[]).filter(link=>link.contractId===contract.id&&!link.cancelled&&retiredBusinesses.has(link.businessId));
+   const unique=[...new Map(links.map(link=>[link.businessId,retiredBusinesses.get(link.businessId)])).values()];
+   if(unique.length>1)throw TypeError('Avtal '+contract.id+' har flera verksamheter i den tidigare modellen. Granska dessa före förenkling.');
+   const previous=unique[0];
+   if(previous){
+    if(!contract.businessName)contract.businessName=previous.name||'';
+    if(!contract.businessDescription)contract.businessDescription=previous.description||'';
+   }
+  }
   for(const c of data.contracts){
    // Source aliases are resolved at the boundary, one canonical field per fact.
    if(!c.businessName&&c.business)c.businessName=c.business;
