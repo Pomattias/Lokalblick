@@ -12,29 +12,12 @@ export const tables = {
  people: { label: 'Personer', singular: 'Person', prefix: 'PER', fields: [field('name', 'Namn', 'text', { required: true }), field('email', 'E-post', 'email'), field('phone', 'Telefon', 'tel')] },
  properties: { label: 'Fastigheter', singular: 'Fastighet', prefix: 'FAS', fields: [field('name', 'Fastighetsnamn', 'text', { required: true }), field('popular_name', 'Populärnamn'), field('address', 'Adress'), field('owner_party_id', 'Fastighetsägare', 'ref', { table: 'parties' })] },
  objects: { label: 'Objekt', singular: 'Objekt', prefix: 'OBJ', fields: [field('property_id', 'Fastighet', 'ref', { table: 'properties', required: true }), field('area', 'Yta, m²', 'number'), field('apartment_count', 'Antal lägenheter', 'integer'), field('valid_from', 'Giltigt fr.o.m.', 'date'), field('valid_to', 'Giltigt t.o.m.', 'date')] },
- agreements: { label: 'Avtal', singular: 'Avtal', prefix: 'AVT', fields: [field('object_id', 'Objekt', 'ref', { table: 'objects', required: true }), field('tenant_party_id', 'Hyresgäst', 'ref', { table: 'parties' }), field('valid_from', 'Hyrestid fr.o.m.', 'date'), field('valid_to', 'Hyrestid t.o.m.', 'date'), field('terminated_on', 'Uppsagd den', 'date'), field('termination_reason', 'Uppsägningsorsak'), field('usage', 'Användning'), field('workplace_count', 'Antal arbetsplatser', 'integer'), field('hub_count', 'Antal hubbplatser', 'integer'), field('eb_category', 'Lokalkategori (EB)'), field('main_contract_url', 'Länk huvudkontrakt', 'url')] },
+ agreements: { label: 'Avtal', singular: 'Avtal', prefix: 'AVT', fields: [field('object_id', 'Objekt', 'ref', { table: 'objects', required: true }), field('tenant_party_id', 'Hyresgäst', 'ref', { table: 'parties' }), field('valid_from', 'Hyrestid fr.o.m.', 'date'), field('valid_to', 'Hyrestid t.o.m.', 'date'), field('terminated_on', 'Uppsagd den', 'date'), field('termination_reason', 'Uppsägningsorsak'), field('usage', 'Användning'), field('business_name', 'Verksamhet'), field('business_description', 'Verksamhetsbeskrivning', 'textarea'), field('workplace_count', 'Antal arbetsplatser', 'integer'), field('hub_count', 'Antal hubbplatser', 'integer'), field('eb_category', 'Lokalkategori (EB)'), field('main_contract_url', 'Länk huvudkontrakt', 'url')] },
  issues: { label: 'Ärenden', singular: 'Ärende', prefix: 'ARE', fields: [field('title', 'Namn', 'text', { required: true }), field('description', 'Beskrivning', 'textarea'), field('property_id', 'Fastighet', 'ref', { table: 'properties' }), field('object_id', 'Objekt', 'ref', { table: 'objects' }), field('status', 'Status', 'select', { values: { open: 'Öppet', ongoing: 'Pågår', done: 'Klart' }, default: 'open' }), field('priority', 'Prioritet', 'select', { values: priorities, default: 'normal' }), field('estimated_cost', 'Beräknad kostnad, kr', 'number'), field('planned_from', 'Tidplan fr.o.m.', 'date'), field('planned_to', 'Tidplan t.o.m.', 'date'), field('notes', 'Noteringar', 'textarea')] },
  orders: { label: 'Beställningar', singular: 'Beställning', prefix: 'BES', fields: [field('issue_id', 'Ärende', 'ref', { table: 'issues', required: true }), field('title', 'Namn', 'text', { required: true }), field('amount', 'Belopp, kr', 'number'), field('status', 'Status', 'select', { values: { draft: 'Utkast', ordered: 'Beställd', done: 'Klart' }, default: 'draft' })] },
  contacts: { label: 'Personkopplingar', singular: 'Personkoppling', prefix: 'KOP', fields: [field('person_id', 'Person', 'ref', { table: 'people', required: true }), field('role', 'Roll', 'select', { values: roles, required: true }), field('property_id', 'Fastighet', 'ref', { table: 'properties' }), field('agreement_id', 'Avtal', 'ref', { table: 'agreements' }), field('issue_id', 'Ärende', 'ref', { table: 'issues' }), field('order_id', 'Beställning', 'ref', { table: 'orders' }), field('valid_from', 'Giltigt fr.o.m.', 'date'), field('valid_to', 'Giltigt t.o.m.', 'date')] },
  object_links: { label: 'Objektförändringar', singular: 'Objektförändring', prefix: 'AND', fields: [field('predecessor_id', 'Tidigare objekt', 'ref', { table: 'objects', required: true }), field('successor_id', 'Nytt objekt', 'ref', { table: 'objects', required: true })] }
 };
-// The business registry is shared by all agreements; links retain dates.
-Object.assign(tables,{
- businesses:{label:'Verksamheter',singular:'Verksamhet',prefix:'BUS',fields:[
-  field('name','Verksamhet','text',{required:true}),
-  field('type','Verksamhetstyp'),field('description','Verksamhetsbeskrivning','textarea'),
-  field('organization_id','Part','ref',{table:'parties'}),
-  field('unit_id','Organisatorisk tillhörighet'),field('status','Status')
- ]},
- contract_businesses:{label:'AvtalVerksamhet',singular:'Avtalets verksamhet',prefix:'CB',fields:[
-  field('agreement_id','Avtal','ref',{table:'agreements',required:true}),
-  field('business_id','Verksamhet','ref',{table:'businesses',required:true}),
-  field('valid_from','Giltigt fr.o.m.','date'),
-  field('valid_to','Giltigt t.o.m.','date'),
-  field('cost_share_percent','Kostnadsandel %','number'),
-  field('cancelled','Annullerad','boolean',{default:false})
- ]}
-});
 // Explicit additions preserve the existing overview, map and financial terms.
 const additions = {
  parties: [['kind','Typ'],['owner_class','Ägarklass']],
