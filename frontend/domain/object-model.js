@@ -25,6 +25,18 @@
       contract.propertyId=object.propertyId;
     }
     for(const activity of data.activities){if(activity.objectId&&!activity.contractId){const o=data.objects.find(o=>o.id===activity.objectId);if(o)activity.propertyId=o.propertyId;}}
+    // External agreement files sometimes carry the only known object area.
+    // Adopt an unambiguous area once into the object, never keep a second copy.
+    for(const object of data.objects){
+      if(meaningful(object.area))continue;
+      const values=[...new Set(data.contracts.filter(c=>c.objectId===object.id&&meaningful(c.area)).map(c=>Number(c.area)))];
+      if(values.length===1&&Number.isFinite(values[0])&&values[0]>=0)object.area=values[0];
+      if(values.length>1){
+        data.importReview ||= [];
+        const id='object-area-conflict|'+object.id;
+        if(!data.importReview.some(row=>row.id===id))data.importReview.push({id,kind:'object-area-conflict',status:'pending',collection:'objects',recordId:object.id,reason:'Olika avtalsytor för samma objekt kräver granskning',values});
+      }
+    }
     return projectAreas(data);
   }
   function validate(data){
