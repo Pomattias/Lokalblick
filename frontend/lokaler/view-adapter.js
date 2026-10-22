@@ -11,7 +11,7 @@ const targetTypes = {properties:'property',agreements:'contract',issues:'activit
 const targetFields = {properties:'property_id',agreements:'agreement_id',issues:'issue_id',orders:'order_id'};
 export function projectWorkspace(clean) {
  const out = {...clone(clean.workspace || {}),isDemo:false,cleanModel:true,sourceName:'Lokal datamodell',assignments:[]};
- for(const [table,collection] of Object.entries(viewCollections)) out[collection]=clean[table].map(record=>{
+ for(const [table,collection] of Object.entries(viewCollections)) out[collection]=(clean[table]||[]).map(record=>{
   const row={id:record.id};
   for(const [field,target] of Object.entries(viewFields[table])) if(record[field]!=null)row[target]=clone(record[field]);
   return row;
@@ -45,7 +45,7 @@ export function collectWorkspace(view, baseline=emptyData()) {
  clean.contacts=[];
  clean.workspace=Object.fromEntries(workspaceKeys.filter(key=>view[key]!==undefined).map(key=>[key,clone(view[key])]));
  for(const [table,collection] of Object.entries(viewCollections)) clean[table]=(view[collection]||[]).map(row=>{
-  const old=baseline[table].find(item=>item.id===row.id),record={...old,id:row.id};
+  const old=(baseline[table]||[]).find(item=>item.id===row.id),record={...old,id:row.id};
   for(const [field,target] of Object.entries(viewFields[table])) record[field]=row[target]??null;
   for(const f of tables[table].fields)if(['text','textarea','email','tel','url','date','select','ref'].includes(f.type)&&record[f.key]!=null&&typeof record[f.key]!=='string')record[f.key]=String(record[f.key]);
   if(table==='properties')record.name ||= row.name||row.id;
