@@ -112,8 +112,8 @@ test('contact column mappings can be exported and reimported with the owning per
 });
 
 test('missing object IDs use OB- plus the exact agreement ID and stay stable across rows and reimport',()=>{
- const workbook=book([['FastighetsID','Avtalsnummer','Area','Bashyra'],['001213','001213-0001-03',120,100000],['001213','001213-0001-03',120,100000],['001213','A-02',80,50000]]),first=run(workbook);
- assert.equal(first.report.review,0);assert.deepEqual(first.clean.objects.map(o=>[o.id,o.property_id]),[['OB-001213-0001-03','001213'],['OB-A-02','001213']]);assert.deepEqual(first.clean.agreements.map(a=>[a.id,a.object_id]),[['001213-0001-03','OB-001213-0001-03'],['A-02','OB-A-02']]);assert.equal(first.clean.agreement_items.length,2);
+ const workbook=book([['FastighetsID','Avtalsnummer','Area','Bashyra'],['001213','001213-contract-03',120,100000],['001213','001213-contract-03',120,100000],['001213','A-02',80,50000]]),first=run(workbook);
+ assert.equal(first.report.review,0);assert.deepEqual(first.clean.objects.map(o=>[o.id,o.property_id]),[['OB-001213-contract-03','001213'],['OB-A-02','001213']]);assert.deepEqual(first.clean.agreements.map(a=>[a.id,a.object_id]),[['001213-contract-03','OB-001213-contract-03'],['A-02','OB-A-02']]);assert.equal(first.clean.agreement_items.length,2);
  const again=run(workbook,profile(workbook,first.clean.workspace.importMappings),first.clean);assert.equal(again.report.review,0);assert.equal(again.clean.objects.length,2);assert.equal(again.clean.agreements.length,2);validateData(again.clean);
 });
 test('an explicitly imported object ID takes precedence over the OB- fallback',()=>{

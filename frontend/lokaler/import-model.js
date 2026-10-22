@@ -14,6 +14,12 @@ import {assignAgreementItemKeys} from '../services/import-matching.js';
 import {personRole,contactPart,contactFields,personFormat,parsePersonIdentity} from '../services/import-person-links.js';
 const clone=value=>structuredClone(value),present=value=>value!==null&&value!==undefined&&value!=='';
 const text=value=>String(value??'').trim(),key=value=>text(value).replace(/\s+/g,' ').toLocaleLowerCase('sv');
+function agreementNumberParts(value){
+ const id=text(value),parts=/^([A-Za-z]{0,8}\d+)-(\d+)-(\d+)$/.exec(id);
+ // Date-shaped IDs and other layouts need an explicit choice, not a guess.
+ if(!parts||id.length>100||/^(?:19|20)\d{2}-\d{2}-\d{2}$/.test(id))return null;
+ return {propertyId:parts[1],objectId:parts[1]+'-'+parts[2],agreementId:id};
+}
 const validLink=value=>{try{const url=new URL(value);return /^https?:$/.test(url.protocol)&&!!url.hostname&&!/\s/.test(value);}catch{return false;}};
 const hash=value=>{let h=2166136261;for(const char of value){h^=char.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(16);};
 const fieldAliases={
@@ -80,7 +86,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   const labels=new Map([...importSchemas.flatMap(schema=>schema.columns.map(([field,label])=>({target:schema.key+'.'+field,label:schema.sheet+' → '+label}))),...contactFields(profile)].map(field=>[field.target,field.label]));
   return [profile,new Map(profile.columns.map(column=>[column.index,{source:profile.fileName||context.fileName||'Excel',sheet:profile.name,index:column.index,header:column.header,target:column.target,label:labels.get(column.target)||column.target,...(column.itemType?{itemType:column.itemType,itemLabel:tables.agreement_items.fields.find(field=>field.key==='type').values[column.itemType]}:{}),read:0,skipped:0,review:0}]))];
  }));
- data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const prior=clone(data),priorPropertyIds=new Set(prior.properties.map(row=>row.id));let rowCount=0;
+ data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const prior=clone(data),priorPropertyIds=new Set(prior.properties.map(row=>row.id)),priorObjects=new Map(prior.objects.map(row=>[row.id,row]));let rowCount=0;
  let indexes,partyNames,partyNumbers,propertyIdentities,propertyAddresses,emails,personNames,matchIssueHome,homeIndexSize;
  const rebuild=()=>{
   matchIssueHome=null;
@@ -253,20 +259,22 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     if(raw.parties){const p=raw.parties;let number;try{number=normalizeOrganizationNumber(p.organization_number);}catch(error){if(!holdField('parties','organization_number',error))throw error;delete p.organization_number;}const byName=p.id?indexes.parties.get(text(p.id)):partyNames.get(key(p.name)),byNumber=number&&partyNumbers.get(number);if(byName&&byNumber&&byName.id!==byNumber.id||p.id&&byNumber&&p.id!==byNumber.id)throw Error('PartID, namn och organisationsnummer pekar på olika parter.');const existing=byName||byNumber;const saved=merge('parties',{...p,id:existing?.id||text(p.id)||'PAR-'+crypto.randomUUID()},existing);partyNames.set(key(saved.name),saved);if(saved.organization_number)partyNumbers.set(saved.organization_number,saved);}
     // A source-row choice approves these exact inputs and candidates, never an
     // address as a permanent foreign key. Re-evaluation still starts from base.
-    const approveProperty=(candidates,evidence)=>{
+    const approveProperty=(candidates,evidence,inferred=null)=>{
      const matchingKey=JSON.stringify([source,profile.name,r+1]);
-     const matches=candidates.map(row=>({id:row.id,label:row.name,detail:[row.address,row.city].filter(Boolean).join(' · ')}));
-     const signature=JSON.stringify([sourceValues.map(value=>[value.target,value.raw]),matches]);
+     const matches=candidates.map(row=>({id:row.id,label:row.name,detail:[inferred&&!priorPropertyIds.has(row.id)?'Ny fastighet':null,row.address,row.city].filter(Boolean).join(' · ')}));
+     const signature=JSON.stringify([sourceValues.map(value=>[value.target,value.raw]),matches,...(inferred?[inferred]:[])]);
      const choice=context.rowMatches?.[matchingKey];
      const approved=choice?.signature===signature&&matches.some(row=>row.id===choice.propertyId);
      linkProposals.push({matchingKey,signature,matches,evidence,source,sheet:profile.name,row:r+1,approved:Boolean(approved),propertyId:approved?choice.propertyId:null,
-      records:[raw.objects?.id||raw.agreements?.object_id?{label:'Objekt',value:text(raw.objects?.id||raw.agreements?.object_id)}:null,raw.agreements?.id?{label:'Avtal',value:text(raw.agreements.id)}:null,raw.issues?{label:'Ärende',value:text(raw.issues.title||raw.issues.id)}:null].filter(Boolean)});
+      ...(inferred?{inferredIds:inferred}:{}),records:[inferred?.objectId||raw.objects?.id||raw.agreements?.object_id?{label:'Objekt',value:text(inferred?.objectId||raw.objects?.id||raw.agreements?.object_id)}:null,raw.agreements?.id?{label:'Avtal',value:text(raw.agreements.id)}:null,raw.issues?{label:'Ärende',value:text(raw.issues.title||raw.issues.id)}:null].filter(Boolean)});
      if(!approved)throw Object.assign(Error('Godkänn föreslagen fastighetskoppling i listan före import.'),{collection:'properties',field:'id',matchingKey,matches,linkProposal:true});
      return candidates.find(row=>row.id===choice.propertyId);
     };
     const anchorAgreement=raw.agreements?.id&&indexes.agreements.get(text(raw.agreements.id));
     const anchorObject=indexes.objects.get(text(raw.objects?.id||raw.agreements?.object_id||raw.issues?.object_id||anchorAgreement?.object_id));
     const anchorProperty=anchorObject&&indexes.properties.get(anchorObject.property_id);
+    const numberParts=!anchorAgreement&&!issueContext&&agreementNumberParts(raw.agreements?.id);
+    if(numberParts)raw.properties ||= {};
     if(issueContext){
      const size=data.properties.length+'|'+data.objects.length;
      if(!matchIssueHome||homeIndexSize!==size){matchIssueHome=issueHomeMatcher(data);homeIndexSize=size;}
@@ -294,17 +302,33 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      const matchingKey=JSON.stringify([source,profile.name,r+1]),cityFits=row=>!p.city||!row.city||key(p.city)===key(row.city);
      const named=(p.name?propertyIdentities.get(key(p.name))||[]:[]).filter(cityFits),atAddress=(p.address?propertyAddresses.get(importAddressKey(p.address))||[]:[]).filter(cityFits);
      const namedAtAddress=atAddress.filter(row=>named.some(other=>other.id===row.id)),candidates=namedAtAddress.length?namedAtAddress:atAddress.length?atAddress:named;
-     const byId=p.id?indexes.properties.get(text(p.id)):null;
+     let byId=p.id?indexes.properties.get(text(p.id)):null,numberChoice=null;
+     const byNumber=!p.id&&!anchorProperty&&numberParts?indexes.properties.get(numberParts.propertyId):null;
      const reviewIdentity=message=>Object.assign(Error(message),{collection:'properties',field:p.id?'id':'designation',matchingKey,matches:p.id?[]:candidates.map(row=>({id:row.id,label:row.name,detail:[row.address,row.city].filter(Boolean).join(' · ')}))});
      // An ID identifies the property, but an address pointing to another known
      // property must never silently create or move its objects and agreements.
      if(p.id&&anchorProperty&&p.id!==anchorProperty.id)throw reviewIdentity('FastighetsID och objektets fastighet pekar på olika fastigheter. Importen får inte flytta en befintlig koppling.');
-     const identified=byId||anchorProperty;
+     const identified=byId||anchorProperty||byNumber;
      if(identified&&atAddress.length&&!atAddress.some(row=>row.id===identified.id))throw reviewIdentity('FastighetsID och adress pekar på olika fastigheter. Kontrollera identifieraren eller adressen.');
      if(p.id&&!byId&&atAddress.length)throw reviewIdentity('Adressen finns redan med ett annat FastighetsID. Kontrollera identifieraren så att fastigheten inte skapas dubbelt.');
+     if(numberParts){
+      const missingProperty=!p.id&&!anchorProperty&&(byNumber||!candidates.length);
+      const targetProperty=p.id||anchorProperty?.id||byNumber?.id||(missingProperty?numberParts.propertyId:null);
+      const missingObject=!raw.objects?.id&&!raw.agreements?.object_id&&targetProperty===numberParts.propertyId;
+      if(missingProperty||missingObject){
+       const proposedObject=missingObject?numberParts.objectId:raw.objects?.id||raw.agreements?.object_id;
+       const existingObject=proposedObject&&indexes.objects.get(text(proposedObject));
+       if(existingObject&&existingObject.property_id!==targetProperty)throw reviewIdentity('Det föreslagna ObjektID tillhör en annan fastighet. Ange rätt ObjektID.');
+       const inferred={...numberParts,propertyId:targetProperty,objectId:proposedObject||null,existingObject:priorObjects.get(text(proposedObject))||null};
+       const candidate=byId||anchorProperty||byNumber||{id:targetProperty,name:p.name||targetProperty,address:p.address,city:p.city};
+       numberChoice=approveProperty([candidate],'Uppdelat avtalsnummer',inferred);
+       p.id ||= numberChoice.id;byId=indexes.properties.get(text(p.id));
+       if(missingObject){raw.objects ||= {};raw.objects.id=numberParts.objectId;}
+      }
+     }
      const chosen=!p.id&&!anchorProperty&&candidates.length?approveProperty(candidates,p.address?'Adress':'Fastighetsnamn'):null;
      const existing=byId||anchorProperty||chosen;
-     origin.matchingDecision={propertyId:existing?.id||text(p.id),method:chosen?'explicit-row-choice':p.id?'property-id':p.address?'property-address':'property-name',addressChecked:Boolean(p.address)};
+     origin.matchingDecision={propertyId:existing?.id||text(p.id),method:numberChoice?'agreement-number-approved':chosen?'explicit-row-choice':p.id?'property-id':p.address?'property-address':'property-name',...(numberChoice?{agreementId:numberParts.agreementId,objectId:raw.objects?.id||raw.agreements?.object_id}:{}),addressChecked:Boolean(p.address)};
      if(p.owner_party_id||linkedNumbers.has('owner'))p.owner_party_id=party(p.owner_party_id||existing?.owner_party_id,'owner');
      const incomingName=p.name&&(!existing||!p.address||importAddressKey(p.name)!==importAddressKey(p.address)||importAddressKey(existing.name)===importAddressKey(existing.address))?p.name:null;
      property=merge('properties',{...p,id:existing?.id||text(p.id)||'FAS-'+crypto.randomUUID(),name:incomingName||existing?.name||p.address||p.id},existing);
