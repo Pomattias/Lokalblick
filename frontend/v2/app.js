@@ -102,7 +102,6 @@ const labels = {
   objects: "Objekt",
   maintenance: "Underhåll",
   contracts: "Avtal",
-  businesses: "Verksamheter",
   activities: "Ärenden",
   plan: "Planera",
   budget: "Budget",
@@ -595,7 +594,7 @@ function render() {
   globalThis.LokalblickMapService?.destroy();
   document.querySelector("#title").textContent = labels[ui.view];
   document.querySelectorAll("[data-view]").forEach((x) => {
-    const active=x.dataset.view===ui.view || (x.dataset.view==="more" && ["properties","objects","contracts","businesses","activities","maintenance","sources","people","settings","datamodel"].includes(ui.view));
+    const active=x.dataset.view===ui.view || (x.dataset.view==="more" && ["properties","objects","contracts","activities","maintenance","sources","people","settings","datamodel"].includes(ui.view));
     x.classList.toggle("active", active);
     x.setAttribute(
       "aria-current",
@@ -613,7 +612,7 @@ function render() {
       {key:'person',caption:'Ärendeansvarig',selected:issueFilters.person,items:data.people.map(row=>({id:row.id,label:row.name}))}
     ]:[]}:{}) : "";
   filterArea.hidden = !filterState.show;
-  document.querySelector("#summary").innerHTML = ["sources", "people", "businesses", "settings", "more", "datamodel", "maintenance"].includes(
+  document.querySelector("#summary").innerHTML = ["sources", "people", "settings", "more", "datamodel", "maintenance"].includes(
     ui.view,
   )
     ? ""
@@ -652,14 +651,6 @@ function render() {
     });
   }
   if(ui.view==='objects')content.innerHTML=objectList(data,selection,viewUi);
-  if(ui.view==='businesses'){
-    content.innerHTML='<div class="section-title"><h2>Verksamheter</h2><button data-new-business>Ny verksamhet</button></div>'+
-      '<div class="ui-card"><table><thead><tr><th>Verksamhet</th><th>Typ</th><th>Beskrivning</th><th>Avtal</th><th></th></tr></thead><tbody>'+
-      (data.businesses||[]).map(b=>{
-        const count=(data.contractBusinesses||[]).filter(l=>l.businessId===b.id&&!l.cancelled).length;
-        return '<tr><td>'+esc(b.name)+'</td><td>'+esc(b.type||'–')+'</td><td>'+esc(b.description||'–')+'</td><td>'+count+'</td><td><button data-edit="businesses" data-id="'+esc(b.id)+'">Ändra</button></td></tr>';
-      }).join('')+'</tbody></table></div>';
-  }
   content.onclick=null;content.onchange=null;
   if(ui.view==='maintenance'){
     content.innerHTML=maintenancePage(data,maintenanceState,canEdit()&&Boolean(data.cleanModel||data.isDemo));
@@ -673,7 +664,7 @@ function render() {
   if (ui.view === "datamodel") { content.innerHTML = relationshipView(data); bindRelationshipView(data); }
   if (ui.view === "settings") content.innerHTML = activityOptionSettings(data)+economicSettings(data, ui);
   if (ui.view === "people") content.innerHTML = organization(data);
-  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","businesses","activities","maintenance","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
+  if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","activities","maintenance","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
     content.innerHTML =
       '<div class="section-title map-heading"><h2>Fastigheter i aktuellt urval</h2></div><div id="property-map" aria-label="Fastigheter på karta"></div><p class="map-help">Välj en markör för avtal, nyckeltal och öppna ärenden. Välj sedan en länk för detaljer.</p>';
@@ -704,7 +695,7 @@ function render() {
   if (!canEdit())
     content
       .querySelectorAll(
-        "[data-edit],[data-new-object],[data-new-business],[data-new-issue],[data-plan-month],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-adjust],[data-budget-reopen],[data-budget-create],[data-budget-lock]",
+        "[data-edit],[data-new-object],[data-new-issue],[data-plan-month],[data-activity-home],[data-activity-year-amount],[data-assign],[data-quarter],[data-move],[data-review],[data-priority-apply],[data-priority-remove],[data-adjust],[data-preliminary],[data-budget-adjust],[data-budget-reopen],[data-budget-create],[data-budget-lock]",
       )
       .forEach((x) => {if(!(isPortfolioView()&&x.matches("[data-edit][data-id]")&&x.dataset.id))x.disabled = true;});
   // New budget controls share the same edit permission as the existing planning controls.
@@ -1518,7 +1509,6 @@ document.addEventListener("click", (event) =>
       openPropertyPersonDialog(b);
       return;
     }
-    if(b.hasAttribute("data-new-business")){openEditor("businesses","",{name:"",type:"",description:"",status:"active"});return;}
     if(b.hasAttribute("data-new-object"))openEditor("objects","",{propertyId:selection.propertyId||"",start:"",end:"",predecessorIds:[]});
     if(b.dataset.objectContract){openEditor("contracts",b.dataset.objectContract);return;}
     if(b.matches('[data-item-new],[data-item-edit],[data-cost-new],[data-cost-edit],[data-cost-evidence]')){
@@ -1917,8 +1907,6 @@ document.addEventListener("submit", (event) => {
     const next = readEditor(event.target, editor.record),
       col = editor.col,
       id = editor.id,
-      hasBusinessPicker = col==='contracts'&&Boolean(event.target.querySelector('[name="businessIds"]')),
-      selectedBusinessIds = hasBusinessPicker?[...new Set(new FormData(event.target).getAll('businessIds').filter(Boolean))]:[],
       contractContactChanges = col === "properties"
         ? [...event.target.querySelectorAll("[data-property-contract-contact]")].map(select=>({
           contractId:select.dataset.propertyContractContact,personId:select.value
@@ -1938,7 +1926,7 @@ document.addEventListener("submit", (event) => {
     }
     if(col==='activities'&&ui.view!=='budget')prepareMaintenanceCompletion(data,next,editor.record);
     if(col==='contracts'&&!next.objectId)throw Error('Välj vilket objekt avtalet tillhör');
-    if(col==='contracts'){delete next.area;delete next.apartmentArea;delete next.commonArea;delete next.objectAreaManaged;delete next.businessName;delete next.business;delete next.businessComment;}
+    if(col==='contracts'){delete next.area;delete next.apartmentArea;delete next.commonArea;delete next.objectAreaManaged;delete next.business;delete next.businessComment;}
     const noteDraft=col==="activities"?String(event.target.querySelector("[data-activity-journal-note]")?.value||"").trim():"";
     await mutation((d) => {
       applyLinkedPartyNumber(d,col,next,actor());
@@ -1969,19 +1957,6 @@ document.addEventListener("submit", (event) => {
           });
         d[col][index] = next;
         audit(d, col, id, before, next, actor());
-      }
-      if(hasBusinessPicker){
-        const all=d.contractBusinesses||(d.contractBusinesses=[]);
-        const today=globalThis.LokalblickResponsibility.today();
-        const yesterday=new Date(Date.parse(today+'T00:00:00Z')-86400000).toISOString().slice(0,10);
-        const current=globalThis.LokalblickBusinessModel.currentLinks(d,next.id,today);
-        for(const businessId of selectedBusinessIds)if(!(d.businesses||[]).some(b=>b.id===businessId))throw Error('Verksamheten saknas i verksamhetsregistret');
-        for(const link of current)if(!selectedBusinessIds.includes(link.businessId)){
-          if(link.fromDate===today)link.cancelled=true;
-          else link.toDate=yesterday;
-        }
-        for(const businessId of selectedBusinessIds)if(!current.some(l=>l.businessId===businessId))
-          all.push({id:crypto.randomUUID(),contractId:next.id,businessId,fromDate:today,toDate:''});
       }
       if(col==='contracts'&&(d.cleanModel||Array.isArray(editor.record.items))&&ui.view==='budget')applyContractFinanceEdit(d,editor.record,next);
       if (col === "properties" && id) {
