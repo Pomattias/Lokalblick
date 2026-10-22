@@ -641,6 +641,12 @@
     if(label=="Verksamhetspart")return orgDisplay(organizations.find(function(x){return x.id===row.businessPartyId;}));
     if(label==="Part"||label==="Organisation")return orgDisplay(organizations.find(function(x){return x.id===row.organizationId;}));
     if(label==='Verksamhet'&&schema.key==='contractBusinesses'){const b=(data.businesses||[]).find(b=>b.id===row.businessId);return b?.name||row.businessId||'';}
+    if(label==='Verksamhet'&&schema.key==='contracts'){
+      const today=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
+      const link=(data.contractBusinesses||[]).find(l=>l.contractId===row.id&&!l.cancelled&&(!l.fromDate||l.fromDate<=today)&&(!l.toDate||l.toDate>=today));
+      return (data.businesses||[]).find(b=>b.id===link?.businessId)?.name||'';
+    }
+
     if(label=="Område"||label=="Verksamhet")return unitDisplay(row.unitId);
     if(label==="Ansvarig"||label==="Ansvarig hos oss")return personDisplay(people.find(function(x){return x.id===row.responsiblePersonId;}));
     if(label==="Ansvarig hos fastighetsägaren")return personDisplay(people.find(function(x){return x.id===row.ownerResponsiblePersonId;}));
