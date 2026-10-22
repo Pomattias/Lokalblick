@@ -10,6 +10,8 @@ export const collections = [
   "contracts",
   "organizations",
   "people",
+  "businesses",
+  "contractBusinesses",
   "assignments",
   "orders",
   "activities",
