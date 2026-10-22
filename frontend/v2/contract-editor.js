@@ -5,16 +5,16 @@ import { fieldCaption } from "./field-labels.js";
 import {partyNumberInput} from './party-fields.js';
 
 // Existing Budget editor controls remain scoped to Budget.
-function budgetBusinessControls(data,c){
+function businessControls(data,c){
  const at=globalThis.LokalblickResponsibility.today();
  const links=(data.contractBusinesses||[]).filter(l=>l.contractId===c.id&&!l.cancelled&&(!l.fromDate||l.fromDate<=at)&&(!l.toDate||l.toDate>=at));
  const ids=links.map(l=>l.businessId);
  const mainId=ids[0]||"";
  const businesses=data.businesses||[];
  const primary=`<label>Verksamhet<select name="businessIds" aria-label="Verksamhet"><option value="">Ingen verksamhet vald</option>${businesses.map(b=>`<option value="${esc(b.id)}" ${mainId===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`;
- const extras=`<details><summary>Flera verksamheter delar avtalet${ids.length>1?' ('+ids.length+' kopplade)':''}</summary><p>Markera ytterligare verksamheter endast när flera nyttjar samma avtal.</p><div style="display:grid;gap:8px">${businesses.filter(b=>b.id!==mainId).map(b=>`<label><input type="checkbox" name="businessIds" value="${esc(b.id)}" ${ids.includes(b.id)?'checked':''}> ${esc(b.name)}</label>`).join('')}</div></details>`;
- const distribution=links.length>1?`<details><summary>Nyttjad area och kostnadsfördelning</summary><div class="mapping-table"><table><thead><tr><th>Verksamhet</th><th>Area, m²</th><th>Kostnadsandel, %</th></tr></thead><tbody>${links.map(l=>`<tr><td>${esc(businesses.find(b=>b.id===l.businessId)?.name||l.businessId)}</td><td><input name="businessArea|${esc(l.businessId)}" aria-label="Nyttjad area" type="number" min="0" step="any" value="${esc(l.usedArea??'')}"></td><td><input name="businessShare|${esc(l.businessId)}" aria-label="Kostnadsandel" type="number" min="0" max="100" step="any" value="${esc(l.costSharePercent??'')}"></td></tr>`).join('')}</tbody></table></div><small>Frivilligt. Ingen automatisk 100-procentsandel sätts vid 1:1.</small></details>`:"";
- return `<section class="contract-section"><h3>Verksamhet</h3>${primary}${extras}${distribution}<small>Normalt en verksamhet per avtal. Kopplingarnas giltighet och historik bevaras vid ändring.</small>${!businesses.length?'<p>Verksamheter kan kopplas här när de finns i underlaget.</p>':''}</section>`;
+ const extras=`<details><summary>Flera verksamheter delar avtalet${ids.length>1?' ('+ids.length+' kopplade)':''}</summary><div style="display:grid;gap:8px">${businesses.filter(b=>b.id!==mainId).map(b=>`<label><input type="checkbox" name="businessIds" value="${esc(b.id)}" ${ids.includes(b.id)?'checked':''}> ${esc(b.name)}</label>`).join('')}</div></details>`;
+ const main=businesses.find(b=>b.id===mainId);
+ return `<section class="contract-section"><h3>Verksamhet</h3>${primary}${extras}${main?.description?'<p class="contract-help">Verksamhetsbeskrivning: '+esc(main.description)+'</p>':''}<small>Verksamhetsnamn och beskrivning redigeras i verksamhetsregistret, inte på avtalet. Kopplingen har egen giltighetstid.</small></section>`;
 }
 
 const CATEGORIES = ["Kontor", "Förråd", "Äldreboende", "LSS-boende", "Bostad", "Daglig verksamhet", "Verksamhetslokal", "Övrigt"];
@@ -124,10 +124,11 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
     field("Fastighetsskatt, kr/år",input(c,"annualPropertyTax","number",false,'min="0" step="any"'))+
     '</div><p class="contract-help">Basår är KPI-basår; bashyran avser följande hyresår. Min/max tillämpas enligt avtal. Beräkningen använder senast sparade värden.</p></details>';
   const rentValue = totals.rent.status==="Behöver kontroll" && totals.rent.amount<=0 ? "Behöver kontroll" : money(totals.rent.amount);
-  const rentPerSqm=totals.rent.status==='Behöver kontroll'?'Behöver kontroll':Number(c.area)>0?money(totals.rent.amount/Number(c.area)):'Ej beräknat';
+  const objectArea=(data.objects||[]).find(object=>object.id===c.objectId)?.area;
+  const rentPerSqm=totals.rent.status==='Behöver kontroll'?'Behöver kontroll':Number(objectArea)>0?money(totals.rent.amount/Number(objectArea)):'Ej beräknat';
   const economics = '<section class="contract-section" data-contract-section="economics"><h3>Hyra och yta</h3><div class="contract-grid">'+
     field("Hyra "+new Date().getFullYear()+", kr/år",display(rentValue))+
-    field("Area, m²",presentation.portfolio?'<span class="contract-readonly" data-object-area>'+esc((data.objects||[]).find(object=>object.id===c.objectId)?.area??c.area??'–')+'</span>':input(c,"area","number",masterLocked,'min="0" step="any"'),presentation.portfolio?'Hämtas från objektet. Ändra ytan på objektets sida.':'')+
+    field("Area, m²",'<span class="contract-readonly" data-object-area>'+esc(objectArea??'–')+'</span>','Hämtas från objektet. Ändra ytan på objektets sida.')+
     (presentation.portfolio?field('Årshyra, kr/m²','<span class="contract-readonly" data-contract-rent-per-sqm>'+esc(rentPerSqm)+'</span>'):"")+
     (totals.addition.amount || totals.tax ? field("Total årskostnad, kr",display(money(annualTotal))) : "")+
     '</div>'+(missing.length?'<p class="rent-needs-review">Behöver kontroll: '+esc(missing.join(' · '))+'</p>':'')+
@@ -152,7 +153,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
   const additional = presentation.portfolio?('<details class="contract-secondary" data-contract-context><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
     field("Lokalkategori",categorySelect)+
     field('Användning',input(c,'use','text',company&&!!id))+
-    field('Verksamhet','<textarea name="business" rows="2">'+esc(c.business||'')+'</textarea>')+
+    businessControls(data,c)+
     field('Antal arbetsplatser',input(c,'workplaceCount','number',false,'min="0" step="1"'))+
     field('Antal hubbplatser',input(c,'hubCount','number',false,'min="0" step="1"'))+
     field('Länk till huvudkontrakt',input(c,'contractDocumentUrl'))+
@@ -167,7 +168,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
       field('Lägenhetsyta, m²',input(c,'apartmentArea','number',false,'min="0" step="any"'))+
       field('Kommentar verksamhet','<textarea name="businessComment" rows="2">'+esc(c.businessComment||'')+'</textarea>')+
       field('Länk till huvudkontrakt',input(c,'contractDocumentUrl')):"")+
-    '</div>'+budgetBusinessControls(data,c)+
+    '</div>'+businessControls(data,c)+
     (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+'</details>');
 
   const distinctTenantContact = c.tenantResponsiblePersonId && c.tenantResponsiblePersonId !== c.businessResponsiblePersonId;
