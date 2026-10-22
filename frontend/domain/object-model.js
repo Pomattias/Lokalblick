@@ -13,8 +13,8 @@
         const same=number?data.objects.filter(o=>String(o.number??'')===number&&o.propertyId===contract.propertyId):[];
         if(same.length===1)object=same[0];
         else {
-          object={id:'OBJ|'+contract.id,propertyId:contract.propertyId||'',number:number||'',name:contract.businessName||contract.number||'Objekt',start:'',end:'',predecessorIds:[]};
-          for(const field of ['area','category','use','businessName','unitId','employees','users','rooms','commonArea','apartmentArea'])if(meaningful(contract[field]))object[field]=contract[field];
+          object={id:'OBJ|'+contract.id,propertyId:contract.propertyId||'',number:number||'',name:contract.number||'Objekt',start:'',end:'',predecessorIds:[]};
+          for(const field of ['area','category','use','unitId','employees','users','rooms','commonArea','apartmentArea'])if(meaningful(contract[field]))object[field]=contract[field];
           if(contract.provenance)object.provenance=Object.fromEntries(Object.entries(contract.provenance).filter(([field])=>Object.hasOwn(object,field)).map(([field,value])=>[field,{...value,derived:'object-from-imported-contract'}]));
           data.objects.push(object);
         }
