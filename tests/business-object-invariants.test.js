@@ -7,40 +7,48 @@ const business=globalThis.LokalblickBusinessModel;
 const objects=globalThis.LokalblickObjectModel;
 const property={id:'p1'};
 
-test('verksamhet lives in one register; description and contract relation survive normalize',()=>{
- const data={properties:[property],objects:[],organizations:[],contracts:[{
-  id:'c1',tenantName:'Kommunen',businessName:'Hemtjänst',businessComment:'Hjälp och omsorg i hemmet'
- }]};
- business.normalize(data);business.normalize(data);
- assert.equal(data.businesses.length,1);
- assert.equal(data.contractBusinesses.length,1);
- assert.equal(data.businesses[0].name,'Hemtjänst');
- assert.equal(data.businesses[0].description,'Hjälp och omsorg i hemmet');
- assert.ok(data.contracts[0].tenantPartyId);
- assert.equal(data.contractBusinesses[0].contractId,'c1');
- business.validate(data);
- business.strip(data);
- assert.equal(Object.hasOwn(data.contracts[0],'businessName'),false);
- assert.equal(Object.hasOwn(data.contracts[0],'businessComment'),false);
-});
-
-test('the same verksamhet can be used by separate contracts without duplication',()=>{
+test('verksamhet and its description are ordinary fields on Avtal',()=>{
  const data={organizations:[],contracts:[
-  {id:'a1',businessName:'Bibliotek',unitId:'KULTUR'},
-  {id:'a2',businessName:'Bibliotek',unitId:'KULTUR'}
+  {id:'c1',businessName:'Hemtjänst',businessDescription:'Hjälp och omsorg i hemmet'}
  ]};
  business.normalize(data);
- assert.equal(data.businesses.length,1);
- assert.equal(data.contractBusinesses.length,2);
+ assert.equal(data.contracts[0].businessName,'Hemtjänst');
+ assert.equal(data.contracts[0].businessDescription,'Hjälp och omsorg i hemmet');
+ assert.equal(Object.hasOwn(data,'businesses'),false);
+ assert.equal(Object.hasOwn(data,'contractBusinesses'),false);
  business.validate(data);
 });
 
-test('same business cannot be linked to the same contract twice during overlapping dates',()=>{
- const data={organizations:[],contracts:[{id:'a1'}],businesses:[{id:'b1',name:'Vård'}],contractBusinesses:[
-  {id:'l1',contractId:'a1',businessId:'b1',fromDate:'2026-01-01',toDate:'2026-12-31'},
-  {id:'l2',contractId:'a1',businessId:'b1',fromDate:'2026-06-01',toDate:''}
+test('existing contract aliases are adopted only into the two canonical fields',()=>{
+ const data={organizations:[],contracts:[
+  {id:'c1',business:'Bibliotek',businessComment:'Kommunalt bibliotek'}
  ]};
- assert.throws(()=>business.validate(data),/två gånger/);
+ business.normalize(data);
+ assert.equal(data.contracts[0].businessName,'Bibliotek');
+ assert.equal(data.contracts[0].businessDescription,'Kommunalt bibliotek');
+ assert.equal(Object.hasOwn(data.contracts[0],'business'),false);
+ assert.equal(Object.hasOwn(data.contracts[0],'businessComment'),false);
+ business.normalize(data);
+ assert.equal(data.contracts.length,1);
+});
+
+test('two agreements have independent verksamhet fields without links',()=>{
+ const data={organizations:[],contracts:[
+  {id:'a1',businessName:'Kontor',businessDescription:'Förvaltning'},
+  {id:'a2',businessName:'Kontor',businessDescription:'Besöksmottagning'}
+ ]};
+ business.normalize(data);
+ assert.equal(data.contracts.length,2);
+ assert.notEqual(data.contracts[0].businessDescription,data.contracts[1].businessDescription);
+ assert.equal(data.contractBusinesses,undefined);
+});
+
+test('juridisk hyresgäst remains separate from verksamhet',()=>{
+ const data={organizations:[],contracts:[{id:'c1',tenantName:'Malmö stad',businessName:'Hälsa'}]};
+ business.normalize(data);
+ assert.equal(data.organizations.length,1);
+ assert.equal(data.contracts[0].businessName,'Hälsa');
+ assert.equal(data.organizations[0].id,data.contracts[0].tenantPartyId);
 });
 
 test('object dates, not agreement area, determine area for historical periods',()=>{
@@ -65,7 +73,7 @@ test('an unambiguous imported agreement area is adopted by the linked object',()
  assert.equal(Object.hasOwn(data.contracts[0],'area'),false);
 });
 
-test('conflicting incoming areas are flagged instead of silently choosing one',()=>{
+test('conflicting incoming areas are flagged for review',()=>{
  const data={properties:[property],objects:[{id:'o1',propertyId:'p1',predecessorIds:[]}],
   contracts:[{id:'c1',objectId:'o1',area:500},{id:'c2',objectId:'o1',area:600}],activities:[]};
  objects.normalize(data);
@@ -73,7 +81,7 @@ test('conflicting incoming areas are flagged instead of silently choosing one',(
  assert.ok(data.importReview.some(r=>r.kind==='object-area-conflict'));
 });
 
-test('changing a contract area cannot rewrite the physical object',()=>{
+test('changing a contract area cannot rewrite the object area',()=>{
  const before={contracts:[{id:'c1',objectId:'o1',area:450}]};
  const data={objects:[{id:'o1',propertyId:'p1',area:450}],
   contracts:[{id:'c1',objectId:'o1',area:530}]};
