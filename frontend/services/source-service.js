@@ -468,7 +468,6 @@
         for (const group of groups) { if(row.targetType&&row.targetType!==group[0])continue;const m=(group[1]||[]).find(function(x){return String(group[2](x)||"").trim().toLowerCase()===wanted;}); if(m){row.targetType=group[0];row.targetId=m.id;break;} }
       }
     }
-    (data.contractBusinesses||[]).forEach(function(row){if(!row.contractId&&row.__display_Avtal){const m=byDisplay(contracts,row.__display_Avtal,contractDisplay);if(m)row.contractId=m.id;}if(!row.businessId&&row.__display_Verksamhet){const hits=(data.businesses||[]).filter(b=>String(b.name).trim()===String(row.__display_Verksamhet).trim());if(hits.length===1)row.businessId=hits[0].id;}});
     (data.contacts||[]).forEach(resolveRelation); (data.assignments||[]).forEach(resolveRelation);
     SCHEMAS.concat([ACTIVITY_SCHEMA]).forEach(function(schema) { (data[schema.key]||[]).forEach(function(row) { Object.keys(row).filter(function(key){return key.indexOf("__display_")===0;}).forEach(function(key){delete row[key];}); }); });
   }
