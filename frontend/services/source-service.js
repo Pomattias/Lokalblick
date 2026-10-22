@@ -355,6 +355,13 @@
           else out[field] = "";
         }
       });
+      // Read historical Excel columns as INPUT only. The canonical writer no
+      // longer stores any of these facts on the agreement.
+      if(schema.key==='contracts'){
+        out.businessName ||= row["Namn på verksamheten"]||row.businessName||'';
+        out.businessComment ||= row["Kommentar verksamhet"]||row.businessComment||'';
+        if((out.area==null||out.area==='')&&(row["Area, m²"]!=null||row.Area!=null))out.area=row["Area, m²"]??row.Area;
+      }
       (schema.display || []).forEach(function(label) {
         out["__display_" + label] = row[label] == null ? "" : row[label];
       });
