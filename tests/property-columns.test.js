@@ -43,6 +43,21 @@ test("property and address remain distinct in V2 tables",()=>{
  assert.match(plan,/HAMNEN 2/);
  assert.match(plan,/Kajgatan 14/);
  assert.equal(propertyReference(data.properties[1]),"Beteckning saknas · Hamnvägen 10");
+ // Current imports can use an address as a required record name.
+ // That fallback is not evidence of a fastighetsbeteckning.
+ for(const designation of ["", "Hamnvägen 10", "  HAMNVÄGEN\u00a0 10 "]){
+   const imported=sample();
+   imported.properties[1].designation=designation;
+   imported.contracts[0].propertyId="p2";
+   const agreements=overview(imported,selection,{year:2026,perspective:"Avtal",contractId:""});
+   assert.match(agreements,/<td class="primary-cell">Beteckning saknas<\/td><td><button[^>]*data-property="p2"[^>]*>Hamnvägen 10<\/button>/);
+   const properties=overview(imported,selection,{year:2026,perspective:"Fastigheter",contractId:""});
+   assert.match(properties,/<button[^>]*data-id="p2"[^>]*>Beteckning saknas<\/button>/);
+   assert.equal(propertyReference(imported.properties[1]),"Beteckning saknas · Hamnvägen 10");
+   assert.equal(imported.properties[1].designation,designation,"Presentation must not rewrite source data");
+ }
+ const unlinked=sample();unlinked.contracts[0].propertyId="missing";
+ assert.match(overview(unlinked,selection,{year:2026,perspective:"Avtal",contractId:""}),/<td class="primary-cell">Ej kopplad<\/td>/);
 });
 test("Excel export holds fastighetsbeteckning and address in separate columns",()=>{
  const svc=excelService(),data=sample(),workbook=svc.dataToWorkbook(data);

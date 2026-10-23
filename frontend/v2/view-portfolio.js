@@ -21,7 +21,7 @@ function contractRows(data, contracts, year, portfolio = false) {
     const total=v.total;
     const complete=v.rent.status!=="Behöver kontroll"&&v.addition.status!=="Behöver kontroll";
     return row([
-      esc(propertyDesignation(p) || "–"),
+      esc(propertyDesignation(p) || (p.id ? "Beteckning saknas" : "Ej kopplad")),
       propertyAddressCell(p),
       `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||c.id)}</strong></button><small>${esc(tenantName(data,c))}</small>`,
       num(area),
@@ -45,7 +45,7 @@ function activityRows(data, items, portfolio=false) {
     const date=latest?.at&&!Number.isNaN(Date.parse(latest.at))?isoDate(latest.at):null;
     return row([
       `<strong><button type="button" class="text-button" data-edit="activities" data-id="${esc(x.record.id)}">${esc(x.title)}</button></strong><small>${portfolio?esc(x.record.id)+" · ":""}${esc(x.label)} · <button type="button" class="activity-note-link" data-open-activity-journal="${esc(x.record.id)}">Noteringar (${notes.length})${date?" · "+date:""}</button></small>`,
-      portfolio&&issueNeedsLink(x.record)?badge("Att koppla"):esc(propertyDesignation(property) || "–"),
+      portfolio&&issueNeedsLink(x.record)?badge("Att koppla"):esc(propertyDesignation(property) || (property ? "Beteckning saknas" : "Ej kopplad")),
       propertyAddressCell(property),
       esc(personLabel(data, responsible(data, x.collection, x.record))),
       badge(x.record.status),

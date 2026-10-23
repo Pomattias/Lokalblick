@@ -53,7 +53,14 @@ export const organizationLabel = (data, id) =>
   data.organizations.find((x) => x.id === id)?.name || id || "";
 export const propertyOwnerLabel = (data, property) =>
   organizationLabel(data, property?.ownerPartyId);
-export const propertyDesignation = property => String(property?.designation || "").trim();
+export const propertyDesignation = property => {
+  const designation = String(property?.designation || "").trim();
+  const key = value => String(value || "").normalize("NFKC").trim()
+    .replace(/\s+/g, " ").replace(/(\d)\s+([a-zåäö])(?=$|[\s,.])/gi, "$1$2")
+    .toLocaleLowerCase("sv");
+  // An imported address fallback is not evidence of a designation.
+  return key(designation) === key(property?.address) ? "" : designation;
+};
 export const propertyAddress = property => String(property?.address || "").trim();
 export const propertyReference = property => property
   ? [propertyDesignation(property) || "Beteckning saknas", propertyAddress(property)].filter(Boolean).join(" · ")
