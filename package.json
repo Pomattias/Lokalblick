@@ -24,6 +24,7 @@
     "lokaler": "node backend/lokaler/server.mjs",
     "lokaler:excel": "node backend/lokaler/start-excel.mjs",
     "test:lokaler-browser": "node scripts/lokaler-browser-check.mjs",
+    "test:local-data-browser": "node scripts/local-data-browser-check.mjs",
     "test:table-import-browser": "node scripts/table-import-browser-check.mjs"
   },
   "engines": {

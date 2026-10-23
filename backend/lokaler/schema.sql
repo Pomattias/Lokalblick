@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS people (
 CREATE UNIQUE INDEX IF NOT EXISTS people_email ON people(lower(email)) WHERE email IS NOT NULL;
 CREATE TABLE IF NOT EXISTS properties (
  id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL CHECK(trim(name) <> ''),
- popular_name TEXT, address TEXT, owner_party_id TEXT REFERENCES parties(id) ON DELETE RESTRICT
+ management_object_number TEXT, popular_name TEXT, address TEXT, owner_party_id TEXT REFERENCES parties(id) ON DELETE RESTRICT
 ) STRICT;
 CREATE TABLE IF NOT EXISTS objects (
  id TEXT PRIMARY KEY NOT NULL, property_id TEXT NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS objects (
 CREATE TABLE IF NOT EXISTS agreements (
  id TEXT PRIMARY KEY NOT NULL, object_id TEXT NOT NULL REFERENCES objects(id) ON DELETE RESTRICT,
  tenant_party_id TEXT REFERENCES parties(id) ON DELETE RESTRICT,
- valid_from TEXT, valid_to TEXT,
+ valid_from TEXT, valid_to TEXT, cost_center TEXT, customer_type TEXT, agreement_type TEXT,
  terminated_on TEXT, termination_reason TEXT, usage TEXT, business_name TEXT, business_description TEXT,
  workplace_count INTEGER CHECK(workplace_count >= 0), hub_count INTEGER CHECK(hub_count >= 0), eb_category TEXT, main_contract_url TEXT,
  CHECK(valid_from IS NULL OR valid_to IS NULL OR valid_from <= valid_to)

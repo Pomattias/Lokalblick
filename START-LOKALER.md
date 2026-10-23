@@ -74,6 +74,10 @@ historiska snapshots ändras inte.
 
 ## Läs in övriga Excelunderlag i webbappen
 
+När grunddata redan finns används samma arbetsyta för komplettering. Se
+[lokaldataimport](docs/LOCAL_DATA_IMPORT.md) för de gemensamma valen och hur
+Förvaltningsobjekt, Avtalsnummer och Kostnadsställe behandlas.
+
 Om du har en tidigare arbetsyta öppen väljer du först **Ny ren arbetsyta**.
 Den anslutna äldre filen ändras inte.
 

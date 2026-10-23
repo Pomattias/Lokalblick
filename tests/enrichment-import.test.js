@@ -22,7 +22,7 @@ test('EXT and SF captions map current agreement terms, owner and object area wit
  for(const name of ['EXT','SF']){
   const workbook=source(['Förvaltningsobjekt','Avtalsnummer','Fast.bet.','Gatuadress','Lev.namn','Area','Ursprungligt giltigt t.o.m.','Aktuellt giltigt t.o.m.','Förlängningstid','Uppsägningstid','Lokalkategori'],[['F1','A1','Test 1','Testgatan 1','Fiktiv ägare',120,'2025-12-31','2028-12-31',36,9,'Kontor']],name),ps=profiles(workbook),p=ps[0];
   assert.equal(p.primaryTable,'contracts');assert.equal(column(p,'Aktuellt giltigt t.o.m.').target,'contracts.end');assert.equal(column(p,'Ursprungligt giltigt t.o.m.').target,'@unmapped');assert.match(column(p,'Ursprungligt giltigt t.o.m.').warning,/Ursprunglig avtalstid/);
-  const result=run(workbook,ps);assert.equal(result.report.blocking,0);assert.equal(result.clean.properties[0].id,'F1');assert.equal(result.clean.objects[0].area,120);assert.equal(result.clean.agreements[0].valid_to,'2028-12-31');assert.equal(result.clean.agreements[0].notice_months,9);assert.equal(result.clean.agreements[0].renewal_months,36);assert.equal(result.clean.agreements[0].eb_category,'Kontor');assert.equal(result.clean.parties[0].name,'Fiktiv ägare');
+  const result=run(workbook,ps);assert.equal(result.report.blocking,0);assert.equal(result.clean.properties[0].management_object_number,'F1');assert.equal(result.clean.objects[0].property_id,result.clean.properties[0].id);assert.equal(result.clean.objects[0].area,120);assert.equal(result.clean.agreements[0].valid_to,'2028-12-31');assert.equal(result.clean.agreements[0].notice_months,9);assert.equal(result.clean.agreements[0].renewal_months,36);assert.equal(result.clean.agreements[0].eb_category,'Kontor');assert.equal(result.clean.parties[0].name,'Fiktiv ägare');
  }
 });
 
@@ -82,7 +82,7 @@ test('a property reference identifies name enrichment in mixed object rows; conf
 
 test('management object captions identify properties and dotted object abbreviations still identify objects',()=>{
  const workbook=source(['Fastighetsbeteckning','Avtalsnummer','Objektsnummer / Förvaltningsobjekt','Objekt. nr'],[['Test 1','A1','F1','O1']],'Lokalbestånd'),p=profiles(workbook)[0];
- assert.equal(column(p,'Objektsnummer / Förvaltningsobjekt').target,'properties.id');assert.equal(column(p,'Objekt. nr').target,'objects.id');assert.equal(resolveFieldName('Objekt. nr',importSchemas,'properties').target,'objects.id');
+ assert.equal(column(p,'Objektsnummer / Förvaltningsobjekt').target,'properties.managementObjectNumber');assert.equal(column(p,'Objekt. nr').target,'objects.id');assert.equal(resolveFieldName('Objekt. nr',importSchemas,'properties').target,'objects.id');
 });
 
 test('approved rules and explicit rows outrank new contextual proposals and can resolve duplicate captions',()=>{

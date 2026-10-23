@@ -22,9 +22,9 @@ export const tables = {
 const additions = {
  parties: [['kind','Typ'],['owner_class','Ägarklass']],
  people: [['party_id','Part','ref',{table:'parties'}],['job_title','Befattning']],
- properties: [['city','Ort'],['latitude','Latitud','coordinate'],['longitude','Longitud','coordinate']],
+ properties: [['management_object_number','Förvaltningsobjekt'],['city','Ort'],['latitude','Latitud','coordinate'],['longitude','Longitud','coordinate']],
  objects: [['apartment_area','Lägenhetsyta, m²','number'],['common_area','Gemensam yta, m²','number'],['category','Objektkategori']],
- agreements: [['notice_months','Uppsägningstid, månader','integer'],['renewal_months','Förlängningstid, månader','integer'],['notice_by','Säg upp senast','date'],['move_in','Inflyttning','date'],['move_out','Utflyttning','date'],['comment','Kommentar']],
+ agreements: [['cost_center','Kostnadsställe'],['customer_type','Kundtyp avtal'],['agreement_type','Avtalstyp'],['notice_months','Uppsägningstid, månader','integer'],['renewal_months','Förlängningstid, månader','integer'],['notice_by','Säg upp senast','date'],['move_in','Inflyttning','date'],['move_out','Utflyttning','date'],['comment','Kommentar']],
  issues: [['kind','Typ'],['category','Kategori'],['final_cost','Slutkostnad','number'],['ordered_cost','Beställd kostnad','number'],['planning_year','Planeringsår','integer'],['planning_quarter','Planeringskvartal','integer'],['planning_month','Planeringsmånad','integer'],['include_in_budget','Ingår i budget'],['budget_category','Budgetkategori'],['value_increasing','Värdehöjande','boolean'],['journal','Journal','json']],
  orders: [['ordered_by','Beställd av','ref',{table:'people'}],['ordered_at','Beställd datum','date'],['final_cost','Slutkostnad','number'],['supplier','Leverantör']]
 };

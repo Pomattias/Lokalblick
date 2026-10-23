@@ -13,6 +13,7 @@ const fieldAliases = {
   },
   organizations: { organizationNumber: ["Orgnr", "Org.nr", "Organisationsnr"] },
   properties: {
+    managementObjectNumber: ["Förvaltningsnummer", "Objektsnummer / Förvaltningsobjekt"],
     designation: [
       "Fastighet",
       "Fastighetsbeteckning",
@@ -23,9 +24,6 @@ const fieldAliases = {
     popularName: ["Benämning"],
     id: [
       "Fastighets-ID",
-      "Förvaltningsobjekt",
-      "Objektsnummer / Förvaltningsobjekt",
-      "Förvaltningsnummer",
     ],
     address: ["Gatuadress", "Postadress", "Fastighetsadress"],
     city: ["Postort", "Stad"],
@@ -68,6 +66,7 @@ const fieldAliases = {
       "Kontraktsstart",
       "Gäller från",
       "Giltigt fr.o.m.",
+      "Ursprungligt giltigt fr.o.m.",
     ],
     end: [
       "T.o.m.",

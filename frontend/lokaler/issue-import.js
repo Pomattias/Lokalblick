@@ -14,6 +14,7 @@ export function issueHomeMatcher(data){
   return value=>{const id=String(value??'').trim();return exact.has(id)?[exact.get(id)]:normalized.get(text(id))||(/^\d+$/.test(id)?numeric.get(id.replace(/^0+(?=\d)/,'')):null)||[];};
  };
  const objectIds=ids(data.objects),propertyIds=ids(data.properties),properties=new Map(data.properties.map(row=>[row.id,row]));
+ const managementNumbers=index(data.properties,row=>[text(row.management_object_number)]);
  const names=index(data.properties,row=>[text(row.name),text(row.popular_name)]),addresses=index(data.properties,row=>[importAddressKey(row.address)]);
  const intersect=(left,right)=>left.filter(row=>right.some(other=>other.id===row.id));
  return raw=>{
@@ -21,6 +22,7 @@ export function issueHomeMatcher(data){
   const objectInputs=[a.object_id,o.id].filter(value=>value!=null&&String(value).trim()),propertyInputs=[a.property_id,p.id,o.property_id].filter(value=>value!=null&&String(value).trim());
   const propertyClues=[];
   for(const input of propertyInputs){const hits=propertyIds(input);if(!hits.length)return {reason:'FastighetsID finns inte i fastighetsregistret.'};propertyClues.push(hits);}
+  if(p.management_object_number){const hits=managementNumbers.get(text(p.management_object_number))||[];if(!hits.length)return {reason:'Förvaltningsobjekt finns inte i fastighetsregistret.'};propertyClues.push(hits);}
   const named=p.name?names.get(text(p.name))||[]:[],atAddress=p.address?addresses.get(importAddressKey(p.address))||[]:[];
   if(named.length)propertyClues.push(named);if(atAddress.length)propertyClues.push(atAddress);
   const cityFits=property=>!p.city||!property?.city||text(property.city)===text(p.city);
@@ -33,7 +35,7 @@ export function issueHomeMatcher(data){
   }
   let hits=propertyClues[0]||[];for(const clue of propertyClues.slice(1))hits=intersect(hits,clue);hits=hits.filter(cityFits);
   if(hits.length!==1)return {...(!propertyInputs.length&&hits.length?{candidates:hits}:{}),reason:hits.length?'Flera fastigheter matchar uppgifterna. Komplettera med FastighetsID, fastighetsnamn eller ort.':'Ingen entydig fastighet matchar adressen och övriga fastighetsuppgifter.'};
-  return {property:hits[0],method:propertyInputs.length?'property-id':atAddress.length?'property-address':'property-name'};
+  return {property:hits[0],method:propertyInputs.length?'property-id':p.management_object_number?'management-object-number':atAddress.length?'property-address':'property-name'};
  };
 }
 export function issueImportPlan(workbook,profiles,issues,context,XLSX){

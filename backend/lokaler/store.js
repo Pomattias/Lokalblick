@@ -35,7 +35,10 @@ export class LocalStore {
     for(const [table,spec]of Object.entries(tables)){
      const columns=db.prepare('PRAGMA table_info('+table+')').all().map(row=>row.name);
      const expected=new Set(['id',...spec.fields.map(field=>field.key)]);
-     if(columns.length!==expected.size||columns.some(column=>!expected.has(column)))throw Error('Databasen följer inte aktuell modell. Skapa en ny tom arbetsyta.');
+     const required=['id',...spec.fields.filter(field=>field.required).map(field=>field.key)];
+     // Optional current fields may be added to an active workspace. Unknown
+     // prototype columns, missing tables and missing required fields still fail.
+     if(!columns.length||columns.some(column=>!expected.has(column))||required.some(column=>!columns.includes(column)))throw Error('Databasen följer inte aktuell modell. Skapa en ny tom arbetsyta.');
     }
    }
    db.exec(schema);

@@ -15,8 +15,9 @@ test('a three-part agreement number proposes its property and object in the exis
  const r=run(s,emptyData(),approve(p));assert.equal(r.report.review,0);assert.equal(r.clean.properties[0].id,'SF1213');assert.deepEqual(r.clean.objects.map(o=>[o.id,o.property_id]),[['SF1213-001','SF1213']]);assert.equal(r.clean.agreements[0].id,'SF1213-001-03');assert.equal(r.clean.agreements[0].object_id,'SF1213-001');assert.equal(r.clean.agreement_items[0].agreement_id,'SF1213-001-03');validateData(r.clean);
  const html=columnPreviewHtml({fileName:'syntetiska-nummer.xlsx'},{profiles:s.profiles},pending,importSchemas);assert.match(html,/Uppdelat avtalsnummer/);assert.match(html,/Objekt SF1213-001 · Avtal SF1213-001-03/);assert.match(html,/data-approve-link="0"/);
 });
-test('numeric prefixes and leading zeroes are preserved; explicit matching property IDs still require object approval',()=>{
- const s=source(['FastighetsID','Avtalsnummer'],[['001213','001213-0001-03']]),pending=run(s),p=pending.report.linkProposals[0];assert.equal(p.matches[0].id,'001213');const r=run(s,emptyData(),approve(p));assert.equal(r.clean.objects[0].id,'001213-0001');assert.equal(r.clean.agreements[0].id,'001213-0001-03');
+test('explicit property IDs and leading zeroes are preserved without number-derived identity questions',()=>{
+ const s=source(['FastighetsID','Avtalsnummer'],[['001213','001213-0001-03']]),r=run(s);
+ assert.equal(r.report.linkProposals.length,0);assert.equal(r.report.blocking,0);assert.equal(r.clean.properties[0].id,'001213');assert.equal(r.clean.objects[0].property_id,'001213');assert.equal(r.clean.objects[0].id,'OB-001213-0001-03');assert.equal(r.clean.agreements[0].id,'001213-0001-03');
 });
 test('known properties and objects are reused and sequential lease periods keep one object',()=>{
  const b=fixture(),s=source(['Avtalsnummer','From','Tom'],[['SF1213-001-03','2027-01-01','2027-12-31'],['SF1213-001-04','2028-01-01','2028-12-31']]),pending=run(s,b),choices=Object.assign({},...pending.report.linkProposals.map(approve)),r=run(s,b,choices);
@@ -51,7 +52,7 @@ test('bulk approval creates one new property and one object for successive lease
  const s=source(['Avtalsnummer','From','Tom'],[['SF1213-001-03','2027-01-01','2027-12-31'],['SF1213-001-04','2028-01-01','2028-12-31']]),pending=run(s),choices=Object.assign({},...pending.report.linkProposals.map(approve)),r=run(s,emptyData(),choices);
  assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects.length,1);assert.equal(r.clean.agreements.length,2);assert.equal(r.report.linkProposals.filter(p=>p.approved).length,2);validateData(r.clean);
 });
-test('a known address with another number requires a choice and can retain the stored property ID',()=>{
- const b=fixture(),s=source(['Avtalsnummer','Adress'],[['SF9999-001-03','Testgatan 1']]),pending=run(s,b),p=pending.report.linkProposals[0];assert.deepEqual(p.matches.map(m=>m.id),['SF9999','SF1213']);assert.equal(p.requiresSelection,true);
+test('an address-only proposal retains the known property ID despite a different agreement prefix',()=>{
+ const b=fixture(),s=source(['Avtalsnummer','Adress'],[['SF9999-001-03','Testgatan 1']]),pending=run(s,b),p=pending.report.linkProposals[0];assert.deepEqual(p.matches.map(m=>m.id),['SF1213']);assert.equal(p.requiresSelection,undefined);
  const r=run(s,b,{[p.matchingKey]:{propertyId:'SF1213',signature:p.signature}});assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects[0].property_id,'SF1213');assert.equal(r.clean.objects[0].id,'OB-SF9999-001-03');validateData(r.clean);
 });

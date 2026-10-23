@@ -178,3 +178,14 @@ test('additional agreement fields appear once inside existing disclosures and pr
  const beforeDisclosures=html.split('data-contract-notice-terms')[0];assert.doesNotMatch(beforeDisclosures,/name="(?:terminatedOn|businessComment|employees)"/);
  const legacy=renderContractEditor(data,c,c.id);assert.doesNotMatch(legacy,/name="(?:terminatedOn|terminationReason|businessComment|employees|apartmentArea|contractDocumentUrl|use)"/,'Budget editor retains its existing controls');
 });
+
+test('cost centres and source identifiers retain leading zeroes while monetary values remain numeric',()=>{
+ const original=globalThis.FormData;
+ globalThis.FormData=class {
+  forEach(callback){for(const [field,value]of Object.entries({costCenter:'003418',managementObjectNumber:'0004100',cost:'12500'}))callback(value,field);}
+ };
+ try{
+  const edited=readEditor({dataset:{}},{});
+  assert.equal(edited.costCenter,'003418');assert.equal(edited.managementObjectNumber,'0004100');assert.equal(edited.cost,12500);
+ }finally{globalThis.FormData=original;}
+});

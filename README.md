@@ -78,6 +78,9 @@ utanför repot och publika utvecklingsmiljöer.
 
 ## Importens beteende
 
+Se [komplettering med lokaldata](docs/LOCAL_DATA_IMPORT.md) för återanvändning
+av avtal, objekt och fastigheter samt övergripande val vid stora importer.
+
 Ärenden utan ÄrendeID får ett beständigt nummer, exempelvis `ÄR-000001`.
 Saknad eller osäker fastighets-/objektkoppling visas under **Ärenden → Status →
 Att koppla**. Välj koppling via Redigera → Fler uppgifter; nummer, personansvar

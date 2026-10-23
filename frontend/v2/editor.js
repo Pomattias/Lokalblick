@@ -32,7 +32,7 @@ const internalPeople = (data) =>
 const generated =
   /^(?:id|sourceId|sourceSheet|sourceRow|enrichment|derived|calculated|rentPerSqm|rentCalculation|additionCalculation|rentIndexCurrent|additionIndexCurrent|rentIndexYear|additionIndexYear|provenance|createdAt|createdBy|updatedAt|updatedBy)/;
 const numeric =
-  /^(?:workplaceCount|hubCount|usedArea|costSharePercent|apartmentCount|area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|rentAnnualPercent|additionAnnualPercent|rentMinPercent|rentMaxPercent|additionMinPercent|additionMaxPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths|investmentThreshold|rentSurchargeRate)/;
+  /^(?:workplaceCount|hubCount|usedArea|costSharePercent|apartmentCount|area|annual|baseRent|baseAdditions|rentBase|additionBase|rentIndexPercent|additionIndexPercent|rentAnnualPercent|additionAnnualPercent|rentMinPercent|rentMaxPercent|additionMinPercent|additionMaxPercent|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|cost(?!Center)|estimatedCost|preliminaryCost|finalCost|orderedCost|year|period|planningQuarter|planningMonth|actual|budget|allocation|noticePeriodMonths|renewalPeriodMonths|investmentThreshold|rentSurchargeRate)/;
 const group = (key) =>
   /^media/.test(key)
     ? "Media"

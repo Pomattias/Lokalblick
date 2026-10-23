@@ -141,6 +141,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
   // but do not interrupt the agreement's identity, economics and dates.
   const additional = presentation.portfolio?('<details class="contract-secondary" data-contract-context><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
     field("Lokalkategori",categorySelect)+
+    (data.cleanModel?field("Kostnadsställe",input(c,"costCenter"))+field("Kundtyp avtal",input(c,"customerType"))+field("Avtalstyp",input(c,"agreementType")):"")+
     field('Användning',input(c,'use','text',company&&!!id))+
     field('Antal arbetsplatser',input(c,'workplaceCount','number',false,'min="0" step="1"'))+
     field('Antal hubbplatser',input(c,'hubCount','number',false,'min="0" step="1"'))+

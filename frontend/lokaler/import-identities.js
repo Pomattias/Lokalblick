@@ -27,7 +27,7 @@ export const hashImportIdentity = (value) => {
 export const generatedPropertyId = (source, sheet, p) =>
   "FAS-" +
   hashImportIdentity(
-    JSON.stringify([
+    p.management_object_number ? JSON.stringify(["management-object",text(p.management_object_number)]) : JSON.stringify([
       source,
       sheet,
       p.name || "",

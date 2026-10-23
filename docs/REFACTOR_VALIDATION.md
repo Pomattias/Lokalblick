@@ -1,5 +1,8 @@
 # Verifiering av samlad modellrättning och moduluppdelning
 
+Detta är verifieringen för `8d424bf`. Senare lokaldataförbättringar och deras
+aktuella testresultat finns i [lokaldataimporten](LOCAL_DATA_IMPORT.md).
+
 Utgångsläge: `utveckling`, `edbf0e675a6d97701eda36cb0e9669b5dee50922`.
 Den samlade ändringen ersätter utkasten i PR #8 och PR #9 och omfattar nästa
 avgränsade refaktoreringssteg. En gemensam commit skapas efter verifieringen.

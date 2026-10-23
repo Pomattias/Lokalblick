@@ -82,7 +82,7 @@ export function renderPropertyEditor(data, p, id, company=false, presentation={p
           options(ownerList,x=>x.id,x=>x.name,p.ownerPartyId,"Välj fastighetsägare")+'</select>')+
         (data.cleanModel&&presentation.portfolio?control('Orgnr fastighetsägare',partyNumberInput(data,'properties',p)):'')+
         control("Ort",textInput(p,"city"))+
-        (data.cleanModel?control("Populärnamn",textInput(p,"popularName"))+control("Antal lägenheter",'<span>'+esc(p.apartmentCount??0)+'</span>'):"")+
+        (data.cleanModel?control("Förvaltningsobjekt",textInput(p,"managementObjectNumber"))+control("Populärnamn",textInput(p,"popularName"))+control("Antal lägenheter",'<span>'+esc(p.apartmentCount??0)+'</span>'):"")+
       '</div></section>'+
       '<section class="property-section"><h3>Kontaktpersoner</h3><div class="property-grid">'+
         personSelect(data,"ownerResponsiblePersonId",p.ownerResponsiblePersonId,ownerPeople,"Fastighetsägarens kontaktperson","owner")+
