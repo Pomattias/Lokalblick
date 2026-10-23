@@ -84,17 +84,20 @@ test('saved person support choices follow their name column when Excel columns m
  assert.equal(again.data.people.length,2);assert.equal(again.data.assignments.length,2);assert.equal(again.report.counts.fields,0);
 });
 test('area is stored only on the object, dates stay blank and views derive agreement area',()=>{
- const result=run();assert.equal(result.data.objects[0].area,100);assert.equal(result.data.contracts[0].area,undefined);assert.equal(result.data.contracts[0].objectAreaManaged,true);
+ const result=run();assert.equal(result.data.objects[0].area,100);assert.equal(result.data.contracts[0].area,undefined);assert.equal(result.data.contracts[0].objectAreaManaged,undefined,'stored contracts contain no area projection markers');
  assert.equal(result.data.objects[0].start||'','');assert.equal(result.data.objects[0].end||'','');
  const view=normalize(result.data);assert.equal(view.contracts[0].area,100);
  view.objects[0].area=150;assert.equal(normalize(view).contracts[0].area,150);
  assert.ok(!fieldCatalog(schemas,true).some(field=>field.target==='contracts.area'));
 });
-test('compatibility writes used by existing consumers still edit and clear area once on the object',()=>{
- const before=normalize(run().data),edited=structuredClone(before),model=globalThis.LokalblickObjectModel;
- edited.contracts[0].area=125;model.applyAreaChanges(before,edited);model.projectAreas(edited);assert.equal(edited.objects[0].area,125);assert.equal(edited.contracts[0].area,125);
- const cleared=structuredClone(edited);cleared.contracts[0].area='';model.applyAreaChanges(edited,cleared);model.projectAreas(cleared);model.stripAreas(cleared);assert.equal(cleared.objects[0].area,'');assert.equal(cleared.contracts[0].area,undefined);
- const conflicting=structuredClone(before);conflicting.contracts[0].area=125;conflicting.objects[0].area=150;assert.throws(()=>model.applyAreaChanges(before,conflicting),/Olika ytor/);
+test('contract area edits are rejected; object edits update every derived agreement area',()=>{
+ const before=normalize(run().data),model=globalThis.LokalblickObjectModel;
+ const edited=structuredClone(before);edited.contracts[0].area=125;
+ assert.throws(()=>model.applyAreaChanges(before,edited),/Yta ändras på objektet/);
+ const changed=structuredClone(before);changed.objects[0].area=150;model.applyAreaChanges(before,changed);model.projectAreas(changed);
+ assert.equal(changed.contracts[0].area,150);
+ const cleared=structuredClone(changed);cleared.objects[0].area='';model.applyAreaChanges(changed,cleared);model.projectAreas(cleared);model.stripAreas(cleared);
+ assert.equal(cleared.objects[0].area,'');assert.equal(cleared.contracts[0].area,undefined);
 });
 test('source agreement can anchor an unnumbered object; explicit object dates roundtrip without agreement dates',()=>{
  const result=run([row],{},profiles=>{profiles[0].columns[2].target='@ignore';});
@@ -102,12 +105,12 @@ test('source agreement can anchor an unnumbered object; explicit object dates ro
  assert.equal(run([row],result.data,profiles=>{profiles[0].columns[2].target='@ignore';}).data.objects.length,1);
  const dated=normalize(result.data);dated.objects[0].start='2020-01-01';dated.objects[0].end='2030-12-31';dated.contracts[0].start='2025-01-01';
  const workbook=service.dataToWorkbook(dated),read=service.workbookToData(workbook);
- assert.equal(XLSX.utils.sheet_to_json(workbook.Sheets.Avtal)[0]['Area, m²'],'');
+ assert.equal(XLSX.utils.sheet_to_json(workbook.Sheets.Avtal)[0]['Area, m²'],undefined,'no duplicate area column is exported on the agreement');
  assert.equal(read.objects[0].area,100);assert.equal(read.objects[0].start,'2020-01-01');assert.equal(read.objects[0].end,'2030-12-31');assert.equal(normalize(read).contracts[0].area,100);
 });
 test('legacy conflicting areas are preserved for review instead of silently overwriting the object',()=>{
  const first=run();first.data.contracts[0].area=125;delete first.data.contracts[0].objectAreaManaged;
- const result=run([row],first.data);assert.equal(result.data.objects[0].area,100);assert.equal(result.data.contracts[0].area,125);assert.ok(result.data.importReview.some(review=>review.kind==='object-area'));
+ const result=run([row],first.data);assert.equal(result.data.objects[0].area,100);assert.equal(result.data.contracts[0].area,undefined);assert.ok(result.data.importReview.some(review=>review.kind==='object-area'&&review.proposed===125));
 });
 test('reviewed import applies through the company backend, survives restart and keeps area canonical',async()=>{
  const {LokalblickRepository}=await import('../backend/company/data-repository.js'),fsp=await import('node:fs/promises'),os=await import('node:os'),path=await import('node:path');

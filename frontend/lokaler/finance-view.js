@@ -17,8 +17,6 @@ export function projectFinance(view){
   c.annualPropertyTax=c.items.filter(item=>item.type==='tax').reduce((sum,item)=>sum+Number(item.baseAmount||0),0);
  }
  for(const cost of view.recurringCosts||[]){
-  const old=(view.auditLog||[]).flatMap(entry=>entry.financialMigration||[]).find(row=>row.table==='recurringCosts'&&row.id===cost.id)?.values;
-  if(old?.contractId)cost.budgetScopeContractId=old.contractId;
   cost.startYear=cost.start?Number(cost.start.slice(0,4)):null;cost.endYear=cost.end?Number(cost.end.slice(0,4)):null;
   const evidence=(view.costEvidence||[]).filter(row=>row.costId===cost.id),years=new Set(evidence.flatMap(row=>row.type==='annual'?[row.year]:Array.from({length:Number(row.end.slice(0,4))-Number(row.start.slice(0,4))+1},(_,i)=>Number(row.start.slice(0,4))+i)));
   cost.actuals=[...years].map(year=>({year,...globalThis.LokalblickRecurringCosts.evidenceActual(cost,evidence,year)})).filter(row=>row.complete).map(({year,amount})=>({year,amount}));

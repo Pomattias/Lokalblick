@@ -155,7 +155,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
       field('Lägenhetsyta, m²',input(c,'apartmentArea','number',false,'min="0" step="any"'))+
 
       field('Länk till huvudkontrakt',input(c,'contractDocumentUrl')):"")+
-    '</div>'+businessControls(data,c)+
+    '</div>'+
     (company?'<p class="computed">Källstyrda masteruppgifter ändras i källunderlaget. Övrigt sparas via backend.</p>':'')+'</details>');
 
   const distinctTenantContact = c.tenantResponsiblePersonId && c.tenantResponsiblePersonId !== c.businessResponsiblePersonId;

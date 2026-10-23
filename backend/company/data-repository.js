@@ -66,27 +66,6 @@ function ensureStoreShape(value) {
     if(Array.isArray(value.deleted?.[entity]))
       store.deleted[entity]=structuredClone(value.deleted[entity]);
   }
-  // One-time adoption of rows created by the short-lived separate
-  // verksamhet model. No additional table is kept in the active store.
-  const retiredBusinesses=new Map((Array.isArray(entities.businesses)?entities.businesses:[]).map(row=>[row.id,row]));
-  const retiredLinks=Array.isArray(entities.contractBusinesses)?entities.contractBusinesses.filter(row=>!row.cancelled):[];
-  const byContract=new Map();
-  for(const link of retiredLinks){
-    if(!link.contractId||!retiredBusinesses.has(link.businessId))continue;
-    const list=byContract.get(link.contractId)||[];
-    list.push(retiredBusinesses.get(link.businessId));
-    byContract.set(link.contractId,list);
-  }
-  for(const [contractId,linked] of byContract){
-    const unique=[...new Map(linked.map(row=>[row.id,row])).values()];
-    if(unique.length>1)throw new TypeError('Avtal '+contractId+' har flera verksamheter i den tidigare modellen. Kontrollera och välj en verksamhet innan den tas bort.');
-    const business=unique[0];
-    const existing=store.entities.contractOverlays.find(row=>row.contractId===contractId);
-    const overlay=existing||{id:contractId,contractId};
-    if(!overlay.businessName)overlay.businessName=business.name||'';
-    if(!overlay.businessDescription)overlay.businessDescription=business.description||'';
-    if(!existing)store.entities.contractOverlays.push(overlay);
-  }
   store.imported=structuredClone(value.imported||{properties:[],contracts:[]});
   store.updatedAt=typeof value.updatedAt==="string"?value.updatedAt:null;
   // No conversion from projects, maintenance, wishes, driftCosts or contacts.
@@ -306,7 +285,26 @@ export class LokalblickRepository {
     const loaded=await this.sourceAdapter.loadCore();
     await this.commit(async store=>{
       const base=await this.bootstrap();
-      const result=globalThis.LokalblickImportRules.reconcile(base,{data:{...base,properties:loaded.properties.filter(p=>!store.deleted.properties.includes(p.id)),contracts:loaded.contracts.filter(c=>!store.deleted.contracts.includes(c.id))}},null,'LEB');
+      const candidate=structuredClone({...base,properties:loaded.properties.filter(p=>!store.deleted.properties.includes(p.id)),contracts:loaded.contracts.filter(c=>!store.deleted.contracts.includes(c.id))});
+      // LEB places object areas on source contract rows. Reconcile them on the
+      // existing object so source priorities and accepted reviews survive saves.
+      for(const contract of candidate.contracts){
+        contract.objectId ||= base.contracts.find(row=>row.id===contract.id)?.objectId;
+      }
+      for(const object of candidate.objects){
+        const contracts=candidate.contracts.filter(row=>row.objectId===object.id);
+        for(const field of ['area','apartmentArea','commonArea']){
+          const rows=contracts.filter(row=>row[field]!=null&&row[field]!==''),values=[...new Set(rows.map(row=>Number(row[field])))];
+          if(values.length===1){object[field]=values[0];object.provenance ||= {};object.provenance[field]={...rows[0].provenance?.[field],source:'LEB',value:values[0]};}
+          else if(values.length>1){
+            const id='source-object-area|'+object.id+'|'+field;
+            if(!candidate.importReview.some(row=>row.id===id&&row.status==='pending'))candidate.importReview.push({id,kind:'object-area-conflict',status:'pending',source:'LEB',collection:'objects',recordId:object.id,field,values,reason:'Olika källytor för samma objekt kräver granskning'});
+          }
+        }
+      }
+      globalThis.LokalblickObjectModel.normalize(candidate);
+      globalThis.LokalblickObjectModel.stripAreas(candidate);
+      const result=globalThis.LokalblickImportRules.reconcile(base,{data:candidate},null,'LEB');
       this.validateImportedData(result.data);this.storeImportedWorkspace(store,result.data,loaded);
       return {afterCommit:()=>{this.core=loaded;}};
     });
@@ -324,6 +322,7 @@ export class LokalblickRepository {
     globalThis.LokalblickObjectModel.projectAreas(prepared);
     validateAgreementItems(prepared);
     stripStoredAgreementFinance(payload);
+    globalThis.LokalblickObjectModel.stripAreas(payload);
     if(Array.isArray(payload.objects))globalThis.LokalblickObjectModel.validate(prepared);
     if (Array.isArray(payload.recurringCosts)) {
       globalThis.LokalblickRecurringCosts.validateCosts({

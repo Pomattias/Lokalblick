@@ -6,9 +6,9 @@ Den separata prototypens gränssnitt är avvecklat. Dess adress
 
 Den nya datamodellen och lagringen finns i `frontend/lokaler` och
 `backend/lokaler`. Befintliga Budgetvyer och beräkningsfunktioner är oförändrade.
-Databaser från andra eller äldre appar migreras inte. Nya Excelunderlag fördelas till den nya modellen
-vid granskad import. Redan anslutna äldre arbetsfiler fortsätter använda sitt
-befintliga flöde; de konverteras inte automatiskt.
+Databaser från andra eller äldre appar migreras inte. Nya Excelunderlag fördelas
+till den aktuella modellen vid granskad import. Använd en ny ren arbetsyta;
+äldre interna arbetsfiler konverteras inte.
 
 ## Underhåll och besiktningar
 
@@ -249,14 +249,12 @@ med ObjektID, eller inom en fastighet via en tydlig avtals-/objektidentitet.
 Oklarheter ska rättas i granskningen. Personer matchas med ID/e-post, alternativt
 med entydigt namn och part. Samma person kan ha flera kopplingar.
 Personens part finns i personregistret. Kontaktrollerna är ägarens kontakt,
-hyresgästens kontakt och vår ansvarige. Verksamhet är en beskrivning på avtalet,
-inte ett separat partsregister eller en relation.
+hyresgästens kontakt och vår ansvarige. Verksamhetsnamn och verksamhetsbeskrivning är två fält på avtalet,
+inte ett separat register eller en relation.
 
-En arbetsyta från den rena modellens föregående schema (`f3a08cd`) kan läsas
-med det förenklade schemat. SQLite valideras och säkerhetskopieras separat innan
-tabellerna byggs om atomärt. Borttagna värden och gamla avtalsidentiteter bevaras
-i ändringsloggen. Budgetplaner konverteras inte. Ekonomiska fält flyttas till avtalsposter med samma beräkningsvillkor.
-Se [fältbeslut och avgränsningar](docs/faltbeslut-2026-10-19.md).
+Appens lagring använder den aktuella modellen. Arbetsböcker och databaser från
+äldre prototyper konverteras inte och gamla fält arkiveras inte. Skapa en ny
+ren arbetsyta och läs in externa underlag genom importguiden.
 
 Tomma objektdatum lämnas tomma. Avtals- och kontaktperioder får inte överlappa
 på ett otillåtet sätt. Historik visas genom befintliga fördjupningar. Importen
@@ -294,7 +292,7 @@ kontrollerar innehåll, layout och sparade planer mot basversionen.
 
 ## Hyra, tillägg och fastighetens kostnader
 
-På avtalet finns **Hyra och tillägg → Lägg till post** även i demo och äldre arbetsytor.
+På avtalet finns **Hyra och tillägg → Lägg till post**, även i demon.
 Välj kostnadsslag, exempelvis Värme eller VA. Benämningen föreslås automatiskt
 och kan ändras; flera poster av samma slag visas på egna rader med sina namn.
 Varje post har eget belopp, period och uppräkning. Flera tillägg av samma typ
@@ -324,46 +322,17 @@ kyla, sopor och övrigt. Flaggan för framtida avräkning gör ingen beräkning.
 Fördelningsnycklar, avräkning, efterdebitering och kreditering mellan parter
 är inte implementerade.
 
-### Övergång från den rena modellens tidigare ekonomi
+### Aktuell ekonomimodell
 
-När en befintlig ren SQLite/Excel-arbetsyta öppnas flyttas bashyra, tillägg,
-fastighetsskatt och uppräkningsvillkor till separata avtalsposter. De tidigare
-beloppsfälten avvecklas fysiskt från Avtal. Arbetsytans gamla `recurringCosts`
-flyttas till Fastighetskostnader; deras `actuals` blir Kostnadsunderlag av typen
-Årsutfall. Tidigare avtalskopplade löpande utgifter blir fastighetens kostnader,
-inte hyresgästens tillägg. Ursprunglig koppling och fulla värden bevaras i
-ändringsloggen; budgetens tidigare urval kan därför fortfarande återskapas.
+Avtalets verksamhetsnamn och verksamhetsbeskrivning lagras direkt på Avtal.
+Bashyra, tillägg och fastighetsskatt lagras enbart i Avtalsposter. Fastighetens
+löpande kostnader och årsutfall/fakturor lagras i Fastighetskostnader respektive
+Kostnadsunderlag. Vyer och budget använder beräknade värden från dessa register.
+Interna modeller från tidigare prototyper migreras inte.
 
-Migrering valideras innan skrivning. SQLite får en separat säkerhetskopia
-`*.before-simplify-*.sqlite` och byggs om i en transaktion. Excel behåller
-filkonfliktskontroll och serverlägets `.bak`. Motstridiga identiteter eller
-relationer avbryter utan att skriva över originalet. Ingen låst budgetplan,
-historisk snapshot eller indexserie skrivs om.
-
-Excel-exporten innehåller de tre nya registerflikarna. Äldre breda
-underlagskolumner för hyra/tillägg/skatt fördelas vid granskad import till
-beständiga avtalsposter. Återimport uppdaterar samma ID med konfliktskydd,
-inte nya kopior. Nya separata registerflikar kan importeras med PostID,
-AvtalsID, KostnadsID och UnderlagsID. Flera separata tillägg måste ha olika
-PostID; en äldre enkel tilläggskolumn representerar en enda post. Indexandel
-lagras som andel 0–1; importen accepterar även procenttal över 1 upp till 100.
-
-De äldre källstyrda arbetsfilerna/företagsadaptrarna behåller sin läskompatibilitet;
-den nya ekonomimodellen används i den rena arbetsytan med SQLite eller Excel.
-Budgetens befintliga formulär får beräknade kompatibilitetsfält. Ändring av en
-enskild gammal ekonomikomponent sparas på dess post. Om flera poster motsvarar
-samma gamla kontroll görs ändringen på Avtalssidan för att undvika tvetydig
-massändring. Dessa kompatibilitetsfält lagras inte en gång till på avtalet.
-
-Äldre avtals samlade tillägg visas som Tilläggshyra tills användaren anger ett
-kostnadsslag. Appen gissar inte att ett okategoriserat belopp avser värme eller VA.
-När en post ändras/läggs till flyttas det avtalets tidigare ekonomifält till samma
-postregister, med ursprunget kvar i ändringsloggen. De härledda beloppsfälten
-sparas inte som extra kopior i demo, äldre Excel-arbetsytor eller företagslagring.
-Budgetens befintliga kontroller behålls.
-
-Importens felhantering kan verifieras med syntetiska data genom
-`node scripts/import-stability-browser-check.mjs` (Chromium/Playwright).
+Externa Excelunderlag kan ha breda beloppskolumner. Dessa mappas till aktuella
+register före sparning. Importens felhantering kan verifieras med syntetiska data
+genom `node scripts/import-stability-browser-check.mjs` (Chromium/Playwright).
 
 ### Tabellstyrd import och mall
 

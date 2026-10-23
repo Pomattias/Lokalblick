@@ -19,9 +19,9 @@ test('verksamhet and its description are ordinary fields on Avtal',()=>{
  business.validate(data);
 });
 
-test('existing contract aliases are adopted only into the two canonical fields',()=>{
+test('current contract fields remain independent through repeated normalization',()=>{
  const data={organizations:[],contracts:[
-  {id:'c1',business:'Bibliotek',businessComment:'Kommunalt bibliotek'}
+  {id:'c1',businessName:'Bibliotek',businessDescription:'Kommunalt bibliotek'}
  ]};
  business.normalize(data);
  assert.equal(data.contracts[0].businessName,'Bibliotek');

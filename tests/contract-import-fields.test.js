@@ -7,7 +7,7 @@ import {profileWorkbook,prepareMappedImport,fieldCatalog} from '../frontend/serv
 import '../frontend/domain/object-model.js';
 const ctx=vm.createContext({window:{},XLSX});vm.runInContext(fs.readFileSync('frontend/services/source-service.js','utf8'),ctx);
 const service=ctx.window.LokalblickSourceService,schemas=service.schemas;
-const expected={terminatedOn:'2028-01-01',terminationReason:'Lokalen lämnas',use:'Träffpunkt',businessComment:'Kommunal primärvård.',employees:12.5,category:'KP Kontor- och personallokaler',apartmentArea:245.5,contractDocumentUrl:'https://example.invalid/avtal/A-1.pdf'};
+const expected={terminatedOn:'2028-01-01',terminationReason:'Lokalen lämnas',use:'Träffpunkt',businessDescription:'Kommunal primärvård.',employees:12.5,category:'KP Kontor- och personallokaler',contractDocumentUrl:'https://example.invalid/avtal/A-1.pdf'};
 function workbook(){
  const w=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(w,XLSX.utils.aoa_to_sheet([
@@ -17,7 +17,7 @@ function workbook(){
  ]),'Lokallista');
  const sheet=XLSX.utils.aoa_to_sheet([
   ['Objektsnummer / Förvaltningsobjekt','Avtalsnummer','Kommentar verksamhet','Antal medarbetare (viss+ heltid)','Lokalkategori (LEB)','Lägenheter (yta)','Länk avtal (Huvudkontrakt)'],
-  ['P-1','A-1',expected.businessComment,'12,5',expected.category,'245,5','streamToClient'],
+  ['P-1','A-1',expected.businessDescription,'12,5',expected.category,'245,5','streamToClient'],
   ['P-2','A-2','','–','Kontor','-','']
  ]);sheet.G2.l={Target:expected.contractDocumentUrl};
  XLSX.utils.book_append_sheet(w,sheet,'Lokalbestånd');return w;
@@ -27,8 +27,8 @@ test('all eight highlighted source captions map into canonical agreement fields 
  const result=run(workbook());assert.ok(result.profiles.flatMap(p=>p.columns).every(c=>!c.target.startsWith('@')));
  const c=result.data.contracts.find(c=>c.number==='A-1');for(const [field,value] of Object.entries(expected))assert.equal(c[field],value,field);
  assert.equal(result.data.contracts.length,2);assert.equal(result.data.properties.length,2);assert.equal(result.report.counts.unresolved,0);
- assert.deepEqual(c.supplemental,[]);assert.equal(c.provenance.contractDocumentUrl.originalValue,'streamToClient');
- assert.equal(c.provenance.terminatedOn.cell,'E2');assert.equal(c.provenance.businessComment.sheet,'Lokalbestånd');
+ assert.deepEqual(c.supplemental,[]);assert.equal(result.data.objects.find(o=>o.id===c.objectId).apartmentArea,245.5);assert.equal(c.apartmentArea,undefined);assert.equal(c.provenance.contractDocumentUrl.originalValue,'streamToClient');
+ assert.equal(c.provenance.terminatedOn.cell,'E2');assert.equal(c.provenance.businessDescription.sheet,'Lokalbestånd');
  const missing=result.data.contracts.find(c=>c.number==='A-2');for(const field of ['terminatedOn','employees','apartmentArea'])assert.ok(missing[field]==null||missing[field]==='');
  assert.equal(result.profiles[0].columns.find(c=>c.target==='contracts.terminatedOn').format.invalid,0);
 });
@@ -44,8 +44,8 @@ test('invalid termination dates remain in review and cancellation reason remains
  assert.ok(!result.data.contracts.some(c=>c.terminatedOn==='2028-04-31'));
  assert.equal(result.profiles[0].columns.find(c=>c.target==='contracts.terminationReason').format.type,'text');
 });
-test('old canonical workbook headings and aliases stay readable after clearer field names',()=>{
+test('external workbook captions resolve to current agreement and object fields',()=>{
  const w=XLSX.utils.book_new();XLSX.utils.book_append_sheet(w,XLSX.utils.aoa_to_sheet([['_id','Avtalsnummer','Verksamhetstyp','Anställda','Lägenhetsyta','Avtals-PDF'],['c','A-1','Kontor',5,100,'https://example.invalid/a.pdf']]),'Avtal');
  const c=service.workbookToData(w).contracts[0];assert.equal(c.use,'Kontor');assert.equal(c.employees,5);assert.equal(c.apartmentArea,100);assert.equal(c.contractDocumentUrl,'https://example.invalid/a.pdf');
- assert.ok(fieldCatalog(schemas,true).some(f=>f.target==='contracts.businessComment'&&f.label==='Avtal → Kommentar verksamhet'));
+ assert.ok(fieldCatalog(schemas,true).some(f=>f.target==='contracts.businessDescription'&&f.aliases.includes('Kommentar verksamhet')));
 });

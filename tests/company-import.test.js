@@ -33,8 +33,8 @@ test('API transport completes company import and backend preserves manual fields
  const transport=createTransport(),current=await transport.load(),data=proposed(current);data.contracts[0].baseRent=200;data.contracts[0].provenance.baseRent={source:'syntetisk.xlsx',value:200,cell:'D2'};data.importFieldPreferences['contracts|baseRent|syntetisk.xlsx']='accept';const imported=await transport.commitImport({data,report:{fileName:'syntetisk.xlsx'}});
  assert.equal(imported.contracts[0].baseRent,100);assert.equal(imported.contracts.length,2);assert.ok(imported.importReview.some(x=>x.protectedValue));assert.ok(imported.auditLog.some(x=>x.id==='old'));
 });
-test('explicit field review updates master overlay and survives later ordinary saves',async t=>{
- const {repo}=await setup(t),base=normalize(await repo.bootstrap());base.contracts[0].area=120;base.contracts[0].provenance={area:{source:'syntetisk.xlsx',value:120,cell:'C2'}};
+test('explicit object field review updates the stored object and survives later ordinary saves',async t=>{
+ const {repo}=await setup(t),base=normalize(await repo.bootstrap());base.objects[0].area=120;base.objects[0].provenance={area:{source:'syntetisk.xlsx',value:120,cell:'C2'}};
  const preview=await repo.previewImport({data:base,report:{fileName:'syntetisk.xlsx'}});const applied=normalize(await repo.applyImport({previewId:preview.previewId}));assert.equal(applied.contracts[0].area,100);
  const {resolveReview}=await import('../frontend/v2/model.js');const review=applied.importReview.find(r=>r.field==='area');resolveReview(applied,review.id,'accept','','Test');
  applied.budgetData=[{id:'lokalblick-v2-workspace',workspace:{importReview:applied.importReview,auditLog:applied.auditLog}}];
@@ -44,18 +44,18 @@ test('source refresh uses the same priority rules and never freezes untouched ma
  const {repo,dataPath}=await setup(t),base=normalize(await repo.bootstrap()),preview=await repo.previewImport({data:proposed(base),report:{fileName:'syntetisk.xlsx'}});await repo.applyImport({previewId:preview.previewId});
  const loaded=await sourceAdapter.loadCore();loaded.contracts[0].area=200;repo.sourceAdapter={...sourceAdapter,loadCore:async()=>loaded};
  const refreshed=normalize(await repo.refreshSource());assert.equal(refreshed.contracts.find(c=>c.id==='c').area,100);assert.ok(refreshed.importReview.some(r=>r.source==='LEB'&&r.field==='area'&&r.proposed===200));
- refreshed.importFieldPreferences['contracts|area|leb']='accept';refreshed.budgetData=[{id:'lokalblick-v2-workspace',workspace:{importReview:refreshed.importReview,importFieldPreferences:refreshed.importFieldPreferences,auditLog:refreshed.auditLog}}];await repo.saveWorkspace(refreshed);
+ refreshed.importFieldPreferences['objects|area|leb']='accept';refreshed.budgetData=[{id:'lokalblick-v2-workspace',workspace:{importReview:refreshed.importReview,importFieldPreferences:refreshed.importFieldPreferences,auditLog:refreshed.auditLog}}];await repo.saveWorkspace(refreshed);
  const accepted=normalize(await repo.refreshSource());assert.equal(accepted.contracts.find(c=>c.id==='c').area,200);
  const reopened=await new LokalblickRepository({sourceAdapter:repo.sourceAdapter,dataPath}).initialize();assert.equal(normalize(await reopened.bootstrap()).contracts.find(c=>c.id==='c').area,200);
 });
 test('additional agreement fields persist through approved import and restart, with valid termination dates',async t=>{
  const {repo,dataPath}=await setup(t),base=await repo.bootstrap(),data=proposed(base);
- const fields={terminatedOn:'2027-06-30',terminationReason:'Avveckling',use:'Träffpunkt',businessComment:'Kommunal primärvård.',employees:12.5,category:'KP Kontor- och personallokaler',apartmentArea:245.5,contractDocumentUrl:'https://example.invalid/a.pdf'};
- Object.assign(data.contracts.find(c=>c.id==='c2'),fields);
+ const fields={terminatedOn:'2027-06-30',terminationReason:'Avveckling',use:'Träffpunkt',businessDescription:'Kommunal primärvård.',employees:12.5,category:'KP Kontor- och personallokaler',contractDocumentUrl:'https://example.invalid/a.pdf'};
+ Object.assign(data.contracts.find(c=>c.id==='c2'),fields);data.objects.find(o=>o.id==='o2').apartmentArea=245.5;
  const invalid=structuredClone(data);invalid.contracts.find(c=>c.id==='c2').terminatedOn='2027-02-29';
  await assert.rejects(repo.previewImport({data:invalid,baseRevision:base.workspaceRevision,report:{fileName:'fel.xlsx'}}),/datum/);
  assert.equal((await repo.bootstrap()).contracts.length,1);
  const preview=await repo.previewImport({data,baseRevision:base.workspaceRevision,report:{fileName:'syntetiskt.xlsx'}});await repo.applyImport({previewId:preview.previewId});
  const reopened=await new LokalblickRepository({sourceAdapter,dataPath}).initialize(),saved=await reopened.bootstrap();
- for(const [field,value] of Object.entries(fields))assert.equal(saved.contracts.find(c=>c.id==='c2')[field],value,field);
+ for(const [field,value] of Object.entries(fields))assert.equal(saved.contracts.find(c=>c.id==='c2')[field],value,field);assert.equal(saved.objects.find(o=>o.id==='o2').apartmentArea,245.5);
 });

@@ -44,7 +44,7 @@ Den publika Vercel/GitHub-versionen använder endast syntetisk demodata som stan
 
 ## Nuvarande funktioner
 
-- Fastighet → objekt → avtal med en riktig part som ägare/hyresgäst och separata verksamhetsrelationer
+- Fastighet → objekt → avtal med en part som ägare/hyresgäst och verksamhetsnamn/beskrivning direkt på avtalet
 - Gemensamma **Ärenden** för projekt, underhåll, drift, önskemål och utredningar; tidplan, journal, ansvar och kostnad
 - **Löpande kostnader** direkt på fastighet eller avtal, årsbudget och årsvis utfall
 - Beställningar kopplade till ärenden, inte duplicerade på varje ärendetyp
@@ -112,3 +112,9 @@ tolkas lämnas för komplettering; övriga säkert kopplade uppgifter läses in.
 sparade värden behålls. Ekonomiska villkor, besiktningsresultat, identifierare och
 relationer måste fortfarande valideras. Återkommande problem grupperas i
 granskningen, medan varje berörd post, källfil, flik, rad och felvärde finns kvar.
+
+## Aktuell modell och verifiering
+
+Vi bygger en ny app. Interna prototypmodeller migreras inte och borttagna fält
+arkiveras inte. Skapa en ny ren arbetsyta för aktuell modell; externa Excelunderlag
+kan läsas genom den granskade importen. Se [modell och testbeslut](docs/CURRENT_MODEL_AND_TESTS.md).

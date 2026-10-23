@@ -89,6 +89,7 @@
     contracts:{start:"Giltigt fr.o.m.",end:"Giltigt t.o.m.",moveInDate:"Inflyttningsdatum",moveOutDate:"Utflyttningsdatum",area:"Area, m²",noticePeriodMonths:"Uppsägningstid, månader",renewalPeriodMonths:"Förlängningstid, månader",baseRent:"Bashyra, kr/år",baseAdditions:"Tillägg, kr/år",rentBaseYear:"Basår",rentIndexPercent:"Indexuppräkning, %",additionBaseYear:"Tillägg basår",additionIndexPercent:"Indexuppräkning tillägg, %",annualPropertyTax:"Fastighetsskatt, kr/år",use:"Användning",employees:"Antal medarbetare",apartmentArea:"Lägenhetsyta, m²",contractDocumentUrl:"Länk till huvudkontrakt"},
     activities:{title:"Ärendenamn",responsiblePersonId:"Ansvarig",startDate:"Fr.o.m.",endDate:"T.o.m.",planningYear:"Planeringsår",estimatedCost:"Bedömd kostnad, kr"}
   };
+  SCHEMAS.find(schema=>schema.key==='contracts').labelAliases={businessName:['Namn på verksamheten','Verksamhetsnamn'],businessDescription:['Kommentar verksamhet'],employees:['Antal medarbetare (viss+ heltid)'],category:['Lokalkategori (LEB)'],contractDocumentUrl:['Länk avtal (Huvudkontrakt)']};
   SCHEMAS.concat([ACTIVITY_SCHEMA]).forEach(function(schema){
     schema.labelAliases=schema.labelAliases||{};
     schema.columns.forEach(function(column){
@@ -350,6 +351,8 @@
         out.businessName ||= row["Namn på verksamheten"]||row.businessName||row.business||'';
         out.businessDescription ||= row["Kommentar verksamhet"]||row.businessDescription||row.businessComment||'';
         if((out.area==null||out.area==='')&&(row["Area, m²"]!=null||row.Area!=null))out.area=row["Area, m²"]??row.Area;
+        const apartmentArea=row['Lägenhetsyta']??row['Lägenhetsyta, m²']??row['Lägenheter (yta)'];
+        if(apartmentArea!=null&&apartmentArea!=='')out.apartmentArea=apartmentArea;
       }
       (schema.display || []).forEach(function(label) {
         out["__display_" + label] = row[label] == null ? "" : row[label];
@@ -1133,6 +1136,10 @@
   }
   function mergePrimaryData(base,incoming,fileName) {
     canonicalizeModel(base); canonicalizeModel(incoming);
+    // External LEB rows can carry object facts on a contract. Establish the
+    // object before merging so area differences are reviewed on their owner.
+    window.LokalblickObjectModel?.normalize(base);
+    window.LokalblickObjectModel?.normalize(incoming);
     ["properties","contracts","organizations","people","sourceRegistry","importReview","auditLog"].forEach(function(key){if(!Array.isArray(base[key]))base[key]=[];});
     const report={profile:"Grunddata",fileName:fileName||"",sheets:[],counts:{propertiesCreated:0,propertiesUpdated:0,contractsCreated:0,contractsUpdated:0,organizationsCreated:0,peopleCreated:0,conflicts:0}};
     const initialReviews=base.importReview.length;

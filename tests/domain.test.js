@@ -1018,12 +1018,12 @@ test("unified Excel import seeds empty property and contract data before enrichm
     (x) => x.field === "area" && Number(x.proposed) === 510,
   );
   assert.ok(areaConflict);
-  assert.equal(areaConflict.collection, "contracts");
+  assert.equal(areaConflict.collection, "objects");
   assert.equal(
     areaConflict.recordId,
-    changed.data.contracts.find((x) => x.number === "12345").id,
+    changed.data.contracts.find((x) => x.number === "12345").objectId,
   );
-  assert.equal(areaConflict.entity, "Avtal");
+  assert.equal(areaConflict.entity, "Objekt");
   assert.equal(areaConflict.currentSource, "SF.xlsx");
   assert.equal(
     changed.data.importReview.some((x) => x.field === "source"),

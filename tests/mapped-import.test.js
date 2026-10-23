@@ -41,7 +41,7 @@ test('a designation in another city cannot silently merge',()=>{
 });
 test('insufficient identity and invalid numeric value remain available for review',()=>{
  const w=fixture([['Avtalsnummer','BRA'],['123','fel']]);const result=run(w);
- assert.equal(result.data.contracts.length,0);assert.equal(result.data.importReview[0].values.number,'123');
+ assert.equal(result.data.contracts.length,0);assert.equal(result.data.importReview.find(review=>review.collection==='contracts').values.number,'123');assert.ok(result.data.importReview.some(review=>review.reason.includes('Ogiltigt tal')));
 });
 test('two contracts on the same property retain separate identities',()=>{
  const w=fixture([['Fast.bet','Adress','Ort','Avtalsnummer','Årshyra'],['Ek 1','Gatan 1','Malmö','1',100],['Ek 1','Gatan 1','Malmö','2',200]]);

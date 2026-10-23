@@ -677,6 +677,7 @@ export function resolveReview(data, id, decision, targetId, actor) {
         confirmedBy: actor,
       };
       audit(data, collection, record.id, before, record, actor);
+      if(collection==='objects')globalThis.LokalblickObjectModel.projectAreas(data);
     }
     item.status = decision === "accept" ? "accepted" : "rejected";
     item.resolvedBy = actor;

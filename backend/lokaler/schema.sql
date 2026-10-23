@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS agreements (
  id TEXT PRIMARY KEY NOT NULL, object_id TEXT NOT NULL REFERENCES objects(id) ON DELETE RESTRICT,
  tenant_party_id TEXT REFERENCES parties(id) ON DELETE RESTRICT,
  valid_from TEXT, valid_to TEXT,
- terminated_on TEXT, termination_reason TEXT, usage TEXT, business TEXT,
+ terminated_on TEXT, termination_reason TEXT, usage TEXT, business_name TEXT, business_description TEXT,
  workplace_count INTEGER CHECK(workplace_count >= 0), hub_count INTEGER CHECK(hub_count >= 0), eb_category TEXT, main_contract_url TEXT,
  CHECK(valid_from IS NULL OR valid_to IS NULL OR valid_from <= valid_to)
 ) STRICT;

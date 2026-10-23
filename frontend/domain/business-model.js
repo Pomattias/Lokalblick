@@ -4,22 +4,7 @@
  const key=value=>String(value??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('sv');
  function normalize(data){
   data.organizations ||= [];data.contracts ||= [];data.importReview ||= [];
-  // Adopt data from the short-lived join model once, before retiring it.
-  const retiredBusinesses=new Map((data.businesses||[]).map(row=>[row.id,row]));
-  for(const contract of data.contracts){
-   const links=(data.contractBusinesses||[]).filter(link=>link.contractId===contract.id&&!link.cancelled&&retiredBusinesses.has(link.businessId));
-   const unique=[...new Map(links.map(link=>[link.businessId,retiredBusinesses.get(link.businessId)])).values()];
-   if(unique.length>1)throw TypeError('Avtal '+contract.id+' har flera verksamheter i den tidigare modellen. Granska dessa före förenkling.');
-   const previous=unique[0];
-   if(previous){
-    if(!contract.businessName)contract.businessName=previous.name||'';
-    if(!contract.businessDescription)contract.businessDescription=previous.description||'';
-   }
-  }
   for(const c of data.contracts){
-   // Source aliases are resolved at the boundary, one canonical field per fact.
-   if(!c.businessName&&c.business)c.businessName=c.business;
-   if(!c.businessDescription&&c.businessComment)c.businessDescription=c.businessComment;
    delete c.business;delete c.businessComment;
    if(!c.tenantPartyId&&c.tenantName){
     const matches=data.organizations.filter(o=>key(o.name)===key(c.tenantName));
@@ -31,8 +16,7 @@
      data.importReview.push({id:'tenant-identity|'+c.id,kind:'tenant-identity',status:'pending',collection:'contracts',reason:'Flera parter har samma hyresgästnamn',values:{id:c.id,tenantName:c.tenantName}});
    }
   }
-  // Discard the redundant tables introduced during development; do not
-  // persist both a relationship record and the agreement's business fields.
+  // The app has no separate business register.
   delete data.businesses;delete data.contractBusinesses;
   return data;
  }

@@ -28,8 +28,8 @@ test('one mixed source row builds property → object → agreement → issue an
 test('invalid replacements preserve saved dates/amounts and valid enrichment without accepting the failed values',()=>{
  const first=prepare(fields,[row()]).result.clean;first.workspace.budgetPlans=[{id:'locked',year:2027,locked:true,snapshot:{amount:12345},history:['Bevara']}];
  const bad=row();bad[3]='okänd yta';bad[5]='inte ett datum';
- const {result}=prepare([...fields,'contracts.business'],[[...bad,'Beskrivande verksamhet']],first),chosen=resolveImportChoices(result,{mode:'replace'});
- assert.equal(chosen.clean.objects[0].area,100);assert.equal(chosen.clean.agreements[0].valid_from,'2025-01-01');assert.equal(chosen.clean.agreements[0].business,'Beskrivande verksamhet');
+ const {result}=prepare([...fields,'contracts.businessName'],[[...bad,'Beskrivande verksamhet']],first),chosen=resolveImportChoices(result,{mode:'replace'});
+ assert.equal(chosen.clean.objects[0].area,100);assert.equal(chosen.clean.agreements[0].valid_from,'2025-01-01');assert.equal(chosen.clean.agreements[0].business_name,'Beskrivande verksamhet');
  assert.deepEqual(chosen.clean.workspace.budgetPlans,first.workspace.budgetPlans);assert.equal(chosen.clean.workspace.importReview.length,2);
  for(const review of chosen.data.importReview)assert.throws(()=>resolveReview(chosen.data,review.id,'accept','','Testare'),/läs in på nytt/);
 });
@@ -46,7 +46,7 @@ test('rent amounts, item index terms, identity and relationship conflicts remain
   [['contracts.id','contracts.baseRent'],['A1','okänd hyra']],
   [['agreementItems.id','agreementItems.contractId','agreementItems.type','agreementItems.name','agreementItems.baseAmount','agreementItems.baseYear'],['P1','A1','base','Bashyra',1000,'okänt basår']],
   [['properties.id','properties.designation','objects.id'],['F2','Annan fastighet','O1']],
-  [['contracts.business'],['Avtal utan identifierare']]
+  [['contracts.businessName'],['Avtal utan identifierare']]
  ]){
   const {result}=prepare(targets,[values],base);assert.equal(result.report.blocking,1,targets.join(','));assert.deepEqual(result.clean.agreements,base.agreements);assert.equal(result.clean.agreement_items.length,0);assert.equal(result.clean.properties.length,1);
  }
