@@ -206,6 +206,10 @@
       clearTimeout(handle.resizeTimer);
       // Leaflet 1.9.4 leaves its deferred wheel zoom running after remove().
       clearTimeout(handle.map.scrollWheelZoom && handle.map.scrollWheelZoom._timer);
+      // Its zoom-transition timeout also survives remove(). Complete the
+      // transition while panes exist so that the later callback becomes a no-op.
+      handle.map.stop();
+      if (handle.map._animatingZoom) handle.map._onZoomTransitionEnd();
       handle.map.remove();
     }
   };

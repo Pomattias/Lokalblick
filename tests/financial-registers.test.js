@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm,readdir} from 'node:fs/promises';import os from 'node:os';import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';import ExcelJS from 'exceljs';import XLSX from 'xlsx';
 import {tables,emptyData,normalize,validateData} from '../frontend/lokaler/model.js';
-import {upgradeData} from '../frontend/lokaler/model-revision.js';
+import {normalizeWorkspace} from '../frontend/lokaler/workspace-data.js';
 import {legacyFinanceMap,legacyFinanceFields} from '../frontend/lokaler/finance-model.js';
 import {projectWorkspace,collectWorkspace} from '../frontend/lokaler/view-adapter.js';
 import {writeWorkbook,readWorkbook} from '../frontend/lokaler/workbook.js';
@@ -12,7 +12,7 @@ import {LocalStore} from '../backend/lokaler/store.js';
 import {agreementItemsPanel,propertyCostsPanel} from '../frontend/v2/finance-ui.js';
 const C=globalThis.LokalblickCalculations,R=globalThis.LokalblickRecurringCosts;
 const close=(a,b)=>assert(Math.abs(a-b)<.000001,`${a} != ${b}`);
-const fixture=()=>upgradeData({...emptyData(),properties:[{id:'F',name:'Testfastighet'}],objects:[{id:'O',property_id:'F',area:100}],agreements:[{id:'A',object_id:'O'}]});
+const fixture=()=>normalizeWorkspace({...emptyData(),properties:[{id:'F',name:'Testfastighet'}],objects:[{id:'O',property_id:'F',area:100}],agreements:[{id:'A',object_id:'O'}]});
 const add=(data,table,row)=>{data[table].push(normalize(table,row));return data;};
 const item=(id,extra={})=>({id,agreement_id:'A',name:id,type:'addition',base_amount:10000,adjustment_method:'none',...extra});
 const cost=(extra={})=>({id:'K',property_id:'F',category:'heat',name:'Värme',annual_amount:100000,...extra});
@@ -27,14 +27,14 @@ test('financial ownership is real: no agreement scalar amounts, cost owner or st
  assert.throws(()=>normalize('agreements',{id:'A',object_id:'O',annual_rent:2}),/finns inte/);
  assert.throws(()=>normalize('recurring_costs',{...cost(),contract_id:'A'}),/finns inte/);
 });
-test('unchanged flat rent rules, separate addition and property tax retain exact amounts and Budget source rules',()=>{
+test('current item registers retain exact rent, addition and tax calculations for each index method',()=>{
  for(const method of ['none','kpi','fixed','kpi-limited']){
-  const raw={id:'A',object_id:'O',annual_rent:100000,annual_additions:25000,annual_property_tax:6000,rent_base_year:2024,rent_base_index:415.51,rent_index_percent:.8,rent_adjustment_method:method,rent_annual_percent:3,rent_min_percent:2,rent_max_percent:4,rent_limit_basis:'rent',addition_adjustment_method:'none'};
-  const legacy={id:'A',objectId:'O',propertyId:'F',...Object.fromEntries(Object.entries(legacyFinanceMap).map(([from,to])=>[to,raw[from]]))};
-  const data=fixture();data.agreements=[raw];data.workspace.indexSeries=series;
-  const before=structuredClone(data),clean=upgradeData(data),view=projectWorkspace(clean);
-  for(const year of [2025,2026,2027]){assert.deepEqual(C.annualValues(view.contracts[0],year,0,series),C.annualValues(legacy,year,0,series));close(C.budgetRows(view,year)[0].amount,C.budgetRows({...view,contracts:[legacy]},year)[0].amount);}
-  assert.deepEqual(data,before);assert.deepEqual(upgradeData(clean),clean);assert.equal(clean.agreement_items.length,3);
+  const data=fixture();data.workspace.indexSeries=series;
+  add(data,'agreement_items',item('base',{type:'base',base_amount:100000,base_year:2024,base_index:415.51,index_share:.8,adjustment_method:method,annual_percent:3,min_percent:2,max_percent:4,limit_basis:'rent'}));
+  add(data,'agreement_items',item('addition',{base_amount:25000}));add(data,'agreement_items',item('tax',{type:'tax',base_amount:6000}));
+  const before=structuredClone(data),view=projectWorkspace(normalizeWorkspace(data));
+  for(const year of [2025,2026,2027]){const amounts=C.agreementItemValues(view.contracts[0],year,0,series);close(C.annualValues(view.contracts[0],year,0,series).total,amounts.reduce((sum,row)=>sum+row.annualRate,0));}
+  assert.deepEqual(data,before);assert.equal(data.agreements[0].annual_rent,undefined);
  }
 });
 test('same-category additions have independent index rules and zero does not create missing-base diagnostics',()=>{
@@ -63,16 +63,13 @@ test('day proration distinguishes current run rate, calendar cost, leap days and
  close(C.annualValues(c,2025,0,[],{date:'2025-03-01'}).total,0);
  close(C.budgetRows({...projectWorkspace(data),indexSeries:[]},2024)[0].amount,30610);
 });
-test('migration promotes recurring costs and evidence once; budget totals, scoped costs and frozen plans survive',()=>{
- const data=fixture();data.workspace.recurringCosts=[{id:'K',name:'Värme',category:'Värme',contractId:'A',annualAmount:12000,startYear:2025,endYear:2027,actuals:[{year:2025,amount:11000}]}];
+test('current cost evidence and frozen budget plans survive a view save without duplicate costs',()=>{
+ const data=fixture();add(data,'recurring_costs',cost({annual_amount:12000,valid_from:'2025-01-01',valid_to:'2027-12-31'}));add(data,'cost_evidence',{id:'Y',cost_id:'K',type:'annual',year:2025,amount:11000,selected:true});
  data.workspace.budgetPlans=[{year:2025,status:'Låst',rows:[{amount:24000,sourceSnapshot:{id:'A',baseRent:10000}}]}];
- const snapshot=structuredClone(data.workspace.budgetPlans),clean=upgradeData(data),v=projectWorkspace(clean);
- assert.equal(clean.recurring_costs[0].property_id,'F');assert.equal(clean.cost_evidence[0].amount,11000);assert(!Object.hasOwn(clean.workspace,'recurringCosts'));
- assert.equal(v.recurringCosts[0].contractId,undefined);assert.equal(v.recurringCosts[0].budgetScopeContractId,'A');
- assert.equal(C.budgetRows(v,2025,v.contracts,v.properties).find(row=>row.sourceType==='recurringCost').amount,12000);
- assert.equal(C.actualRows(v,2025).find(row=>row.sourceType==='recurringCost').amount,11000);
- assert.deepEqual(clean.workspace.budgetPlans,snapshot);assert.deepEqual(upgradeData(clean),clean);
- const saved=collectWorkspace(v,clean);assert(!Object.hasOwn(saved.workspace,'recurringCosts'));assert(!Object.hasOwn(saved.recurring_costs[0],'actuals'));assert(!Object.hasOwn(saved.agreements[0],'baseRent'));
+ const before=structuredClone(data),view=projectWorkspace(data),saved=collectWorkspace(view,data);
+ assert.equal(C.budgetRows(view,2025,view.contracts,view.properties).find(row=>row.sourceType==='recurringCost').amount,12000);
+ assert.equal(C.actualRows(view,2025).find(row=>row.sourceType==='recurringCost').amount,11000);
+ for(const table of Object.keys(tables))assert.deepEqual(saved[table],before[table],table);assert.deepEqual(saved.workspace.budgetPlans,before.workspace.budgetPlans);assert.equal(saved.workspace.recurringCosts,undefined);
 });
 test('invoices crossing year boundary use cost-period days; gaps or missing completion stay preliminary',()=>{
  const data=fixture();add(data,'recurring_costs',cost({valid_from:'2026-12-01',valid_to:'2027-01-31',invoice_complete_years:[2026,2027]}));add(data,'cost_evidence',invoice('INV','2026-12-01','2027-01-31',6200));
@@ -93,27 +90,24 @@ test('real Excel roundtrip includes all three registers, signed credits, sources
  const headers=book.getWorksheet('Avtal').getRow(1).values.slice(1);assert(!headers.some(h=>/Bastillägg|Årshyra|bastal|indexandel|Fastighetsskatt/.test(h)));
  assert.deepEqual(await readWorkbook(bytes,ExcelJS),data);
 });
-test('old Excel without new sheets upgrades at the read boundary and preserves an independent annual actual',async()=>{
- const data=fixture(),book=new ExcelJS.Workbook();await book.xlsx.load(await writeWorkbook(data,ExcelJS));
- for(const name of ['Avtalsposter','Fastighetskostnader','Kostnadsunderlag'])book.removeWorksheet(name);
- const a=book.getWorksheet('Avtal');a.getRow(1).getCell(a.columnCount+1).value='Årshyra, kr';a.getRow(2).getCell(a.columnCount).value=12345;
- const read=await readWorkbook(await book.xlsx.writeBuffer(),ExcelJS);assert.equal(read.agreement_items[0].base_amount,12345);assert.equal(read.agreements[0].annual_rent,undefined);
+test('obsolete financial workbook columns are rejected at the storage boundary',async()=>{
+ const book=new ExcelJS.Workbook();await book.xlsx.load(await writeWorkbook(fixture(),ExcelJS));const sheet=book.getWorksheet('Avtal');sheet.getCell(1,sheet.columnCount+1).value='Bashyra, kr/år';
+ await assert.rejects(readWorkbook(await book.xlsx.writeBuffer(),ExcelJS),/Kolumnerna/);
 });
-test('wide legacy import creates separate items idempotently, with source rows and review instead of overwrite',()=>{
+test('wide external Excel import creates separate items idempotently, with source rows and review instead of overwrite',()=>{
  const data=fixture();const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([['AvtalsID','Hyra','Tillägg','Skatt','Metod'],['A',100000,10000,5000,'none']]),'Underlag');
  const profile={name:'Underlag',headerRow:1,columns:['contracts.id','contracts.baseRent','contracts.baseAdditions','contracts.annualPropertyTax','contracts.rentAdjustmentMethod'].map((target,index)=>({index,target}))};
  const result=prepareCleanImport(workbook,[profile],data,{fileName:'syntetisk.xlsx'},XLSX);assert.equal(result.report.review,0);assert.equal(result.clean.agreement_items.length,3);assert.equal(result.clean.agreement_items[0].sources[0].row,2);
  const again=prepareCleanImport(workbook,[profile],result.clean,{fileName:'syntetisk.xlsx'},XLSX);assert.equal(again.clean.agreement_items.length,3);assert.equal(again.report.changes.length,0);
  workbook.Sheets.Underlag.B2.v=200000;const conflict=prepareCleanImport(workbook,[profile],result.clean,{fileName:'syntetisk.xlsx'},XLSX);assert.equal(conflict.report.review,1);assert.equal(conflict.clean.agreement_items[0].base_amount,100000);
 });
-test('SQL removes previous financial columns with backup; atomic item rules, negative invoice and version checks persist',async()=>{
+test('current SQLite items, negative evidence and atomic overlap validation persist across reopen',async()=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),'finance-sql-')),file=path.join(dir,'test.sqlite');let store;
  try{
   store=await LocalStore.open({file});const data=fixture();add(data,'agreement_items',item('base',{type:'base'}));add(data,'recurring_costs',cost());add(data,'cost_evidence',invoice('credit','2027-01-01','2027-12-31',-20));await store.replace(data,0);await store.close();store=null;
-  const db=new DatabaseSync(file);db.exec('ALTER TABLE agreements ADD COLUMN annual_rent REAL; ALTER TABLE agreements ADD COLUMN rent_adjustment_method TEXT;');db.prepare("UPDATE agreements SET annual_rent=5000,rent_adjustment_method='none'").run();db.exec('DELETE FROM agreement_items');db.close();
-  store=await LocalStore.open({file});let saved=store.snapshot();assert.equal(saved.data.agreement_items[0].base_amount,5000);assert.equal(saved.data.cost_evidence[0].amount,-20);assert(!store.db.prepare('PRAGMA table_info(agreements)').all().some(c=>c.name==='annual_rent'));assert.equal((await readdir(dir)).filter(name=>name.includes('before-simplify')).length,1);
+  store=await LocalStore.open({file});const saved=store.snapshot();assert.equal(saved.data.agreement_items[0].base_amount,10000);assert.equal(saved.data.cost_evidence[0].amount,-20);
   await assert.rejects(store.mutate([{table:'agreement_items',record:item('overlap',{type:'base'})}],saved.version),/Endast en bashyra/);assert.deepEqual(store.snapshot(),saved);
-  await store.close();store=null;store=await LocalStore.open({file});assert.equal(store.snapshot().data.agreement_items.length,1);
+  await assert.rejects(store.replace(data,saved.version-1),/ändrats/);
  }finally{if(store)await store.close();await rm(dir,{recursive:true,force:true});}
 });
 test('compact V2 panels show distinct run rate/calendar cost and missing actuals as incomplete',()=>{

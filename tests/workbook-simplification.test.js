@@ -1,9 +1,10 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import XLSX from "xlsx";
-const source=fs.readFileSync(new URL("../frontend/services/source-service.js",import.meta.url),"utf8");
+const source=sourceServiceScript();
 function service(){
  const sandbox={window:{},XLSX,console,Date,Map,Set,URL,Uint8Array,TextDecoder,localStorage:{removeItem(){},getItem(){return null;},setItem(){}}};
  vm.runInNewContext(source,sandbox);
@@ -44,4 +45,15 @@ test("own Lokalblick workbook is not accepted as enrichment input",()=>{
  const external=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(external,XLSX.utils.aoa_to_sheet([["Projektnamn"],["A"]]),"2027");
  assert.equal(adapter.isCanonicalDataWorkbook(external),false);
+});
+
+test("demo starts without XLSX and resolves the library when a workbook is used",()=>{
+ const context=vm.createContext({window:{},console});
+ vm.runInContext(source,context);
+ const adapter=context.window.LokalblickSourceService;
+ assert.equal(adapter.status().connected,false);
+ assert.ok(adapter.schemas.some(schema=>schema.key==='contracts'));
+ context.XLSX=XLSX;
+ const workbook=adapter.dataToWorkbook({properties:[],contracts:[],activities:[],organizations:[],people:[],orders:[],budgetPlans:[]});
+ assert.equal(adapter.isCanonicalDataWorkbook(workbook),true);
 });

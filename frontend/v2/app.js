@@ -1,3 +1,8 @@
+import {labels,handleNavigation} from "./navigation.js";
+import {handleEditorCommand} from "./editor-commands.js";
+import {createImportDialogs} from "./import-dialogs.js";
+import {syncEditorFrame,refreshEditorFrame,observeEditorFrame} from "./editor-frame.js";
+import {handleBudgetAction} from './budget-actions.js';
 import {openItemDialog,openPropertyCostDialog,openEvidenceDialog,propertyCostsPanel} from './finance-ui.js';
 import {maintenancePage,mountMaintenance,maintenanceIssueContext,mountMaintenanceCompletion} from './maintenance-ui.js';
 import {nextIssueId} from '../lokaler/issue-identity.js';
@@ -96,28 +101,14 @@ const ui = {
   planningMode: "list",
   timelineSpan: 1,
 };
-const labels = {
-  overview: "Översikt",
-  properties: "Fastigheter",
-  objects: "Objekt",
-  maintenance: "Underhåll",
-  contracts: "Avtal",
-  activities: "Ärenden",
-  plan: "Planera",
-  budget: "Budget",
-  map: "Karta",
-  sources: "Datakällor",
-  people: "Parter",
-  settings: "Inställningar",
-  more: "Mer",
-  datamodel: "Datamodell",
-};
+
 bindEditActions(document,()=>ui.view!=="budget");
 const actor = () =>
   data.currentUser?.name ||
   data.currentUser?.displayName ||
   data.currentUser?.email ||
   (data.isDemo ? "Demoanvändare" : "Okänd användare");
+const {chooseImportSheets,askMissingCity,showImportProgress,updateImportProgress}=createImportDialogs({sourceService:()=>globalThis.LokalblickSourceService,actor});
 function requireActorIdentity(){
   if(!data.isDemo&&!data.currentUser?.name&&!data.currentUser?.displayName&&!data.currentUser?.email){
     const name=prompt('Ange ditt namn för ändringshistoriken (själv angivet namn):');
@@ -358,155 +349,7 @@ function exportPendingReviews() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   notice(pending.length + " granskningsfel exporterade till JSON. Granska filen innan den delas.");
 }
-function importCountLabel(counts = {}) {
-  const parts = [];
-  if (counts.properties != null) parts.push("Fastigheter " + counts.properties);
-  if (counts.contracts != null) parts.push("Avtal " + counts.contracts);
-  if (counts.activities != null) parts.push("Ärenden " + counts.activities);
-  if (counts.matched != null) parts.push("Träffar " + counts.matched);
-  if (counts.created != null) parts.push("Skapat " + counts.created);
-  if (counts.review != null) parts.push("Granska " + counts.review);
-  return parts.join(" · ");
-}
-function chooseImportSheets(prepared) {
-  return new Promise((resolve, reject) => {
-    const d = document.createElement("dialog");
-    d.className = "followup-dialog import-dialog";
-    const rows = (prepared.sheets || [])
-      .map(
-        (sheet, index) =>
-          `<label class="import-sheet"><input type="checkbox" data-import-sheet value="${esc(sheet.name)}" ${sheet.recommended ? "checked" : ""}><span><strong>${esc(sheet.sheetName||sheet.name)}</strong><small>${esc(sheet.fileName||"")} · ${esc(sheet.kind || "Övrig flik")} · ${sheet.rows??0} datarader</small>${sheet.financialColumns?.length?`<small>Hyreskolumner: ${esc(sheet.financialColumns.join(", "))}</small>`:""}</span></label>`,
-      )
-      .join("");
-    d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Välj flikar att läsa</h2><p><strong>${esc(prepared.fileName)}</strong></p></div></div><p>Lokalblick har hittat ${(prepared.sheets || []).length} flikar. Flikar som känns igen på namn eller avtals- och hyreskolumner är förvalda. Välj de flikar som hör ihop. Vi tolkar kolumnerna och sammanför fastigheter, objekt och avtal innan något sparas.</p><div class="import-sheet-tools"><button type="button" data-import-select="recommended">Föreslagna</button><button type="button" data-import-select="all">Markera alla</button><button type="button" data-import-select="none">Avmarkera alla</button></div><div class="import-sheet-list">${rows}</div><div class="actions import-dialog-actions"><button type="button" data-import-cancel>Avbryt</button><button type="button" class="primary-action" data-import-start>Tolka och koppla underlagen</button></div>`;
-    document.body.append(d);
-    const closeWithAbort = () => {
-      if (d.open) d.close();
-      const error = new Error("Importen avbröts");
-      error.name = "AbortError";
-      reject(error);
-    };
-    d.querySelector("[data-import-cancel]").onclick = closeWithAbort;
-    d.querySelectorAll("[data-import-select]").forEach((button) => {
-      button.onclick = () => {
-        const mode = button.dataset.importSelect;
-        d.querySelectorAll("[data-import-sheet]").forEach((input, index) => {
-          input.checked =
-            mode === "all"
-              ? true
-              : mode === "none"
-                ? false
-                : Boolean(prepared.sheets[index]?.recommended);
-        });
-      };
-    });
-    d.querySelector("[data-import-start]").onclick = () => {
-      const selected = [...d.querySelectorAll("[data-import-sheet]:checked")].map(
-        (input) => input.value,
-      );
-      if (!selected.length) {
-        const button = d.querySelector("[data-import-start]");
-        button.textContent = "Markera minst en flik";
-        return;
-      }
-      d.close();
-      resolve(selected);
-    };
-    d.addEventListener("cancel", (event) => {
-      event.preventDefault();
-      closeWithAbort();
-    });
-    d.addEventListener("close", () => d.remove(), { once: true });
-    d.showModal();
-  });
-}
-function askMissingCity(importData) {
-  const service = globalThis.LokalblickSourceService;
-  const status = service?.cityImportStatus?.(importData) || {
-    missingIds: [],
-    missingCount: 0,
-    knownCities: [],
-  };
-  if (!status.missingCount)
-    return Promise.resolve({ data: importData, filled: 0, skipped: 0 });
 
-  return new Promise((resolve) => {
-    const d = document.createElement("dialog");
-    d.className = "followup-dialog import-dialog city-dialog";
-    const suggested =
-      status.knownCities.length === 1 ? status.knownCities[0] : "";
-    const knownText =
-      status.knownCities.length === 1
-        ? `Övriga fastigheter har orten <strong>${esc(suggested)}</strong>. Om de saknade också ligger där kan du använda samma ort.`
-        : status.knownCities.length > 1
-          ? `Det finns redan flera orter i materialet: ${status.knownCities.map(esc).join(", ")}.`
-          : "Ingen ort kunde hämtas från den importerade filen.";
-    d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">DATKVALITET</span><h2>Ort saknas</h2></div></div><p>Ort saknas för <strong>${status.missingCount} fastigheter</strong>. Finns alla dessa i samma ort?</p><p>${knownText}</p><label class="city-input">Ort<input type="text" data-city-value value="${esc(suggested)}" placeholder="Ange ort"></label><p><small>För framtida importer kan du lägga till en kolumn <strong>Ort</strong>, <strong>Postort</strong> eller <strong>Stad</strong> i Excel-filen. Lokalblick sparar orten i Lokalblick-data när du anger den här.</small></p><div class="actions import-dialog-actions"><button type="button" data-city-skip>Inte samma ort – komplettera senare</button><button type="button" class="primary-action" data-city-apply>Använd ort för alla ${status.missingCount}</button></div>`;
-    document.body.append(d);
-    const finish = (result) => {
-      if (d.open) d.close();
-      resolve(result);
-    };
-    d.querySelector("[data-city-skip]").onclick = () =>
-      finish({ data: importData, filled: 0, skipped: status.missingCount });
-    d.querySelector("[data-city-apply]").onclick = () => {
-      const input = d.querySelector("[data-city-value]");
-      const city = String(input?.value || "").trim();
-      if (!city) {
-        input?.focus();
-        return;
-      }
-      const updated = service.applyCityToProperties(
-        importData,
-        status.missingIds,
-        city,
-        actor(),
-      );
-      finish({
-        data: updated,
-        filled: status.missingCount,
-        skipped: 0,
-        city,
-      });
-    };
-    d.addEventListener("cancel", (event) => {
-      event.preventDefault();
-      finish({ data: importData, filled: 0, skipped: status.missingCount });
-    });
-    d.addEventListener("close", () => d.remove(), { once: true });
-    d.showModal();
-    d.querySelector("[data-city-value]")?.focus();
-  });
-}
-
-function showImportProgress(fileName, selectedSheets) {
-  const d = document.createElement("dialog");
-  d.className = "followup-dialog import-dialog import-progress-dialog";
-  d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Läser och tolkar data</h2><p><strong>${esc(fileName)}</strong></p></div><span class="import-spinner" aria-hidden="true"></span></div><div class="import-progress-track"><span data-import-progress-bar></span></div><strong data-import-progress-message>Förbereder import…</strong><small data-import-progress-counts></small><div class="import-progress-sheets">${selectedSheets.map((name) => `<span data-import-progress-sheet="${esc(name)}">${esc(name)}</span>`).join("")}</div><p class="import-progress-hint">Importen förbereds. Därefter arbetar geokodningen vidare utan att låsa sidan.</p>`;
-  document.body.append(d);
-  d.showModal();
-  return d;
-}
-function updateImportProgress(dialog, progress = {}) {
-  if (!dialog?.isConnected) return;
-  const message = dialog.querySelector("[data-import-progress-message]");
-  const counts = dialog.querySelector("[data-import-progress-counts]");
-  const bar = dialog.querySelector("[data-import-progress-bar]");
-  if (message && progress.message) message.textContent = progress.message;
-  if (counts) counts.textContent = importCountLabel(progress.counts);
-  if (bar) {
-    const total = Number(progress.totalSteps) || 0;
-    const step = Number(progress.step) || 0;
-    const percent = total ? Math.max(4, Math.min(100, Math.round((step / total) * 100))) : 8;
-    bar.style.width = percent + "%";
-  }
-  (progress.sheets || []).forEach((sheet) => {
-    const node = [...dialog.querySelectorAll("[data-import-progress-sheet]")].find(
-      (x) => x.dataset.importProgressSheet === sheet.name,
-    );
-    if (node && sheet.rows != null) node.textContent = sheet.name + " · " + sheet.rows + " rader";
-  });
-}
 function canEdit() {
   const st = transport.status();
   if (st.sourceKind === "migration") return false;
@@ -847,39 +690,12 @@ function hasUnsavedEditorChanges(){
 }
 /* Render the editing outline as a REAL fixed DOM overlay on <body>.
    A pseudo-element on #editor-root can be clipped/hidden by fixed iOS drawers. */
-function syncEditorFrame(active) {
-  const body=document.body;
-  let frame=document.getElementById("editor-edit-frame");
-  if(active) {
-    if(!frame) {
-      frame=document.createElement("div");
-      frame.id="editor-edit-frame";
-      frame.setAttribute("aria-hidden","true");
-      body.appendChild(frame);
-    }
-    body.classList.add("editor-frame-active");
-  } else {
-    body.classList.remove("editor-frame-active");
-    frame?.remove();
-  }
-}
 
 // The green editing perimeter follows EVERY active editable form, including
 // cost/person modals. It is a fixed overlay and never changes page geometry.
-function activeEditableForm() {
-  const editorActive=Boolean(document.querySelector("#editor-root #edit-form.editor-editing"));
-  const modalActive=[...document.querySelectorAll("dialog[open] form")].some(form=>
-    form.querySelector('input:not([type="hidden"]):not(:disabled),select:not(:disabled),textarea:not(:disabled)'));
-  return editorActive||modalActive;
-}
-function refreshEditorFrame() {
-  syncEditorFrame(activeEditableForm());
-}
+
 // Observe only dialog entry/exit and editor nodes; the frame itself is idempotent.
-if (typeof MutationObserver !== "undefined" && document.body) {
-  const editFrameObserver=new MutationObserver(refreshEditorFrame);
-  editFrameObserver.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["open"]});
-}
+observeEditorFrame();
 
 function setEditorReadMode(readOnly){
   const form=editorForm();
@@ -1059,8 +875,8 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
   const footer=form?.querySelector(".editor-actions");
   if(footer){
     const save=footer.querySelector('button[type="submit"]');
+    const undo=save?document.createElement("button"):null;
     if(save){
-      const undo=document.createElement("button");
       undo.type="button";
       undo.dataset.editorUndo="";
       undo.textContent="Ångra";
@@ -1073,7 +889,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
     if(col==="activities"&&form.querySelector(".issue-heading-actions")){
       // The same header holds actions in both modes; move the original buttons.
       const controls=form.querySelector(".issue-heading-actions");
-      controls.prepend(undo,save);
+      if(save)controls.prepend(undo,save);
       controls.appendChild(status);
     } else footer.prepend(status);
   }
@@ -1285,24 +1101,11 @@ document.addEventListener("click", (event) =>
       maintenanceState.inspectionId='';maintenanceState.historical=false;maintenanceState.q='';maintenanceState.open=[];maintenanceState.filter='all';ui.view='maintenance';render();return;
     }
     if(b.hasAttribute("data-issue-expand")){toggleIssueText(b);return;}
-    if(b.dataset.contextRecord){
-      openEditor(b.dataset.contextRecord,b.dataset.id,{}, {fromCurrent:!!editor,tab:b.dataset.contextTargetTab});return;
-    }
-    if(b.hasAttribute("data-context-back")){
-      const previous=editor?.trail?.at(-1);if(!previous)return;
-      openEditor(previous.col,previous.id,{}, {...previous,trail:editor.trail.slice(0,-1)});return;
-    }
-    if(b.dataset.contextTab&&editor?.workspace){
-      editor.workspace.setTab(b.dataset.contextTab);
+    if(handleEditorCommand(b,{editor,data,openEditor,closeEditor,setEditorReadMode,hasUnsavedEditorChanges,refreshPropertyMap:tab=>{
       if(propertyMapCleanup){propertyMapCleanup();propertyMapCleanup=null;}
-      if(editor.col==="properties"&&b.dataset.contextTab==="info")propertyMapCleanup=attachPropertyMap(document.querySelector("#editor-root"),data,editor.record,globalThis.LokalblickMapService);
-      return;
-    }
-    if(b.hasAttribute("data-context-show-all")&&editor?.workspace){editor.workspace.apply('all',!editor.workspace.state.all);return;}
-    if(b.hasAttribute("data-context-new-issue")&&editor){
-      const home=editor.col==="contracts"?{scopeType:"contract",contractId:editor.id}:editor.col==="objects"?{scopeType:"object",objectId:editor.id}:{scopeType:"property",propertyId:editor.id};
-      openEditor("activities","",{...home,status:activityChoices(data,"status")[0]?.value||"Nytt",planningYear:new Date().getFullYear(),includeInBudget:"Ja",budgetCategory:"Ej budget"},{fromCurrent:true});return;
-    }
+      if(editor.col==="properties"&&tab==="info")propertyMapCleanup=attachPropertyMap(document.querySelector("#editor-root"),data,editor.record,globalThis.LokalblickMapService);
+    }}))return;
+
     if (b.hasAttribute("data-dashboard-mode")) {
       const next=b.dataset.dashboardMode;
       if(!["person","unit","owner"].includes(next))return;
@@ -1349,25 +1152,7 @@ document.addEventListener("click", (event) =>
       }
       return;
     }
-    if (b.hasAttribute("data-editor-activate")) {
-      if(!editor)return;
-      // Unlock in place without moving the page or opening the iOS keyboard.
-      setEditorReadMode(false);
-      return;
-    }
-    if (b.hasAttribute("data-editor-undo")) {
-      if(!editor)return;
-      if(!hasUnsavedEditorChanges()){
-        // Undo is always a path back to exactly the same read layout.
-        setEditorReadMode(true);
-        return;
-      }
-      const {col,id,defaults,trail,selection:recordSelection,source,returnFocus}=editor;
-      const saved=editor.workspace?.capture();
-      closeEditor({force:true});
-      openEditor(col,id,defaults,{trail,selection:recordSelection,source,returnFocus,saved});
-      return;
-    }
+
     if (b.hasAttribute("data-plan-month")) {
       if(!canEdit())throw Error("Datakällan är skrivskyddad.");
       const id=b.dataset.planIssue,key=b.dataset.planMonth;
@@ -1438,49 +1223,8 @@ document.addEventListener("click", (event) =>
       return;
     }
     if (b.dataset.tool) document.getElementById(b.dataset.tool)?.click();
-    if (b.dataset.view) {
-      pendingPlanSelection=null;
-      ui.view = b.dataset.view;
-      ui.showScopedFilters = false;
-      if (ui.view==="properties")ui.perspective="Fastigheter";
-      if (ui.view==="contracts")ui.perspective="Avtal";
-      if (ui.view==="activities")ui.perspective="Ärenden";
-      ui.contractId = "";
-      if (ui.view === "settings") ui.settingsYear = new Date().getFullYear();
-      render();
-      if (ui.view === "budget") await loadBudgetIndex(ui.year);
-      if (ui.view === "settings") await loadOfficialPriceBase(ui.settingsYear, { automatic: true });
-    }
-    if (b.dataset.property&&ui.view!=="budget") {openEditor("properties",b.dataset.property);return;}
-    if (b.dataset.property) {
-      selection.propertyId = b.dataset.property;
-      ui.showScopedFilters = false;
-      ui.perspective = "Avtal";
-      ui.view = "contracts";
-      render();
-    }
-    if (b.hasAttribute("data-toggle-global-filters")) {
-      ui.showScopedFilters = !ui.showScopedFilters;
-      render();
-      return;
-    }
-    if (b.hasAttribute("data-clear-property")) {
-      selection.propertyId = "";
-      ui.showScopedFilters = false;
-      ui.contractId = "";
-      render();
-    }
-    if (b.dataset.perspective) {
-      pendingPlanSelection=null;
-      ui.perspective = b.dataset.perspective;
-      ui.contractId = "";
-      render();
-    }
-    if (b.dataset.issueType) {
-      ui.issueType = b.dataset.issueType;
-      render();
-      return;
-    }
+    if(await handleNavigation(b,{ui,selection,clearPlanning:()=>{pendingPlanSelection=null;},render,openEditor,loadBudgetIndex,loadOfficialPriceBase}))return;
+
     if (b.hasAttribute("data-new-issue")) {
       const type = activityChoices(data,"type").some(x=>x.value===ui.issueType) ? ui.issueType : "";
       openEditor("activities","",{
@@ -1494,13 +1238,7 @@ document.addEventListener("click", (event) =>
       });
       return;
     }
-    if (b.dataset.openContract&&ui.view!=="budget") {openEditor("contracts",b.dataset.openContract);return;}
-    if (b.dataset.openContract) {
-      ui.showScopedFilters = false;
-      ui.contractId =
-        ui.contractId === b.dataset.openContract ? "" : b.dataset.openContract;
-      render();
-    }
+
     if (b.hasAttribute("data-close-contract")) {
       ui.contractId = "";
       render();
@@ -1531,18 +1269,7 @@ document.addEventListener("click", (event) =>
         }));
       return;
     }
-    if (b.hasAttribute("data-edit")) openEditor(b.dataset.edit, b.dataset.id,{}, {editing:b.dataset.editMode==="edit"});
-    if (b.hasAttribute("data-editor-close")) closeEditor();
-    if (b.dataset.editorTab) {
-      document
-        .querySelectorAll("[data-editor-section]")
-        .forEach(
-          (s) => (s.hidden = s.dataset.editorSection !== b.dataset.editorTab),
-        );
-      document
-        .querySelectorAll("[data-editor-tab]")
-        .forEach((x) => x.classList.toggle("active", x === b));
-    }
+
     if (b.dataset.planningMode) {
       pendingPlanSelection=null;
       ui.planningMode = b.dataset.planningMode === "timeline" ? "timeline" : "list";
@@ -1643,65 +1370,8 @@ document.addEventListener("click", (event) =>
           : {},
       );
     }
-    if (b.dataset.budgetAdjust) showBudgetAdjustment(b.dataset.budgetAdjust);
-    if (b.hasAttribute("data-budget-reopen") && confirm('Skapa ny budgetversion '+ui.year+'? Den låsta versionen sparas i historiken.')) {
-      await mutation(d=>{
-        const plan=d.budgetPlans.find(p=>Number(p.year)===ui.year);
-        globalThis.LokalblickBudgetFollowup.beginVersion(plan,'Ny arbetsbudget från låst version',actor());
-      });
-      await loadBudgetIndex(ui.year);
-    }
-    if (b.hasAttribute("data-budget-index")) { await loadBudgetIndex(ui.year,true); return; }
-    if (b.hasAttribute("data-budget-index-reset")) {
-      const plan=data.budgetPlans.find(p=>Number(p.year)===ui.year);
-      if (plan?.status==="Låst")throw Error("Skapa en ny budgetversion först");
-      if (Number(plan?.preliminaryIndex)>0) {
-        await mutation(d=>{
-          const target=d.budgetPlans.find(p=>Number(p.year)===ui.year);
-          if(!target||target.status==="Låst")throw Error("Budgeten är låst");
-          target.preliminaryIndex=0;
-          target.preliminaryIndexUpdatedAt=new Date().toISOString();
-          target.preliminaryIndexUpdatedBy=actor();
-          target.targets=calc().summarize(calc().budgetProposal(d,ui.year));
-        });
-      } else render();
-      return;
-    }
-    if (b.hasAttribute("data-budget-create"))
-      await mutation((d) => {
-        const live = calc().budgetRows(d, ui.year);
-        d.budgetPlans.push({
-          year: ui.year,
-          status: "Arbetsbudget",
-          createdAt: new Date().toISOString(),
-          preliminaryIndex: 0,
-          adjustments: {},
-          lines: [],
-          targets: calc().summarize(live),
-          notes: {},
-        });
-      });
-    if (b.hasAttribute("data-budget-lock") && confirm('Lås budget '+ui.year+' som baslinje?'))
-      await mutation((d) => {
-        const plan = d.budgetPlans.find((p) => Number(p.year) === ui.year);
-        if (!plan || plan.status === "Låst") return;
-        const live = calc().budgetProposal(d, ui.year,{strict:true});
-        const lockedIndex = calc().budgetIndex(
-          d,
-          ui.year,
-          plan.preliminaryIndex,
-        );
-        plan.lines = live.map(line=>({...line,lockedAt:new Date().toISOString(),lockedBy:actor(),indexSnapshot:clone(lockedIndex),sourceSnapshot:clone((d[line.sourceType==='contract'?'contracts':'activities']||[]).find(x=>x.id===line.sourceId)||{})}));
-        plan.targets=calc().summarize(plan.lines);
-        plan.lockedIndexMonth=lockedIndex.month;
-        plan.lockedIndexStatus=lockedIndex.status;
-        plan.lockedIndexYear = lockedIndex.year;
-        plan.lockedIndexValue = lockedIndex.value;
-        plan.lockedIndexSource = lockedIndex.source;
-        plan.status = "Låst";
-        plan.lockedAt = new Date().toISOString();
-        plan.lockedBy = actor();
-      });
+    await handleBudgetAction(b,{getData:()=>data,ui,mutation,actor,render,
+      showBudgetAdjustment,loadBudgetIndex,calc,clone});
   }),
 );
 document.addEventListener("input",event=>{

@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -71,7 +72,7 @@ test("roundtrip through Avtal worksheet preserves both component rules and limit
    additionAdjustmentMethod:"fixed",additionAnnualPercent:1.5}]});
  const context=vm.createContext({window:{},XLSX,console,Date,Map,Set,URL,Uint8Array,TextDecoder,
    localStorage:{removeItem(){},getItem(){return null},setItem(){}}});
- vm.runInContext(fs.readFileSync("frontend/services/source-service.js","utf8"),context);
+ vm.runInContext(sourceServiceScript(),context);
  const svc=context.window.LokalblickSourceService;
  const saved=svc.workbookToData(svc.dataToWorkbook(data));
  const c=saved.contracts[0];

@@ -6,37 +6,9 @@ import path from 'node:path';
 import { tables, normalize, emptyData, validateData } from '../../frontend/lokaler/model.js';
 import { writeWorkbook } from './workbook.js';
 import { readLocalWorkbook } from './read-workbook.js';
-import {upgradeData} from '../../frontend/lokaler/model-revision.js';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 const keys = Object.keys(tables);
-function extendRecordHomes(db) {
- // Relax only the existing home constraints. IDs, optional fields, incoming
- // references, observations and workspace snapshots remain intact.
- const names=[['spaces','object_id'],['inspections','object_id'],['inspection_points','part_id']].filter(([table,field])=>db.prepare('PRAGMA table_info('+table+')').all().some(column=>column.name===field&&column.notnull)).map(([table])=>table);
- const issueSql=db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='issues'").get()?.sql;
- if(issueSql&&/\(property_id IS NOT NULL\)\s*\+\s*\(object_id IS NOT NULL\)\s*=\s*1/.test(issueSql))names.push('issues');
- if(!names.length)return;
- db.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE');
- try {
-  for(const table of names){
-   const start=schema.indexOf('CREATE TABLE IF NOT EXISTS '+table+' ('),end=schema.indexOf(') STRICT;',start)+') STRICT;'.length;
-   const next=table+'_home_upgrade',sql=schema.slice(start,end).replace('IF NOT EXISTS '+table,next);
-   const columns=db.prepare('PRAGMA table_info('+table+')').all().map(column=>column.name).join(',');
-   db.exec(sql);
-   const created=new Set(db.prepare('PRAGMA table_info('+next+')').all().map(column=>column.name));
-   for(const column of db.prepare('PRAGMA table_info('+table+')').all())if(!created.has(column.name)){
-    const field=tables[table].fields.find(field=>field.key===column.name);
-    if(!field)throw Error('Okänt fält i '+table+': '+column.name);
-    db.exec('ALTER TABLE '+next+' ADD COLUMN '+column.name+' '+column.type+(field.type==='ref'?' REFERENCES '+field.table+'(id)':''));
-   }
-   db.exec(`INSERT INTO ${next} (${columns}) SELECT ${columns} FROM ${table}; DROP TABLE ${table}; ALTER TABLE ${next} RENAME TO ${table};`);
-  }
-  if(db.prepare('PRAGMA foreign_key_check').all().length)throw Error('Posternas kopplingar kunde inte bevaras.');
-  db.exec('COMMIT');
- } catch(error){db.exec('ROLLBACK');throw error;}
- finally{db.exec('PRAGMA foreign_keys=ON');}
-}
 export class ConflictError extends Error { constructor(message) { super(message); this.status = 409; } }
 export class LocalStore {
  static async open({ file, mode = 'sqlite' }) {
@@ -56,21 +28,16 @@ export class LocalStore {
     const populated = db.prepare("SELECT count(*) AS count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").get().count;
     if ((appId !== 0 && appId !== 0x4c4b4c32) || (populated && appId !== 0x4c4b4c32)) throw Error('Filen är inte den nya Lokalblick-databasen. Välj en ny tom fil; äldre databaser konverteras inte.');
    }
-   const oldColumns=db.prepare('PRAGMA table_info(agreements)').all();
-   const upgrading=oldColumns.some(column=>['number','annual_rent','annual_additions'].includes(column.name));
-   let upgraded;
-   if(upgrading){
-    const data={...Object.fromEntries(keys.map(table=>[table,(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table)?db.prepare('SELECT * FROM '+table).all():[]).map(row=>{
-     for(const f of tables[table].fields)if(row[f.key]!=null){if(f.type==='json')row[f.key]=JSON.parse(row[f.key]);if(f.type==='boolean')row[f.key]=Boolean(row[f.key]);}return row;
-    })])),workspace:Object.fromEntries(db.prepare('SELECT key,value FROM workspace').all().map(row=>[row.key,JSON.parse(row.value)]))};
-    upgraded=upgradeData(data);
-    // Validate first, then keep an independent SQLite backup before rebuilding.
-    if(mode==='sqlite')db.prepare('VACUUM INTO ?').run(file+'.before-simplify-'+randomUUID()+'.sqlite');
-    db.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE');
-    for(const table of [...keys].reverse())db.exec('DROP TABLE IF EXISTS '+table);
-    db.exec('DROP TABLE workspace');
+   // A new app has one storage schema. Reject obsolete layouts instead of
+   // maintaining migrations, backups of removed columns or hidden old values.
+   const populated=db.prepare("SELECT count(*) AS count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").get().count;
+   if(populated){
+    for(const [table,spec]of Object.entries(tables)){
+     const columns=db.prepare('PRAGMA table_info('+table+')').all().map(row=>row.name);
+     const expected=new Set(['id',...spec.fields.map(field=>field.key)]);
+     if(columns.length!==expected.size||columns.some(column=>!expected.has(column)))throw Error('Databasen följer inte aktuell modell. Skapa en ny tom arbetsyta.');
+    }
    }
-   extendRecordHomes(db);
    db.exec(schema);
    for (const [table, spec] of Object.entries(tables)) {
     const existing = new Set(db.prepare('PRAGMA table_info(' + table + ')').all().map(row => row.name));
@@ -82,11 +49,6 @@ export class LocalStore {
    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS parties_organization_number ON parties(organization_number) WHERE organization_number IS NOT NULL; CREATE UNIQUE INDEX IF NOT EXISTS evidence_annual ON cost_evidence(cost_id,year) WHERE type='annual'; CREATE UNIQUE INDEX IF NOT EXISTS evidence_invoice ON cost_evidence(cost_id,invoice_reference) WHERE type='invoice';");
    if (mode === 'sqlite') db.exec('PRAGMA application_id = 0x4c4b4c32');
    db.exec('CREATE TABLE IF NOT EXISTS store_meta (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL) STRICT; INSERT OR IGNORE INTO store_meta VALUES (1,0);');
-   if(upgraded){
-    for(const table of keys)for(const record of upgraded[table])store.insert(table,record);
-    store.setWorkspace(upgraded.workspace);store.validateGraph();
-    db.exec('UPDATE store_meta SET version=version+1 WHERE id=1; COMMIT; PRAGMA foreign_keys=ON;');
-   }
    if (mode === 'sqlite') {
     await chmod(file, 0o600);
     db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');

@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -7,7 +8,7 @@ import {webcrypto} from 'node:crypto';
 import {combineImportSources,readImportSource,profileWorkbook,prepareMappedImport} from '../frontend/services/import-engine.js';
 const rules=globalThis.LokalblickImportRules;
 const ctx=vm.createContext({window:{},XLSX,crypto:webcrypto});
-vm.runInContext(fs.readFileSync('frontend/services/source-service.js','utf8'),ctx);
+vm.runInContext(sourceServiceScript(),ctx);
 const schemas=ctx.window.LokalblickSourceService.schemas;
 globalThis.crypto ||= webcrypto;
 function source(rows,name='Underlag'){

@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
@@ -36,7 +37,7 @@ test('danger and reason required; previous locked version retained',()=>{
 test('renamed record keeps identity',()=>{assert.equal(service.key(line('1')),service.key({...line('1'),sub:'Nytt namn'}));});
 function workbookAdapter(){
  const c=vm.createContext({window:{},XLSX,console});
- const text=readFileSync('frontend/services/source-service.js','utf8');
+ const text=sourceServiceScript();
  vm.runInContext(text,c);return c.window.LokalblickSourceService;
 }
 test('real XLSX roundtrip keeps canonical activity identities, versions, zero final costs and full history',()=>{

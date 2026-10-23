@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import XLSX from 'xlsx';import {normalize} from '../frontend/v2/model.js';import {profileWorkbook,prepareMappedImport} from '../frontend/services/import-engine.js';import {webcrypto} from 'node:crypto';
 const model=globalThis.LokalblickObjectModel;
 test('legacy contract migration is stable and does not borrow agreement dates',()=>{
@@ -14,7 +15,7 @@ test('division and merge preserve predecessor identity and reject cycles or miss
  model.validate(data);data.objects[0].predecessorIds=['merged'];assert.throws(()=>model.validate(data));
  delete data.objects[0].predecessorIds;data.objects[0].end='';assert.throws(()=>model.validate(data),/Avsluta/);
 });
-function adapter(){const ctx=vm.createContext({window:{},XLSX,crypto:webcrypto});vm.runInContext(fs.readFileSync('frontend/domain/object-model.js','utf8'),ctx);vm.runInContext(fs.readFileSync('frontend/services/source-service.js','utf8'),ctx);return ctx.window.LokalblickSourceService;}
+function adapter(){const ctx=vm.createContext({window:{},XLSX,crypto:webcrypto});vm.runInContext(fs.readFileSync('frontend/domain/object-model.js','utf8'),ctx);vm.runInContext(sourceServiceScript(),ctx);return ctx.window.LokalblickSourceService;}
 test('objects and contract/object activity links roundtrip through real XLSX',()=>{
  const service=adapter(),data=normalize({properties:[{id:'p',address:'Testgatan',city:'Malmö'}],objects:[{id:'old',propertyId:'p',end:'2026-12-31',number:'O-old'},{id:'o',propertyId:'p',number:'O-1',area:100,start:'2027-01-01',predecessorIds:['old']}],contracts:[{id:'c',objectId:'o',number:'A-1',start:'2027-02-01'}],activities:[{id:'act',objectId:'o',scopeType:'object',type:'Projekt',title:'Tak',planningYear:2027,estimatedCost:100}]});
  const workbook=service.dataToWorkbook(data);assert.ok(workbook.Sheets.Objekt);

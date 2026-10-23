@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -6,7 +7,7 @@ import XLSX from 'xlsx';
 import {profileWorkbook,prepareMappedImport,mappingConflicts,retargetColumn} from '../frontend/services/import-engine.js';
 import {columnPreviewHtml} from '../frontend/v2/import-mapping.js';
 import {normalize} from '../frontend/v2/model.js';
-const context=vm.createContext({window:{},XLSX});vm.runInContext(fs.readFileSync('frontend/services/source-service.js','utf8'),context);
+const context=vm.createContext({window:{},XLSX});vm.runInContext(sourceServiceScript(),context);
 const schemas=context.window.LokalblickSourceService.schemas;
 const settings={schemas,fileName:'syntetiskt.xlsx',fingerprint:'recovery',actor:'Test',strictColumns:true,personLinks:true};
 function book(sheets){const workbook=XLSX.utils.book_new();for(const [name,rows] of sheets)XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(rows),name);return workbook;}

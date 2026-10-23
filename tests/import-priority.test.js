@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -35,7 +36,7 @@ test("source selection lists field, count, and filename",()=>{
 });
 test("priority rules persist in the canonical workbook",()=>{
  const ctx={window:{},XLSX,console,Date,Map,Set,URL,Uint8Array,TextDecoder,localStorage:{removeItem(){},getItem(){return null;},setItem(){}}};
- vm.runInNewContext(fs.readFileSync("frontend/services/source-service.js","utf8"),ctx);
+ vm.runInNewContext(sourceServiceScript(),ctx);
  const source=ctx.window.LokalblickSourceService;
  const d=fixture();
  bulkReviewDecision(d,{collection:"properties",field:"ownerPartyId",source:"berikning.xlsx"},"reject","test");

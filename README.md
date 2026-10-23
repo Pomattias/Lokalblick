@@ -1,97 +1,82 @@
 # Lokalblick
 
-Lokalblick är en fastighetsapp med **en** datamodell: fastigheter, objekt, avtal, parter, personer, ansvar, ärenden, beställningar, löpande kostnader och årsbudget. Projekt, underhåll, driftärenden, önskemål och utredningar är ärendetyper – inte separata tabeller.
+Lokalblick är en fastighetsapp för fastigheter, objekt, avtal, parter, personer,
+ansvar, ärenden, beställningar, löpande kostnader och årsbudget. Projekt,
+underhåll, drift, önskemål och utredningar är ärendetyper.
 
-## Arkitektur
+## Börja här
 
-```text
-frontend/
-  UI, tabeller, diagram, formulär
-  services/data-service.js       <- demo/local Excel-adapter
-  services/geocoding-service.js <- backendägd koordinatberikning
+Ny utvecklare: följ [första veckans läsordning och övningar](docs/DEVELOPER_START.md).
+Använd **Node.js 24 LTS**, samma version som CI och den lokala SQLite-servern.
 
-backend/
-  server.mjs                     <- lokal company-runtime på 127.0.0.1:8787
-  api/openapi.yaml               <- API-kontrakt
-  src/data-repository.js         <- provider-neutral data boundary
-  src/geocoding-service.js       <- Azure Maps adapter
-  src/coordinate-store.js        <- backendägt koordinatoverlay
-```
-
-### Geokodning
-
-Riktiga fastighetsadresser geokodas inte i den publika frontend-klienten. I company-runtime går adressen till den lokala Lokalblick-backenden, som återanvänder sparad koordinat när adressen är oförändrad och annars geokodar via Azure Maps. Koordinaterna sparas i backendens coordinate overlay.
-
-Azure Maps batch-geokodning stöder upp till 100 adresser per synkront anrop, så Lokalblick delar större importer i block om 100.
-
-### Lokal company-runtime
-
-Starta på Windows 365:
-
-```powershell
+```sh
+npm ci
+npm test
 npm run company
 ```
 
-Öppna sedan `http://127.0.0.1:8787`.
+Öppna `http://127.0.0.1:8787`. Detta startar frontend med syntetisk demo samt
+lokala hjälp-API:er för geokodning och budgetindex. Det ansluter inte automatiskt
+företagets data. Azure Maps-nyckel behövs bara för geokodning.
 
-Sätt `AZURE_MAPS_SUBSCRIPTION_KEY` i den lokala miljön. Den riktiga nyckeln ska aldrig läggas i GitHub. För produktion bör backend gå över till Microsoft Entra ID/managed identity.
+## Körlägen och lagring
 
-## Frontend
+| Kommando/läge | Beständig lagring | Startadress |
+| --- | --- | --- |
+| `npm run company`, demo | Syntetisk demo i webbläsaren | `http://127.0.0.1:8787` |
+| Ren arbetsyta i webbläsaren | IndexedDB, eller aktivt ansluten lokal Excel-arbetsbok | Samma frontend |
+| `npm run lokaler` | Backendägd SQLite | `http://127.0.0.1:8790` |
+| `npm run lokaler:excel` | Backendägd Excel-arbetsbok | `http://127.0.0.1:8790` |
+| `npm run setup:company`, sedan `npm run company:api` | Äldre LEB-läsning och backendägd JSON med kompletteringar | `http://127.0.0.1:8787` |
 
-Frontend innehåller UI, tabeller, diagram, formulär och verksamhetslogik.
+Publik GitHub Pages/Vercel-demo använder syntetiska data. Företagsdata och
+hemligheter ska stanna i godkänd företagsmiljö. Entra ID/M365 är en målarkitektur;
+de lokala servrarna innebär inte en färdig autentiserad M365-integration.
+M365- och externa API-adaptrar är ännu inte kompletta.
 
-Den publika Vercel/GitHub-versionen använder endast syntetisk demodata som standard. Verklig företagsdata och hemligheter ska stanna bakom den lokala/autentiserade backend-gränsen.
+## Kodens ingångar
 
-## Nuvarande funktioner
+```text
+frontend/v2/                 aktivt gränssnitt och beräknad läsvy
+frontend/lokaler/            ren datamodell, import och lokal Excel-transport
+frontend/domain/             gemensamma affärsregler och budgetberäkningar
+frontend/services/           tjänster och äldre käll-/Excelkompatibilitet
+backend/lokaler/             SQLite- eller Excel-lagring via lokalt API
+backend/company/             äldre LEB-adapter och JSON-kompletteringar
+backend/server.mjs           frontendserver, geokodning och index-API
+backend/src/                 geokodning och framtida adaptergränser
+```
 
-- Fastighet → objekt → avtal med en riktig part som ägare/hyresgäst och separata verksamhetsrelationer
-- Gemensamma **Ärenden** för projekt, underhåll, drift, önskemål och utredningar; tidplan, journal, ansvar och kostnad
-- **Löpande kostnader** direkt på fastighet eller avtal, årsbudget och årsvis utfall
-- Beställningar kopplade till ärenden, inte duplicerade på varje ärendetyp
-- KPI-regler för ordinarie avtalshyra separat från manuella **budgetscenarier**
-- Låsta årsbudgetar, prognos, uppföljning, källspårbarhet och ansvarshistorik
-- Import av externa Excel-/LEB-källor utan att skapa gamla Lokalblick-tabeller
+`frontend/index.html` leder till `frontend/v2/index.html`. Den separata
+prototypens startsida under `frontend/lokaler` leder också till samma app.
+V1:s separata gränssnitt är avvecklat. V2 använder en beräknad läsvy av den rena
+modellen. Externa källunderlag mappas vid import; interna prototypformat
+konverteras inte. Se [aktuell modell](docs/CURRENT_MODEL_AND_TESTS.md).
 
-## En enda aktiv app
+## Data och sparning
 
-`frontend/index.html` leder alltid till `frontend/v2/index.html`. V1:s separata gränssnitt, CSS och tabellmigreringar är borttagna på `utveckling`. Ingen konvertering av tidigare Lokalblick-datamodeller görs. Import från externa system är däremot en aktiv funktion.
+Lagringsägaren beror på körläget. Backend äger sparning i API-lägena.
+I det lokala webbläsarläget sparar appen i IndexedDB eller en uttryckligen
+ansluten Excel-arbetsbok. Källunderlagen för import skrivs inte om.
+Läs [arkitekturen](ARCHITECTURE.md) för gränserna och
+[startguiden](START-LOKALER.md) för filkonflikter, behörigheter och backup.
+Den äldre företagsanslutningen beskrivs i [company-guiden](docs/COMPANY-LOCAL-SETUP.md).
 
-## Miljöer
+Geokodning av riktiga adresser ska ske genom en godkänd backend. Lokal
+geokodning använder Azure Maps och återanvänder koordinater för oförändrade
+adresser. Nyckeln ligger i lokal servermiljö, aldrig i Git eller klientkod.
+Batchar delas i högst 100 adresser.
 
-**Publik demo:** GitHub Pages/Vercel, endast demodata.
+## Tester
 
-**Företagsversion:** samma frontend, men med lokal/autentiserad backend, Entra ID och företagets M365-lagring.
+`npm test` kör domän-, relations-, import-, Excel-roundtrip- och API-tester
+samt syntax/preflight. Med Chromium installerat via
+`npx playwright install chromium` körs även exempelvis
+`npm run test:integration-browser`. Se utvecklarguiden för testernas olika
+Chromium-inställningar. Testa med syntetiska data; håll företagets arbetsfiler
+utanför repot och publika utvecklingsmiljöer.
 
-Se även `ARCHITECTURE.md` och `backend/README.md`.
-
-## Om-flik och säkerhetsgräns
-
-Appens **Om**-flik visar användaren vad som kan vara publikt och vad som ska stanna i kundens skyddade hemmamiljö. Lokalblicks frontend kan vara internetåtkomlig, medan masterdata, råfiler, API-nycklar och systemhemligheter hålls bakom ett autentiserat API/connector-lager.
-
-## Persistensprincip
-
-**Backend äger all beständig data.**
-
-LEB/Excel är master för källdata. Backend äger Lokalblicks kompletteringar och overlays, inklusive geokoordinater. Excel skrivs aldrig automatiskt om.
-
-## Körning och tester
-
-- Starta lokal företagsmiljö med `npm run setup:company` och `npm run company:api`, enligt `backend/README.md`.
-- Lokal privat Excelarbetsfil stöds. Källfiler och originalavtal förblir i godkänd företagsmiljö.
-- Arkitekturen kan på sikt använda intern eller extern databas genom samma autentiserade API; M365- och externa API-adaptrar är ännu inte kompletta.
-- `npm ci && npm test` kör domän-, relations-, import-, Excel-roundtrip- och API-tester samt preflight.
-- `npx playwright install chromium` och `npm run test:integration-browser` är separat webbläsarregression.
-
-All företagsdata, filer och hemligheter ska ligga utanför GitHub och Vercels publika demomiljö. Den gamla V1-vyn kan inte längre väljas.
-
-### Ren datamodell i den befintliga appen
-
-Förstasidan, kartan och arbetsflödena i `frontend/v2` används med den nya rena
-modellen i `frontend/lokaler`. Granskad Excelimport fördelar källrader till
-fastigheter, objekt, avtal, personer och personkopplingar. Kör `npm run lokaler`
-för lokal SQLite-lagring, eller anslut en lokal Excel-arbetsbok i webbappen.
-Den separata prototypens startsida leder nu till den befintliga appen.
-Se [startguide och datamodell](START-LOKALER.md).
+## Importens beteende
 
 Ärenden utan ÄrendeID får ett beständigt nummer, exempelvis `ÄR-000001`.
 Saknad eller osäker fastighets-/objektkoppling visas under **Ärenden → Status →
@@ -112,3 +97,9 @@ tolkas lämnas för komplettering; övriga säkert kopplade uppgifter läses in.
 sparade värden behålls. Ekonomiska villkor, besiktningsresultat, identifierare och
 relationer måste fortfarande valideras. Återkommande problem grupperas i
 granskningen, medan varje berörd post, källfil, flik, rad och felvärde finns kvar.
+
+## Aktuell modell och verifiering
+
+Vi bygger en ny app. Interna prototypmodeller migreras inte och borttagna fält
+arkiveras inte. Skapa en ny ren arbetsyta för aktuell modell; externa Excelunderlag
+kan läsas genom den granskade importen. Se [modell och testbeslut](docs/CURRENT_MODEL_AND_TESTS.md).

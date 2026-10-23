@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from 'node:test';import assert from 'node:assert/strict';
 import fs from 'node:fs';import {mkdtemp,rm,readFile} from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import vm from 'node:vm';import XLSX from 'xlsx';
 import {agreementWithItems,adoptAgreementItems,projectStoredAgreementItems,stripStoredAgreementFinance,validateAgreementItems} from '../frontend/lokaler/finance-view.js';
@@ -23,7 +24,7 @@ test('adopting flat additions preserves calculations, source values and snapshot
  assert.deepEqual(C.annualValues(agreementWithItems({contracts:[fallback]},fallback),2027,0,[]),C.annualValues(fallback,2027,0,[]));
 });
 test('older Excel workspaces retain multiple typed additions through a real workbook roundtrip',()=>{
- const sandbox={window:{LokalblickAgreementItems:globalThis.LokalblickAgreementItems},XLSX,console,Date,Map,Set,URL,Uint8Array,TextDecoder,localStorage:{removeItem(){},getItem(){return null;},setItem(){}}};vm.runInNewContext(fs.readFileSync(new URL('../frontend/services/source-service.js',import.meta.url),'utf8'),sandbox);
+ const sandbox={window:{LokalblickAgreementItems:globalThis.LokalblickAgreementItems},XLSX,console,Date,Map,Set,URL,Uint8Array,TextDecoder,localStorage:{removeItem(){},getItem(){return null;},setItem(){}}};vm.runInNewContext(sourceServiceScript(),sandbox);
  const data=fixture();adoptAgreementItems(data,'A');data.agreementItems.push(row('heat','heat','Värme'),row('water','water','VA'));projectStoredAgreementItems(data);const adapter=sandbox.window.LokalblickSourceService;
  const book=adapter.dataToWorkbook(data),rawRows=XLSX.utils.sheet_to_json(book.Sheets.Avtal);for(const key of ['baseRent','baseAdditions']){const caption=adapter.schemas.find(s=>s.key==='contracts').columns.find(c=>c[0]===key)[1];assert.ok(rawRows[0][caption]==null||rawRows[0][caption]==='');}
  const restored=normalize(adapter.workbookToData(XLSX.read(XLSX.write(book,{type:'buffer',bookType:'xlsx'}),{type:'buffer'})));assert.equal(restored.agreementItems.length,5);assert.equal(restored.contracts[0].items.filter(x=>x.type==='heat').length,1);assert.equal(restored.contracts[0].items.find(x=>x.type==='water').name,'VA');assert.deepEqual(restored.budgetPlans[0].lines,data.budgetPlans[0].lines);assert.equal(restored.budgetPlans[0].status,data.budgetPlans[0].status);

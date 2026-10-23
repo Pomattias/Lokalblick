@@ -1,3 +1,5 @@
+import {handleEditorCommand} from "../frontend/v2/editor-commands.js";
+import {syncEditorFrame} from "../frontend/v2/editor-frame.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
@@ -73,7 +75,12 @@ test("shared edit mode is used for all existing editors, without altering activi
  assert.ok(css.includes(".editor:not(.issue-editor) #edit-form.editor-readonly .editor-mode-value"));
  assert.ok(css.includes(".editor-activate-placeholder"));
  assert.ok(app.includes("if(undo)undo.disabled=false;"),"Undo always available to exit edit mode");
- assert.ok(app.includes('setEditorReadMode(false);'),"Redigera only unlocks controls");
+ const calls=[];
+ handleEditorCommand({dataset:{},hasAttribute:name=>name==='data-editor-activate'},{
+  editor:{id:'A'},setEditorReadMode:value=>calls.push(['mode',value]),
+  openEditor:()=>calls.push(['rebuild']),closeEditor:()=>calls.push(['close'])
+ });
+ assert.deepEqual(calls,[['mode',false]],"Redigera only unlocks the existing controls");
  assert.ok(!app.includes('if(editor.col!=="activities")\n        editorForm()?.querySelector('),"Editing must not auto focus a field");
 });
 
@@ -127,9 +134,10 @@ test("mobile editing uses a real overlay and keeps normal-weight text",()=>{
   const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
   const rule=css.slice(css.lastIndexOf("/* CANONICAL EDIT MODE"));
-  assert.ok(app.includes('function syncEditorFrame(active)'));
-  assert.ok(app.includes('frame=document.createElement("div")'));
-  assert.ok(app.includes('body.appendChild(frame)'));
+  const frame=readFileSync(new URL("../frontend/v2/editor-frame.js",import.meta.url),"utf8");
+  assert.ok(frame.includes('function syncEditorFrame(active)'));
+  assert.ok(frame.includes('frame=document.createElement("div")'));
+  assert.ok(frame.includes('body.appendChild(frame)'));
   assert.ok(app.includes('syncEditorFrame(!editor.readOnly)'));
   assert.ok(app.includes('syncEditorFrame(!id)'));
   assert.ok(app.includes('syncEditorFrame(false)'));
@@ -145,8 +153,6 @@ test("mobile editing uses a real overlay and keeps normal-weight text",()=>{
 });
 
 test("editing frame lifecycle creates one real element and cleans up on exit",()=>{
-  const app=readFileSync(new URL("../frontend/v2/app.js",import.meta.url),"utf8");
-  const expr=app.slice(app.indexOf("function syncEditorFrame(active)"),app.indexOf("function setEditorReadMode("));
   const oldDocument=globalThis.document;
   const elements=new Map();
   const classes=new Set();
@@ -160,12 +166,11 @@ test("editing frame lifecycle creates one real element and cleans up on exit",()
     createElement(){return {id:"",attrs:{},setAttribute(k,v){this.attrs[k]=v;},remove(){elements.delete(this.id);}};}
   };
   try{
-    const sync=new Function("document",expr+"return syncEditorFrame;")(globalThis.document);
-    sync(true);sync(true);
+    syncEditorFrame(true);syncEditorFrame(true);
     assert.equal(elements.size,1);
     assert.equal(elements.get("editor-edit-frame")?.attrs["aria-hidden"],"true");
     assert.ok(classes.has("editor-frame-active"));
-    sync(false);
+    syncEditorFrame(false);
     assert.equal(elements.size,0);
     assert.ok(!classes.has("editor-frame-active"));
   }finally{globalThis.document=oldDocument;}

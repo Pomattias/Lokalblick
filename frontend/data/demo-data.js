@@ -115,7 +115,6 @@ window.LokalblickDemoData = {
       "rentIndexPercent": 1,
       "rentSeriesBase": "1980",
       "additionIndexPercent": 0,
-
       "unitId": "VARDBO",
       "businessName": "Solgläntan",
       "sourceId": "101-2024",
@@ -145,7 +144,6 @@ window.LokalblickDemoData = {
       "rentIndexPercent": 0.8,
       "rentSeriesBase": "1980",
       "additionIndexPercent": 0,
-
       "unitId": "ORDBO",
       "businessName": "Hemtjänst Centrum / Hemsjukvård Centrum",
       "sourceId": "201-2025",
@@ -175,7 +173,6 @@ window.LokalblickDemoData = {
       "rentIndexPercent": 0.6,
       "rentSeriesBase": "1980",
       "additionIndexPercent": 0,
-
       "unitId": "ORDBO",
       "businessName": "Hemtjänst Centrum",
       "sourceId": "202-2025",
@@ -205,7 +202,6 @@ window.LokalblickDemoData = {
       "rentIndexPercent": 1,
       "rentSeriesBase": "1980",
       "additionIndexPercent": 0,
-
       "unitId": "HOF",
       "businessName": "Daglig verksamhet Västan",
       "sourceId": "301-2026",
@@ -366,18 +362,6 @@ window.LokalblickDemoData = {
       "shared": false
     },
     {
-      "id": "ANS-101-BUS",
-      "personId": "P3",
-      "targetType": "contract",
-      "targetId": "AVT-DEMO-101",
-      "roleKey": "business",
-      "role": "Verksamhetsansvarig",
-      "organizationId": "ORG-TENANT",
-      "fromDate": "2026-01-01",
-      "toDate": "",
-      "shared": false
-    },
-    {
       "id": "ANS-101-TEN",
       "personId": "P3",
       "targetType": "contract",
@@ -390,36 +374,12 @@ window.LokalblickDemoData = {
       "shared": false
     },
     {
-      "id": "ANS-201-BUS",
-      "personId": "P6",
-      "targetType": "contract",
-      "targetId": "AVT-DEMO-201",
-      "roleKey": "business",
-      "role": "Verksamhetsansvarig",
-      "organizationId": "ORG-TENANT",
-      "fromDate": "2026-01-01",
-      "toDate": "",
-      "shared": false
-    },
-    {
       "id": "ANS-201-TEN",
       "personId": "P3",
       "targetType": "contract",
       "targetId": "AVT-DEMO-201",
       "roleKey": "tenant",
       "role": "Hyresgästens kontaktperson",
-      "organizationId": "ORG-TENANT",
-      "fromDate": "2026-01-01",
-      "toDate": "",
-      "shared": false
-    },
-    {
-      "id": "ANS-202-BUS",
-      "personId": "P6",
-      "targetType": "contract",
-      "targetId": "AVT-DEMO-202",
-      "roleKey": "business",
-      "role": "Verksamhetsansvarig",
       "organizationId": "ORG-TENANT",
       "fromDate": "2026-01-01",
       "toDate": "",
@@ -484,107 +444,6 @@ window.LokalblickDemoData = {
       "fromDate": "2026-01-01",
       "toDate": "",
       "shared": false
-    },
-    {
-      "id": "ANS-BUS",
-      "personId": "P6",
-      "targetType": "business",
-      "targetId": "BUS-DEMO-HEM",
-      "roleKey": "business",
-      "role": "Verksamhetsansvarig",
-      "organizationId": "ORG-TENANT",
-      "fromDate": "2026-01-01",
-      "toDate": "",
-      "shared": false
-    }
-  ],
-  "businesses": [
-    {
-      "id": "BUS-DEMO-SOL",
-      "sourceId": "V-101",
-      "name": "Solgläntans äldreboende",
-      "type": "Äldreboende",
-      "unitId": "VARDBO",
-      "organizationId": "ORG-TENANT",
-      "status": "Aktiv",
-      "businessResponsiblePersonId": "P3"
-    },
-    {
-      "id": "BUS-DEMO-HEM",
-      "sourceId": "V-201",
-      "name": "Hemtjänst Centrum",
-      "type": "Hemtjänst",
-      "unitId": "ORDBO",
-      "organizationId": "ORG-TENANT",
-      "status": "Aktiv",
-      "businessResponsiblePersonId": "P6"
-    },
-    {
-      "id": "BUS-DEMO-HS",
-      "sourceId": "V-202",
-      "name": "Hemsjukvård Centrum",
-      "type": "Hemsjukvård",
-      "unitId": "ORDBO",
-      "organizationId": "ORG-TENANT",
-      "status": "Aktiv",
-      "businessResponsiblePersonId": "P3"
-    },
-    {
-      "id": "BUS-DEMO-DAG",
-      "sourceId": "V-301",
-      "name": "Daglig verksamhet Västan",
-      "type": "Daglig verksamhet",
-      "unitId": "HOF",
-      "organizationId": "ORG-TENANT",
-      "status": "Aktiv",
-      "businessResponsiblePersonId": "P3"
-    }
-  ],
-  "contractBusinesses": [
-    {
-      "id": "CB-DEMO-101",
-      "contractId": "AVT-DEMO-101",
-      "businessId": "BUS-DEMO-SOL",
-      "fromDate": "2024-01-01",
-      "toDate": "",
-      "usedArea": null,
-      "costSharePercent": null
-    },
-    {
-      "id": "CB-DEMO-201-A",
-      "contractId": "AVT-DEMO-201",
-      "businessId": "BUS-DEMO-HEM",
-      "fromDate": "2025-01-01",
-      "toDate": "",
-      "usedArea": 300,
-      "costSharePercent": 60
-    },
-    {
-      "id": "CB-DEMO-201-B",
-      "contractId": "AVT-DEMO-201",
-      "businessId": "BUS-DEMO-HS",
-      "fromDate": "2025-01-01",
-      "toDate": "",
-      "usedArea": 200,
-      "costSharePercent": 40
-    },
-    {
-      "id": "CB-DEMO-202",
-      "contractId": "AVT-DEMO-202",
-      "businessId": "BUS-DEMO-HEM",
-      "fromDate": "2025-01-01",
-      "toDate": "",
-      "usedArea": null,
-      "costSharePercent": null
-    },
-    {
-      "id": "CB-DEMO-301",
-      "contractId": "AVT-DEMO-301",
-      "businessId": "BUS-DEMO-DAG",
-      "fromDate": "2026-01-01",
-      "toDate": "",
-      "usedArea": null,
-      "costSharePercent": null
     }
   ],
   "activities": [
@@ -993,10 +852,50 @@ window.LokalblickDemoData = {
     }
   ],
   "recurringCosts": [
-    {"id":"MEDIA-DEMO-101","name":"Media och drift","contractId":"AVT-DEMO-101","propertyId":"","category":"Media","annualAmount":294000,"startYear":2024,"endYear":null,"actuals":[]},
-    {"id":"MEDIA-DEMO-201","name":"Media och drift","contractId":"AVT-DEMO-201","propertyId":"","category":"Media","annualAmount":114000,"startYear":2025,"endYear":null,"actuals":[]},
-    {"id":"MEDIA-DEMO-202","name":"Media och drift","contractId":"AVT-DEMO-202","propertyId":"","category":"Media","annualAmount":72000,"startYear":2025,"endYear":null,"actuals":[]},
-    {"id":"MEDIA-DEMO-301","name":"Media och drift","contractId":"AVT-DEMO-301","propertyId":"","category":"Media","annualAmount":318000,"startYear":2026,"endYear":null,"actuals":[]},
+    {
+      "id": "MEDIA-DEMO-101",
+      "name": "Media och drift",
+      "contractId": "AVT-DEMO-101",
+      "propertyId": "",
+      "category": "Media",
+      "annualAmount": 294000,
+      "startYear": 2024,
+      "endYear": null,
+      "actuals": []
+    },
+    {
+      "id": "MEDIA-DEMO-201",
+      "name": "Media och drift",
+      "contractId": "AVT-DEMO-201",
+      "propertyId": "",
+      "category": "Media",
+      "annualAmount": 114000,
+      "startYear": 2025,
+      "endYear": null,
+      "actuals": []
+    },
+    {
+      "id": "MEDIA-DEMO-202",
+      "name": "Media och drift",
+      "contractId": "AVT-DEMO-202",
+      "propertyId": "",
+      "category": "Media",
+      "annualAmount": 72000,
+      "startYear": 2025,
+      "endYear": null,
+      "actuals": []
+    },
+    {
+      "id": "MEDIA-DEMO-301",
+      "name": "Media och drift",
+      "contractId": "AVT-DEMO-301",
+      "propertyId": "",
+      "category": "Media",
+      "annualAmount": 318000,
+      "startYear": 2026,
+      "endYear": null,
+      "actuals": []
+    },
     {
       "id": "KOST-DEMO-101",
       "name": "Energi",
@@ -1033,7 +932,7 @@ window.LokalblickDemoData = {
       "sheets": "Fastigheter, Objekt, Avtal, Verksamheter, Aktiviteter"
     }
   ],
-  "demoRevision": "2026-10-21-maintenance-grades",
+  "demoRevision": "2026-10-23-agreement-business-fields",
   "spaces": [
     {
       "id": "UTR-DEMO-KOK",

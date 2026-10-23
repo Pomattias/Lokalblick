@@ -4,10 +4,10 @@ import '../frontend/domain/business-model.js';
 import '../frontend/domain/responsibility-model.js';
 import {normalize,resolveReview} from '../frontend/v2/model.js';
 const model=globalThis.LokalblickBusinessModel;
-const fixture=()=>({properties:[{id:'p'}],objects:[{id:'o',propertyId:'p'}],contracts:[{id:'A1',objectId:'o',propertyId:'p',tenantName:'Hyresgäst AB',business:'Dagverksamhet'}],organizations:[],people:[],assignments:[],activities:[],auditLog:[],importReview:[]});
+const fixture=()=>({properties:[{id:'p'}],objects:[{id:'o',propertyId:'p'}],contracts:[{id:'A1',objectId:'o',propertyId:'p',tenantName:'Hyresgäst AB',businessName:'Dagverksamhet'}],organizations:[],people:[],assignments:[],activities:[],auditLog:[],importReview:[]});
 test('verksamhet is descriptive text and never produces a register or relationship',()=>{
  const once=normalize(fixture()),twice=normalize(once);assert.deepEqual(twice,once);
- assert.equal(once.contracts[0].business,'Dagverksamhet');assert.equal(once.businesses,undefined);assert.equal(once.contractBusinesses,undefined);
+ assert.equal(once.contracts[0].businessName,'Dagverksamhet');assert.equal(once.businesses,undefined);assert.equal(once.contractBusinesses,undefined);
  assert.equal(once.organizations.length,1);assert.equal(once.contracts[0].tenantPartyId,once.organizations[0].id);
 });
 test('only exact tenant party names are reused; punctuation is significant',()=>{

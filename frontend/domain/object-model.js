@@ -27,14 +27,21 @@
     for(const activity of data.activities){if(activity.objectId&&!activity.contractId){const o=data.objects.find(o=>o.id===activity.objectId);if(o)activity.propertyId=o.propertyId;}}
     // External agreement files sometimes carry the only known object area.
     // Adopt an unambiguous area once into the object, never keep a second copy.
-    for(const object of data.objects){
-      if(meaningful(object.area))continue;
-      const values=[...new Set(data.contracts.filter(c=>c.objectId===object.id&&meaningful(c.area)).map(c=>Number(c.area)))];
-      if(values.length===1&&Number.isFinite(values[0])&&values[0]>=0)object.area=values[0];
+    for(const object of data.objects)for(const field of ['area','apartmentArea','commonArea']){
+      const sourceContracts=data.contracts.filter(c=>c.objectId===object.id&&c.objectAreaManaged!==true&&meaningful(c[field]));
+      const values=[...new Set(sourceContracts.map(c=>Number(c[field])))];
       if(values.length>1){
         data.importReview ||= [];
-        const id='object-area-conflict|'+object.id;
-        if(!data.importReview.some(row=>row.id===id))data.importReview.push({id,kind:'object-area-conflict',status:'pending',collection:'objects',recordId:object.id,reason:'Olika avtalsytor för samma objekt kräver granskning',values});
+        const id='object-area-conflict|'+object.id+'|'+field;
+        if(!data.importReview.some(row=>row.id===id))data.importReview.push({id,kind:'object-area-conflict',status:'pending',collection:'objects',recordId:object.id,field,values,reason:'Olika källytor för samma objekt kräver granskning'});
+        continue;
+      }
+      if(!meaningful(object[field])&&values.length===1&&Number.isFinite(values[0])&&values[0]>=0)object[field]=values[0];
+      for(const contract of sourceContracts){
+        if(meaningful(object[field])&&Number(contract[field])===Number(object[field]))continue;
+        data.importReview ||= [];
+        const id='object-area|'+contract.id+'|'+field;
+        if(!data.importReview.some(row=>row.id===id))data.importReview.push({id,kind:'object-area',status:'pending',collection:'objects',recordId:object.id,field,current:object[field],proposed:contract[field],reason:'Källans yta skiljer sig från objektets yta. Granska före överföring',provenance:contract.provenance?.[field]});
       }
     }
     return projectAreas(data);
@@ -61,7 +68,8 @@
   function projectAreas(data){
     for(const c of data.contracts||[]){
       const o=(data.objects||[]).find(o=>o.id===c.objectId);
-      if(o&&meaningful(o.area))c.area=o.area;else delete c.area;
+      for(const field of ['area','apartmentArea','commonArea']){if(o&&meaningful(o[field]))c[field]=o[field];else delete c[field];}
+      c.objectAreaManaged=true;
     }
     return data;
   }

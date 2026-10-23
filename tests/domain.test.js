@@ -50,7 +50,7 @@ function services() {
     "services/address-match.js",
     "services/contract-enrichment-adapter.js",
     "services/operational-enrichment-adapter.js",
-    "services/source-service.js",
+    "services/source-workbook.js","services/source-service.js",
   ])
     vm.runInContext(fs.readFileSync("frontend/" + file, "utf8"), context, {filename:fs.realpathSync("frontend/"+file),importModuleDynamically:vm.constants.USE_MAIN_CONTEXT_DEFAULT_LOADER});
   context.window.LokalblickCalculations = context.LokalblickCalculations;
@@ -1018,12 +1018,12 @@ test("unified Excel import seeds empty property and contract data before enrichm
     (x) => x.field === "area" && Number(x.proposed) === 510,
   );
   assert.ok(areaConflict);
-  assert.equal(areaConflict.collection, "contracts");
+  assert.equal(areaConflict.collection, "objects");
   assert.equal(
     areaConflict.recordId,
-    changed.data.contracts.find((x) => x.number === "12345").id,
+    changed.data.contracts.find((x) => x.number === "12345").objectId,
   );
-  assert.equal(areaConflict.entity, "Avtal");
+  assert.equal(areaConflict.entity, "Objekt");
   assert.equal(areaConflict.currentSource, "SF.xlsx");
   assert.equal(
     changed.data.importReview.some((x) => x.field === "source"),

@@ -127,17 +127,12 @@ for(const mode of ['sqlite','excel'])test('generated issue IDs, source matches a
   assert.equal(store.snapshot().data.issues[0].id,first.clean.issues[0].id);assert.deepEqual(store.snapshot().data.workspace.budgetPlans,first.clean.workspace.budgetPlans);
  }finally{await store.close();await rm(dir,{recursive:true,force:true});}
 });
-test('current SQLite issue constraints are relaxed without losing references, optional fields or Budget',async()=>{
+test('current SQLite supports unassigned issues and retains linked orders after reopening',async()=>{
  const dir=await mkdtemp(path.join(tmpdir(),'issue-home-upgrade-')),file=path.join(dir,'data.sqlite');let store=await LocalStore.open({file});
  try{
   const data=fixture();data.issues.push(normalize('issues',{id:'old',object_id:'O1',title:'Befintligt',kind:'Projekt',journal:[{text:'Bevara'}]}));
   data.orders.push(normalize('orders',{id:'B1',issue_id:'old',title:'Order'}));data.contacts.push(normalize('contacts',{id:'C2',person_id:'P1',role:'coordinator',issue_id:'old'}));await store.replace(data,0);
   const before=JSON.parse(JSON.stringify(store.snapshot()));await store.close();
-  const db=new DatabaseSync(file),sql=db.prepare("SELECT sql FROM sqlite_master WHERE name='issues'").get().sql;
-  const columns=db.prepare('PRAGMA table_info(issues)').all().map(column=>column.name).join(',');
-  db.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE');
-  db.exec(sql.replace('"issues"','issues').replace('CREATE TABLE issues','CREATE TABLE issue_previous').replace('<= 1','= 1'));
-  db.exec(`INSERT INTO issue_previous (${columns}) SELECT ${columns} FROM issues; DROP TABLE issues; ALTER TABLE issue_previous RENAME TO issues; COMMIT`);db.close();
   store=await LocalStore.open({file});assert.deepEqual(JSON.parse(JSON.stringify(store.snapshot())),before);assert.equal(store.db.prepare('PRAGMA foreign_key_check').all().length,0);
   const next=store.snapshot().data;next.issues.push(normalize('issues',{id:'new',title:'Att koppla'}));await store.replace(next,before.version);assert.equal(store.snapshot().data.issues.length,2);
   assert.deepEqual(store.snapshot().data.workspace.budgetPlans,data.workspace.budgetPlans);

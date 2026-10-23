@@ -212,19 +212,10 @@ for(const mode of ['sqlite','excel'])test('property-level room observations and 
   assert.deepEqual(await readWorkbook(await writeWorkbook(clean,ExcelJS),ExcelJS),clean);
  }finally{await store.close();await rm(dir,{recursive:true,force:true});}
 });
-test('current object-only SQLite maintenance tables gain property scope without losing IDs, history or Budget',async()=>{
+test('current SQLite stores both property and object maintenance scopes across reopening',async()=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),'maintenance-scope-')),file=path.join(dir,'current.sqlite');let store=await LocalStore.open({file});
  try{
   const {data,inspection}=draftFixture();data.inspectionPoints.forEach(point=>updatePoint(data,point.id,{assessment:'ok',comment:'Bevaras'}));finishInspection(data,inspection);await store.replace(collectWorkspace(data,fixture()),0);const before=JSON.parse(JSON.stringify(store.snapshot()));await store.close();
-  const db=new DatabaseSync(file);
-  db.exec(`PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE;
-   CREATE TABLE spaces_original(id TEXT PRIMARY KEY NOT NULL,object_id TEXT NOT NULL REFERENCES objects(id),name TEXT NOT NULL,floor TEXT) STRICT;
-   INSERT INTO spaces_original SELECT id,object_id,name,floor FROM spaces; DROP TABLE spaces; ALTER TABLE spaces_original RENAME TO spaces;
-   CREATE TABLE inspections_original(id TEXT PRIMARY KEY NOT NULL,object_id TEXT NOT NULL REFERENCES objects(id),inspected_on TEXT,inspector_id TEXT REFERENCES people(id),status TEXT NOT NULL DEFAULT 'draft',notes TEXT,sources TEXT) STRICT;
-   INSERT INTO inspections_original SELECT id,object_id,inspected_on,inspector_id,status,notes,sources FROM inspections; DROP TABLE inspections; ALTER TABLE inspections_original RENAME TO inspections;
-   CREATE TABLE inspection_points_original(id TEXT PRIMARY KEY NOT NULL,inspection_id TEXT NOT NULL REFERENCES inspections(id),part_id TEXT NOT NULL REFERENCES building_parts(id),assessment TEXT NOT NULL DEFAULT 'unchecked',comment TEXT,last_action TEXT,photo_reference TEXT,issue_id TEXT REFERENCES issues(id),source_plans TEXT,sources TEXT,UNIQUE(inspection_id,part_id)) STRICT;
-   INSERT INTO inspection_points_original SELECT id,inspection_id,part_id,assessment,comment,last_action,photo_reference,issue_id,source_plans,sources FROM inspection_points; DROP TABLE inspection_points; ALTER TABLE inspection_points_original RENAME TO inspection_points;
-   COMMIT;`);db.close();
   store=await LocalStore.open({file});assert.deepEqual(JSON.parse(JSON.stringify(store.snapshot())),before);assert.equal(store.db.prepare('PRAGMA foreign_key_check').all().length,0);
   const next=projectWorkspace(store.snapshot().data);const room=addSpace(next,{propertyId:'F'},'Gård','',[]);assessSpace(next,room,{assessment:'ok',comment:'Ny rumsbedömning'});await store.replace(collectWorkspace(next,store.snapshot().data),before.version);assert.equal(store.snapshot().data.spaces.filter(row=>row.property_id==='F').length,1);assert.deepEqual(store.snapshot().data.workspace.budgetPlans,before.data.workspace.budgetPlans);
  }finally{await store.close();await rm(dir,{recursive:true,force:true});}

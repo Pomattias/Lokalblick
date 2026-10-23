@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
@@ -54,7 +55,7 @@ test("settings screen contains three compact central registers",()=>{
 test("Excel workbook persists option ordering, activity categories and disabled values",()=>{
   const sandbox={window:{},XLSX,Date,Map,Set,URL,Uint8Array,TextDecoder,console,
     localStorage:{removeItem(){},getItem(){return null},setItem(){}}};
-  vm.runInNewContext(fs.readFileSync(new URL("../frontend/services/source-service.js",import.meta.url),"utf8"),sandbox);
+  vm.runInNewContext(sourceServiceScript(),sandbox);
   const svc=sandbox.window.LokalblickSourceService;
   const data=normalize({properties:[],contracts:[],activities:[{id:"a",type:"Projekt",status:"Planerad",category:"Ventilation"}]});
   changeActivityOption(data,{kind:"status",action:"toggle",name:"Planerad",active:false});

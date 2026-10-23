@@ -37,7 +37,7 @@ test("compact contract form distinguishes owner from tenant and retains indexed 
   assert.match(html,/value="Hyresgäst AB"/);
   assert.match(html,/name="unitId"/);
   assert.match(html,/value="VARDBO" selected/);
-  assert.match(html,/name="businessPartyId"/);
+  assert.doesNotMatch(html,/name="businessPartyId"/);
   assert.match(html,/name="tenantPartyId"/);
   assert.match(html,/Hyresgäst/);
   assert.doesNotMatch(html,/juridisk part/);
@@ -120,7 +120,7 @@ test("contract overview omits repeated references and keeps optional controls in
   assert.doesNotMatch(html,/Kontaktperson A · Vårdbo/);
   const secondary=html.split('data-contract-context>')[1].split('<section')[0]+
     html.split('data-contract-contact-roles>')[1].split('</details>')[0];
-  for(const key of ['tenantName','businessPartyId','responsiblePersonId','tenantResponsiblePersonId','category']) {
+  for(const key of ['tenantName','responsiblePersonId','tenantResponsiblePersonId','category']) {
     assert.match(secondary,new RegExp('name="'+key+'"'));
     assert.equal((html.match(new RegExp('name="'+key+'"','g'))||[]).length,1);
   }
@@ -148,11 +148,12 @@ test("agreement identity, economics and dates precede all contacts without dupli
   assert.ok(identity.indexOf('name="number"')<identity.indexOf('name="tenantPartyId"'));
   const economics=html.split('data-contract-section="economics">')[1].split('</section>')[0];
   assert.match(economics,/Hyra \d{4}, kr\/år/);
-  assert.match(economics,/name="area"/);
+  assert.match(economics,/data-object-area/);
+  assert.doesNotMatch(economics,/name="area"/);
   assert.match(economics,/data-contract-rent-terms><summary>/);
   const beforeContacts=html.split('data-contract-section="contacts">')[0];
   assert.doesNotMatch(beforeContacts,/name="(?:responsiblePersonId|tenantResponsiblePersonId|businessResponsiblePersonId)"/);
-  for(const key of ['number','tenantPartyId','area','start','end','baseRent','rentBaseYear','noticePeriodMonths','renewalPeriodMonths'])
+  for(const key of ['number','tenantPartyId','start','end','baseRent','rentBaseYear','noticePeriodMonths','renewalPeriodMonths'])
     assert.equal((html.match(new RegExp('name="'+key+'"','g'))||[]).length,1,key);
   assert.match(renderContractEditor(data,{propertyId:'p1'},""),/data-contract-rent-terms open/);
 });
@@ -170,9 +171,9 @@ test('compact agreement shows annual lease rent per square metre and retains one
 });
 
 test('additional agreement fields appear once inside existing disclosures and preserve the source category',()=>{
- const c={...contract,terminatedOn:'2028-01-01',terminationReason:'Lokalen lämnas',business:'Kommunal primärvård.',use:'Träffpunkt',workplaceCount:12,hubCount:3,apartmentArea:245.5,category:'KP Kontor- och personallokaler',contractDocumentUrl:'https://example.invalid/a.pdf'};
+ const c={...contract,terminatedOn:'2028-01-01',terminationReason:'Lokalen lämnas',businessName:'Kommunal primärvård.',use:'Träffpunkt',workplaceCount:12,hubCount:3,apartmentArea:245.5,category:'KP Kontor- och personallokaler',contractDocumentUrl:'https://example.invalid/a.pdf'};
  const html=renderContractEditor(data,c,c.id,false,{portfolio:true});
- for(const field of ['terminatedOn','terminationReason','use','workplaceCount','hubCount','business','contractDocumentUrl','category'])assert.equal((html.match(new RegExp('name="'+field+'"','g'))||[]).length,1,field);
+ for(const field of ['terminatedOn','terminationReason','use','workplaceCount','hubCount','businessName','businessDescription','contractDocumentUrl','category'])assert.equal((html.match(new RegExp('name="'+field+'"','g'))||[]).length,1,field);
  assert.match(html,/value="KP Kontor- och personallokaler" selected/);
  const beforeDisclosures=html.split('data-contract-notice-terms')[0];assert.doesNotMatch(beforeDisclosures,/name="(?:terminatedOn|businessComment|employees)"/);
  const legacy=renderContractEditor(data,c,c.id);assert.doesNotMatch(legacy,/name="(?:terminatedOn|terminationReason|businessComment|employees|apartmentArea|contractDocumentUrl|use)"/,'Budget editor retains its existing controls');

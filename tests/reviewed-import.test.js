@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -5,7 +6,7 @@ import vm from 'node:vm';
 import XLSX from 'xlsx';
 import {profileWorkbook,prepareMappedImport} from '../frontend/services/import-engine.js';
 import '../frontend/domain/object-model.js';
-const ctx=vm.createContext({window:{},XLSX});vm.runInContext(fs.readFileSync('frontend/services/source-service.js','utf8'),ctx);
+const ctx=vm.createContext({window:{},XLSX});vm.runInContext(sourceServiceScript(),ctx);
 const schemas=ctx.window.LokalblickSourceService.schemas;
 function book(rows,name='Lokallista'){const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(rows),name);return workbook;}
 function run(workbook,base={},decide=()=>{}){

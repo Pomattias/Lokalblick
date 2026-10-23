@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import XLSX from 'xlsx';
@@ -9,7 +10,7 @@ import {audit,resolveReview} from '../frontend/v2/model.js';
 import {fieldCaption} from '../frontend/v2/field-labels.js';
 import {fieldCatalog} from '../frontend/services/import-engine.js';
 const context=vm.createContext({window:{},XLSX,crypto:webcrypto});
-vm.runInContext(fs.readFileSync('frontend/services/source-service.js','utf8'),context);
+vm.runInContext(sourceServiceScript(),context);
 const schemas=context.window.LokalblickSourceService.schemas;
 function fixture(rows,name='Ny struktur'){const w=XLSX.utils.book_new();XLSX.utils.book_append_sheet(w,XLSX.utils.aoa_to_sheet(rows),name);return w;}
 function run(w,base={},options={}){const profiles=profileWorkbook(w,schemas,XLSX,base.importMappings||[]);return prepareMappedImport(w,profiles,base,{fingerprint:'test-hash',fileName:'test.xlsx',actor:'Test',schemas,...options},XLSX);}
@@ -41,7 +42,7 @@ test('a designation in another city cannot silently merge',()=>{
 });
 test('insufficient identity and invalid numeric value remain available for review',()=>{
  const w=fixture([['Avtalsnummer','BRA'],['123','fel']]);const result=run(w);
- assert.equal(result.data.contracts.length,0);assert.equal(result.data.importReview[0].values.number,'123');
+ assert.equal(result.data.contracts.length,0);assert.equal(result.data.importReview.find(review=>review.collection==='contracts').values.number,'123');assert.ok(result.data.importReview.some(review=>review.reason.includes('Ogiltigt tal')));
 });
 test('two contracts on the same property retain separate identities',()=>{
  const w=fixture([['Fast.bet','Adress','Ort','Avtalsnummer','Årshyra'],['Ek 1','Gatan 1','Malmö','1',100],['Ek 1','Gatan 1','Malmö','2',200]]);

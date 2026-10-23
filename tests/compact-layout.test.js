@@ -5,7 +5,7 @@ import "../frontend/domain/calculations.js";
 import {renderPropertyEditor} from "../frontend/v2/property-editor.js";
 import {renderContractEditor} from "../frontend/v2/contract-editor.js";
 const css=readFileSync(new URL("../frontend/v2/styles.css",import.meta.url),"utf8");
-const views=readFileSync(new URL("../frontend/v2/views.js",import.meta.url),"utf8");
+const views=["view-planning.js","view-portfolio.js"].map(file=>readFileSync(new URL("../frontend/v2/"+file,import.meta.url),"utf8")).join("\n");
 
 test("property and lease fields keep accessible labels next to native controls",()=>{
   const data={properties:[{id:"p",address:"Testgatan 1",city:"Malmö"}],

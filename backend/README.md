@@ -1,6 +1,17 @@
 # Lokalblick backend
 
-Backend är gränsen mellan Lokalblicks UI och företagets data.
+Backend äger sparning i API-lägena. Lokal Excel/IndexedDB i webbläsaren är
+ett separat implementerat körläge. Se [miljömatrisen](../ARCHITECTURE.md)
+och [utvecklarguiden](../docs/DEVELOPER_START.md) för läsordning och kommandon.
+
+`npm run company` serverar frontend och hjälp-API:er. Den rena lokala
+SQLite-/Excel-lagringen startas med `npm run lokaler` respektive
+`npm run lokaler:excel` på port 8790 (Node.js 24 LTS). Äldre LEB-läsning
+med backendägd JSON startas med `npm run setup:company` och
+`npm run company:api` på port 8787, enligt
+[company-guiden](../docs/COMPANY-LOCAL-SETUP.md).
+De lokala servrarna implementerar inte Entra ID-inloggning; avsnitten om
+autentiserad produktion och M365 nedan beskriver målarkitekturen.
 
 ## Lokal utvecklingsversion
 
@@ -12,7 +23,8 @@ npm run company
 
 Standardadress är `http://127.0.0.1:8787`.
 
-Backend serverar även `frontend/` lokalt, så företagsversionen kan köras same-origin utan att Excel/LEB eller koordinater behöver gå via Vercel.
+Servern serverar `frontend/` lokalt och hjälp-API:er för geokodning och index.
+Detta kommando ansluter inte LEB eller ett allmänt lagrings-API automatiskt.
 
 ## Geokodning
 
@@ -36,9 +48,12 @@ LOKALBLICK_PORT=8787
 
 Lägg verkliga värden i den lokala miljön, aldrig i GitHub. För produktion bör Azure Maps anropas med Microsoft Entra ID/managed identity i stället för en delad nyckel.
 
-## Produktionsprincip
+## Mål för autentiserad produktion
 
-Frontend får aldrig läsa eller skriva direkt till Excel, SharePoint eller Dataverse med hemligheter i klientkod. Frontend anropar endast ett autentiserat API.
+I en framtida centralt autentiserad installation anropar frontend ett
+behörighetskontrollerat API. Hemligheter för Excel-/SharePoint-/Dataverse-anslutningar
+hör aldrig hemma i klientkod. Detta mål ska inte förväxlas med den implementerade
+lokala webbläsarens direkta åtkomst till en uttryckligen vald arbetsbok.
 
 ```
 Teams / webbläsare
@@ -57,7 +72,7 @@ Lokalblick backend
        +-- Azure Maps / godkänd geokodning
 ```
 
-## Ansvar
+## Målansvar för produktionsbackend
 
 Backend ska:
 - verifiera användaren via Microsoft Entra ID
@@ -72,7 +87,10 @@ Backend ska:
 
 ## Lagring
 
-LEB/Excel är master för källdata. Lokalblicks kompletteringar och overlays ägs av backend. Geokoordinater är därför backend-data och skrivs inte automatiskt tillbaka till Excel.
+I den äldre company-anslutningen är LEB/Excel master för källdata och backend
+äger kompletteringar och overlays. I den rena modellen ägs sparningen av vald
+SQLite-/Excel-backend eller lokal webbläsararbetsyta. Importunderlag skrivs inte om.
+Geokoordinater i backendens coordinate store skrivs inte automatiskt till källfilen.
 
 Den lokala coordinate store-filen skrivs atomiskt och ligger utanför repo som standard. När användaren uttryckligen väljer att skriva till en Excel-källa kan frontendens vanliga write-back-flöde fortfarande exportera de koordinater som finns i den aktuella arbetsmodellen.
 

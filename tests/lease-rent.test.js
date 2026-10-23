@@ -1,3 +1,4 @@
+import {sourceServiceScript} from "./helpers/source-service.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import "../frontend/domain/calculations.js";
@@ -25,7 +26,7 @@ test("2026 annual rent and addition use separate baselines and index shares",()=
  assert.equal(normalized.contracts[0].rentBaseIndex,300);
  assert.equal(normalized.contracts[0].additionBaseIndex,320);
  const svcContext=vm.createContext({window:{},XLSX,console,Date,Map,Set,URL,Uint8Array,TextDecoder,localStorage:{removeItem(){},getItem(){return null},setItem(){}}});
- vm.runInContext(fs.readFileSync("frontend/services/source-service.js","utf8"),svcContext);
+ vm.runInContext(sourceServiceScript(),svcContext);
  const svc=svcContext.window.LokalblickSourceService;
  const saved=svc.workbookToData(svc.dataToWorkbook(normalized));
  assert.equal(saved.contracts[0].rentBaseIndex,300);

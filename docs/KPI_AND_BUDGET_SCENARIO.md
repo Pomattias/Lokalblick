@@ -28,8 +28,11 @@ Båda vägarna går genom samma `annualValues` och `budgetRows` med det
   fastighetens identitet när budgetscenariot justeras.
 - Låsta budgetar visar lagrade `plan.lines`; återberäkna eller skriv aldrig
   över en låst baslinje. Nya antaganden kräver en ny budgetversion.
-- Årsbudgetens löpande driftkostnader hör till exakt en fastighet eller ett avtal
-  (`recurringCosts`). Engångsåtgärder tillhör `activities` (Ärenden).
+- I den rena modellen hör löpande driftkostnader till en fastighet
+  (`recurring_costs`, projicerat som `recurringCosts`). Hyra och tillägg hör
+  till avtalsposter (`agreement_items`). Äldre arbetsfiler har kvar
+  läskompatibilitet för avtalskopplade kostnader. Engångsåtgärder tillhör
+  `issues`, projicerat som `activities` (Ärenden).
   Belopp som redan ingår i hyra, indexerade tillägg eller fastighetsskatt
   får inte räknas två gånger.
 

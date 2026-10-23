@@ -6,7 +6,7 @@ import XLSX from 'xlsx';
 import {webcrypto} from 'node:crypto';
 import {parseDate,parseNumber,interpretCell,dateField,numberField} from '../frontend/services/import-formats.js';
 const formats={parseDate,parseNumber,interpretCell,dateField,numberField};
-function services(){const c=vm.createContext({XLSX,crypto:webcrypto,console,Date,setTimeout});c.window=c;c.LokalblickImportFormats=formats;for(const file of ['domain/object-model.js','domain/calculations.js','domain/import-rules.js','services/migration-adapter.js','services/address-match.js','services/operational-enrichment-adapter.js','services/contract-enrichment-adapter.js','services/project-2027-adapter.js','services/source-service.js'])vm.runInContext(fs.readFileSync('frontend/'+file,'utf8'),c);return c;}
+function services(){const c=vm.createContext({XLSX,crypto:webcrypto,console,Date,setTimeout});c.window=c;c.LokalblickImportFormats=formats;for(const file of ['domain/object-model.js','domain/calculations.js','domain/import-rules.js','services/migration-adapter.js','services/address-match.js','services/operational-enrichment-adapter.js','services/contract-enrichment-adapter.js','services/project-2027-adapter.js','services/source-workbook.js','services/source-service.js'])vm.runInContext(fs.readFileSync('frontend/'+file,'utf8'),c);return c;}
 function workbook(rows,name){const w=XLSX.utils.book_new();XLSX.utils.book_append_sheet(w,XLSX.utils.aoa_to_sheet(rows),name);return w;}
 test('operational adapter uses common priorities and protects manually cleared fields with cell provenance',()=>{
  const c=services(),w=workbook([['Benämning','Postadress','Fastighetsägare','Förvaltare','Objekt. nr','Ort'],['Nytt namn','Gatan 1','','','EXT-1','Malmö']],'Fastighetslista');

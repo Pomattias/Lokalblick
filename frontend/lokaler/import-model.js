@@ -1,64 +1,23 @@
-import {consolidateImportReviews} from './import-conflicts.js';
+import {createImportRow} from './import-row-transaction.js';
+import {importSchemas} from './import-schema.js';
+export {importSchemas} from './import-schema.js';
+import {agreementNumberParts,generatedPropertyId,hashImportIdentity as hash} from './import-identities.js';
+import {completeCleanImport} from './import-result.js';
 import {propertyAliases,resolvePropertyId,propertyIdInBudget} from './property-identity.js';
-import {refreshImportReceipt} from './import-receipt.js';
 import {nextIssueId} from './issue-identity.js';
 import {issueImportPlan,issueHomeMatcher,importAddressKey} from './issue-import.js';
 import {importPreference} from '../services/import-preferences.js';
-import {legacyFinanceFields,legacyFinanceMap,validateFinance} from './finance-model.js';
+import {legacyFinanceMap,validateFinance} from './finance-model.js';
 import {maintenanceTables} from './maintenance-model.js';
 import {financialId,legacyAgreementItems} from './finance-revision.js';
-import {tables,emptyData,normalize,validateData,idLabels,partyNumberFields,normalizeOrganizationNumber} from './model.js';
+import {tables,emptyData,normalize,partyNumberFields,normalizeOrganizationNumber} from './model.js';
 import {viewFields,viewCollections} from './view-fields.js';
-import {projectWorkspace} from './view-adapter.js';
 import {interpretCell} from '../services/import-formats.js';
 import {assignAgreementItemKeys} from '../services/import-matching.js';
 import {personRole,contactPart,contactFields,personFormat,parsePersonIdentity} from '../services/import-person-links.js';
 const clone=value=>structuredClone(value),present=value=>value!==null&&value!==undefined&&value!=='';
 const text=value=>String(value??'').trim(),key=value=>text(value).replace(/\s+/g,' ').toLocaleLowerCase('sv');
-function agreementNumberParts(value){
- const id=text(value),parts=/^([A-Za-z]{0,8}\d+)-(\d+)(?:-(\d+))?$/.exec(id);
- // Date-shaped IDs and other layouts need an explicit choice, not a guess.
- if(!parts||id.length>100||/^(?:19|20)\d{2}-\d{2}-\d{2}$/.test(id))return null;
- return {propertyId:parts[1],objectId:parts[3]?parts[1]+'-'+parts[2]:null,agreementId:id};
-}
 const validLink=value=>{try{const url=new URL(value);return /^https?:$/.test(url.protocol)&&!!url.hostname&&!/\s/.test(value);}catch{return false;}};
-const hash=value=>{let h=2166136261;for(const char of value){h^=char.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(16);};
-const generatedPropertyId=(source,sheet,p)=>'FAS-'+hash(JSON.stringify([source,sheet,p.name||'',importAddressKey(p.address||''),p.city||'']));
-const fieldAliases={
- agreementItems:{start:['Fr.o.m.','Startdatum','Gäller från'],end:['T.o.m.','Slutdatum','Gäller till'],indexPercent:['Indexprocent','Indexandel, %'],adjustmentMethod:['Justeringsregel']},
- organizations:{organizationNumber:['Orgnr','Org.nr','Organisationsnr']},
- properties:{designation:['Fastighet','Fastighetsbeteckning','Fast.bet','Fast.nr','Fastighetsnr'],popularName:['Benämning'],id:['Fastighets-ID','Förvaltningsobjekt','Objektsnummer / Förvaltningsobjekt','Förvaltningsnummer'],address:['Gatuadress','Postadress','Fastighetsadress'],city:['Postort','Stad'],ownerPartyId:['Fastighetsägare PartID','Fastighetsägare namn','Hyresvärd','Lev.namn']},
- objects:{id:['Objektnummer','Objektsnummer','Objektnr','Objekt. nr','Objekt nr','Objekt','Objekt-ID','Objekts-ID'],area:['Area','Lokalarea','Lokalyta kvm','Lokalyta (kvm)','BRA','kvm','m2'],apartmentCount:['Lägenheter'],apartmentArea:['Lägenheter (yta)']},
- contracts:{id:['Avtalsnummer','Avtalsnr','Avtals-ID'],start:['Fr.o.m.','Start','Startdatum','Kontraktsstart','Gäller från','Giltigt fr.o.m.'],end:['T.o.m.','Slut','Slutdatum','Kontraktsslut','Giltigt t.o.m.','Aktuellt giltigt t.o.m.'],business:['Namn på verksamheten','Verksamhetsnamn'],comment:['Kommentar verksamhet'],category:['Lokalkategori','Lokalkategori (LEB)','Lokalkategori (EB)'],notice:['Säg upp avtal senast','Sägs upp senast'],noticePeriodMonths:['Uppsägningstid'],renewalPeriodMonths:['Förlängningstid'],use:['Användning'],contractDocumentUrl:['Länk avtal (Huvudkontrakt)','Länk till huvudkontrakt']},
- activities:{title:['Ärendenamn','Aktivitet','Vad ska göras'],priority:['Prio'],notes:['Kommentar','Kommentarer'],startDate:['Fr.o.m.','Startdatum'],endDate:['T.o.m.','Slutdatum']},
- orders:{title:['Produktnamn/beskrivning'],orderedAt:['Beställningsdatum'],deliveryText:['Leveransdatum'],status:['Status (Enbart beställt eller klart)']},
- people:{id:['Person-ID'],email:['Email','Epost'],phone:['Telefonnummer']}
-};
-fieldAliases.activities.objectId=fieldAliases.objects.id;
-fieldAliases.activities.propertyId=fieldAliases.properties.id;
-export const importSchemas=Object.entries(viewCollections).map(([table,collection])=>{
- const spec=tables[table],fields=spec.fields.filter(f=>f.key!=='sources'),fieldSpecs=Object.fromEntries(fields.map(f=>[viewFields[table][f.key]||f.key,{...f,storageKey:f.key}]));
- const schema={key:collection,storage:table,canonical:true,sheet:spec.label,singular:spec.singular,fieldSpecs:{id:{type:'text',storageKey:'id'},...fieldSpecs},labelAliases:fieldAliases[collection]||{},columns:[['id',idLabels[table]],...fields.map(f=>[viewFields[table][f.key]||f.key,f.type==='ref'?idLabels[f.table]:f.label])],related:[],parents:[]};
- if(collection==='activities')schema.aliases=['Aktiviteter','Årshjul'];
- if(collection==='contracts')schema.aliases=['Hyresavtal','Lokallista','Lokalbestånd','Lokaldata'];
- if(table==='properties')schema.columns=schema.columns.map(c=>c[0]==='ownerPartyId'?[c[0],'Fastighetsägare']:c);
- const linked=partyNumberFields[table];
- if(linked){schema.columns.push([linked.key,linked.label]);schema.fieldSpecs[linked.key]={type:'text',storageTarget:'parties.organization_number'};schema.labelAliases={...schema.labelAliases,[linked.key]:[linked.label,'Organisationsnummer '+(linked.role==='owner'?'fastighetsägare':'hyresgäst'),'Orgnr ('+(linked.role==='owner'?'fastighetsägare':'hyresgäst')+')']};}
- if(['properties','contracts','activities','orders'].includes(collection)){
-  const roles=collection==='properties'?[['ownerResponsiblePersonId','Fastighetsägarens kontaktperson'],['responsiblePersonId','Samordnare']]:collection==='contracts'?[['tenantResponsiblePersonId','Hyresgästens kontaktperson'],['responsiblePersonId','Samordnare']]:[['responsiblePersonId','Vår ansvarige']];
-  schema.columns.push(...roles);for(const [key]of roles)schema.fieldSpecs[key]={type:'text'};
-  schema.labelAliases={...schema.labelAliases,responsiblePersonId:['Ansvarig hos oss','Vår kontaktperson','Avtalsansvarig','Vår ansvarige','Ansvarig']};
-  if(collection==='properties')schema.labelAliases.ownerResponsiblePersonId=['Fastighetsförvaltare','Förvaltare','Fastighetsägarens förvaltare'];
- }
- if(table==='agreements'){
-  schema.columns=schema.columns.map(c=>c[0]==='tenantPartyId'?[c[0],'Hyresgäst']:c);
-  schema.shortcuts=Object.entries(legacyFinanceMap).map(([field,target])=>({target:'agreementItems.'+({annual_rent:'baseAmount',annual_additions:'baseAmount',annual_property_tax:'baseAmount',base_index:'baseIndex'}[field]||field.replace(/^(rent|addition)_/,'').split('_').map((s,i)=>i?s[0].toUpperCase()+s.slice(1):s).join('')),itemType:field==='annual_property_tax'?'tax':field.startsWith('addition')||field==='annual_additions'?'addition':'base',aliases:[legacyFinanceFields[field],...(field==='annual_rent'?['Årshyra','Hyresbelopp','Bashyra','Grundhyra','Månadshyra']:field==='annual_additions'?['Tillägg','Bastillägg','Tilläggshyra']:field==='annual_property_tax'?['F-skatt per år','F-skatt','Fastighetsskatt']:[])]}));
-  schema.shortcuts.push(...Object.entries(tables.agreement_items.fields.find(f=>f.key==='type').values).filter(([type])=>!['base','addition','tax'].includes(type)).map(([itemType,label])=>({target:'agreementItems.baseAmount',itemType,aliases:[label]})));
- }
- if(table==='agreement_items')schema.itemTypes=Object.fromEntries(Object.entries(tables.agreement_items.fields.find(f=>f.key==='type').values).map(([value,label])=>[label,value]));
- return schema;
-});
-for(const schema of importSchemas){const table=tables[schema.storage];for(const field of table.fields.filter(f=>f.type==='ref')){const parent=importSchemas.find(s=>s.storage===field.table);if(parent){schema.related.push(parent.key);schema.parents.push(parent.key);parent.related.push(schema.key);}}}
 const fieldMap=Object.fromEntries(Object.entries(viewCollections).flatMap(([table,collection])=>tables[table].fields.map(({key:field})=>[collection+'.'+(viewFields[table][field]||field),{table,field}])));
 for(const table of Object.keys(viewCollections)){fieldMap[viewCollections[table]+'.id']={table,field:'id'};}
 for(const [table,linked]of Object.entries(partyNumberFields))fieldMap[viewCollections[table]+'.'+linked.key]={table:'parties',field:'organization_number',partyRole:linked.role};
@@ -78,6 +37,15 @@ const canHoldField=(table,field)=>{
   !['maintenance_completed_on','maintenance_result','rent_surcharge_start'].includes(field)&&
   spec&&!spec.required&&['date','number','integer','coordinate','url','text','textarea','email','tel','select'].includes(spec.type);
 };
+/**
+ * Prepare an import for review; the caller decides whether to persist it.
+ * workbook is a parsed SheetJS workbook; profiles contain approved sheet/column
+ * mappings. base and profiles are cloned, so this does not alter the open data.
+ * context carries source identity, actor, preferences and explicit matching choices.
+ * XLSX is the caller's SheetJS API (also supplied in the import worker).
+ * Returns {clean, data, report}: canonical storage, a derived V2 view, and review
+ * results. Row errors become review entries; invalid final data throws.
+ */
 export function prepareCleanImport(workbook,profiles,base=emptyData(),context={},XLSX){
  profiles=clone(profiles);
  for(const profile of profiles)assignAgreementItemKeys(profile);
@@ -120,9 +88,9 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
    const selected=profile.columns.filter(column=>!column.target.startsWith('@'));
    if(!selected.some(column=>present(sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.v)))continue;
    if(++rowCount>20000)throw Error('Högst 20 000 datarader per import. Dela underlaget i mindre filer.');
-   const lengths=Object.fromEntries(Object.keys(tables).map(table=>[table,data[table].length])),undo=[],startChanges=changes.length,startReviews=reviews.length,startDecisions=decisions.length;
-   const rowTouched=new Map(),readColumns=new Set(),heldColumns=new Set();let rejected=false,safe=null,recordStage='properties',deferredError=null;
-   const touch=(table,id)=>{if(!rowTouched.has(table))rowTouched.set(table,new Set());rowTouched.get(table).add(id);};
+   const transaction=createImportRow({data,tableNames:Object.keys(tables),changes,reviews,decisions,selected,fieldMap});
+   const {undo,touched:rowTouched,read:readColumns,held:heldColumns,startReviews,touch}=transaction;
+   let rejected=false,recordStage='properties',deferredError=null;
    const source=profile.fileName||context.fileName||'Excel',origin={source,sheet:profile.name,row:r+1};
    const raw={},itemRows=new Map(),contacts=new Map(),linkedNumbers=new Map(),sourceValues=selected.map(column=>{const cell=sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})];return {column:column.header,index:column.index,target:column.target,raw:cell?.v??'',hyperlink:cell?.l?.Target};});let fieldInProgress='',columnInProgress=null,partyNumberColumn=null;const finance={};
    let itemInProgress=null;
@@ -136,15 +104,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     decisions.push({...origin,collection:at.collection,classification:'B',reason:error.message});
     heldColumns.add(column.index);readColumns.delete(column.index);return true;
    };
-   const checkpoint=()=>{
-    if(![...rowTouched.values()].some(ids=>ids.size))return;
-    const read=new Set([...readColumns].filter(index=>{
-     const column=selected.find(c=>c.index===index),mapping=fieldMap[column.target];
-     return !heldColumns.has(index)&&(mapping?rowTouched.has(mapping.table)&&(!mapping.partyRole||!linkedNumbers.has(mapping.partyRole)):rowTouched.has('contacts'));
-    }));
-    if(!read.size)return;
-    safe={undo:undo.length,lengths:Object.fromEntries(Object.keys(tables).map(table=>[table,data[table].length])),changes:changes.length,reviews:reviews.length,decisions:decisions.length,touched:new Map([...rowTouched].map(([table,ids])=>[table,new Set(ids)])),read};
-   };
+   const checkpoint=()=>transaction.checkpoint(linkedNumbers);
    const correctPropertyId=(record,id)=>{
     const previous=record.id;if(previous===id)return record;
     if(indexes.properties.has(id))throw Error('FastighetsID finns redan. Välj den befintliga fastigheten.');
@@ -472,7 +432,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     }
     for(const {column,values,errors=[]} of contacts.values()){
      if(!column)continue;
-     const contactUndo=undo.length,contactChanges=changes.length,contactReviews=reviews.length,contactDecisions=decisions.length,peopleLength=data.people.length,contactsLength=data.contacts.length,contactTouched=new Map([...rowTouched].map(([table,ids])=>[table,new Set(ids)]));
+     const contactSavepoint=transaction.savepoint();
      try{
      if(errors.length)throw Error(errors.join(' · '));
      if(!values.name)throw Error('Personuppgifter saknar namn. Koppla en namnkolumn för personrollen.');
@@ -494,8 +454,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(existing)touch('contacts',existing.id);
      if(!existing){if(data.contacts.some(row=>!row.cancelled&&row.role===role&&row[f]===target.id&&(role==='coordinator'||row.person_id===person.id)&&(!row.valid_to||!candidate.valid_from||row.valid_to>=candidate.valid_from)&&(!candidate.valid_to||!row.valid_from||candidate.valid_to>=row.valid_from)))throw Error('Personkopplingen överlappar en befintlig period.');merge('contacts',{...candidate,id:'KOP-'+crypto.randomUUID()},null);}
      }catch(error){
-      for(const revert of undo.splice(contactUndo).reverse())revert();data.people.length=peopleLength;data.contacts.length=contactsLength;changes.length=contactChanges;reviews.length=contactReviews;decisions.length=contactDecisions;rebuild();
-      rowTouched.clear();for(const [table,ids]of contactTouched)rowTouched.set(table,ids);
+      transaction.restore(contactSavepoint);rebuild();
       const inputs=selected.filter(input=>input.index===column.index||contactPart(input.target)?.index===column.index);for(const input of inputs)readColumns.delete(input.index);
       const [collection,field]=column.target.split('.'),review={id:'CLEAN-PERSON-'+hash(JSON.stringify([source,profile.name,r+1,column.index,error.message])),kind:'canonical-conflict',status:'pending',...origin,collection,field,column:column.header,columnIndex:column.index,value:sourceValues.find(value=>value.index===column.index)?.raw,reason:error.message,blocking:false,rowRejected:false,personLinkRejected:true,sourceValues:sourceValues.filter(value=>inputs.some(input=>input.index===value.index))};
       reviews.push(review);decisions.push({...origin,collection,classification:'B',reason:error.message});
@@ -507,11 +466,9 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      validateFinance({agreement_items:agreementId?data.agreement_items.filter(x=>x.agreement_id===agreementId):[],recurring_costs:costId?data.recurring_costs.filter(x=>x.id===costId):[],cost_evidence:costId?data.cost_evidence.filter(x=>x.cost_id===costId):[]});
     }
    }catch(error){
-    rejected=!safe;if(rejected)rejectedRows++;
-    for(const revert of undo.slice(safe?.undo||0).reverse())revert();for(const table of Object.keys(tables))data[table].length=(safe?.lengths||lengths)[table];changes.length=safe?.changes??startChanges;reviews.length=safe?.reviews??startReviews;decisions.length=safe?.decisions??startDecisions;rebuild();
-    if(safe){rowTouched.clear();for(const [table,ids]of safe.touched)rowTouched.set(table,ids);readColumns.clear();for(const index of safe.read)readColumns.add(index);for(const column of selected)if(!readColumns.has(column.index))heldColumns.add(column.index);}
+    const partial=transaction.rollback();rejected=!partial;if(rejected)rejectedRows++;rebuild();
     const [collection,field]=fieldInProgress.split('.');
-    const review={id:'CLEAN-'+hash(JSON.stringify([source,profile.name,r+1,error.message,error.proposed])),kind:'canonical-conflict',status:'pending',...origin,collection:error.collection||collection||recordStage,field:error.field||field,recordId:error.recordId,current:error.current,proposed:error.proposed,reason:error.message,matches:error.matches,matchingKey:error.matchingKey,...(error.linkProposal?{linkProposal:true}:{}),column:error.column||columnInProgress?.header,columnIndex:error.columnIndex??columnInProgress?.index,value:error.value??sourceValues.find(v=>v.index===(error.columnIndex??columnInProgress?.index))?.raw,blocking:rejected,rowRejected:rejected,...(safe?{recordRejected:true}:{}),sourceValues};
+    const review={id:'CLEAN-'+hash(JSON.stringify([source,profile.name,r+1,error.message,error.proposed])),kind:'canonical-conflict',status:'pending',...origin,collection:error.collection||collection||recordStage,field:error.field||field,recordId:error.recordId,current:error.current,proposed:error.proposed,reason:error.message,matches:error.matches,matchingKey:error.matchingKey,...(error.linkProposal?{linkProposal:true}:{}),column:error.column||columnInProgress?.header,columnIndex:error.columnIndex??columnInProgress?.index,value:error.value??sourceValues.find(v=>v.index===(error.columnIndex??columnInProgress?.index))?.raw,blocking:rejected,rowRejected:rejected,...(partial?{recordRejected:true}:{}),sourceValues};
     if(!review.recordId&&!review.linkProposal)review.reason+=' Rätta kolumnval eller identifierare före import.';
     reviews.push(review);decisions.push({...origin,collection:review.collection,classification:'D',reason:error.message});
    }
@@ -523,25 +480,6 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
    for(const value of sourceValues){const stat=columnStats.get(profile).get(value.index);if(rejected||heldColumns.has(value.index)){if(present(value.raw))stat.skipped++;}else if(readColumns.has(value.index))stat.read++;}
   }
  }
- validateData(data);
- const consolidated=consolidateImportReviews(reviews);reviews.length=0;for(const review of consolidated)reviews.push(review);
- const affected=new Set(profiles.map(profile=>JSON.stringify([profile.fileName||context.fileName||'Excel',profile.name])));
- data.workspace.importReview=[...(data.workspace.importReview||[]).filter(row=>!affected.has(JSON.stringify([row.source,row.sheet]))),...reviews];
- data.workspace.importFieldPreferences=clone(context.preferences||data.workspace.importFieldPreferences||{});
- const recordStates={};
- const counts=Object.entries(viewCollections).map(([table,collection])=>{
-  const old=new Map(prior[table].map(row=>[table==='properties'?resolvePropertyId(aliases,row.id):row.id,row]));recordStates[collection]=Object.create(null);let created=0,updated=0,unchanged=0;
-  for(const record of data[table]){if(!touched[table].has(record.id))continue;const before=old.get(record.id);recordStates[collection][record.id]=!before?'created':JSON.stringify(before)!==JSON.stringify(record)?'updated':'unchanged';if(!before)created++;else if(JSON.stringify(before)!==JSON.stringify(record))updated++;else unchanged++;}
-  return {collection,label:tables[table].label,created,updated,unchanged,review:reviews.filter(row=>row.collection===collection).length};
- });
- data.workspace.importMappings=[...(data.workspace.importMappings||[]).filter(saved=>!profiles.some(p=>saved.sheet===p.name&&saved.fileName===(p.fileName||context.fileName))),...profiles.map(p=>({sheet:p.name,fileName:p.fileName||context.fileName,signature:p.signature,layoutSignature:p.layoutSignature,primaryTable:p.primaryTable,columns:p.columns.map(c=>({...c,contactHeader:contactPart(c.target)?p.columns.find(other=>other.index===contactPart(c.target).index)?.header:undefined,samples:undefined,examples:undefined}))}))];
- const sourceName=context.fileName||'Excel';
- const recordChanges=new Map();for(const change of changes){const k=JSON.stringify([change.collection,change.recordId]);if(!recordChanges.has(k))recordChanges.set(k,[]);recordChanges.get(k).push(change);}
- const importedHistory=[...recordChanges.values()].map(entries=>({id:crypto.randomUUID(),collection:entries[0].collection,recordId:entries[0].recordId,action:'Exceluppgifter inlästa',at:new Date().toISOString(),by:context.actor||'Excelimport',fields:entries.map(({field,from,to,provenance})=>({field,from,to,provenance}))}));
- if(importedHistory.length)data.workspace.auditLog=[...(data.workspace.auditLog||[]),...importedHistory];
- data.workspace.sourceRegistry=[...(data.workspace.sourceRegistry||[]).filter(row=>row.name!==sourceName),{id:'SRC-'+hash(sourceName),name:sourceName,kind:'clean-import',sheets:profiles.map(p=>p.name).join(', '),rows:rowCount,created:counts.reduce((sum,row)=>sum+row.created,0),matched:counts.reduce((sum,row)=>sum+row.updated,0),review:reviews.length,importedAt:new Date().toISOString()}];
- if(changes.length)data.workspace.auditLog=[...(data.workspace.auditLog||[]),{id:crypto.randomUUID(),collection:'imports',recordId:'SRC-'+hash(sourceName),action:'Excelunderlag inläst',at:new Date().toISOString(),by:context.actor||'Excelimport',fields:[{field:'källa',to:sourceName},{field:'nya poster',to:counts.reduce((sum,row)=>sum+row.created,0)},{field:'kompletterade poster',to:counts.reduce((sum,row)=>sum+row.updated,0)}]}];
- data.workspace.sourceRegistry.find(row=>row.kind==='clean-import'&&row.name===sourceName).receipt={rows:rowCount,readRows:rowCount-rejectedRows,rejectedRows,partialRows:new Set(reviews.filter(row=>row.recordRejected).map(row=>JSON.stringify([row.source,row.sheet,row.row]))).size,columns:[...columnStats.values()].flatMap(columns=>[...columns.values()])};
- const result={clean:data,report:{tables:counts,recordStates,linkProposals,reviewIds:reviews.map(r=>r.id),sourceName,changes,decisions,review:reviews.length,blocking:new Set(reviews.filter(row=>row.blocking).map(row=>JSON.stringify([row.source,row.sheet,row.row]))).size,rows:rowCount}};
- refreshImportReceipt(result);return {...result,data:projectWorkspace(data)};
+ return completeCleanImport({data,prior,profiles,context,changes,decisions,
+  reviews,linkProposals,touched,aliases,rowCount,rejectedRows,columnStats});
 }

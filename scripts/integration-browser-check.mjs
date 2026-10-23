@@ -19,6 +19,10 @@ try {
  await page.goto('http://127.0.0.1:8796/');await page.waitForSelector('.mobile-nav');assert.ok(page.url().includes('/v2/index.html'));
  await page.locator('.mobile-nav [data-view=budget]').click();
  await page.locator('[data-year]').fill('2027');await page.locator('[data-year]').dispatchEvent('change');
+ page.on('dialog',dialog=>dialog.accept());
+ if(await page.locator('[data-budget-create]').count())await page.locator('[data-budget-create]').click();
+ if(await page.locator('[data-budget-lock]').count())await page.locator('[data-budget-lock]').click();
+ await page.waitForSelector('[data-budget-reopen]');
  await page.locator('.budget-danger-zone summary').click();await page.locator('[data-followup-layer]').click();
  await page.locator('.followup-dialog [name=amount]').fill('1000');await page.locator('.followup-dialog [name=reason]').fill('V2 integration');await page.locator('.followup-dialog [name=confirmation]').fill('no');await page.locator('.followup-dialog [type=submit]').click();assert.equal(await page.locator('.followup-dialog').count(),1);
  await page.locator('.followup-dialog [name=confirmation]').fill('danger');await page.locator('.followup-dialog [type=submit]').click();await page.waitForSelector('.followup-dialog',{state:'detached'});
@@ -31,7 +35,10 @@ try {
  for(const viewport of [{width:320,height:568},{width:390,height:844},{width:667,height:375}]){
   await page.setViewportSize(viewport);await page.locator('.mobile-nav [data-view=map]').click();await page.waitForSelector('.leaflet-pane',{state:'attached'});
   assert.ok(await page.evaluate(()=>[...document.querySelectorAll('.mobile-nav button')].every(b=>{const r=b.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===b;})));
+  await page.locator('.leaflet-control-zoom-in').click();
   await page.locator('.mobile-nav [data-view=budget]').click();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  // Leaflet's fallback zoom-transition callback runs after navigation.
+  await page.waitForTimeout(300);
  }
  await page.screenshot({path:'/tmp/lokalblick-v2-integrated.png'});
  assert.deepEqual(errors,[]);console.log('PASS: default V2, shared budget danger/version/final cost/audit/reload, mobile/desktop colors and map navigation.');
