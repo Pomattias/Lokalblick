@@ -1,3 +1,4 @@
+import {approveAllImportRecords} from './helpers/import-approval.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {spawn} from 'node:child_process';
@@ -60,7 +61,7 @@ try{
   await page.screenshot({path:`${artifacts}/review-${width}.png`});
  }
  await choose('0:8','kostnadsställe','contracts.costCenterPremises');
- await page.locator('[data-apply]').click();await page.locator('.import-mapping-dialog').waitFor({state:'detached'});
+ await page.locator('[data-apply]').click();await approveAllImportRecords(page);await page.locator('.import-mapping-dialog').waitFor({state:'detached'});
  await page.locator('.import-progress-dialog').waitFor({state:'detached'});
  const loaded=()=>page.evaluate(()=>LokalblickDataService.load());
  const first=await loaded();assert.equal(first.properties.length,1);assert.equal(first.contracts.length,1);assert.equal(first.people.length,3);
@@ -76,7 +77,7 @@ try{
  await page.reload({waitUntil:'domcontentloaded'});await page.locator('#content > *').first().waitFor();await navigate();assert.equal((await loaded()).contracts.length,1);
  await open();assert.equal(await page.locator('[data-column-group="pending"]').count(),0);assert.equal(await page.locator('[data-apply]').isEnabled(),true);
  assert.ok((await page.locator('[data-import-result]').innerText()).includes('Oförändrade'));
- await page.locator('[data-apply]').click();await page.locator('.import-mapping-dialog').waitFor({state:'detached'});await page.locator('.import-progress-dialog').waitFor({state:'detached'});
+ await page.locator('[data-apply]').click();await approveAllImportRecords(page);await page.locator('.import-mapping-dialog').waitFor({state:'detached'});await page.locator('.import-progress-dialog').waitFor({state:'detached'});
  const again=await loaded();assert.equal(again.people.length,3);assert.equal(again.assignments.length,2);assert.equal(again.properties.length,1);assert.equal(again.contracts.length,1);assert.equal(again.auditLog.length,first.auditLog.length);
  // Cancelling a changed choice never persists its new rules or values.
  await open();await choose('0:8','kommentar','contracts.comment');await page.locator('[data-cancel]').click();
@@ -121,7 +122,7 @@ try{
  const cityIdentities=cityPage.locator('[data-person-identity]');for(let i=0;i<await cityIdentities.count();i++)await cityIdentities.nth(i).check();
  await cityPage.locator('[data-apply]:not([disabled])').waitFor();
  await cityPage.evaluate(()=>{const open=indexedDB.open.bind(indexedDB);indexedDB.open=(name,...args)=>{const request=open(name,...args);if(name==='lokalblick-clean-workspace')Object.defineProperty(request,'onsuccess',{set(handler){request.addEventListener('success',event=>{window.releaseImportSave=()=>handler.call(request,event);},{once:true});}});return request;};});
- await cityPage.locator('[data-apply]').click();await cityPage.locator('[data-city-value]').fill('Malmö');await cityPage.locator('[data-city-apply]').click();
+ await cityPage.locator('[data-apply]').click();await approveAllImportRecords(cityPage);await cityPage.locator('[data-city-value]').fill('Malmö');await cityPage.locator('[data-city-apply]').click();
  await cityPage.waitForFunction(()=>typeof window.releaseImportSave==='function');
  assert.equal(await cityPage.locator('.import-progress-dialog h2').innerText(),'Sparar import');
  assert.ok((await cityPage.locator('[data-import-progress-message]').innerText()).startsWith('Sparar godkända'));

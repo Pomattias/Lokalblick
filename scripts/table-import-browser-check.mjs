@@ -1,3 +1,4 @@
+import {approveAllImportRecords} from './helpers/import-approval.mjs';
 import assert from 'node:assert/strict';import {mkdtemp,rm,mkdir,readFile} from 'node:fs/promises';
 import os from 'node:os';import path from 'node:path';import {createRequire} from 'node:module';import {chromium} from 'playwright';import XLSX from 'xlsx';
 import {LocalStore} from '../backend/lokaler/store.js';import {createServer} from '../backend/lokaler/server.mjs';
@@ -16,7 +17,7 @@ await page.route('**/api/geocode',route=>route.fulfill({status:503,contentType:'
 await page.addInitScript(files=>{let chosen=Number(sessionStorage.getItem('test-file-index')||0);window.showOpenFilePicker=async()=>{sessionStorage.setItem('test-file-index',String(chosen+1));return [{name:'syntetisk-tabell.xlsx',queryPermission:async()=>'granted',getFile:async()=>new File([new Uint8Array(files[Math.min(chosen++,files.length-1)])],'syntetisk-tabell.xlsx')}];};const Worker=window.Worker;window.__importMessages=[];window.Worker=class extends Worker{postMessage(message,...rest){if(['init','evaluate'].includes(message.type))window.__importMessages.push(message.type);return super.postMessage(message,...rest);}};},files);
 const ready=()=>page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();
 const begin=async()=>{await page.locator('.sidebar [data-view=sources]').evaluate(node=>node.click());await page.locator('[data-source=import]').click();await page.locator('[data-import-sheet]').first().waitFor();await page.locator('[data-import-select=all]').click();await page.locator('[data-import-start]').click();await ready();};
-const apply=async()=>{const saved=page.waitForResponse(r=>r.url().endsWith('/api/lokaler/workspace')&&r.request().method()==='POST');await page.locator('[data-apply]').click();assert.equal((await saved).status(),200);await page.locator('.import-progress-dialog').waitFor({state:'detached'});};
+const apply=async()=>{const saved=page.waitForResponse(r=>r.url().endsWith('/api/lokaler/workspace')&&r.request().method()==='POST');await page.locator('[data-apply]').click();await approveAllImportRecords(page);assert.equal((await saved).status(),200);await page.locator('.import-progress-dialog').waitFor({state:'detached'});};
 try{
  await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('[data-dashboard-mode]').first().waitFor();await begin();
  assert.equal(await page.locator('[data-import-table]').inputValue(),'contracts');assert.equal(await page.locator('[data-mapping-row]').inputValue(),'ask');assert.equal(await page.locator('[data-apply]').isDisabled(),true);assert.deepEqual(await page.evaluate(()=>window.__importMessages),['init','evaluate']);

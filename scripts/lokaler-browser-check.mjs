@@ -1,3 +1,4 @@
+import {approveAllImportRecords} from './helpers/import-approval.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,mkdir,readFile} from 'node:fs/promises';
 import path from 'node:path';import os from 'node:os';import {createRequire} from 'node:module';
@@ -34,7 +35,7 @@ async function scenario(mode){
   await page.locator('[data-column-group=mapped]').evaluate(node=>node.open=true);
   const identities=page.locator('[data-person-identity]');for(let i=0;i<await identities.count();i++){await identities.nth(i).check();await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();}
   if(await page.locator('[data-check-records]').count()){await page.locator('[data-check-records]').click();await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();}
-  if(await page.locator('.import-mapping-dialog [data-apply]').isDisabled())throw Error(await page.locator('.import-mapping-dialog').innerText());const apply=page.locator('.import-mapping-dialog [data-apply]');assert.equal(await apply.isDisabled(),false,await page.locator('.import-mapping-dialog').innerText());await apply.click();
+  if(await page.locator('.import-mapping-dialog [data-apply]').isDisabled())throw Error(await page.locator('.import-mapping-dialog').innerText());const apply=page.locator('.import-mapping-dialog [data-apply]');assert.equal(await apply.isDisabled(),false,await page.locator('.import-mapping-dialog').innerText());await apply.click();await approveAllImportRecords(page);
   await page.locator('.import-progress-dialog').waitFor({state:'detached'});await page.locator('.import-mapping-dialog').waitFor({state:'detached'});
  };
  const persisted=async()=>{

@@ -67,7 +67,7 @@ test('enrichment decisions and every source occurrence survive an Excel round tr
 });
 test('preview offers one overall policy and one row per distinct record field, without blocking scalar conflicts',()=>{
  const result=enrichment(),html=columnPreviewHtml({fileName:'berikning.xlsx'},{profiles:[]},result,importSchemas);
- assert.match(html,/Övergripande val för importen/);assert.match(html,/data-import-conflict-mode/);assert.equal((html.match(/data-import-conflict-choice=/g)||[]).length,2);assert.match(html,/3 källrader/);assert.match(html,/tomma fält kompletteras automatiskt/i);
+ assert.match(html,/Övergripande val för importen/);assert.match(html,/data-import-conflict-mode/);assert.equal((html.match(/data-import-conflict-choice=/g)||[]).length,2);assert.match(html,/3 källrader/);assert.match(html,/Nya fastigheter, objekt och avtal.*måste godkännas/i);
 });
 
 test('simultaneous start/end choices are applied together instead of validating a temporary mixed period',()=>{

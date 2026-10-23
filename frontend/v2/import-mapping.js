@@ -1,4 +1,6 @@
 import {importValueChoices,importLinkProposalsHtml} from "./import-summary.js";
+import {reviewImportApproval} from './import-approval.js';
+import {collectWorkspace} from '../lokaler/view-adapter.js';
 import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate,issueNumberColumn,suggestIssueNumberColumns,resolveFieldName,skippedFinancialSuggestions,assignAgreementItemKeys} from '../services/import-matching.js';
 import {importConflictGroups,resolveImportChoices,importReviewGroups,importTableRows} from '../lokaler/import-conflicts.js';
 import {columnPreferenceKey,importPreference} from '../services/import-preferences.js';
@@ -139,7 +141,7 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
     ${options.stale?'':importProblemsHtml(reviews,prepared,mapping,schemas)}
     ${!options.stale&&result.report.blocking?`<p role="alert">${result.report.blocking} källrader väntar på godkänd koppling eller behöver rättas. Godkänn förslagen, rätta uppgifterna eller läs in övriga godkända rader.</p>${result.clean?`<label><input type="checkbox" data-import-safe-rows ${options.allowPartial?'checked':''} ${result.report.rows<=result.report.blocking?'disabled':''}> Importera endast ${result.report.rows-result.report.blocking} godkända rader. Lämna ${result.report.blocking} väntande eller felaktiga rader utanför och spara dem för granskning.</label>`:''}`:''}
     <p>Tomma fält kompletteras. Manuellt verifierade värden skyddas och avvikelser kan granskas. Inget sparas innan du genomför importen.</p><p data-import-error role="alert"></p>
-    <div class="actions import-review-actions">${mapping.profiles.some(p=>p.canonical)?`<button type="button" data-export-mapping ${unmapped||duplicates.length||undecidedRow?'disabled':''}>Godkänn fältval och hämta mall</button>`:''}${options.stale?'<button type="button" data-check-records class="primary-action">Kontrollera poster</button>':''}<button type="button" data-cancel>Avbryt</button><button type="button" data-apply class="primary-action"${options.stale||undecidedRow||unmapped||!included||duplicates.length||result.report.blocking&&!options.allowPartial?' disabled':''}>Genomför import</button></div>`;
+    <div class="actions import-review-actions">${mapping.profiles.some(p=>p.canonical)?`<button type="button" data-export-mapping ${unmapped||duplicates.length||undecidedRow?'disabled':''}>Godkänn fältval och hämta mall</button>`:''}${options.stale?'<button type="button" data-check-records class="primary-action">Kontrollera poster</button>':''}<button type="button" data-cancel>Avbryt</button><button type="button" data-apply class="primary-action"${options.stale||undecidedRow||unmapped||!included||duplicates.length||result.report.blocking&&!options.allowPartial?' disabled':''}>${result.clean?'Fortsätt till godkännande':'Genomför import'}</button></div>`;
 }
 export async function previewImport(prepared,base,schemas,actor,evaluator=null) {
   const mapping={profiles:reviewProfiles(prepared.profiles,schemas)},fields=fieldCatalog(schemas,true);
@@ -238,6 +240,11 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
           if(!mapping.profiles.some(profile=>profile.columns.some(selected)))throw Error('Välj minst ett fält att läsa in.');
           if(mappingConflicts(mapping.profiles).length)throw Error('Rätta dubbelkopplingarna innan importen genomförs.');
           if(result.report.blocking)result.report.partial=true;
+          if(result.clean){
+            const approved=await reviewImportApproval(result,evaluator?.baseline||collectWorkspace(base),actor);
+            if(!approved)return;
+            result=approved;
+          }
           result.report.actor=actor;close();resolve(result);
         }
       }catch(error){fail(error);}

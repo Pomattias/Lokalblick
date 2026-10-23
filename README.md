@@ -106,3 +106,6 @@ granskningen, medan varje berörd post, källfil, flik, rad och felvärde finns 
 Vi bygger en ny app. Interna prototypmodeller migreras inte och borttagna fält
 arkiveras inte. Skapa en ny ren arbetsyta för aktuell modell; externa Excelunderlag
 kan läsas genom den granskade importen. Se [modell och testbeslut](docs/CURRENT_MODEL_AND_TESTS.md).
+
+För kontrollerat skapande av fastigheter, objekt och avtal vid import, se
+[Granskad import](docs/SAFE_IMPORT.md).

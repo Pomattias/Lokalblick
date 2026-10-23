@@ -1,3 +1,4 @@
+import {approveAllImportRecords} from './helpers/import-approval.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,mkdir,readFile} from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {createRequire} from 'node:module';
 import {chromium} from 'playwright';import XLSX from 'xlsx';
@@ -16,7 +17,7 @@ await page.addInitScript(bytes=>{window.showOpenFilePicker=async()=>[{name:'synt
 const ready=()=>page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();
 const begin=async()=>{await page.locator('.sidebar [data-view=sources]').evaluate(node=>node.click());await page.locator('[data-source=import]').click();await page.locator('[data-import-sheet]').first().waitFor();await page.locator('[data-import-select=all]').click();await page.locator('[data-import-start]').click();await ready();};
 const column=caption=>page.locator('[data-import-column]').filter({has:page.locator('.import-column-name strong',{hasText:new RegExp('^'+caption+'$')})});
-async function apply(){const saved=page.waitForResponse(response=>response.url().endsWith('/api/lokaler/workspace')&&response.request().method()==='POST');await page.locator('[data-apply]').click();assert.equal((await saved).status(),200);await page.locator('.import-progress-dialog').waitFor({state:'detached'});}
+async function apply(){const saved=page.waitForResponse(response=>response.url().endsWith('/api/lokaler/workspace')&&response.request().method()==='POST');await page.locator('[data-apply]').click();await approveAllImportRecords(page);assert.equal((await saved).status(),200);await page.locator('.import-progress-dialog').waitFor({state:'detached'});}
 try{
  await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('[data-dashboard-mode]').first().waitFor();await begin();
  assert.equal(await page.locator('[data-import-table]').inputValue(),'contracts');assert.equal(await page.locator('[data-column-group=pending]').count(),0);assert.equal(await page.locator('[data-apply]').isDisabled(),false);assert.equal(await page.locator('[data-import-destination]').count(),4);assert.match(await page.locator('[data-import-destination=agreementItems]').innerText(),/Bashyra \(5\)/);assert.match(await page.locator('[data-import-destination=agreementItems]').innerText(),/Värme \(6\)/);assert.match(await page.locator('.import-sheet-settings').innerText(),/Kolumnerna kan fortfarande gå till olika register/);assert.equal(store.snapshot().data.agreements.length,0);

@@ -4025,3 +4025,19 @@ body:not([data-view="budget"]) .import-financial-suggestions ul {padding:0;margi
 body:not([data-view="budget"]) .import-financial-suggestions li {display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line);}
 body:not([data-view="budget"]) .import-financial-suggestions li>div {min-width:0;overflow-wrap:anywhere;}
 body:not([data-view="budget"]) .import-financial-suggestions small {display:block;font-size:11px;color:var(--muted);}
+
+/* The reviewed import stays a draft until its final confirmation. */
+.import-approval-dialog {width:min(960px,calc(100vw - 24px));max-width:calc(100vw - 24px);padding:18px;}
+.import-approval-steps {display:flex;flex-wrap:wrap;gap:8px 24px;padding-left:20px;}
+.import-approval-steps [aria-current=step] {font-weight:700;color:var(--accent);}
+.import-approval-row {border-top:1px solid var(--line);padding:12px 0;}
+.import-approval-row>label:first-child {display:flex;align-items:flex-start;gap:10px;}
+.import-approval-row input[type=checkbox] {width:auto;flex:none;margin-top:4px;}
+.import-approval-row small {display:block;overflow-wrap:anywhere;}
+.import-approval-row select {width:100%;max-width:100%;}
+.import-approval-row strong,.import-approval-dialog details p {overflow-wrap:anywhere;}
+.import-approval-dialog .import-result-table table {display:table;width:100%;font-size:12px;}
+.import-approval-dialog .import-result-table thead {display:table-header-group;}
+.import-approval-dialog .import-result-table tbody {display:table-row-group;}
+.import-approval-dialog .import-result-table tr {display:table-row;padding:0;}
+.import-approval-dialog .import-result-table :is(th,td) {display:table-cell;padding:6px 4px;text-align:left;}

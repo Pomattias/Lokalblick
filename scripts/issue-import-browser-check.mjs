@@ -1,3 +1,4 @@
+import {approveAllImportRecords} from './helpers/import-approval.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,mkdir,readFile} from 'node:fs/promises';
 import os from 'node:os';
@@ -26,7 +27,7 @@ await page.addInitScript(files=>{let chosen=Number(sessionStorage.getItem('test-
 const ready=()=>page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();
 const navigate=view=>page.locator(`.sidebar [data-view="${view}"]`).evaluate(node=>node.click());
 async function begin(numbers=false){await navigate('sources');await page.locator('[data-source=import]').click();await page.locator('[data-import-sheet]').first().waitFor();await page.locator('[data-import-select=all]').click();await page.locator('[data-import-start]').click();await ready();if(numbers)return;await page.locator('[data-import-table]').selectOption('activities');await ready();await page.locator('[data-mapping-row]').selectOption('yes');await ready();if(await page.locator('[data-check-records]').count()){await page.locator('[data-check-records]').click();await ready();}}
-async function apply(){const saved=page.waitForResponse(r=>r.url().endsWith('/api/lokaler/workspace')&&r.request().method()==='POST');await page.locator('[data-apply]').click();assert.equal((await saved).status(),200);await page.locator('.import-progress-dialog').waitFor({state:'detached'});}
+async function apply(){const saved=page.waitForResponse(r=>r.url().endsWith('/api/lokaler/workspace')&&r.request().method()==='POST');await page.locator('[data-apply]').click();await approveAllImportRecords(page);assert.equal((await saved).status(),200);await page.locator('.import-progress-dialog').waitFor({state:'detached'});}
 try{
  await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('[data-dashboard-mode]').first().waitFor();await begin();
  assert.equal(await page.locator('[data-import-table]').inputValue(),'activities');assert.match(await page.locator('[data-import-result]').innerText(),/Att koppla/);assert.equal(await page.locator('[data-apply]').isDisabled(),false);await apply();

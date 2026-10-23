@@ -38,8 +38,8 @@ raderas inte. Undantag kan väljas per uppgift. Valet finns kvar när kolumnvale
 ändras och posterna kontrolleras igen. Identifierare, relationer och ogiltiga
 värden omfattas inte av ett generellt godkännande.
 
-Tomma celler i filen raderar inte befintliga värden. Nya giltiga poster kan
-läggas till, medan befintliga poster berikas. Låsta budgetsnapshots ändras inte.
+Tomma celler i filen raderar inte befintliga värden. Nya fastigheter, objekt och avtal måste godkännas i egna steg före sparning.
+Befintliga poster berikas. Se [Granskad import](SAFE_IMPORT.md). Låsta budgetsnapshots ändras inte.
 
 ## En kortare granskningslista
 
@@ -47,7 +47,8 @@ läggas till, medan befintliga poster berikas. Låsta budgetsnapshots ändras in
 - Nya entydiga förslag har en gemensam godkännandeknapp. Listan är hopfälld.
 - Osäkra kopplingar visas öppna under **Behöver väljas**.
 - Godkända kopplingar kan öppnas separat för kontroll.
-- Sparning sker först när **Genomför import** väljs.
+- Välj **Fortsätt till godkännande** för att granska nya registerposter och priser.
+  Sparning sker först vid **Godkänn och spara import** i slutkontrollen.
 
 ## Kolumnernas hemvist
 
@@ -103,8 +104,8 @@ Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
 Verifierat 2026-10-23 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 708 godkända, 0 underkända, 0 överhoppade.
-- Syntax/förkontroll: 127 JavaScript-filer.
+- `npm test`: 723 godkända, 0 underkända, 0 överhoppade.
+- Syntax/förkontroll: 129 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,
   ledande nollor, sparning och återläsning godkända.

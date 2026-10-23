@@ -1,3 +1,4 @@
+import {approveAllImportRecords} from './helpers/import-approval.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,mkdir,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -53,7 +54,7 @@ try{
  const apply=async()=>{
   assert.equal(await page.locator('[data-apply]').isDisabled(),false);
   const response=page.waitForResponse(response=>response.url().endsWith('/api/lokaler/workspace')&&response.request().method()==='POST');
-  await page.locator('[data-apply]').click();
+  await page.locator('[data-apply]').click();await approveAllImportRecords(page);
   assert.equal((await response).status(),200);
   await page.locator('.import-progress-dialog').waitFor({state:'detached'});
   await page.locator('.import-mapping-dialog').waitFor({state:'detached'});

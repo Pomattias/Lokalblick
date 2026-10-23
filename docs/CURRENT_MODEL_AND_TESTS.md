@@ -68,8 +68,8 @@ nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
 Verifierat 2026-10-23 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 708 godkända, 0 underkända, 0 överhoppade.
-- Repots förkontroll: syntax för 127 JavaScript-filer och kontroll av filtyper.
+- `npm test`: 723 godkända, 0 underkända, 0 överhoppade.
+- Repots förkontroll: syntax för 129 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
 - Tabellimport i webbläsare: mappning, återimport, kontakter, SQLite-sparning
@@ -90,3 +90,5 @@ Kundtyp avtal och Avtalstyp finns på Avtal. Befintliga avtalskopplingar
 Nya valfria kolumner kan läggas till i en aktuell arbetsyta utan att dess
 verksamhetsdata skrivs om. Interna prototypformat stöds fortfarande inte.
 Se [lokaldataimportens regler och verifiering](LOCAL_DATA_IMPORT.md).
+
+Granskad import och godkännande av nya registerposter beskrivs i [SAFE_IMPORT.md](SAFE_IMPORT.md).

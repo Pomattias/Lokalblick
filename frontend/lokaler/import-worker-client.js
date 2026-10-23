@@ -13,5 +13,5 @@ export function createCleanEvaluator(workbook,base,context){
    worker.postMessage({type:'evaluate',id,profiles,preferences:draft.importFieldPreferences,rowMatches:draft.importRowMatches});
   });
  };
- evaluate.invalidate=()=>{if(active)stop();};evaluate.cancel=stop;return evaluate;
+ evaluate.baseline=structuredClone(base);evaluate.invalidate=()=>{if(active)stop();};evaluate.cancel=stop;return evaluate;
 }
