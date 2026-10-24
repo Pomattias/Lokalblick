@@ -104,8 +104,8 @@ Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
 Verifierat 2026-10-24 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 752 godkända, 0 underkända, 0 överhoppade.
-- Syntax/förkontroll: 133 JavaScript-filer.
+- `npm test`: 760 godkända, 0 underkända, 0 överhoppade.
+- Syntax/förkontroll: 134 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,
   ledande nollor, sparning och återläsning godkända.

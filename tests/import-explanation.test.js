@@ -7,7 +7,7 @@ import {profileWorkbook} from '../frontend/services/import-engine.js';
 import {importCreationPlan,approveImportPlan} from '../frontend/lokaler/import-plan.js';
 import {resolveImportChoices} from '../frontend/lokaler/import-conflicts.js';
 import {explainImport,importColumnMeaning} from '../frontend/lokaler/import-explanation.js';
-import {importRowHtml} from '../frontend/v2/import-table.js';
+import {importRowHtml,importTableHtml} from '../frontend/v2/import-table.js';
 const importStoryHtml=(result,base,options)=>{const story=explainImport(result,base,options);return story.rows.map(row=>importRowHtml(row,result,base)).join('');};
 const headers=['FastighetsID','Fastighetsnamn','Gatuadress','ObjektID','Avtalsnummer','Area','Grundhyra','Hyra justeringsregel','Ort'];
 const row=['P1','TESTET 1','Testgatan 1','O1','A1',100,10000,'none','Teststad'];
@@ -46,7 +46,7 @@ test('a new object can be deferred while the approved property remains visible a
 test('known agreements explain their saved links and a true reimport is unchanged',()=>{
  const base=prepare().result.clean,{result,profiles}=prepare(base),story=explainImport(result,base,{approved:approveImportPlan(result,base),profiles});
  assert.equal(story.rows[0].status,'unchanged');assert.equal(story.counts.unchanged,1);assert.match(story.rows[0].explanation,/Avtalsnummer A1 finns redan.*sparade objekt O1 och fastighet P1/);assert(story.rows[0].nodes.every(node=>node.existing));
- const suggested=prepare(base,[['Testgatan 1','A2',100]],['Gatuadress','Avtalsnummer','Area']);assert.equal(suggested.result.report.linkProposals.length,1);assert.match(importStoryHtml(suggested.result,base,{profiles:suggested.profiles}),/data-story-link="0"/);
+ const suggested=prepare(base,[['Testgatan 1','A2',100]],['Gatuadress','Avtalsnummer','Area']);assert.equal(suggested.result.report.linkProposals.length,1);assert.match(importTableHtml({fileName:'syntetiskt.xlsx'},suggested.profiles,suggested.result,base),/data-link-proposal="0"/);
 });
 test('empty facts are completed while changed prices display old and new values',()=>{
  const base=prepare().result.clean;base.objects[0].area=null;

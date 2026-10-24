@@ -20,14 +20,6 @@ export function importApprovalHtml(plan,choices,base,{limit=100,...selection}={}
  }).join('')}</div><p>Visar ${Math.min(limit,matching.length)} av ${matching.length} poster i urvalet.</p>${limit<matching.length?'<button type="button" data-approval-more>Visa 100 till</button>':''}</details>`;
 }
 
-export function importCompletionHtml(candidate,base,edits={},choices={}){
- const touched=new Set((candidate.report.sourceRows||[]).flatMap(row=>row.records?.properties||[]));
- for(const choice of Object.values(choices))if(choice.action==='map')touched.add(choice.targetId);
- const missing=candidate.clean.properties.filter(row=>touched.has(row.id)&&(!propertyDesignation({designation:row.name,address:row.address})||Object.hasOwn(edits.properties||{},row.id)));
- if(!missing.length)return '';
- return `<details data-missing-designations><summary>Fastighetsbeteckningar att komplettera (${missing.length})</summary><p>Fyll i nu eller lämna tomt och komplettera under Fastigheter efter importen. Samma fastighet ändras på alla berörda rader.</p>${missing.map(row=>`<label class="import-designation" data-designation-row="${esc(row.id)}"><span>${esc(row.management_object_number?'Förvaltningsobjekt '+row.management_object_number:row.id)}${row.address?' · '+esc(row.address):''} · ${base.properties.some(old=>old.id===row.id)?'Befintlig fastighet':'Ny fastighet'}</span><input type="text" data-property-designation="${esc(row.id)}" aria-label="Fastighetsbeteckning för ${esc(row.id)}" value="${esc(edits.properties?.[row.id]||'')}" placeholder="Fastighetsbeteckning saknas – kan fyllas i senare" maxlength="20000"></label>`).join('')}</details>`;
-}
-
 export function chooseExistingProperty(properties){
  const picker=document.createElement('dialog');picker.className='followup-dialog import-dialog import-approval-dialog';
  picker.innerHTML='<h2>Koppla till befintlig fastighet</h2><label>Sök beteckning, adress eller nummer<input type="search" data-existing-property-search></label><div data-existing-property-results></div><button type="button" data-existing-property-cancel>Avbryt</button>';

@@ -39,9 +39,9 @@ radkorten och separata godkännandestegen har ersatts.
    var och är inte förmarkerade. Välj enskilda, alla möjliga i urvalet eller välj
    bort urvalet. Ett objekt kräver vald fastighet och ett avtal kräver valt objekt.
    Ett fastighetsförslag kan i stället kopplas till en befintlig fastighet.
-3. Saknad beteckning visas som **Fastighetsbeteckning saknas**. **Komplettera
-   beteckning nu** öppnar det gemensamma fältet för fastigheten. Alla dess rader
-   uppdateras tillsammans. Lämna fältet tomt för att komplettera under
+3. Saknad beteckning visas som **Fastighetsbeteckning saknas**. Öppna radens
+   **🔗 Visa / ändra** och fyll i beteckningen direkt på fastigheten i kedjan.
+   Alla dess källrader uppdateras tillsammans. Lämna fältet tomt för att komplettera under
    **Fastigheter → fastigheten → Information → Redigera** efter importen.
 4. Kontrollera utfallet och välj **Spara import**. Det är den enda sparningen.
    Avbryt eller Escape kastar utkastet utan att skriva till arbetsytan.
@@ -50,7 +50,7 @@ Kolumnval, värdeval och giltiga skapandebeslut behålls när andra delar gransk
 En kompletterad beteckning kräver inte nya godkännanden. Ändrad identitet eller
 överordnad koppling kräver ett nytt beslut för den berörda posten. Ändrat urval
 av blockerade rader kräver nytt beslut om partiell import. Ett osäkert mål som
-väljs i listan används direkt; samma koppling har ingen extra godkännanderuta.
+väljs på källraden används direkt; samma koppling har ingen extra godkännanderuta.
 
 Radtabellen visar 30 rader i taget; nya poster visar 100. Sökning och status-/registerfilter
 begränsar urvalet. **Lägg till alla möjliga i urvalet** omfattar även matchande poster
@@ -84,7 +84,8 @@ Fristående person- eller partsregister är fortfarande valda importunderlag.
 
 - `frontend/v2/import-mapping.js`: en importsession, kolumn-/värdeval och sparbeslut.
 - `frontend/v2/import-table.js`: filtabell, registerfärger, radförklaringar och kopplingar.
-- `frontend/v2/import-approval.js`: gemensam lista för nya poster och beteckningar.
+- `frontend/v2/import-approval.js`: gemensam lista för nya registerposter.
+- `frontend/v2/import-row-review.js`: orsaker, filter och kopplingsval på källraderna.
 - `frontend/v2/import-contact.js`: redigering av föreslagen person, roll och mål.
 - `frontend/lokaler/import-review.js`: isolerade kompletteringar, återanvända personer
   och giltiga beslut som följer med omräkning.
@@ -98,12 +99,13 @@ Fristående person- eller partsregister är fortfarande valda importunderlag.
 ```sh
 npm test
 npm run test:approval-browser
+npm run test:inline-import-browser
 npm run test:local-data-browser
 npm run test:table-import-browser
 npm run test:lokaler-browser
 ```
 
-Verifierat med syntetiska filer 2026-10-24: 752 tester och syntaxkontroll av 133
+Verifierat med syntetiska filer 2026-10-24: 760 tester och syntaxkontroll av 134
 JavaScript-filer. Webbläsarprovet följer fil → tabell → ändrade val → API → SQLite
 → återöppning: selektiva/allmänna urval, 122 nya fastigheter, saknad beteckning
 före/efter import, en person med flera roller och mål, återimport och avbrott utan
@@ -112,3 +114,31 @@ budgetsnapshots kontrolleras separat. Ingen skarp verksamhetsdata används.
 
 Originalceller hämtas från den redan öppnade arbetsboken. Rapportens radspår och
 sessionscache lagras inte som en extra datatabell.
+
+## Väntande rader i samma tabell
+
+Ett väntande adressförslag är en koppling som behöver väljas, inte en extra
+källrad. Alla källrader finns kvar i filtabellen även när en identifierare
+eller koppling ännu inte godkänts. Varje väntande koppling visas med sitt
+förslag och val direkt i radens första kolumn. Den tidigare separata
+kopplingslistan har tagits bort.
+
+**Behöver kopplas** samlar osäkra fastighets-/nummerförslag. **Behöver
+kompletteras** samlar saknade beteckningar och ogiltiga valfria fält.
+**Nya poster att godkänna** betyder att identiteten är känd men skapandet
+inte valts. Ett kompletteringsfel visas med sin verkliga orsak även innan
+posten godkänts. Statusen för sparandet hålls isär från vad raden behöver.
+
+**Godkänn entydiga kopplingsförslag i urvalet** gäller samma sökning och
+filter som tabellen, även matchande rader utanför dess synliga sida.
+Flera möjliga mål kräver ett eget val på raden. Ingen koppling godkänns
+av att bara visa eller filtrera tabellen. Nya poster behåller sina
+separata krav på skapandebeslut.
+
+En kolumn mappad till fastighetsbeteckning med numeriska exempel får en
+upplysning om att kontrollera om det är kostnadsställen. Förslaget ändrar
+inte automatiskt kolumnval eller sparade beteckningar.
+
+Webbläsarprovet använder 154 syntetiska rader med 21 väntande kopplingar,
+kontrollerar filtrerade massval, komplettering, återimport, exakt en slutlig
+skrivning, återöppning av SQLite samt oförändrade låsta budgetsnapshots.

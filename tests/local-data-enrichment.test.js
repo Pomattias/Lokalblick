@@ -90,7 +90,7 @@ test('80 known agreement rows reuse saved links in a different file and order wi
  assert.equal(again.report.tables.reduce((sum,t)=>sum+t.created+t.updated,0),0);
 });
 
-test('large unknown address proposals have one batch action and show only uncertain selections expanded',()=>{
+test('large address proposal sets keep bulk approval and paginated choices in the source table',()=>{
  const base=emptyData(),w=XLSX.utils.book_new(),rows=[['AvtalsID','Gatuadress']];
  for(let i=0;i<80;i++){
   base.properties.push(normalize('properties',{id:'p'+i,name:'Test '+i,address:'Exempelgatan '+i}));
@@ -102,7 +102,7 @@ test('large unknown address proposals have one batch action and show only uncert
  const {profiles,result}=prepare(w,base);
  assert.equal(result.report.linkProposals.length,81);
  const html=columnPreviewHtml({fileName:'syntetisk-lokaldata.xlsx'},{profiles},result,importSchemas);
- assert.match(html,/Godkänn 80 entydiga förslag/);assert.match(html,/<details data-import-link-exceptions open>/);assert.match(html,/<details data-import-link-suggestions>/);assert.doesNotMatch(html,/<details data-import-link-suggestions open>/);
+ assert.match(html,/Godkänn 80 entydiga kopplingsförslag i urvalet/);assert.match(html,/Behöver kopplas \(81\)/);assert.equal((html.match(/data-link-proposal=/g)||[]).length,30);assert.doesNotMatch(html,/data-import-link-exceptions|data-import-link-suggestions/);
  const rowMatches=Object.fromEntries(result.report.linkProposals.filter(p=>p.matches.length===1).map(p=>[p.matchingKey,{signature:p.signature,propertyId:p.matches[0].id}]));
  const selected=prepareCleanImport(w,profiles,base,{fileName:'syntetisk-lokaldata.xlsx',actor:'Test',rowMatches},XLSX);
  assert.equal(selected.clean.agreements.length,80);assert.equal(selected.report.blocking,1);assert.equal(selected.report.linkProposals.filter(p=>!p.approved).length,1);

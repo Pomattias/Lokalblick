@@ -68,8 +68,8 @@ nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
 Verifierat 2026-10-24 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 752 godkända, 0 underkända, 0 överhoppade.
-- Repots förkontroll: syntax för 133 JavaScript-filer och kontroll av filtyper.
+- `npm test`: 760 godkända, 0 underkända, 0 överhoppade.
+- Repots förkontroll: syntax för 134 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
 - Tabellimport i webbläsare: mappning, återimport, kontakter, SQLite-sparning

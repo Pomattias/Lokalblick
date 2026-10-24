@@ -55,8 +55,8 @@ test('approved IDs and their provenance survive Excel roundtrip without another 
  const src=source([['Testgatan 1A','O1','A1']]),pending=run(src),approved=run(src,fixture(),choice(pending.report.linkProposals[0])),restored=await readWorkbook(await writeWorkbook(approved.clean));
  assert.deepEqual(restored,JSON.parse(JSON.stringify(approved.clean)));assert.equal(run(src,restored).report.linkProposals.length,0);assert(!Object.hasOwn(restored.workspace,'importRowMatches'));
 });
-test('the compact list shows properties and linked records, escapes content and keeps ambiguous proposals out of bulk approval',()=>{
+test('the source table shows linked records on their own row, escapes content and keeps ambiguous choices explicit',()=>{
  const base=fixture();base.properties[1].address='Testgatan 1A';base.properties[0].name='<Test & hus>';
  const src=source([['Testgatan 1A','O1','A1']]),pending=run(src,base),html=columnPreviewHtml({fileName:'syntetiska-kopplingar.xlsx'},{profiles:src.profiles},pending,importSchemas);
- assert.match(html,/data-import-link-proposals/);assert.match(html,/&lt;Test &amp; hus&gt;/);assert.match(html,/Objekt O1 · Avtal A1/);assert.match(html,/data-link-property/);assert.doesNotMatch(html,/data-approve-link-proposals/);assert.doesNotMatch(html,/data-row-match/);assert.doesNotMatch(html,/data-import-errors/);assert.doesNotMatch(html,/data-approve-link="0"/);assert.match(html,/Välj mål en gång/);
+ assert.match(html,/data-import-link-proposals/);assert.match(html,/&lt;Test &amp; hus&gt;/);assert.match(html,/Objekt O1 · Avtal A1/);assert.match(html,/data-link-property/);assert.doesNotMatch(html,/data-approve-link-proposals/);assert.doesNotMatch(html,/data-row-match/);assert.doesNotMatch(html,/data-import-errors/);assert.doesNotMatch(html,/data-approve-link="0"/);assert.match(html,/Ditt val används direkt/);assert.match(html,/data-import-source-row=/);assert.doesNotMatch(html,/<section class="import-link-proposals"/);
 });

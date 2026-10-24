@@ -26,7 +26,8 @@
     "test:lokaler-browser": "node scripts/lokaler-browser-check.mjs",
     "test:local-data-browser": "node scripts/local-data-browser-check.mjs",
     "test:table-import-browser": "node scripts/table-import-browser-check.mjs",
-    "test:approval-browser": "node scripts/import-approval-browser-check.mjs"
+    "test:approval-browser": "node scripts/import-approval-browser-check.mjs",
+    "test:inline-import-browser": "node scripts/inline-import-browser-check.mjs"
   },
   "engines": {
     "node": ">=20"

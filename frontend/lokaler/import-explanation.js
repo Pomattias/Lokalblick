@@ -33,8 +33,11 @@ export function explainImport(candidate,base,{approved=null,choices={},profiles=
  const old=indexes(base),proposed=indexes(candidate.clean),saved=approved?indexes(approved.clean):null;
  const plan=importCreationPlan(candidate,base),entries=new Map(plan.map(entry=>[entry.key,entry]));
  const mapped=new Map((approved?.report.creationReview?.mapped||[]).map(row=>[row.from,row.to]));
- const current=approved||candidate,reviewIds=new Set(current.report.reviewIds||[]),rowReviews=new Map();
- for(const review of current.clean.workspace.importReview||[])if(reviewIds.has(review.id)&&!review.creationDeferred)for(const at of review.occurrences||[review]){
+ // Withholding a new parent must not hide the source row's actual field
+ // problems. Prefer the current resolution, retaining draft-only explanations.
+ const current=approved||candidate,reviewIds=new Set([...(candidate.report.reviewIds||[]),...(current.report.reviewIds||[])]),rowReviews=new Map();
+ const explainedReviews=new Map([...(candidate.clean.workspace.importReview||[]),...(current.clean.workspace.importReview||[])].map(review=>[review.id,review]));
+ for(const review of explainedReviews.values())if(reviewIds.has(review.id)&&!review.creationDeferred)for(const at of review.occurrences||[review]){
   const id=rowKey(at);if(!rowReviews.has(id))rowReviews.set(id,[]);rowReviews.get(id).push(review);
  }
  const status=(table,id)=>{

@@ -78,7 +78,7 @@ test('required record choices remain visible even after more than 100 optional f
  const rows=Array.from({length:150},(_,i)=>{const values=row(i);values[5]='Se avtal';return values;});rows.push(['','Gemensamt namn','O-amb',100,'A-amb','2025-01-01','2029-12-31','']);
  const {result,profiles}=prepare(fields,rows,base),groups=importReviewGroups(result.clean.workspace.importReview);
  assert.equal(result.report.blocking,1);assert.equal(groups[0].category,'blocked');
- const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas);assert.match(html,/<select data-link-property=/);assert(html.indexOf('data-import-link-proposals')<html.indexOf('data-review-category="fields"'));assert.equal(result.report.linkProposals.length,1);assert.match(html,/Alla källrader finns i granskningsunderlaget/);
+ const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas,{}, {story:{filter:'attention:link'}});assert.match(html,/<select data-link-property=/);assert(html.indexOf('data-import-link-proposals')<html.indexOf('data-review-category="fields"'));assert.equal(result.report.linkProposals.length,1);assert.match(html,/Alla källrader finns i granskningsunderlaget/);
 });
 test('held source values, field receipt counts and Budget survive the actual Excel roundtrip',async()=>{
  const input=row();input[5]='Se avtal';const {result}=prepare(fields,[input]);result.clean.workspace.budgetPlans=[{year:2027,locked:true,rows:[{amount:987}]}];

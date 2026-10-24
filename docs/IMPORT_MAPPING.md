@@ -27,7 +27,7 @@ källrubriker; oförändrad kolumnordning krävs inte.
 Sparade avtalsnummer använder sina befintliga objekt- och fastighetskopplingar.
 Förvaltningsnummer är en extern fastighetsnyckel. Kostnadsställe är text på
 avtalet och används inte som fastighetsidentifierare. Osäkra adress-/nummerförslag
-visar kandidater och underlag; de kräver ett uttryckligt val. Motstridiga
+visar kandidater och underlag direkt på källraden; de kräver ett uttryckligt val. Motstridiga
 identifierare kan inte godkännas genom ett övergripande värdeval.
 
 Personer identifieras med person-ID, e-post eller entydigt namn och part.
@@ -67,5 +67,11 @@ Det tidigare separata provet använde utgångna fält som `costCenterPremises`
 och har ersatts. Kompletterande prov finns för tabellimport, lokaldata,
 priser, ärenden samt server- och webbläsarbaserad Excel-lagring.
 
-Verifierat med syntetiska underlag 2026-10-24: 752 godkända tester och
-syntaxkontroll av 133 JavaScript-filer. Inga skarpa verksamhetsdata används.
+Verifierat med syntetiska underlag 2026-10-24: 760 godkända tester och
+syntaxkontroll av 134 JavaScript-filer. Inga skarpa verksamhetsdata används.
+
+Väntande källrader hanteras i samma tabell med filtren **Behöver kopplas**,
+**Behöver kompletteras** och **Nya poster att godkänna**.
+`npm run test:inline-import-browser` verifierar 154 rader, varav 21 väntar
+på koppling, utan någon separat kopplingslista. Massval följer tabellens
+urval och sökning.

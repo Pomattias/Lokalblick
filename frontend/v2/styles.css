@@ -3989,20 +3989,6 @@ body[data-view="sources"] .import-receipt [data-receipt-review] {margin:8px 0}
 .maintenance-page .maintenance-status[data-status=urgent] { color:#a12222; font-weight:600; }
 
 /* Address suggestions use the import's existing row choices, not automatic links. */
-body:not([data-view="budget"]) .import-link-proposals {margin-block:12px;font-size:12px;}
-body:not([data-view="budget"]) .import-link-proposals .section-title {justify-content:space-between;gap:8px;flex-wrap:wrap;}
-body:not([data-view="budget"]) .import-link-proposals ul {list-style:none;padding:0;margin:6px 0;}
-body:not([data-view="budget"]) .import-link-proposals li {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere;}
-body:not([data-view="budget"]) .import-link-proposals small {display:block;color:var(--muted);font-size:11px;}
-body:not([data-view="budget"]) .import-link-proposals select {width:100%;min-width:0;font-size:12px;}
-body:not([data-view="budget"]) .import-link-approval {display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:12px;}
-@media(max-width:600px){
- body:not([data-view="budget"]) .import-link-proposals li {grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;}
- body:not([data-view="budget"]) .import-link-proposals li>div {grid-column:1;}
- body:not([data-view="budget"]) .import-link-proposals .import-link-approval {grid-column:2;grid-row:1/3;}
-}
-
-
 body:not([data-view="budget"]) .import-financial-suggestions {font-size:12px;margin-block:10px;padding:8px;border:1px solid var(--line);border-radius:8px;}
 body:not([data-view="budget"]) .import-financial-suggestions .section-title {justify-content:space-between;gap:8px;flex-wrap:wrap;}
 body:not([data-view="budget"]) .import-financial-suggestions ul {padding:0;margin:5px 0;list-style:none;}
@@ -4057,7 +4043,7 @@ body:not([data-view=budget]) .import-expanded-row>td {max-width:none;padding:14p
 .import-impact {background:var(--soft);border:1px solid var(--line);padding:10px;margin:10px 0;}
 .import-impact p {margin:5px 0;font-size:12px;}
 .import-impact small {font-size:11px;line-height:1.4;}
-.import-mapping-dialog>[data-new-records],.import-mapping-dialog>[data-missing-designations] {padding:12px 0;border-bottom:1px solid var(--line);}
+.import-mapping-dialog>[data-new-records] {padding:12px 0;border-bottom:1px solid var(--line);}
 .import-approval-row {border-top:1px solid var(--line);padding:10px 0;font-size:12px;}
 .import-approval-row>label {display:flex;align-items:flex-start;gap:10px;}
 .import-approval-row input[type=checkbox] {width:auto;flex:none;margin-top:4px;}
@@ -4076,3 +4062,17 @@ body:not([data-view=budget]) .import-expanded-row>td {max-width:none;padding:14p
 
 body:not([data-view=budget]) .import-source-table>thead>tr>th:first-child,
 body:not([data-view=budget]) .import-source-table>tbody>tr>th:first-child {position:sticky;left:0;z-index:1;background:var(--paper);min-width:125px;}
+
+/* Unresolved source rows keep their controls beside the original cells. */
+.import-row-review-tools {display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0;font-size:12px;}
+.import-row-review-tools p {flex-basis:100%;}
+.import-attention-reason,.import-inline-link small {display:block;font-size:11px;line-height:1.45;margin:6px 0;font-weight:400;}
+.import-inline-link {width:220px;max-width:100%;padding-top:8px;margin-top:8px;border-top:1px solid var(--line);font-size:12px;font-weight:400;}
+.import-inline-link strong {font-size:12px;}
+.import-inline-link label {display:block;white-space:normal;}
+.import-inline-link select {width:100%;max-width:220px;min-width:0;font-size:12px;}
+.import-inline-link .import-link-approval {display:flex;flex-direction:row;align-items:flex-start;gap:6px;}
+.import-inline-link input[type=checkbox] {width:auto;flex:none;margin-top:3px;}
+.import-source-table>tbody>tr[data-row-attention=link]>th {border-left:3px solid #b58a22;}
+.import-source-table>tbody>tr[data-row-attention=complete]>th {border-left:3px solid #b36e39;}
+.import-column-warning {display:block;padding:5px;border:1px solid #c9ad69;border-radius:4px;background:#fff6df;font-size:11px;font-weight:400;}
