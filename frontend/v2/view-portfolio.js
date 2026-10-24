@@ -1,3 +1,4 @@
+import {objectLabel} from './view-format.js';
 // Property, object and agreement views of the shared portfolio.
 import {esc,money,calc,row,propertyDesignation,propertyAddressCell,num,propertyById,badge,personLabel,edit,units,propertyAddress,propertyOwnerLabel,propertyLabel,table,propertyReference,indexFormat} from "./view-format.js";
 import {tenantName,contractPhase,rentalTotals,recordContext,isOpenIssue} from "./portfolio-context.js";
@@ -120,7 +121,7 @@ export function overview(data, s, ui) {
         ["Fastighet","Objekt","Avtal","Hyresgäst","Registrerad avtalstid"],
         history.map(contract=>{
           const property=data.properties.find(row=>row.id===contract.propertyId),object=(data.objects||[]).find(row=>row.id===contract.objectId);
-          return `<tr><td>${esc(propertyReference(property||{}))}</td><td>${esc(object?.number||object?.name||'–')}</td><td><button type="button" class="text-button" data-edit="contracts" data-id="${esc(contract.id)}">${esc(contract.number||contract.id)}</button></td><td>${esc(tenantName(data,contract))}</td><td>${esc(contract.start||'Start saknas')} – ${esc(contract.end||'Tills vidare')}</td></tr>`;
+          return `<tr><td>${esc(propertyReference(property||{}))}</td><td>${esc(objectLabel(object))}</td><td><button type="button" class="text-button" data-edit="contracts" data-id="${esc(contract.id)}">${esc(contract.number||contract.id)}</button></td><td>${esc(tenantName(data,contract))}</td><td>${esc(contract.start||'Start saknas')} – ${esc(contract.end||'Tills vidare')}</td></tr>`;
         }),true,"Tidigare och kommande avtal",false,{key:"contracts-history",noun:"avtal"})}</details>`;
     }
   } else
@@ -200,7 +201,7 @@ export function contractDetail(data, id, year, presentation={}) {
 export function objectList(data,s,ui={}){
   const view=ui.portfolioView||scope(data,s);
   const rows=objects=>objects.map(o=>row([
-    `<button type="button" class="text-button" data-edit="objects" data-id="${esc(o.id)}">${esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)}</button>`+(String(o.id||"").startsWith("OBJ|")&&!o.number?'<small>Kontrollera objektnummer och koppling</small>':''),
+    `<button type="button" class="text-button" data-edit="objects" data-id="${esc(o.id)}">${esc([objectLabel(o),o.name].filter(Boolean).join(' · '))}</button>`+(String(o.id||"").startsWith("OBJ|")&&!o.number?'<small>Kontrollera objektnummer och koppling</small>':''),
     esc(propertyReference(data.properties.find(p=>p.id===o.propertyId))),num(o.area)+' m²',
     esc((o.start||'Ej angivet')+' – '+(o.end||'tills vidare')),
     view.contracts.filter(c=>c.objectId===o.id).map(c=>`<button type="button" class="text-button" data-object-contract="${esc(c.id)}">${esc(c.number||c.id)}</button>`).join(' ')||'Inget gällande avtal',

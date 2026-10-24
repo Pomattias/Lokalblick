@@ -8,8 +8,9 @@ radkorten och separata godkännandestegen har ersatts.
 
 - Varje kolumn behåller filens rubrik. Färgen och fältnamnet visar dess register:
   fastighet, objekt, avtal, pris på avtal, person, part, ärende eller beställning.
-  Ändra förslaget direkt i rubriken. **Fler kolumnval** innehåller bortval,
-  personformat, datumtolkning och villkor för avtalsposter.
+  Rubriken innehåller fältkopplingen och **Importera inte**. Klicka på kopplingen
+  för att byta fält. **Inställningar för kolumnen** i fältväljaren öppnar
+  exempel, personformat, datumtolkning och villkor för avtalsposter.
 - Originalvärdet visas i cellen. Bortvalda eller väntande uppgifter märks med text;
   förändrade sparade värden visar före/efter. Färg betecknar register, aldrig säkerhet.
 - **🔗 Visa / ändra** i radens första kolumn öppnar den verkliga kedjan
@@ -20,6 +21,15 @@ radkorten och separata godkännandestegen har ersatts.
   skild från fastighetsägaren, som är en part. Befintliga personkopplingar och
   deras historik ändras via registret. Ärvda ansvar visas utan att kopieras.
 - Priser visar avtalsnumret, tidigare/nytt belopp och öppningsbara prisvillkor.
+
+Fastighetsnummer, objektnummer och avtalsnummer visas som verksamhetens
+nummer: **SF4201 → SF4201-001 → SF4201-001-03**. Förvaltningsobjekt `4201`
+ger fastighetsnumret `SF4201` för en ny post. Objektet får avtalsnumret utan
+den sista delen. Avtalsnumret ändras inte. Saknas en säker tolkning visas
+att numret saknas; interna nycklar används enbart för lagrade referenser.
+Befintliga kopplingar behålls och nya avtalsversioner återanvänder ett entydigt
+befintligt objekt. Tvetydigheter och överlappande avtalsperioder lämnas för
+granskning.
 
 | Status | Betydelse i det aktuella utkastet |
 | --- | --- |
@@ -105,7 +115,7 @@ npm run test:table-import-browser
 npm run test:lokaler-browser
 ```
 
-Verifierat med syntetiska filer 2026-10-24: 760 tester och syntaxkontroll av 134
+Verifierat med syntetiska filer 2026-10-24: 770 tester och syntaxkontroll av 135
 JavaScript-filer. Webbläsarprovet följer fil → tabell → ändrade val → API → SQLite
 → återöppning: selektiva/allmänna urval, 122 nya fastigheter, saknad beteckning
 före/efter import, en person med flera roller och mål, återimport och avbrott utan
@@ -142,3 +152,6 @@ inte automatiskt kolumnval eller sparade beteckningar.
 Webbläsarprovet använder 154 syntetiska rader med 21 väntande kopplingar,
 kontrollerar filtrerade massval, komplettering, återimport, exakt en slutlig
 skrivning, återöppning av SQLite samt oförändrade låsta budgetsnapshots.
+
+Nummerkedjan och dolda interna nycklar provas i både SQLite och Excel med
+`npm run test:business-number-browser`.

@@ -10,8 +10,13 @@ kolumnordning eller filnamn.
   ObjektID och objektets FastighetsID. Ett nummerprefix får inte skriva om
   befintliga ID:n eller flytta avtal mellan objekt.
 - **Förvaltningsobjekt** är en egen källuppgift på Fastighet. Ett känt
-  förvaltningsnummer återanvänder fastigheten. Om numret redan används som ett
-  sparat FastighetsID kan samma fastighet återanvändas utan att ID:t ändras.
+  förvaltningsnummer återanvänder fastigheten. För en ny fastighet ger numeriska
+  `4201` numret `SF4201`, medan källuppgiften behålls som `4201`. Sparade
+  identiteter och kopplingar ändras inte. Ett läsbart nummer visas i gränssnittet.
+- **Objektnummer** härleds vid behov från ett tredelat avtalsnummer:
+  `SF4201-001-03` ger `SF4201-001`. Hela avtalsnumret behålls exakt. Ett redan
+  sparat eller uttryckligt objekt går före härledningen. En ny avtalsversion
+  återanvänder samma objekt när numret är entydigt; interna prefix visas inte.
 - **Kostnadsställe** hör till Avtal och lagras som text, inklusive ledande nollor.
   Det används inte som identitet; flera avtal kan ha samma kostnadsställe.
 - Adress och andra identifierare kontrolleras tillsammans. Om de pekar på olika
@@ -104,8 +109,8 @@ Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
 Verifierat 2026-10-24 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 760 godkända, 0 underkända, 0 överhoppade.
-- Syntax/förkontroll: 134 JavaScript-filer.
+- `npm test`: 770 godkända, 0 underkända, 0 överhoppade.
+- Syntax/förkontroll: 135 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,
   ledande nollor, sparning och återläsning godkända.
@@ -115,3 +120,6 @@ Verifierat 2026-10-24 med Node.js 24.19.0 och system-Chromium:
 Granskningen visar nu även status och kopplingskedja per källrad, med skäl för
 bortval och knappar som leder till rätt kolumnval eller kopplingsförslag. Se
 [Granskad import](SAFE_IMPORT.md#förstå-vad-som-läses-in).
+
+`npm run test:business-number-browser` verifierar SF-nummer, kompakta
+kolumnrubriker och återimport mot både nya och befintliga poster i SQLite/Excel.

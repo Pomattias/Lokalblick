@@ -1,4 +1,4 @@
-import {approveAllImportRecords,revealImportSettings} from './helpers/import-approval.mjs';
+import {approveAllImportRecords,revealImportSettings,withImportColumnSettings} from './helpers/import-approval.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,mkdir,readFile} from 'node:fs/promises';
 import os from 'node:os';import path from 'node:path';import {createRequire} from 'node:module';
@@ -26,7 +26,7 @@ try{
  const list=page.locator('[data-import-link-proposals]');assert.equal(await list.locator('[data-link-proposal]').count(),3);assert.match(await list.innerText(),/TESTET 1 · F1/);assert.match(await list.innerText(),/Objekt O1 · Avtal A1/);assert.match(await list.innerText(),/Godkänn 2 entydiga kopplingsförslag i urvalet/);assert.equal(await page.locator('[data-apply]').isDisabled(),true);assert.equal(await approve(2).count(),0,'Choosing an ambiguous target has no second checkbox');assert.equal(store.snapshot().data.objects.length,0);
  await approve(0).check();await ready();assert.match(await list.innerText(),/1 godkända/);assert.equal(await approve(1).isChecked(),false);assert.equal(await page.locator('[data-apply]').isDisabled(),true);
  await approve(0).uncheck();await ready();assert.match(await list.innerText(),/0 godkända/);
- await approve(0).check();await ready();await page.locator('[data-date-mode]').selectOption('auto');await ready();assert.equal(await approve(0).isChecked(),true,'Unrelated date interpretation keeps an approved relation');
+ await approve(0).check();await ready();await withImportColumnSettings(page,'From',async settings=>{await settings.locator('[data-date-mode]').selectOption('auto');await ready();});assert.equal(await approve(0).isChecked(),true,'Unrelated date interpretation keeps an approved relation');
  await page.locator('[data-approve-link-proposals]').click();await ready();assert.equal(await approve(0).isChecked(),true);assert.equal(await approve(1).isChecked(),true);assert.equal(await approve(2).count(),0,'Bulk approval never chooses an ambiguous property');
  await page.locator('[data-link-property]').selectOption('F3');await ready();assert.equal(await page.locator('[data-apply]').isDisabled(),false);assert.match(await list.innerText(),/3 godkända/);
  await page.locator('[data-link-property]').selectOption('F2');await ready();assert.equal(await page.locator('[data-apply]').isDisabled(),false,'A changed target is used directly after the one explicit selection');await page.locator('[data-link-property]').selectOption('F3');await ready();

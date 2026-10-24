@@ -1,3 +1,4 @@
+import {createBusinessLabels} from '../lokaler/business-identities.js';
 // Import review, source priorities and receipts. Saving remains in the transport.
 import {propertyLabel,organizationLabel,personLabel,num,esc,money,propertyDesignation,propertyAddress,table,row,edit} from "./view-format.js";
 import {fieldCaption} from "./field-labels.js";
@@ -69,11 +70,11 @@ function reviewRecord(data, item) {
   return { collection, record };
 }
 function reviewRecordLabel(data, item) {
-  if (item.recordLabel) return item.recordLabel;
+  if (item.recordLabel) return createBusinessLabels(data).text(item.recordLabel);
   const { collection, record } = reviewRecord(data, item);
   if (!record) return item.entity || "";
   if (collection === "properties")
-    return [record.address, record.designation, record.sourceId].filter(Boolean).join(" · ");
+    return [record.address, record.designation, createBusinessLabels(data).number('properties',record.id)].filter(Boolean).join(" · ");
   if(collection==='objects')return [record.number,record.name,propertyLabel(data,record.propertyId)].filter(Boolean).join(' · ');
   if (collection === "contracts")
     return [
@@ -123,7 +124,7 @@ function reviewValue(data, item, value) {
     return ["area", "commonArea", "apartmentArea"].includes(item.field)
       ? num(value) + " m²"
       : num(value);
-  return String(value);
+  return createBusinessLabels(data).text(value);
 }
 function reviewSuggestion(data,x) {
   const normalizeAddress=s=>String(s??"").toLocaleLowerCase("sv")
@@ -146,7 +147,7 @@ function reviewConflictCard(data,x) {
     <div class="review-value proposed"><span>2 · Från nya importfilen</span><strong>${esc(reviewValue(data,x,x.proposed))}</strong><small>${esc(reviewIncomingSource(x))}</small><button type="button" data-review="${esc(x.id)}" data-decision="accept">Välj detta värde</button></div>
   </div></div></section>`;
 }
-function importRecordPreview(record) {
+function importRecordPreview(record,labels=createBusinessLabels()) {
   if(!record)return "<p><small>Källdetaljer saknas. Sök på adress eller nummer.</small></p>";
   const fields=[["Adress",record.address],["Fastighetsbeteckning",record.designation],
     ["Ort",record.city],["Objekt",record.objectNo],
@@ -156,9 +157,10 @@ function importRecordPreview(record) {
     ["Bastillägg",record.baseAdditions?money(record.baseAdditions):""],
     ["Ägare",record.ownerName],["Benämning",record.name||record.title]]
     .filter(([,value])=>value!==""&&value!=null);
-  return `<dl class="review-record-preview">${fields.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+  return `<dl class="review-record-preview">${fields.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(labels.text(v))}</dd></div>`).join("")}</dl>`;
 }
 export function reviewCandidateChoices(data,item,searchValue="") {
+  const labels=createBusinessLabels(data);
   const matcher=globalThis.LokalblickAddressMatch;
   if(!matcher)return "<p>Adressmatchningen är inte tillgänglig. Ladda om sidan.</p>";
   const isContract=item.kind==="match",r=item.record||{address:item.address||""};
@@ -182,22 +184,24 @@ export function reviewCandidateChoices(data,item,searchValue="") {
       propertyAddress(p),propertyDesignation(p),contract.area?num(contract.area)+" m²":"",
       [contract.start,contract.end].filter(Boolean).join(" – "),contract.businessName||contract.use
     ]:[
-      propertyAddress(p),p.city,p.sourceId?"Objektsnummer "+p.sourceId:"",
+      propertyAddress(p),p.city,'Fastighetsnummer '+labels.number('properties',p.id),
       organizationLabel(data,p.ownerPartyId)||p.sourceOwner,p.name
     ];
     return `<label class="review-match-option"><input type="radio" name="${esc(name)}" data-review-target="${esc(item.id)}" value="${esc(c.id)}">
-      <span><strong>${esc(title)}</strong><small>${esc(details.filter(Boolean).join(" · "))}</small><small class="review-match-reason">${esc(c.reason||"")}</small></span></label>`;
+      <span><strong>${esc(title)}</strong><small>${esc(labels.text(details.filter(Boolean).join(" · ")))}</small><small class="review-match-reason">${esc(c.reason||"")}</small></span></label>`;
   }).join("")}</div>`;
 }
 function reviewStandardCard(data,x) {
+  const labels=createBusinessLabels(data);
+  x={...x,reason:labels.text(x.reason)};for(const field of ['value','proposed'])if(x[field]!=null)x[field]=labels.text(x[field]);
   if(x.kind==='canonical-conflict'){
     if(!x.rowRejected&&!x.recordRejected&&x.recordId&&Object.hasOwn(x,'proposed'))return reviewConflictCard(data,x);
     return `<article class="review review-card"><h3>${x.recordRejected?'En del av raden lästes inte in':x.personLinkRejected?'Personkopplingen behöver granskas':x.rowRejected?'Raden lästes inte in':'Fältet lämnades oförändrat'}</h3><p>${esc(x.source)} · ${esc(x.sheet)} · Rad ${esc(x.row)}</p><p>${esc(x.column||fieldCaption(x.collection,x.field))}: ${esc(x.value??x.proposed??'–')} · ${esc(x.reason)}</p><p>${x.recordRejected?'Övriga säkert identifierade uppgifter på raden har lästs in. Rätta denna registerpost eller kolumnvalet och läs in på nytt.':x.personLinkRejected?'Övriga giltiga uppgifter på raden har lästs in. Rätta personformat, PersonID eller koppling och läs in på nytt.':x.rowRejected?'Rätta underlaget eller kolumnvalet och läs in på nytt. Att avvisa granskningen läser inte in raden.':'Övriga giltiga uppgifter har lästs in. Komplettera posten i appen eller rätta underlaget och läs in på nytt.'}</p><button data-review="${esc(x.id)}" data-decision="reject">${x.fieldRejected?"Markera hanterad":"Avvisa granskning"}</button></article>`;
   }
   if(x.kind==='multi-contract-value')return `<article class="review review-card"><h3>Flera avtalsreferenser</h3><p>${esc(x.source)} · ${esc(x.sheet)} · ${esc(x.provenance?.cell)} · ${esc(x.reason)}</p><p>${esc(x.field)}: ${esc(x.proposed)}. Ange uppgiften separat per avtal i underlaget eller avtalsformuläret.</p><button data-review="${esc(x.id)}" data-decision="reject">Lämna värdet oförändrat</button></article>`;
-  if(x.kind==='tenant-identity'){const rows=data.organizations;return `<article class="review review-card"><h3>Bekräfta ${x.collection==='contracts'?'hyresgäst':'verksamhet'}</h3><p>${esc(x.reason)} · ${esc(x.values?.name||x.values?.tenantName)}</p><label>Välj befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(rows||[]).map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${esc(r.id)}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Bekräfta koppling</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;}
+  if(x.kind==='tenant-identity'){const rows=data.organizations;return `<article class="review review-card"><h3>Bekräfta ${x.collection==='contracts'?'hyresgäst':'verksamhet'}</h3><p>${esc(x.reason)} · ${esc(x.values?.name||x.values?.tenantName)}</p><label>Välj befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(rows||[]).map(r=>`<option value="${esc(r.id)}">${esc(labels.label('parties',r.id))}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Bekräfta koppling</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;}
   if(x.kind==='invalid-import-field')return `<article class="review review-card"><h3>Värdet behöver rättas</h3><p>${esc(x.source)} · ${esc(x.provenance?.sheet||'')} · ${esc(x.provenance?.cell||'')}</p><p>${esc(fieldCaption(x.collection,x.field))}: ${esc(x.provenance?.originalValue??'')} · ${esc(x.reason)}</p><p>Rätta värdet i underlaget och läs in på nytt.</p><button data-review="${esc(x.id)}" data-decision="reject">Ignorera detta värde</button></article>`;
-  if(x.kind==='mapped-identity')return `<article class="review review-card"><h3>Identifiera importerad post</h3><p>${esc(x.source)} · ${esc(x.sheet)} rad ${esc(x.row)} · ${esc(x.reason)}</p>${importRecordPreview(x.values)}<label>Koppla till befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(data[x.collection]||[]).map(r=>`<option value="${esc(r.id)}">${esc([r.address,r.designation,r.city,r.number,r.tenantName,r.name,r.title,r.area?num(r.area)+' m²':''].filter(Boolean).join(' · '))}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Koppla och berika</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;
+  if(x.kind==='mapped-identity')return `<article class="review review-card"><h3>Identifiera importerad post</h3><p>${esc(x.source)} · ${esc(x.sheet)} rad ${esc(x.row)} · ${esc(x.reason)}</p>${importRecordPreview(x.values,labels)}<label>Koppla till befintlig post<select data-review-target="${esc(x.id)}"><option value="">Välj post</option>${(data[x.collection]||[]).map(r=>`<option value="${esc(r.id)}">${esc([r.address,r.designation,r.city,r.number,r.tenantName,r.name,r.title,r.area?num(r.area)+' m²':''].filter(Boolean).join(' · '))}</option>`).join('')}</select></label><div class="actions"><button data-review="${esc(x.id)}" data-decision="accept">Koppla och berika</button><button data-review="${esc(x.id)}" data-decision="reject">Ignorera</button></div></article>`;
   const titles={match:"Matcha importerat avtal",record:"Koppla importerad post",
     "activity-property":"Koppla ärende till fastighet","property-match":"Matcha fastighet via adress",person:"Komplettera person"};
   const isMatch=["record","activity-property","property-match","match"].includes(x.kind);
@@ -266,7 +270,7 @@ export function importReceiptHtml(source,data) {
   return `<section class="detail import-receipt" data-import-receipt><h3>Importresultat · ${esc(source.name)}</h3><small>${esc(new Date(source.importedAt).toLocaleString('sv-SE'))}</small>
     <p>${num(totals.created)} nya · ${num(totals.updated)} kompletterade · ${num(totals.unchanged)} oförändrade poster · ${ignored.length} ${ignored.length===1?'bortvald kolumn':'bortvalda kolumner'}</p>
     <small>${num(receipt.scannedRows??(receipt.deferredRecords?receipt.rows:receipt.readRows))} ${receipt.scannedRows!=null?'granskade källrader':receipt.deferredRecords?'kontrollerade källrader':receipt.readRows===1?'inläst källrad':'inlästa källrader'}${receipt.partialRows?' · '+num(receipt.partialRows)+' delvis inlästa':''}${receipt.ignoredRows?' · '+num(receipt.ignoredRows)+' källrader med bara bortvalda eller tomma fält':''}${receipt.deferredRecords?' · '+num(receipt.deferredRecords)+' poster inväntar godkännande':''}${receipt.rejectedRows?' · '+num(receipt.rejectedRows)+(receipt.rejectedRows===1?' rad lämnades utanför':' rader lämnades utanför'):''}. Resultatet gäller denna import.</small>
-    ${pending.length?`<div data-receipt-review><h4>Att kontrollera (${groups.length} ${groups.length===1?'problemtyp':'problemtyper'})</h4>${groups.map(group=>`<p>${group.category==='blocked'?'Kan inte läsas in':group.category==='values'?'Välj värde':'Komplettera senare'} · ${esc(group.reason)} · ${group.rowCount} källrad${group.rowCount===1?'':'er'}</p>`).join('')}<small>Öppna granskningsärendena nedan för att se berörda poster och källrader.</small></div>`:''}
+    ${pending.length?`<div data-receipt-review><h4>Att kontrollera (${groups.length} ${groups.length===1?'problemtyp':'problemtyper'})</h4>${groups.map(group=>`<p>${group.category==='blocked'?'Kan inte läsas in':group.category==='values'?'Välj värde':'Komplettera senare'} · ${esc(createBusinessLabels(data).text(group.reason))} · ${group.rowCount} källrad${group.rowCount===1?'':'er'}</p>`).join('')}<small>Öppna granskningsärendena nedan för att se berörda poster och källrader.</small></div>`:''}
     ${used.length?`<details data-receipt-columns="used"><summary>Använda kolumnkopplingar (${used.length})</summary><small>Lästa värden kan vara nya, oförändrade eller avvikande. Olösta avvikelser ändrar inte sparade värden.</small>${columnRows(used)}</details>`:''}
     ${empty.length?`<details data-receipt-columns="empty"><summary>Kolumner utan inlästa värden (${empty.length})</summary>${columnRows(empty)}</details>`:''}
     ${ignored.length?`<details data-receipt-columns="ignored"><summary>Bortvalda kolumner (${ignored.length})</summary>${columnRows(ignored)}</details>`:''}
@@ -348,12 +352,12 @@ export function sources(data, transport) {
       ]),
     ),
   )}<div class="section-title review-title"><h3>Att kontrollera (${importReviewGroups(reviews.filter(row=>row.kind==='canonical-conflict')).length+reviews.filter(row=>row.kind!=='canonical-conflict').length} grupper)</h3><div class="actions"><small>Välj vilket värde som ska gälla. Valet loggas i ändringshistoriken.</small><button type="button" data-export-reviews ${reviews.length ? "" : "disabled"}>Exportera granskningsfel (JSON)</button></div></div><details class="review-details"${reviews.some(row=>row.kind!=='canonical-conflict')?' open':''}><summary>Visa kompletteringar och värdeval</summary>${
-    (importReviewGroups(reviews.filter(x=>x.kind==='canonical-conflict')).map(group=>`<details data-source-review-group><summary>${group.category==='blocked'?'Kan inte läsas in':group.category==='values'?'Välj värde':'Komplettera senare'} · ${esc(group.reason)} · ${group.rowCount} källrad${group.rowCount===1?'':'er'}</summary>${group.reviews.map(review=>reviewStandardCard(data,review)).join('')}</details>`).join('')+
+    (importReviewGroups(reviews.filter(x=>x.kind==='canonical-conflict')).map(group=>`<details data-source-review-group><summary>${group.category==='blocked'?'Kan inte läsas in':group.category==='values'?'Välj värde':'Komplettera senare'} · ${esc(createBusinessLabels(data).text(group.reason))} · ${group.rowCount} källrad${group.rowCount===1?'':'er'}</summary>${group.reviews.map(review=>reviewStandardCard(data,review)).join('')}</details>`).join('')+
     reviews.filter(x=>x.kind!=='canonical-conflict').map(x=>x.kind==='conflict'||x.kind==='operational-conflict'?reviewConflictCard(data,x):reviewStandardCard(data,x)).join('')) || "<p>Inga öppna matchningar eller konflikter.</p>"
   }</details><details><summary>Ändringar som väntar på Excel (${st.pendingChanges?.length || 0})</summary>${table(
     ["Flik", "Post", "Ändring"],
     (st.pendingChanges || []).map((x) =>
-      row([esc(x.sheet), esc(x.id), esc(x.action)]),
+      row([esc(x.sheet), esc(createBusinessLabels(data).text(x.id)), esc(x.action)]),
     ),
   )}</details>`;
 }

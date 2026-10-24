@@ -5,7 +5,7 @@ import {emptyData,normalize,coordinator,validateData} from '../frontend/lokaler/
 import {issueHomeMatcher} from '../frontend/lokaler/issue-import.js';
 import {prepareCleanImport,importSchemas} from '../frontend/lokaler/import-model.js';
 import {profileTables,suggestIssueNumberColumns,setMappingRow} from '../frontend/services/import-matching.js';
-import {columnPreviewHtml} from '../frontend/v2/import-mapping.js';
+import {columnPreviewHtml,importColumnSettingsHtml} from '../frontend/v2/import-mapping.js';
 function base(){
  const data=emptyData();
  data.properties.push(normalize('properties',{id:'1058',name:'Testfastighet',address:'Testgatan 1 A',city:'Malmö'}));
@@ -30,7 +30,7 @@ test('ambiguous source number suggests property or object by existing registers;
  assert.equal(result.report.blocking,0);assert.equal(result.clean.issues[0].property_id,'1058');assert.equal(result.clean.issues[0].object_id,null);
  assert.equal(coordinator(result.clean,'issues',result.clean.issues[0]).person.id,'P1');
  const html=columnPreviewHtml({fileName:'syntetiska-arenden.xlsx'}, {profiles:p.profiles},result,importSchemas);
- assert.match(html,/data-issue-number/);assert.match(html,/1 kopplade till fastighet/);assert.match(html,/FastighetsID \/ förvaltningsnummer/);
+ const settings=importColumnSettingsHtml({fileName:'syntetiska-arenden.xlsx'},{profiles:p.profiles},result,importSchemas,{}, {},0,1);assert.match(settings,/data-issue-number/);assert.match(html,/1 kopplade till fastighet/);assert.match(settings,/FastighetsID \/ förvaltningsnummer/);
  const object=prepared([['Kontroll','O1','Testgatan 1A']],undefined,{referenceData:seed});assert.equal(object.profiles[0].columns[1].target,'activities.objectId');
  seed.objects.push(normalize('objects',{id:'1058',property_id:'1058'}));
  const ambiguous=prepared([['Kontroll',1058]],undefined,{referenceData:seed});assert.equal(ambiguous.profiles[0].columns[1].target,'@unmapped');

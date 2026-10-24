@@ -4022,7 +4022,6 @@ body:not([data-view=budget]) .import-source-table td[data-register] {background:
 body:not([data-view=budget]) .import-source-table .import-column-row {display:block;border:0;padding:0;}
 .import-source-table .import-target {width:100%;margin:7px 0;white-space:normal;text-align:left;font-size:12px;}
 .import-source-table details {min-width:170px;max-width:280px;}
-.import-source-table [data-column-settings]>summary {font-size:11px;}
 .import-source-table [data-cell-outcome=skipped]>span {color:var(--muted);text-decoration:line-through;}
 .import-source-table td small {display:block;margin-top:5px;font-size:11px;}
 body:not([data-view=budget]) .import-expanded-row>td {max-width:none;padding:14px;background:var(--paper);}

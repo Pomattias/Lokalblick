@@ -1,4 +1,7 @@
 // Shared presentation helpers; no state, persistence or event handling.
+import {visibleNumber,isInternalIdentifier} from '../lokaler/business-identities.js';
+export {visibleNumber,isInternalIdentifier};
+export const objectLabel=object=>visibleNumber(object?.number||object?.id,'Objektnummer saknas');
 export const esc = (x) =>
   String(x ?? "").replace(
     /[&<>"']/g,
@@ -50,7 +53,7 @@ export function options(items, value, label, selected = "", empty = "Alla") {
   );
 }
 export const organizationLabel = (data, id) =>
-  data.organizations.find((x) => x.id === id)?.name || id || "";
+  data.organizations.find((x) => x.id === id)?.name || (id?visibleNumber(id,'Part saknas'):'');
 export const propertyOwnerLabel = (data, property) =>
   organizationLabel(data, property?.ownerPartyId);
 export const propertyDesignation = property => {
@@ -59,7 +62,7 @@ export const propertyDesignation = property => {
     .replace(/\s+/g, " ").replace(/(\d)\s+([a-zåäö])(?=$|[\s,.])/gi, "$1$2")
     .toLocaleLowerCase("sv");
   // An imported address fallback is not evidence of a designation.
-  return key(designation) === key(property?.address) ? "" : designation;
+  return isInternalIdentifier(designation)||key(designation) === key(property?.address) ? "" : designation;
 };
 export const propertyAddress = property => String(property?.address || "").trim();
 export const propertyReference = property => property

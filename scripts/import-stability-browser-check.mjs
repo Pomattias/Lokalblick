@@ -1,4 +1,4 @@
-import {approveAllImportRecords,revealImportSettings} from './helpers/import-approval.mjs';
+import {approveAllImportRecords,revealImportSettings,withImportColumnSettings} from './helpers/import-approval.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,mkdir,readFile} from 'node:fs/promises';
 import path from 'node:path';import os from 'node:os';import {createRequire} from 'node:module';
@@ -22,7 +22,7 @@ await page.route('**/api/budget-index?*',route=>route.fulfill({status:503,conten
 await page.addInitScript(bytes=>{window.showOpenFilePicker=async()=>[{name:'syntetiskt.xlsx',queryPermission:async()=>'granted',getFile:async()=>new File([new Uint8Array(bytes)],'syntetiskt.xlsx')}];},sourceBytes);
 const ready=async()=>{await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();await revealImportSettings(page);};
 const column=header=>page.locator('[data-import-column]').filter({has:page.locator('.import-column-name strong',{hasText:header})});
-const begin=async()=>{await page.locator('.sidebar [data-view=sources]').evaluate(node=>node.click());await page.locator('[data-source=import]').click();await page.locator('[data-import-sheet]').first().waitFor();await page.locator('[data-import-select=all]').click();await page.locator('[data-import-start]').click();await ready();for(const selector of ['[data-import-table-review]','[data-column-settings]'])await page.locator(selector).evaluateAll(nodes=>nodes.forEach(n=>n.open=true));};
+const begin=async()=>{await page.locator('.sidebar [data-view=sources]').evaluate(node=>node.click());await page.locator('[data-source=import]').click();await page.locator('[data-import-sheet]').first().waitFor();await page.locator('[data-import-select=all]').click();await page.locator('[data-import-start]').click();await ready();for(const selector of ['[data-import-table-review]'])await page.locator(selector).evaluateAll(nodes=>nodes.forEach(n=>n.open=true));};
 try{
  await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('[data-dashboard-mode]').first().waitFor();await begin();
  await column('Användning').locator('[data-ignore-column]').click();await ready();
@@ -34,11 +34,11 @@ try{
  await page.locator('[data-new-records]').evaluate(node=>node.open=true);await page.locator('[data-select-creations=all]').click();
  assert.equal(await page.locator('[data-import-register]').count(),3,'Only affected registers are shown');
  assert.deepEqual(await page.locator('[data-import-register]').evaluateAll(rows=>rows.map(row=>row.dataset.importRegister)),['properties','objects','contracts']);
- await column('Giltigt fr.o.m.').locator('[data-date-mode]').selectOption('excel-1900');await ready();
+ await withImportColumnSettings(page,column('Giltigt fr.o.m.'),async settings=>{await settings.locator('[data-date-mode]').selectOption('excel-1900');await ready();});
  assert.equal(await page.locator('[data-import-safe-rows]').isChecked(),false);await page.locator('[data-import-safe-rows]').check();assert.equal(await page.locator('[data-apply]').isDisabled(),false);
  // Unrelated conversion choices retain the same exclusion decision.
- await column('Giltigt fr.o.m.').locator('[data-date-mode]').selectOption('auto');await ready();assert.equal(await page.locator('[data-import-safe-rows]').isChecked(),true);assert.equal(await page.locator('[data-apply]').isDisabled(),false);
- await column('Giltigt fr.o.m.').locator('[data-date-mode]').selectOption('excel-1900');await ready();
+ await withImportColumnSettings(page,column('Giltigt fr.o.m.'),async settings=>{await settings.locator('[data-date-mode]').selectOption('auto');await ready();});assert.equal(await page.locator('[data-import-safe-rows]').isChecked(),true);assert.equal(await page.locator('[data-apply]').isDisabled(),false);
+ await withImportColumnSettings(page,column('Giltigt fr.o.m.'),async settings=>{await settings.locator('[data-date-mode]').selectOption('excel-1900');await ready();});
  assert.equal(await page.locator('[data-import-errors]').getAttribute('open'),'','Expanded error list survives recalculation');
  await page.locator('[data-import-safe-rows]').check();await revealImportSettings(page);await page.locator('[data-review-problem]').evaluateAll(nodes=>nodes.forEach(node=>node.open=false));await page.locator('[data-final-impact]').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(artifacts,'review-desktop.png'),fullPage:true});
  await page.setViewportSize({width:390,height:900});assert.equal(await page.locator('.import-mapping-dialog').evaluate(node=>node.scrollWidth<=node.clientWidth),true,'Preview fits mobile');await page.locator('[data-final-impact]').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(artifacts,'review-mobile.png')});
@@ -46,7 +46,7 @@ try{
  let data=store.snapshot().data;assert.equal(data.properties.length,1);assert.equal(data.objects.length,5);assert.equal(data.agreements.length,5);assert.equal(data.agreements.find(a=>a.id==='A1').main_contract_url,'https://example.invalid/document');assert.equal(data.agreements.find(a=>a.id==='A4').main_contract_url,null);assert.ok(data.objects.some(o=>o.id==='O3'));assert.equal(data.agreements.find(a=>a.id==='A3').valid_from,null);assert.ok(!JSON.stringify(data).includes('Vald bort'));
  const rejected=data.workspace.importReview.find(r=>r.rowRejected);assert.equal(rejected.row,7);assert.ok(rejected.sourceValues.some(v=>v.raw==='A6'));assert.equal(data.workspace.importReview.filter(r=>!r.rowRejected).length,3);
  await page.setViewportSize({width:1440,height:940});await begin();
- assert.match(await column('Användning').locator('[data-ignore-column]').innerText(),/Ångra bortval/,'Saved exclusions survive alias recognition');assert.equal(await column('Giltigt fr.o.m.').locator('[data-date-mode]').inputValue(),'excel-1900');assert.equal(await page.locator('[data-invalid-link]').count(),0);assert.equal(await page.locator('[data-import-safe-rows]').isChecked(),false);
+ assert.match(await column('Användning').locator('[data-ignore-column]').innerText(),/Ångra bortval/,'Saved exclusions survive alias recognition');await withImportColumnSettings(page,column('Giltigt fr.o.m.'),async settings=>assert.equal(await settings.locator('[data-date-mode]').inputValue(),'excel-1900'));assert.equal(await page.locator('[data-invalid-link]').count(),0);assert.equal(await page.locator('[data-import-safe-rows]').isChecked(),false);
  await page.locator('[data-import-safe-rows]').check();await page.locator('[data-apply]').click();await approveAllImportRecords(page);await page.locator('.import-progress-dialog').waitFor({state:'detached'});data=store.snapshot().data;assert.equal(data.agreements.length,5,'Reimport is idempotent');assert.equal(data.objects.length,5);
  // A saved descriptive conflict resolves against the property, with audit history.
  await page.locator('.sidebar [data-view=sources]').evaluate(node=>node.click());await page.locator('.review-details').evaluate(node=>node.open=true);

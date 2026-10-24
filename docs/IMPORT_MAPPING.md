@@ -11,8 +11,10 @@ fältnamnet visar exempelvis Fastighet, Objekt, Avtal, Pris på avtal eller Pers
 En flik kan innehålla uppgifter till flera register. Okända kolumner måste kopplas
 eller väljas bort; de skapar inga extra verksamhetsfält.
 
-Fältväljaren utgår från den aktuella kolumnen. Under **Fler kolumnval** finns
-format, bortval, personformat, posttyp och koppling av prisvillkor. Datum och
+Kolumnrubriken visar bara fältkopplingen och **Importera inte**.
+Klicka på kopplingen för att välja annat fält. I samma fältväljare öppnar
+**Inställningar för kolumnen** exempel, format, personformat, posttyp och koppling
+av prisvillkor. Inställningarna ändrar samma utkast; inget behöver väljas om. Datum och
 belopp kontrolleras enligt valt målfält. En månadsuppgift kan räknas om till år
 när källrubrik eller uttrycklig kolumnregel anger det.
 
@@ -25,7 +27,12 @@ källrubriker; oförändrad kolumnordning krävs inte.
 ## Identitet och kopplingar
 
 Sparade avtalsnummer använder sina befintliga objekt- och fastighetskopplingar.
-Förvaltningsnummer är en extern fastighetsnyckel. Kostnadsställe är text på
+Numeriskt förvaltningsnummer `4201` ger nya fastigheter numret `SF4201`.
+Källuppgiften `4201` behålls för matchning. `SF4201-001-03` ger objekt
+`SF4201-001`; hela avtalsnumret, inklusive slutdel och ledande nollor, bevaras.
+Uttryckliga objektnummer och sparade kopplingar går före härledningen.
+Äldre interna nycklar återanvänds via entydiga verksamhetsnummer och visas
+aldrig som nummer i gränssnittet. Saknas säkert nummer visas vad som saknas. Kostnadsställe är text på
 avtalet och används inte som fastighetsidentifierare. Osäkra adress-/nummerförslag
 visar kandidater och underlag direkt på källraden; de kräver ett uttryckligt val. Motstridiga
 identifierare kan inte godkännas genom ett övergripande värdeval.
@@ -67,11 +74,15 @@ Det tidigare separata provet använde utgångna fält som `costCenterPremises`
 och har ersatts. Kompletterande prov finns för tabellimport, lokaldata,
 priser, ärenden samt server- och webbläsarbaserad Excel-lagring.
 
-Verifierat med syntetiska underlag 2026-10-24: 760 godkända tester och
-syntaxkontroll av 134 JavaScript-filer. Inga skarpa verksamhetsdata används.
+Verifierat med syntetiska underlag 2026-10-24: 770 godkända tester och
+syntaxkontroll av 135 JavaScript-filer. Inga skarpa verksamhetsdata används.
 
 Väntande källrader hanteras i samma tabell med filtren **Behöver kopplas**,
 **Behöver kompletteras** och **Nya poster att godkänna**.
 `npm run test:inline-import-browser` verifierar 154 rader, varav 21 väntar
 på koppling, utan någon separat kopplingslista. Massval följer tabellens
 urval och sökning.
+
+`npm run test:business-number-browser` provar SF-kedjan, kompakta rubriker,
+ändringsbara kolumninställningar, interna nycklar i befintliga poster, avbryt,
+sparning och återimport i både SQLite och Excel.

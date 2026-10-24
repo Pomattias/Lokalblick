@@ -6,7 +6,7 @@ import {assignAgreementItemKeys,setMappingRow,mappingTemplate} from '../frontend
 import {resolveImportChoices} from '../frontend/lokaler/import-conflicts.js';
 import {importRowHtml} from '../frontend/v2/import-table.js';
 import {explainImport} from '../frontend/lokaler/import-explanation.js';
-import {columnPreviewHtml} from '../frontend/v2/import-mapping.js';
+import {columnPreviewHtml,importColumnSettingsHtml} from '../frontend/v2/import-mapping.js';
 import {writeWorkbook,readWorkbook} from '../backend/lokaler/workbook.js';
 const headers=['FastighetsID','ObjektID','Avtalsnummer','Bashyra','Tillägg','Tillägg','Fastighetsskatt'];
 const values=['F1','O1','A1',100000,5000,6000,1000];
@@ -19,7 +19,7 @@ test('wide Lokaldata creates one linked record per amount column, including repe
  assert.deepEqual(r.clean.agreement_items.map(i=>[i.id,i.agreement_id,i.type,i.base_amount]),[['base|A1','A1','base',100000],['addition|A1','A1','addition',5000],['addition:2|A1','A1','addition',6000],['tax|A1','A1','tax',1000]]);
  for(const item of r.clean.agreement_items){const at=item.sources[0];assert.equal(at.sheet,'Lokaldata');assert.equal(at.row,2);assert.equal(headers[at.columnIndex],at.column);assert.equal(item.base_amount,values[at.columnIndex]);}
  assert.deepEqual(r.clean.agreement_items.map(i=>i.name),['Bashyra','Tillägg','Tillägg (2)','Fastighetsskatt']);assert.equal(r.clean.recurring_costs.length,0);assert.equal(r.clean.agreements[0].annual_rent,undefined);validateData(r.clean);
- const html=columnPreviewHtml({fileName:'syntetisk-lokaldata.xlsx'},{profiles:ps},r,importSchemas);const detail=explainImport(r,emptyData(),{profiles:ps}).rows.map(row=>importRowHtml(row,r,emptyData())).join('');assert.equal((detail.match(/data-chain-table="agreement_items"/g)||[]).length,4);assert.doesNotMatch(html,/data-import-item-records/);assert.match(html,/Denna beloppskolumn skapar en egen post/);
+ const html=columnPreviewHtml({fileName:'syntetisk-lokaldata.xlsx'},{profiles:ps},r,importSchemas);const detail=explainImport(r,emptyData(),{profiles:ps}).rows.map(row=>importRowHtml(row,r,emptyData())).join('');assert.equal((detail.match(/data-chain-table="agreement_items"/g)||[]).length,4);assert.doesNotMatch(html,/data-import-item-records/);assert.doesNotMatch(html,/Denna beloppskolumn skapar en egen post/);assert.match(importColumnSettingsHtml({fileName:'syntetisk-lokaldata.xlsx'},{profiles:ps},r,importSchemas,{}, {},0,3),/Denna beloppskolumn skapar en egen post/);
 });
 test('an existing agreement can be enriched solely from agreement ID and amount columns; repeat import keeps stable rows',()=>{
  const seeded=run(book()).clean,b=book(['Avtalsnummer','Bashyra','Tillägg','Tillägg','Fastighetsskatt'],[['A1',100000,5000,6000,1000]]),r=run(b,profiles(b),seeded);

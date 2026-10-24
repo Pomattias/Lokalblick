@@ -1,3 +1,4 @@
+import {objectLabel} from './view-format.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
 import {activityJournalHtml} from "./activity-journal.js";
 import { esc, options, propertyReference, units, calc, money } from "./views.js";
@@ -30,8 +31,8 @@ function issueHome(activity) {
 }
 function homeChoices(data,current) {
   const list=[
-    ...(data.properties||[]).map(p=>({value:"property:"+p.id,label:"Fastighet · "+(p.designation||p.address||p.id)})),
-    ...(data.objects||[]).map(o=>({value:"object:"+o.id,label:"Objekt · "+(o.number||o.name||o.id)})),
+    ...(data.properties||[]).map(p=>({value:"property:"+p.id,label:"Fastighet · "+propertyReference(p)})),
+    ...(data.objects||[]).map(o=>({value:"object:"+o.id,label:"Objekt · "+objectLabel(o)})),
     ...(!data.cleanModel?data.contracts||[]:[]).map(c=>{
       const p=(data.properties||[]).find(p=>p.id===c.propertyId);
       return {value:"contract:"+c.id,label:"Avtal · "+(c.number||c.id)};
@@ -83,7 +84,7 @@ export function renderIssueEditor(data,issue,id,company=false) {
   const linkedObject=(data.objects||[]).find(x=>x.id===(issue.objectId||linkedContract?.objectId));
   const linkedPropertyId=linkedObject?.propertyId||linkedContract?.propertyId||issue.propertyId||"";
   const linkedProperty=(data.properties||[]).find(x=>x.id===linkedPropertyId);
-  const propertyName=linkedProperty?([linkedProperty.designation,linkedProperty.address].filter(Boolean).join(" · ")||linkedProperty.id):"Ingen fastighet kopplad";
+  const propertyName=linkedProperty?propertyReference(linkedProperty):"Ingen fastighet kopplad";
 
   const year=Number(issue.planningYear)||new Date().getFullYear();
   const assessment=calc().activityEconomics(data,issue,year);

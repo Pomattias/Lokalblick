@@ -16,7 +16,7 @@ test('existing property IDs stay stable when a new agreement number has another 
  }
 });
 test('choosing the stored ID keeps it and saves the decision for repeat import',()=>{
- const b=base('5280'),s=source('5730-90001-4'),p=run(s,b).report.linkProposals[0],r=run(s,b,choose(p,'5280'));assert.equal(r.report.review,0);assert.equal(r.clean.properties[0].id,'5280');assert.equal(r.clean.objects[0].id,'OB-5730-90001-4');assert.equal(r.clean.objects[0].property_id,'5280');
+ const b=base('5280'),s=source('5730-90001-4'),p=run(s,b).report.linkProposals[0],r=run(s,b,choose(p,'5280'));assert.equal(r.report.review,0);assert.equal(r.clean.properties[0].id,'5280');assert.equal(r.clean.objects[0].id,'5730-90001');assert.equal(r.clean.objects[0].property_id,'5280');
  const again=run(s,r.clean);assert.equal(again.report.review,0);assert.equal(again.report.linkProposals.length,0);assert.equal(again.clean.agreements.length,1);
 });
 test('a known agreement preserves every saved property link, documents, history and Budget despite its number prefix',async()=>{

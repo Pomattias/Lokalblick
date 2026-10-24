@@ -3,6 +3,7 @@ import {viewCollections,viewFields} from './view-fields.js';
 import {creationChoice,importCreationPlan} from './import-plan.js';
 import {legacyFinanceFields,legacyFinanceMap} from './finance-model.js';
 import {personRole} from '../services/import-person-links.js';
+import {createBusinessLabels} from './business-identities.js';
 
 export const importStatuses={created:'Skapas',completed:'Kompletteras',changed:'Ändras',unchanged:'Oförändrat',skipped:'Läses inte in',pending:'Behöver ditt val'};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),key=(table,id)=>JSON.stringify([table,id]);
@@ -30,7 +31,7 @@ export function importColumnMeaning(column){
 // The trace stays in the review report; no duplicate source cells are persisted.
 export function explainImport(candidate,base,{approved=null,choices={},profiles=[]}={}){
  if(!candidate.clean)return {rows:[],counts:{},records:[]};
- const old=indexes(base),proposed=indexes(candidate.clean),saved=approved?indexes(approved.clean):null;
+ const old=indexes(base),proposed=indexes(candidate.clean),saved=approved?indexes(approved.clean):null,labels=createBusinessLabels(candidate.clean);
  const plan=importCreationPlan(candidate,base),entries=new Map(plan.map(entry=>[entry.key,entry]));
  const mapped=new Map((approved?.report.creationReview?.mapped||[]).map(row=>[row.from,row.to]));
  // Withholding a new parent must not hide the source row's actual field
@@ -75,12 +76,14 @@ export function explainImport(candidate,base,{approved=null,choices={},profiles=
   else if(mapped.has(property?.id))explanation=`Du kopplar fastighetsförslaget ${property.id} till befintlig fastighet ${property.actualId}.`;
   else if(method==='existing-object-link')explanation=`Objekt ${object?.id||trace.hints?.objectId} finns redan. Dess sparade fastighetskoppling används.`;
   else if(method==='management-object-number')explanation=`Förvaltningsobjekt ${trace.hints?.managementNumber||property?.record?.management_object_number} matchar fastighet ${property?.actualId}.`;
+  else if(method==='management-object-number-new')explanation=`Förvaltningsobjekt ${trace.hints?.managementNumber||property?.record?.management_object_number} används för den nya fastigheten ${property?.actualId}.`;
   else if(method==='explicit-row-choice')explanation=`Du har godkänt förslaget att koppla källraden till fastighet ${property?.actualId||trace.matchingDecision.propertyId}.`;
   else if(method==='agreement-number-approved')explanation='Du har godkänt de föreslagna identifierarna från avtalsnumret.';
   else if(property&&!property.existing&&method==='property-address')explanation=property.status==='created'?`Du har godkänt en ny fastighet från adressen ${property.record?.address}.`:`En ny fastighet föreslås från adressen ${property.record?.address}. Förslaget behöver godkännas.`;
   else if(property)explanation=`${old.properties.has(property.actualId)?'FastighetsID':'Fastighetsförslaget'} ${property.actualId} används. Objekt och avtal kopplas med underlagets identifierare.`;
   else if(trace.rejected)explanation='Ingen säker koppling kunde godkännas för källraden.';
   if(nodes.some(node=>node.identified===false)&&nodes.some(node=>node.identified!==false))explanation='Raden är bara delvis identifierad. Kopplingar märkta Ej kopplad måste rättas innan deras uppgifter kan läsas in.';
+  if(trace.matchingDecision?.objectNumberSource==='agreement-number')explanation+=` Objektnumret ${trace.matchingDecision.objectId} hämtas ur avtalsnumret ${trace.hints?.agreementId}.`;
   const profile=profiles.find(profile=>profile.name===trace.sheet&&(!profile.fileName||profile.fileName===trace.source));
   const columns=(profile?.columns||[]).map(column=>{
    const related=reviews.filter(review=>review.columnIndex===column.index||column.target===review.collection+'.'+review.field),ignored=column.target==='@ignore',pending=!ignored&&(column.itemAmbiguous||!column.target||column.target.startsWith('@'));
@@ -95,7 +98,7 @@ export function explainImport(candidate,base,{approved=null,choices={},profiles=
   const writing=nodes.filter(node=>['created','completed','changed'].includes(node.status));
   const withheld=nodes.some(node=>['pending','skipped'].includes(node.status))||trace.rejected||Boolean(trace.held?.length)||reviews.some(review=>review.recordRejected||review.fieldRejected||review.personLinkRejected);
   const rowStatus=reviews.length||nodes.some(node=>node.status==='pending')||columns.some(column=>column.status==='pending')?'pending':writing.some(node=>node.status==='created')?'created':writing.some(node=>node.status==='changed')?'changed':writing.length?'completed':nodes.some(node=>node.status==='unchanged')?'unchanged':'skipped';
-  return {...trace,key:id,nodes,columns,reviews,reasons,explanation,status:rowStatus,partial:Boolean(writing.length&&withheld),hints:trace.hints||{}};
+  return {...trace,key:id,nodes:nodes.map(node=>({...node,reason:node.reason?labels.text(node.reason):null})),columns,reviews:reviews.map(review=>({...review,reason:labels.text(review.reason)})),reasons:reasons.map(labels.text),explanation:labels.text(explanation),status:rowStatus,partial:Boolean(writing.length&&withheld),hints:trace.hints||{}};
  });
  const counts=Object.fromEntries(Object.keys(importStatuses).map(status=>[status,sourceRows.filter(row=>row.status===status).length]));
  const records=(current.report.tables||[]).map(row=>{

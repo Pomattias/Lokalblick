@@ -5,7 +5,7 @@ import {profileWorkbook} from '../frontend/services/import-engine.js';
 import {personFormat,parsePersonIdentity} from '../frontend/services/import-person-links.js';
 import {projectWorkspace} from '../frontend/lokaler/view-adapter.js';
 import {writeWorkbook,readWorkbook} from '../backend/lokaler/workbook.js';
-import {columnPreviewHtml} from '../frontend/v2/import-mapping.js';
+import {columnPreviewHtml,importColumnSettingsHtml} from '../frontend/v2/import-mapping.js';
 const headers=['FastighetsID','Fastighetsnamn','Fastighetsägare','ObjektID','AvtalsID','Fastighetsförvaltare'];
 const rows=[['F1','Test 1','Fiktiv ägare','O1','A1','MGR001 Anna Testsson'],['F2','Test 2','Fiktiv ägare','O2','A2','MGRTWO Bo Testsson'],['F1','Test 1','Fiktiv ägare','O3','A3','MGR001 Anna Testsson']];
 function prepare(values=rows,base=emptyData(),configure=()=>{},labels=headers){const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([labels,...values]),'Fastigheter');const profiles=profileWorkbook(workbook,importSchemas,XLSX,base.workspace.importMappings||[],{reviewed:true});configure(profiles);return {profiles,result:prepareCleanImport(workbook,profiles,base,{fileName:'syntetisk-forvaltare.xlsx'},XLSX)};}
@@ -14,7 +14,7 @@ test('manager role creates people with internal IDs and links each property with
  const {profiles,result}=prepare(),data=result.clean,anna=data.people.find(p=>p.name==='Anna Testsson');assert.equal(profiles[0].columns[5].target,'properties.ownerResponsiblePersonId');assert.equal(personFormat(profiles[0].columns[5]),'auto-code');assert.equal(result.report.blocking,0);assert.equal(result.report.review,0);assert.equal(data.people.length,2);assert.notEqual(anna.id,'MGR001');assert(data.people.some(p=>p.name==='Bo Testsson'));assert.equal(data.contacts.length,2);assert(data.contacts.every(c=>c.role==='owner'&&c.property_id&&!c.agreement_id));assert.equal(anna.party_id,data.properties[0].owner_party_id);assert(!Object.hasOwn(data.properties[0],'person_id'));
  assert.equal(projectWorkspace(data).properties.find(p=>p.id==='F1').ownerResponsiblePersonId,anna.id);
  const again=prepare(rows,data).result;assert.deepEqual(again.clean.people,data.people);assert.deepEqual(again.clean.contacts,data.contacts);assert.equal(again.report.changes.length,0);
- const html=columnPreviewHtml({fileName:'syntetisk-forvaltare.xlsx'},{profiles},result,importSchemas);assert.match(html,/Namn: Anna Testsson · Källkod: MGR001/);assert(!html.includes('data-person-identity'));
+ const html=columnPreviewHtml({fileName:'syntetisk-forvaltare.xlsx'},{profiles},result,importSchemas);assert.doesNotMatch(html,/data-person-format/);assert.match(importColumnSettingsHtml({fileName:'syntetisk-forvaltare.xlsx'},{profiles},result,importSchemas,{}, {},0,5),/Namn: Anna Testsson · Källkod: MGR001/);assert(!html.includes('data-person-identity'));
 });
 test('plain names create and reuse a person automatically when a person role is selected',()=>{
  const values=rows.map(row=>[...row.slice(0,5),row[5].split(' ').slice(1).join(' ')]),first=prepare(values).result,again=prepare(values,first.clean).result;assert.equal(first.report.review,0);assert.equal(first.clean.people.length,2);assert.equal(first.clean.contacts.length,2);assert.deepEqual(again.clean.people,first.clean.people);assert.equal(again.clean.contacts.length,2);

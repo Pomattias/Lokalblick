@@ -1,3 +1,4 @@
+import {createBusinessLabels,visibleNumber} from '../lokaler/business-identities.js';
 import {propertyDesignation,esc} from './view-format.js';
 import {importStatuses} from '../lokaler/import-explanation.js';
 
@@ -36,12 +37,14 @@ export function matchingImportRows(prepared,profiles,candidate,rows,{filter='',q
  });
 }
 
-export function importLinkChoiceHtml(proposal,index,{properties=new Map(),address=null}={}){
+export function importLinkChoiceHtml(proposal,index,{properties=new Map(),address=null,labels=null}={}){
  if(!proposal)return '';
+ labels ||= createBusinessLabels({properties:[...properties.values()]});
+ const number=candidate=>candidate.number||labels.number('properties',candidate.id);
  const single=proposal.matches.length===1&&!proposal.requiresSelection,match=proposal.matches[0];
  const name=candidate=>{const record=properties.get(candidate.id);return propertyDesignation({designation:record?.name||candidate.label,address:record?.address||address})||'Fastighetsbeteckning saknas';};
- const caption=match&&[name(match)===match.id?'':name(match),match.id].filter(Boolean).join(' · ');
- return `<div class="import-inline-link" data-link-proposal="${index}">${single?`<strong>${esc(caption||'Koppling saknas')}</strong><small>${esc(match?.detail||'')}</small>`:`<label>${proposal.inferredIds?.identityChoice?'Välj fastighetsnummer':'Välj fastighet'}<select data-link-property="${index}" aria-label="Fastighet för rad ${proposal.row}"><option value="">${proposal.matches.length} möjliga – välj</option>${proposal.matches.map(candidate=>`<option value="${esc(candidate.id)}"${candidate.disabled?' disabled':''}${candidate.id===proposal.propertyId?' selected':''}>${esc(name(candidate))} · ${esc(candidate.id)} · ${esc(candidate.detail)}</option>`).join('')}</select></label>`}<small>${(proposal.records||[]).map(record=>esc(record.label)+' '+esc(record.value)).join(' · ')}</small>${single?`<label class="import-link-approval"><input type="checkbox" data-approve-link="${index}"${proposal.approved?' checked':''}${!match||match.disabled?' disabled':''}> ${proposal.approved?'Kopplingen används':'Använd föreslagen koppling'}</label>`:`<small>${proposal.approved?'Vald koppling används':'Ditt val används direkt.'}</small>`}</div>`;
+ const caption=match&&[name(match)===number(match)?'':name(match),number(match)].filter(Boolean).join(' · ');
+ return `<div class="import-inline-link" data-link-proposal="${index}">${single?`<strong>${esc(caption||'Koppling saknas')}</strong><small>${esc(labels.text(match?.detail||''))}</small>`:`<label>${proposal.inferredIds?.identityChoice?'Välj fastighetsnummer':'Välj fastighet'}<select data-link-property="${index}" aria-label="Fastighet för rad ${proposal.row}"><option value="">${proposal.matches.length} möjliga – välj</option>${proposal.matches.map(candidate=>`<option value="${esc(candidate.id)}"${candidate.disabled?' disabled':''}${candidate.id===proposal.propertyId?' selected':''}>${esc(name(candidate))} · ${esc(number(candidate))} · ${esc(labels.text(candidate.detail))}</option>`).join('')}</select></label>`}<small>${(proposal.records||[]).map(record=>esc(record.label)+' '+esc(visibleNumber(record.value,'Nummer saknas'))).join(' · ')}</small>${single?`<label class="import-link-approval"><input type="checkbox" data-approve-link="${index}"${proposal.approved?' checked':''}${!match||match.disabled?' disabled':''}> ${proposal.approved?'Kopplingen används':'Använd föreslagen koppling'}</label>`:`<small>${proposal.approved?'Vald koppling används':'Ditt val används direkt.'}</small>`}</div>`;
 }
 
 export function importColumnWarning(column){

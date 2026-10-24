@@ -132,5 +132,5 @@ test('an existing generated object is reused only on the matching property; conf
 });
 test('OB- generation respects ID length without truncating or hashing an imported agreement ID',()=>{
  const workbook=book([['FastighetsID','Avtalsnummer'],['1213','A'.repeat(97)],['1213','B'.repeat(98)]]),result=run(workbook);
- assert.equal(result.clean.objects.length,1);assert.equal(result.clean.objects[0].id,'OB-'+'A'.repeat(97));assert.equal(result.clean.agreements[0].id,'A'.repeat(97));assert.match(result.data.importReview[0].reason,/för långt.*OB-/);assert.equal(result.report.review,1);validateData(result.clean);
+ assert.equal(result.clean.objects.length,1);assert.equal(result.clean.objects[0].id,'OB-'+'A'.repeat(97));assert.equal(result.clean.agreements[0].id,'A'.repeat(97));assert.match(result.data.importReview[0].reason,/för långt.*objektnummer/);assert.equal(result.report.review,1);validateData(result.clean);
 });

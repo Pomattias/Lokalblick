@@ -17,7 +17,7 @@ test('a three-part agreement number proposes its property and object in the exis
 });
 test('explicit property IDs and leading zeroes are preserved without number-derived identity questions',()=>{
  const s=source(['FastighetsID','Avtalsnummer'],[['001213','001213-0001-03']]),r=run(s);
- assert.equal(r.report.linkProposals.length,0);assert.equal(r.report.blocking,0);assert.equal(r.clean.properties[0].id,'001213');assert.equal(r.clean.objects[0].property_id,'001213');assert.equal(r.clean.objects[0].id,'OB-001213-0001-03');assert.equal(r.clean.agreements[0].id,'001213-0001-03');
+ assert.equal(r.report.linkProposals.length,0);assert.equal(r.report.blocking,0);assert.equal(r.clean.properties[0].id,'001213');assert.equal(r.clean.objects[0].property_id,'001213');assert.equal(r.clean.objects[0].id,'001213-0001');assert.equal(r.clean.agreements[0].id,'001213-0001-03');
 });
 test('known properties and objects are reused and sequential lease periods keep one object',()=>{
  const b=fixture(),s=source(['Avtalsnummer','From','Tom'],[['SF1213-001-03','2027-01-01','2027-12-31'],['SF1213-001-04','2028-01-01','2028-12-31']]),pending=run(s,b),choices=Object.assign({},...pending.report.linkProposals.map(approve)),r=run(s,b,choices);
@@ -28,7 +28,7 @@ test('explicit IDs and previously linked agreements take precedence over the inf
  const b=fixture();b.objects.push(normalize('objects',{id:'EXISTING',property_id:'SF1213'}));b.agreements.push(normalize('agreements',{id:'SF1213-001-03',object_id:'EXISTING'}));
  const linked=run(source(['Avtalsnummer'],[['SF1213-001-03']]),b);assert.equal(linked.report.linkProposals.length,0);assert.equal(linked.clean.agreements[0].object_id,'EXISTING');
  const explicit=run(source(['FastighetsID','ObjektID','Avtalsnummer'],[['SF1213','CUSTOM','SF1213-002-03']]),fixture());assert.equal(explicit.report.linkProposals.length,0);assert.equal(explicit.clean.objects[0].id,'CUSTOM');
- const mismatch=run(source(['FastighetsID','Avtalsnummer'],[['OTHER','SF1213-001-03']]));assert.equal(mismatch.report.linkProposals.length,0);assert.equal(mismatch.clean.objects[0].id,'OB-SF1213-001-03');assert.equal(mismatch.clean.objects[0].property_id,'OTHER');
+ const mismatch=run(source(['FastighetsID','Avtalsnummer'],[['OTHER','SF1213-001-03']]));assert.equal(mismatch.report.linkProposals.length,0);assert.equal(mismatch.clean.objects[0].id,'SF1213-001');assert.equal(mismatch.clean.objects[0].property_id,'OTHER');
 });
 test('an explicit object keeps its ID while a missing property is proposed from the agreement',()=>{
  const s=source(['ObjektID','Avtalsnummer'],[['CUSTOM','SF1213-001-03']]),pending=run(s),r=run(s,emptyData(),approve(pending.report.linkProposals[0]));assert.equal(r.report.review,0);assert.equal(r.clean.objects[0].id,'CUSTOM');assert.equal(r.clean.objects[0].property_id,'SF1213');
@@ -54,5 +54,5 @@ test('bulk approval creates one new property and one object for successive lease
 });
 test('an address-only proposal retains the known property ID despite a different agreement prefix',()=>{
  const b=fixture(),s=source(['Avtalsnummer','Adress'],[['SF9999-001-03','Testgatan 1']]),pending=run(s,b),p=pending.report.linkProposals[0];assert.deepEqual(p.matches.map(m=>m.id),['SF1213']);assert.equal(p.requiresSelection,undefined);
- const r=run(s,b,{[p.matchingKey]:{propertyId:'SF1213',signature:p.signature}});assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects[0].property_id,'SF1213');assert.equal(r.clean.objects[0].id,'OB-SF9999-001-03');validateData(r.clean);
+ const r=run(s,b,{[p.matchingKey]:{propertyId:'SF1213',signature:p.signature}});assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects[0].property_id,'SF1213');assert.equal(r.clean.objects[0].id,'SF9999-001');validateData(r.clean);
 });

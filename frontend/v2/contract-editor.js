@@ -1,3 +1,4 @@
+import {objectLabel} from './view-format.js';
 import {agreementItemsPanel} from './finance-ui.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, calc, propertyReference, units } from "./views.js";
@@ -95,7 +96,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
     field("Verksamhet",input(c,"businessName"))+
     field("Verksamhetsbeskrivning",'<textarea name="businessDescription" rows="3">'+esc(c.businessDescription||'')+'</textarea>')+
     (data.cleanModel&&presentation.portfolio?field('Orgnr hyresgäst',partyNumberInput(data,'contracts',c)):'')+
-    field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>x.number||x.name||x.id,"Välj objekt"))+
+    field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>objectLabel(x),"Välj objekt"))+
     field("Fastighetsägare",display(ownerName))+
     '</div>'+documentLink+'</section>';
 

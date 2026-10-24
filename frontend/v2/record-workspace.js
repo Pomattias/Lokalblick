@@ -1,3 +1,4 @@
+import {objectLabel} from './view-format.js';
 import {recordContext,isOpenIssue} from './portfolio-context.js';
 import {contextTabs,contextContracts,contextIssueFilters,contextIssues,currentContacts} from './context-ui.js';
 import {esc} from './views.js';
@@ -12,10 +13,10 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
   const link=(kind,row,label)=>row?`<button type="button" class="text-button" data-context-record="${kind}" data-id="${esc(row.id)}">${esc(label)}</button>`:'';
   if(collection!=='properties'){
     const title=heading.querySelector('h2');
-    title.textContent=collection==='contracts'?'Avtal '+(record.number||record.id):['Objekt '+(record.number||record.id),record.name].filter(Boolean).join(' · ');
+    title.textContent=collection==='contracts'?'Avtal '+(record.number||record.id):['Objekt '+objectLabel(record),record.name].filter(Boolean).join(' · ');
     for(const small of heading.querySelectorAll('small'))small.remove();
     const parent=document.createElement('div');parent.className='context-parent';
-    parent.innerHTML=[link('properties',property,[property?.designation,property?.address].filter(Boolean).join(' · ')),link('objects',object,'Objekt '+(object?.number||object?.id||''))].filter(Boolean).join('<span aria-hidden="true">›</span>');
+    parent.innerHTML=[link('properties',property,[property?.designation,property?.address].filter(Boolean).join(' · ')),link('objects',object,'Objekt '+objectLabel(object))].filter(Boolean).join('<span aria-hidden="true">›</span>');
     title.before(parent);
     for(const key of ['number',...(current.cleanModel?['id']:[]),'propertyId',...(collection==='contracts'?['objectId']:['name'])])form.querySelector(`[name="${key}"]`)?.closest('label')?.classList.add('context-header-reference');
   }
@@ -68,7 +69,7 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
     const successors=(current.objects||[]).filter(row=>(row.predecessorIds||[]).includes(id));
     if(successors.length){
       const next=document.createElement('div');next.className='context-successors';
-      next.innerHTML='<h3>Efterföljande objekt</h3>'+successors.map(row=>link('objects',row,'Objekt '+(row.number||row.name||row.id))).join(' · ');
+      next.innerHTML='<h3>Efterföljande objekt</h3>'+successors.map(row=>link('objects',row,'Objekt '+objectLabel(row))).join(' · ');
       history.appendChild(next);
     }
   }

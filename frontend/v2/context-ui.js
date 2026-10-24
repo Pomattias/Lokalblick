@@ -1,3 +1,4 @@
+import {objectLabel} from './view-format.js';
 import {esc,money,num,options} from './views.js';
 import {isOpenIssue,rentalTotals,tenantName,recordContext,periodPhase,contractPhase} from './portfolio-context.js';
 
@@ -17,7 +18,7 @@ function issueCards(data,issues,compact=false) {
   const today=globalThis.LokalblickResponsibility.today();
   return `<ul class="context-issue-list">${issues.map(issue=>{
     const contract=data.contracts.find(row=>row.id===issue.contractId),object=(data.objects||[]).find(row=>row.id===issue.objectId);
-    const home=contract?'Avtal '+(contract.number||contract.id):object?'Objekt '+(object.number||object.id):'Fastigheten';
+    const home=contract?'Avtal '+(contract.number||contract.id):object?'Objekt '+objectLabel(object):'Fastigheten';
     const end=issue.endDate||issue.end||'';
     const overdue=isOpenIssue(issue)&&end&&end<today;
     return `<li>${recordButton('activities',issue.id,issue.title||'Ärende')}<small>${esc(issue.status||'Status saknas')}${overdue?' · <strong class="context-overdue">Försenat</strong>':''}${compact?'':' · '+esc(home)+' · '+esc(data.people.find(row=>row.id===issue.responsiblePersonId)?.name||'Utan ärendeansvarig')}</small></li>`;
@@ -41,7 +42,7 @@ export function contextContracts(data,context,year) {
     const objects=context.allObjects.filter(object=>periodPhase(object)===phase||contracts.some(contract=>contract.objectId===object.id));
     const rendered=objects.map(object=>{
       const linked=contracts.filter(contract=>contract.objectId===object.id);
-      const label=['Objekt '+(object.number||object.id),object.name].filter(Boolean).join(' · ');
+      const label=['Objekt '+objectLabel(object),object.name].filter(Boolean).join(' · ');
       const heading=context.object?'':`<h3>${recordButton('objects',object.id,label)}</h3>`;
       return `<section class="context-object">${heading}${phase==='current'&&linked.length>1?'<p class="rent-needs-review">Flera avtal gäller samtidigt för objektet. Kontrollera avtalstiderna.</p>':''}${linked.map(contract=>contractCard(data,contract,year,phase!=='current')).join('')||'<p class="context-empty">Inget gällande avtal.</p>'}</section>`;
     }).join('');

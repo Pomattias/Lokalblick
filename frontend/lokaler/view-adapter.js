@@ -2,6 +2,7 @@ import {projectFinance} from './finance-view.js';
 import { normalize as normalizeView } from '../v2/model.js';
 import { tables, emptyData, normalize, validateData, coordinator, active } from './model.js';
 import { viewCollections, viewFields, workspaceKeys } from './view-fields.js';
+import {createBusinessLabels} from './business-identities.js';
 const clone = value => structuredClone(value);
 const issueStatus = {open:'Nytt',ongoing:'Pågår',done:'Klar'};
 const orderStatus = {draft:'Planerad',ordered:'Beställd',done:'Klar'};
@@ -16,9 +17,9 @@ export function projectWorkspace(clean) {
   for(const [field,target] of Object.entries(viewFields[table])) if(record[field]!=null)row[target]=clone(record[field]);
   return row;
  });
- const objects=new Map(out.objects.map(row=>[row.id,row]));
+ const objects=new Map(out.objects.map(row=>[row.id,row])),labels=createBusinessLabels(clean);
  for(const property of out.properties){property.sourceId=property.id;property.apartmentCount=clean.objects.filter(o=>o.property_id===property.id&&active(o)).reduce((sum,o)=>sum+(o.apartment_count||0),0);}
- for(const object of out.objects){object.number=object.id;object.sourceId=object.id;object.predecessorIds=clean.object_links.filter(link=>link.successor_id===object.id).map(link=>link.predecessor_id);}
+ for(const object of out.objects){object.number=labels.number('objects',object.id);object.sourceId=object.id;object.predecessorIds=clean.object_links.filter(link=>link.successor_id===object.id).map(link=>link.predecessor_id);}
  for(const contract of out.contracts){const object=objects.get(contract.objectId);contract.propertyId=object?.propertyId||'';contract.area=object?.area;contract.objectAreaManaged=true;contract.apartmentArea=object?.apartmentArea;contract.tenantName=out.organizations.find(row=>row.id===contract.tenantPartyId)?.name||'';}
  for(const party of out.organizations)party.type ||= clean.properties.some(row=>row.owner_party_id===party.id)?'owner':'tenant';
  for(const issue of out.activities){issue.status=issueStatus[issue.status]||issue.status;issue.priority=priority[issue.priority]||issue.priority;issue.scopeType=issue.objectId?'object':issue.propertyId?'property':'';}

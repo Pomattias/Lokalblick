@@ -1,3 +1,5 @@
+import {createBusinessLabels} from '../lokaler/business-identities.js';
+import {objectLabel} from './view-format.js';
 import {tables} from '../lokaler/model.js';
 import {viewFields,viewCollections} from '../lokaler/view-fields.js';
 import {responsibilityHtml} from "./responsibility-editor.js";
@@ -9,7 +11,7 @@ import { applyIssueHome, renderIssueEditor } from "./issue-editor.js";
 import {activityChoices} from "./activity-options.js";
 import {propertyDesignation} from './view-format.js';
 const relations = {
-  objectId: ["objects", x=>[x.number,x.name].filter(Boolean).join(" · ")||x.id],
+  objectId: ["objects", x=>[objectLabel(x),x.name].filter(Boolean).join(" · ")],
   propertyId: ["properties", propertyReference],
   contractId: ["contracts", (x) => x.number || x.id],
   activityId: ["activities", (x) => x.title || x.id],
@@ -98,7 +100,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
         fieldLabels[key] || label.replace(/^_/, ""),
       ]),
   );
-  if(data.cleanModel&&col==='objects')fields.set('id','ObjektID');
+  if(data.cleanModel&&col==='objects')fields.set('id','Objektnummer');
   Object.keys(relations)
     .filter((k) => record[k] != null && (!data.cleanModel||fields.has(k)))
     .forEach((k) => {
@@ -112,10 +114,10 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
     const g = group(key);
     if (!groups.has(g)) groups.set(g, []);
     let control;
-    if(key==='id'){control=`<input name="id" value="${esc(record.id||'')}" required maxlength="100"${id?' disabled':''}>`;}
+    if(key==='id'){control=`<input name="id" value="${esc(id?createBusinessLabels(data).label(Object.keys(viewCollections).find(key=>viewCollections[key]===col)||col,record.id):record.id||'')}" required maxlength="100"${id?' disabled':''}>`;}
     else if(key==='responsibilityChangeDate')return;
     else if(col==='objects'&&key==='predecessorIds') {
-      control=`<select name="predecessorIds" multiple aria-label="Föregående objekt">${(data.objects||[]).filter(o=>o.id!==record.id&&(!record.propertyId||o.propertyId===record.propertyId)).map(o=>`<option value="${esc(o.id)}" ${(record.predecessorIds||[]).includes(o.id)?'selected':''}>${esc([o.number,o.name].filter(Boolean).join(' · ')||o.id)}</option>`).join('')}</select><small>Välj tidigare objekt vid delning eller sammanslagning. Avsluta dem med eget t.o.m.-datum.</small>`;
+      control=`<select name="predecessorIds" multiple aria-label="Föregående objekt">${(data.objects||[]).filter(o=>o.id!==record.id&&(!record.propertyId||o.propertyId===record.propertyId)).map(o=>`<option value="${esc(o.id)}" ${(record.predecessorIds||[]).includes(o.id)?'selected':''}>${esc([objectLabel(o),o.name].filter(Boolean).join(' · '))}</option>`).join('')}</select><small>Välj tidigare objekt vid delning eller sammanslagning. Avsluta dem med eget t.o.m.-datum.</small>`;
     } else if(col==='assignments'&&key==='targetType'){control=`<select name="targetType" data-assignment-type>${options(Object.entries(globalThis.LokalblickResponsibility.types),x=>x[0],x=>({property:'Fastighet',object:'Objekt',contract:'Avtal',business:'Verksamhet',activity:presentation.portfolio?'Ärende':'Aktivitet',organization:'Part'})[x[0]],record.targetType,'Välj hemvist')}</select>`;
     } else if(col==='assignments'&&key==='targetId'){const collection=globalThis.LokalblickResponsibility.types[record.targetType]||'properties';const items=data[collection]||[];control=`<select name="targetId" data-assignment-target>${options(items,x=>x.id,x=>x.name||x.number||x.title||x.designation||x.id,record.targetId,'Välj post')}</select>`;
     } else if(col==='assignments'&&key==='role'){const roles=[...new Set([...Object.values(globalThis.LokalblickResponsibility.roles),'Kontakt',record.role].filter(Boolean))];control=`<select name="role">${options(roles,x=>x,x=>x,record.role,'Välj roll')}</select>`;
