@@ -1,4 +1,4 @@
-import {approveAllImportRecords} from './helpers/import-approval.mjs';
+import {approveAllImportRecords,revealImportSettings} from './helpers/import-approval.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,mkdir,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -42,7 +42,7 @@ try{
    return [{name:'syntetisk-'+index+'.xlsx',queryPermission:async()=>'granted',getFile:async()=>new File([new Uint8Array(files[index])],'syntetisk-'+index+'.xlsx')}];
   };
  },files);
- const ready=()=>page.locator('.import-mapping-dialog[aria-busy="false"]').waitFor();
+ const ready=async()=>{await page.locator('.import-mapping-dialog[aria-busy="false"]').waitFor();await revealImportSettings(page);};
  const begin=async()=>{
   await page.locator('.sidebar [data-view=sources]').evaluate(node=>node.click());
   await page.locator('[data-source=import]').click();
@@ -72,17 +72,17 @@ try{
  await begin();
  assert.match(await page.locator('[data-import-reused-links]').innerText(),/80 avtal.*sparade/);
  assert.equal(await page.locator('[data-approve-link]').count(),0);
- assert.equal(await page.locator('[data-column-group=pending]').count(),0);
+ assert.equal(await page.locator('[data-column-state=pending]').count(),0);
  assert.equal(await page.locator('[data-import-conflict-mode]').inputValue(),'review');
  await page.locator('[data-import-conflict-mode]').selectOption('keep');await ready();
  // A later column review must retain the import-wide choice.
- await page.locator('[data-column-group=mapped]').evaluate(node=>node.open=true);
+ await revealImportSettings(page);
  const centerRow=page.locator('.import-column-row').filter({has:page.locator('.import-column-name strong',{hasText:'Kostnadsställe'})});
  await centerRow.locator('[data-preview-map]').click();
  await page.locator('[data-target="contracts.costCenter"]').click();
- await page.locator('[data-check-records]').click();await ready();
+ await ready();
  assert.equal(await page.locator('[data-import-conflict-mode]').inputValue(),'keep');
- await page.locator('[data-column-group=mapped]').evaluate(node=>node.open=false);
+ await revealImportSettings(page);
  await page.locator('[data-import-enrichment]').scrollIntoViewIfNeeded();
  await page.screenshot({path:join(artifacts,'desktop.png')});
  await page.setViewportSize({width:390,height:844});

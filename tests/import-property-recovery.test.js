@@ -36,7 +36,7 @@ test('duplicate identifier mappings are named and blocked before applying; separ
  assert.throws(()=>run(workbook,{},profiles),/dubbelkoppling/);
  const result=run(workbook,{},profiles,{allowMappingConflicts:true});
  const html=columnPreviewHtml({fileName:settings.fileName},{profiles},result,schemas);
- assert.match(html,/data-mapping-conflicts/);assert.match(html,/Förvaltningsobjekt och Kostnadsställe/);assert.match(html,/data-column-group="conflict" open/);assert.match(html,/data-apply class="primary-action" disabled/);
+ assert.match(html,/data-mapping-conflicts/);assert.match(html,/Förvaltningsobjekt och Kostnadsställe/);assert.match(html,/data-column-state="conflict"/);assert.match(html,/data-apply class="primary-action" disabled/);
  assert.equal(mappingConflicts([{columns:[{header:'Kontakt 1',target:'contracts.responsiblePersonId'},{header:'Kontakt 2',target:'contracts.responsiblePersonId'}]}]).length,0);
  assert.equal(mappingConflicts([{columns:[{header:'E-post 1',target:'contact.0.email'},{header:'E-post 2',target:'contact.0.email'}]}]).length,1);
 });

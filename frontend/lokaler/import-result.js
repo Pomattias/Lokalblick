@@ -11,7 +11,7 @@ const clone = (value) => structuredClone(value);
 
 function countImportedRecords(data, prior, touched, aliases, reviews) {
   const recordStates = {};
-  const counts = Object.entries(viewCollections).map(([table, collection]) => {
+  const counts = Object.entries({...viewCollections,contacts:'contacts'}).map(([table, collection]) => {
     const old = new Map(
       prior[table].map((row) => [
         table === "properties" ? resolvePropertyId(aliases, row.id) : row.id,

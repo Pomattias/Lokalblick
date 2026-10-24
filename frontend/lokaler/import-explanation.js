@@ -47,7 +47,7 @@ export function explainImport(candidate,base,{approved=null,choices={},profiles=
  const dependency=(table,id,seen=new Set())=>{
   const token=key(table,id);if(seen.has(token))return null;seen.add(token);
   const entry=entries.get(token),decision=entry&&creationChoice(entry,choices);
-  const record=proposed[table].get(id),parent=table==='objects'?['properties',record?.property_id]:table==='agreements'?['objects',record?.object_id]:table==='agreement_items'?['agreements',record?.agreement_id]:null;
+  const record=proposed[table].get(id),contactHome=table==='contacts'&&tables.contacts.fields.find(field=>field.type==='ref'&&field.key!=='person_id'&&record?.[field.key]),parent=table==='objects'?['properties',record?.property_id]:table==='agreements'?['objects',record?.object_id]:table==='agreement_items'?['agreements',record?.agreement_id]:contactHome?[contactHome.table,record[contactHome.key]]:null;
   if(parent?.[1]){const blocked=dependency(...parent,seen);if(blocked)return blocked;}
   if(decision?.action==='defer')return {table,id,status:'skipped',reason:`${tables[table].singular} ${id} är bortvald.`};
   if(entry&&(!decision||!['create','map'].includes(decision.action)))return {table,id,status:'pending',reason:`${tables[table].singular} ${id} har ännu inte godkänts.`};
@@ -96,7 +96,7 @@ export function explainImport(candidate,base,{approved=null,choices={},profiles=
  });
  const counts=Object.fromEntries(Object.keys(importStatuses).map(status=>[status,sourceRows.filter(row=>row.status===status).length]));
  const records=(current.report.tables||[]).map(row=>{
-  const table=Object.keys(viewCollections).find(table=>viewCollections[table]===row.collection),states=current.report.recordStates?.[row.collection];if(!table||!states)return row;
+  const table=Object.keys(viewCollections).find(table=>viewCollections[table]===row.collection)||(tables[row.collection]?row.collection:null),states=current.report.recordStates?.[row.collection];if(!table||!states)return row;
   const statuses=Object.keys(states).map(id=>status(table,id));
   const completed=statuses.filter(value=>value==='completed').length,changed=statuses.filter(value=>value==='changed').length;
   return {...row,created:statuses.filter(value=>value==='created').length,updated:completed+changed,completed,changed,unchanged:statuses.filter(value=>value==='unchanged').length};

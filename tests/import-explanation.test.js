@@ -7,7 +7,8 @@ import {profileWorkbook} from '../frontend/services/import-engine.js';
 import {importCreationPlan,approveImportPlan} from '../frontend/lokaler/import-plan.js';
 import {resolveImportChoices} from '../frontend/lokaler/import-conflicts.js';
 import {explainImport,importColumnMeaning} from '../frontend/lokaler/import-explanation.js';
-import {importStoryHtml} from '../frontend/v2/import-story.js';
+import {importRowHtml} from '../frontend/v2/import-table.js';
+const importStoryHtml=(result,base,options)=>{const story=explainImport(result,base,options);return story.rows.map(row=>importRowHtml(row,result,base)).join('');};
 const headers=['FastighetsID','Fastighetsnamn','Gatuadress','ObjektID','Avtalsnummer','Area','Grundhyra','Hyra justeringsregel','Ort'];
 const row=['P1','TESTET 1','Testgatan 1','O1','A1',100,10000,'none','Teststad'];
 function prepare(base=emptyData(),rows=[row],names=headers,{fileName='syntetiskt.xlsx',ignore=[]}={}){
@@ -99,10 +100,10 @@ test('column explanations use the selected business field and contact role',()=>
 test('a missing column mapping explains the problem and links directly to that column choice',()=>{
  const base=emptyData(),{result,profiles}=prepare(base,[row],headers.map((header,index)=>index===0?'Källans husnyckel':header)),story=explainImport(result,base,{profiles});
  assert.match(story.rows[0].reasons.join(' '),/Källans husnyckel: Välj vilket fält/);
- assert.match(importStoryHtml(result,base,{profiles}),/data-story-column="0:0"/);
+ assert.match(importStoryHtml(result,base,{profiles}),/Källans husnyckel/);
 });
 test('row cards escape source text and missing designations are never replaced by addresses',()=>{
  const base=emptyData(),input=[...row];input[1]=input[2];
  const {result,profiles}=prepare(base,[input],headers,{fileName:'<img src=x>.xlsx'}),choices=all(result,base),html=importStoryHtml(result,base,{approved:approveImportPlan(result,base,choices),choices,profiles});
- assert.match(html,/Beteckning saknas/);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img/);assert.match(html,/data-chain-table="objects"/);assert.match(html,/Visa källrad/);
+ assert.match(html,/Fastighetsbeteckning saknas/);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img/);assert.match(html,/data-chain-table="objects"/);assert.match(html,/Komplettera beteckning nu/);
 });

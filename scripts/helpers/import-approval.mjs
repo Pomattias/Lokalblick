@@ -1,15 +1,18 @@
-// Existing browser scenarios explicitly approve every proposed new root.
-// Selective/deferred decisions are covered by import-approval-browser-check.
+// The tests explicitly select every new root in the single review surface.
+// Product code never preselects new properties, objects or agreements.
 export async function approveAllImportRecords(page){
- await page.waitForFunction(()=>document.querySelector('.import-approval-dialog[open]')||!document.querySelector('.import-mapping-dialog[open]'));
- const dialog=page.locator('.import-approval-dialog[open]');
- if(!await dialog.count())return; // Source adapters without the canonical model.
- for(let step=0;step<6;step++){
-  const confirm=dialog.locator('[data-confirm-import]');
-  if(await confirm.count()){await confirm.click();return;}
-  const all=dialog.locator('[data-select-creations=all]');
-  if(await all.count())await all.click();
-  await dialog.locator('[data-approval-next]').click();
+ const dialog=page.locator('.import-mapping-dialog[open]');
+ if(!await dialog.count())return;
+ const list=dialog.locator('[data-new-records]');
+ if(await list.count()){
+  await list.evaluate(node=>node.open=true);
+  await list.locator('[data-select-creations=all]').click();
  }
- throw Error('Import approval did not reach final confirmation.');
+ await dialog.locator('[data-apply]').click();
+}
+
+// Only test fixtures expand advanced settings automatically. The product keeps
+// them behind the corresponding column header and uses one selection control.
+export async function revealImportSettings(page){
+ await page.locator('.import-mapping-dialog details[data-column-settings],.import-mapping-dialog details[data-sheet-settings],.import-mapping-dialog details[data-import-enrichment],.import-mapping-dialog details[data-final-impact]').evaluateAll(nodes=>nodes.forEach(node=>node.open=true));
 }

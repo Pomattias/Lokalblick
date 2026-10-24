@@ -3,6 +3,7 @@ import {responsibilityHtml} from "./responsibility-editor.js";
 import { esc, options, propertyReference, units } from "./views.js";
 import { fieldCaption } from "./field-labels.js";
 import {partyNumberInput} from './party-fields.js';
+import {propertyDesignation} from './view-format.js';
 
 // Explicit property fields: the Excel/backend schema is not a form specification.
 const own = (data, person) => !person.organizationId ||
@@ -65,14 +66,16 @@ export function renderPropertyEditor(data, p, id, company=false, presentation={p
     personSelect(data,"",c.personId,allPeople,"Hyresgästens kontaktperson",
       "contract",c.id,c.unit+" · "+c.number)
   ).join("");
-  const locked=Boolean(id && !data.isDemo && company);
+  const locked=Boolean(id && !data.isDemo && company && !data.cleanModel);
+  const designation=propertyDesignation(p);
   const geo=hasGeo(p);
   return '<div class="editor-backdrop"></div><aside class="editor property-editor" aria-labelledby="editor-title">'+
     '<form id="edit-form" data-collection="properties" data-record-id="'+esc(id||"")+'">'+
       '<div class="section-title property-heading"><div class="property-heading-text" data-editor-mode-exclude>'+
-      '<h2 id="editor-title">'+esc(p.designation||p.address||"Ny fastighet")+'</h2>'+
+      '<h2 id="editor-title">'+esc(designation||(id?'Fastighetsbeteckning saknas':"Ny fastighet"))+'</h2>'+
       '<label class="property-heading-edit property-heading-edit-title">'+
-        '<span class="visually-hidden">Fastighetsbeteckning</span>'+textInput(p,"designation",locked)+'</label>'+
+        '<span class="visually-hidden">Fastighetsbeteckning</span>'+textInput({...p,designation},"designation",locked)+'</label>'+
+      (!designation?'<small>Komplettera fastighetsbeteckningen här. Adressen visas separat.</small>':'')+
       '<small class="property-heading-address">'+esc(p.address||"")+'</small>'+
       '<label class="property-heading-edit property-heading-edit-address">'+
         '<span class="visually-hidden">Adress</span>'+textInput(p,"address",locked)+'</label></div>'+

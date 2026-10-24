@@ -7,6 +7,7 @@ import { renderContractEditor } from "./contract-editor.js";
 import { renderPropertyEditor } from "./property-editor.js";
 import { applyIssueHome, renderIssueEditor } from "./issue-editor.js";
 import {activityChoices} from "./activity-options.js";
+import {propertyDesignation} from './view-format.js';
 const relations = {
   objectId: ["objects", x=>[x.number,x.name].filter(Boolean).join(" · ")||x.id],
   propertyId: ["properties", propertyReference],
@@ -232,6 +233,9 @@ export function readEditor(form, record) {
   const out = clone(record);
   const submitted = new Set();
   new FormData(form).forEach((value, key) => {
+    // A missing designation may be completed later while other fields are
+    // edited. Retain the technical source name until a designation is entered.
+    if(key==='designation'&&form.dataset?.collection==='properties'&&!String(value).trim()&&!propertyDesignation(record))return;
     if(key==='responsibilityChangeDate'||key==='businessIds'||key==='enhancingToggle'||/^business(?:Area|Share)\|/.test(key))return;
     if(key==='estimatedCostTkr' && form.dataset?.collection==='activities'){
       const tkr=Number(String(value).replace(",","."));

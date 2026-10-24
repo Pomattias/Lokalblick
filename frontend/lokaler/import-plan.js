@@ -120,7 +120,7 @@ export function approveImportPlan(result,base,choices={},actor='Excelimport'){
  const pending=clean.workspace.importReview.filter(row=>reviewIds.has(row.id)&&row.status==='pending');
  report.reviewIds=clean.workspace.importReview.filter(row=>reviewIds.has(row.id)).map(row=>row.id);report.review=pending.length;
  report.creationReview={mapped:[...mapped].map(([from,to])=>({from,to})),deferred:deferred.map(row=>({collection:row.collection,id:row.recordId}))};
- report.tables=Object.entries(viewCollections).map(([table,name])=>{
+ report.tables=Object.entries({...viewCollections,contacts:'contacts'}).map(([table,name])=>{
   const ids=new Set([...Object.keys(report.recordStates?.[name]||{}),...report.changes.filter(change=>change.collection===name).map(change=>change.recordId),...(table==='properties'?mapped.values():[])]),states=Object.create(null);
   for(const id of ids){const record=present[table].get(id);if(record)states[id]=!before[table].has(id)?'created':sameRecordFacts(record,before[table].get(id))?'unchanged':'updated';}
   report.recordStates[name]=states;
@@ -132,7 +132,7 @@ export function approveImportPlan(result,base,choices={},actor='Excelimport'){
   const fields=(entry.fields||[]).flatMap(field=>{
    const key=JSON.stringify([entry.collection,entry.recordId,field.field]),change=changeIndex.get(key),stored=storedField({collection:entry.collection,field:field.field}).field;
    if(!change&&!same(field.to,record[stored]))return [];
-   covered.add(key);return [{...field,...(change?{from:change.from,to:change.to}:{})}];
+   covered.add(key);return [{...field,...(change?{from:change.from,to:change.to,provenance:change.provenance??field.provenance}:{})}];
   });return fields.length?[{...entry,fields}]:[];
  });
  const extra=new Map();for(const change of report.changes){const key=JSON.stringify([change.collection,change.recordId,change.field]);if(covered.has(key))continue;const owner=token(change.collection,change.recordId);if(!extra.has(owner))extra.set(owner,[]);extra.get(owner).push(change);}

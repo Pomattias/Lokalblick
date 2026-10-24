@@ -51,6 +51,6 @@ test('the mapping template preserves destinations and separate item categories t
 });
 test('a compact overview explains actual destinations, categories and the per-column choice',()=>{
  const book=source(),ps=profiles(book),result=run(book,ps),html=columnPreviewHtml({fileName:'syntetiska-avtal.xlsx'},{profiles:ps},result,importSchemas);
- assert.match(html,/En Excel-flik kan berika flera register/);assert.match(html,/Utgångspunkt för förslag/);assert.doesNotMatch(html,/<label>Huvudtabell/);for(const collection of ['properties','objects','contracts','agreementItems'])assert.match(html,new RegExp('data-import-destination="'+collection+'"'));
- assert.match(html,/Bashyra \(5\).*Värme \(6\).*VA \(3\)/);assert.match(html,/data-open-import-destination="0:agreementItems"/);assert.match(html,/Avtalsposter → Grundbelopp, kr\/år · Värme/);assert.match(html,/kopplad via AvtalsID/);assert.match(html,/data-import-destination-fields="0:agreementItems"><h4>Avtalsposter/);
+ assert.match(html,/Ändra förslagen i kolumnrubrikerna/);assert.match(html,/Utgångspunkt för förslag/);assert.doesNotMatch(html,/<label>Huvudtabell/);for(const collection of ['properties','objects','contracts','agreementItems'])assert.match(html,new RegExp('data-register="'+collection+'"'));
+ assert.match(html,/Avtalsposter → Grundbelopp, kr\/år · Värme/);assert.equal((html.match(/data-preview-map=/g)||[]).length,ps[0].columns.length);assert.doesNotMatch(html,/data-import-destination-fields|data-column-group/);
 });

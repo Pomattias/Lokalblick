@@ -41,7 +41,7 @@ test('receipt keeps exclusions without their cell contents and a later exclusion
  const base=prepare(propertyRows).result.clean,{result,profiles}=prepare([propertyRows[0],['F1','Test 1','Privat bortvald text']],base,profiles=>{profiles[0].columns[2].target='@ignore';profiles[0].columns[2].approved=true;});
  const saved=receipt(result);assert.equal(saved.columns[2].target,'@ignore');assert.equal(saved.columns[2].read,0);assert(!JSON.stringify(saved).includes('Privat bortvald text'));assert.equal(result.clean.properties[0].address,'Testgata 1');
  const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas);
- assert.match(html,/<details data-column-group="mapped"><summary>/);assert.match(html,/<details data-column-group="ignored"><summary>/);assert.match(html,/data-ignore-column/);
+ assert.match(html,/data-column-state="mapped"/);assert.match(html,/data-column-state="ignored"/);assert.match(html,/data-ignore-column/);
  const next=prepare(propertyRows,result.clean);assert.equal(next.profiles[0].columns[2].target,'@ignore');
 });
 test('receipt metadata and decisions survive the canonical Excel round trip',async()=>{

@@ -1,65 +1,61 @@
 # Granskad import i den aktuella datamodellen
 
-Importen är ett utkast fram till **Godkänn och spara import**. Den befintliga
-importmotorn läser och identifierar underlaget; godkännandet avgör vilka nya
-fastigheter, objekt och avtal som får sparas. Datamodellen är oförändrad.
+Importen är ett utkast fram till **Spara import**. Filens tabell, kolumnval,
+kopplingar och nya poster granskas på samma yta. De tidigare kolumnkorten,
+radkorten och separata godkännandestegen har ersatts.
 
-## Förstå vad som läses in
+## Förstå tabellen
 
-Kolumnval och godkännandesteg använder **samma dialog**. Kopplingskedjan per
-källrad, sökning och statusfilter finns både före och under godkännandet.
+- Varje kolumn behåller filens rubrik. Färgen och fältnamnet visar dess register:
+  fastighet, objekt, avtal, pris på avtal, person, part, ärende eller beställning.
+  Ändra förslaget direkt i rubriken. **Fler kolumnval** innehåller bortval,
+  personformat, datumtolkning och villkor för avtalsposter.
+- Originalvärdet visas i cellen. Bortvalda eller väntande uppgifter märks med text;
+  förändrade sparade värden visar före/efter. Färg betecknar register, aldrig säkerhet.
+- **🔗 Visa / ändra** i radens första kolumn öppnar den verkliga kedjan
+  **Fastighet → Objekt → Avtal → Priser** och förklarar vilken identifierare som
+  matchade. Ogiltiga relationer får inga pilar som antyder en säker koppling.
+- Personkopplingar visar **person, roll här och mål** separat. Ändra förslag
+  eller lägg till en annan koppling för samma person. Ägarens kontaktperson är
+  skild från fastighetsägaren, som är en part. Befintliga personkopplingar och
+  deras historik ändras via registret. Ärvda ansvar visas utan att kopieras.
+- Priser visar avtalsnumret, tidigare/nytt belopp och öppningsbara prisvillkor.
 
 | Status | Betydelse i det aktuella utkastet |
 | --- | --- |
-| Skapas | En ny post har godkänts och kommer att skapas vid slutlig sparning. |
-| Kompletteras | Saknade uppgifter på en befintlig post fylls i. |
-| Ändras | Ett tidigare värde ersätts enligt dina värdeval. |
-| Oförändrat | Befintliga uppgifter återanvänds utan ändrade verksamhetsvärden. |
-| Läses inte in | Raden eller uppgiften är bortvald eller beror på en bortvald post. |
-| Behöver ditt val | Ett förslag, fältval, värde eller en koppling behöver granskas. Säkra delar kan fortfarande ingå; raden anger när bara vissa uppgifter läses in. |
+| Skapas | En ny post har valts och kommer att skapas vid sparning. |
+| Kompletteras | Tomma fält på en befintlig post fylls i. |
+| Ändras | Ett tidigare värde ersätts enligt dina val. |
+| Oförändrat | Befintliga verksamhetsvärden återanvänds. |
+| Läses inte in | En uppgift är bortvald eller beror på en bortvald post. |
+| Behöver ditt val | Fältval, värde eller koppling behöver granskas. Säkra delar kan fortfarande ingå. |
 
-Varje källrad visar fil, flik och verkligt radnummer samt kedjan
-**Fastighet → Objekt → Avtal → Priser**. Priser på samma avtal visas tillsammans.
-En känd avtalskoppling förklaras exempelvis med att avtalsnumret redan finns och
-att dess sparade objekt och fastighet återanvänds. En felaktig eller oklar
-relation visas som ej kopplad, utan pilar som antyder en bekräftad relation.
+## Välj en gång och spara
 
-Öppna **Visa källrad och vad kolumnerna används till** för att se originalvärde,
-vald kolumnkoppling och resultat i Lokalblick. Där framgår även bortvalda
-kolumner, avvikande värden som behålls och ogiltiga värden som inte används.
-**Visa kolumnval och rätta** respektive **Granska föreslagen fastighetskoppling**
-öppnar rätt kontroll i samma granskningsvy.
+1. Kontrollera kolumnförslagen i tabellrubrikerna. Ändringar räknas om automatiskt.
+   Filens matchningsrad och utgångspunkt finns under **Filens rubriker och matchningsrad**.
+   **Hämta kolumnmall** exporterar fältval för källor med andra rubriker.
+2. Öppna **Nya poster att välja**. Fastigheter, objekt och avtal förekommer en gång
+   var och är inte förmarkerade. Välj enskilda, alla möjliga i urvalet eller välj
+   bort urvalet. Ett objekt kräver vald fastighet och ett avtal kräver valt objekt.
+   Ett fastighetsförslag kan i stället kopplas till en befintlig fastighet.
+3. Saknad beteckning visas som **Fastighetsbeteckning saknas**. **Komplettera
+   beteckning nu** öppnar det gemensamma fältet för fastigheten. Alla dess rader
+   uppdateras tillsammans. Lämna fältet tomt för att komplettera under
+   **Fastigheter → fastigheten → Information → Redigera** efter importen.
+4. Kontrollera utfallet och välj **Spara import**. Det är den enda sparningen.
+   Avbryt eller Escape kastar utkastet utan att skriva till arbetsytan.
 
-Sammanställningen uppdateras när poster godkänns eller väljs bort. Antal
-källrader hålls isär från antal registerposter: en rad kan beröra en fastighet,
-ett objekt, ett avtal och flera priser. Att läsa samma verksamhetsvärden från
-en annan fil kan komplettera källspårningen utan att uppgifterna räknas som ändrade.
+Kolumnval, värdeval och giltiga skapandebeslut behålls när andra delar granskas.
+En kompletterad beteckning kräver inte nya godkännanden. Ändrad identitet eller
+överordnad koppling kräver ett nytt beslut för den berörda posten. Ändrat urval
+av blockerade rader kräver nytt beslut om partiell import. Ett osäkert mål som
+väljs i listan används direkt; samma koppling har ingen extra godkännanderuta.
 
-## Arbetsgång
-
-1. **Kolumnval och förhandsgranskning.** Läs hela underlaget och granska
-   föreslagna fält, befintliga kopplingar och värdeskillnader. Ändra rubrik →
-   fält i fältväljaren. Exportera en importmall om källan använder andra rubriker.
-   En fil kan fortfarande berika flera register.
-2. **Nya fastigheter.** Varje föreslagen fastighet visas en gång, med beteckning,
-   adress, eventuellt förvaltningsnummer och källrad. Inget är förmarkerat.
-   Markera enskilda eller alla möjliga poster i registret. Alternativt sök fram
-   en befintlig fastighet och välj att koppla förslaget dit.
-3. **Nya objekt och avtal.** Godkänn på samma sätt. En post vars överordnade
-   fastighet eller objekt inte godkänts visas som väntande och kan inte väljas.
-   Befintliga poster behöver inte godkännas som nya igen. Tomma registersteg hoppas över.
-4. **Priser.** Granska tidigare och nytt grundbelopp, avtalsnummer, perioder och
-   ändrade uppräkningsvillkor för de avtal som faktiskt ingår efter valen.
-   Värdevalen görs i kolumngranskningen; återvänd dit för att ändra dem.
-5. **Slutkontroll.** Se faktiska antal nya, ändrade och oförändrade poster per
-   register, valda fastighetskopplingar och antal poster som lämnas till senare.
-   Ändringar kan granskas och det fullständiga granskningsunderlaget hämtas som JSON.
-   Bekräfta först här för att spara hela det godkända utkastet.
-
-Listorna är sökbara och visar 100 poster i taget. **Markera alla möjliga i
-registret** gäller hela registret, även poster utanför den synliga sidan.
-Tillbaka till kolumnval lämnar arbetsytan oförändrad och kräver nya
-skapandebeslut när godkännandet öppnas igen. Avbryt importen för att kasta utkastet.
+Radtabellen visar 30 rader i taget; nya poster visar 100. Sökning och status-/registerfilter
+begränsar urvalet. **Lägg till alla möjliga i urvalet** omfattar även matchande poster
+utanför den synliga sidan. Sammanställningen skiljer källrader, registerposter och
+personkopplingar. Nya källhänvisningar räknas inte som ändrade verksamhetsvärden.
 
 ## Vad som skyddas
 
@@ -80,20 +76,24 @@ skapandebeslut när godkännandet öppnas igen. Avbryt importen för att kasta u
 - Låsta budgetsnapshots och skarpa Exceloriginal ändras inte av granskningen.
 
 Parter och personer som behövs för godkända uppgifter följer med och redovisas
-i slutkontrollen. Automatiskt skapade personer/parter som enbart hör till
+i sammanställningen. Automatiskt skapade personer/parter som enbart hör till
 bortvalda källrader och saknar kvarvarande koppling följer inte med.
 Fristående person- eller partsregister är fortfarande valda importunderlag.
 
 ## Kod och kontroll
 
-- `frontend/lokaler/import-plan.js`: beslut bundna till den granskade posten,
-  beroenden, omkoppling av nya förslag, validering, historik och kvitto. Inga skrivningar.
-- `frontend/v2/import-approval.js`: stegvis dialog, sökning, urval och slutbeslut.
-- `frontend/v2/import-mapping.js`: kolumnval och värdeval före godkännandet.
-- Befintlig workspace-transport gör den slutliga atomära skrivningen. Separat
-  bakgrundsgeokodning kan därefter spara koordinater enligt det befintliga flödet.
-
-Verifiera med syntetiska underlag:
+- `frontend/v2/import-mapping.js`: en importsession, kolumn-/värdeval och sparbeslut.
+- `frontend/v2/import-table.js`: filtabell, registerfärger, radförklaringar och kopplingar.
+- `frontend/v2/import-approval.js`: gemensam lista för nya poster och beteckningar.
+- `frontend/v2/import-contact.js`: redigering av föreslagen person, roll och mål.
+- `frontend/lokaler/import-review.js`: isolerade kompletteringar, återanvända personer
+  och giltiga beslut som följer med omräkning.
+- `frontend/lokaler/import-plan.js`: skapandebeslut, beroenden, validering, historik och kvitto.
+- Importmotorn har sessionsbundna identiteter för personer/kopplingar. Valda
+  personkopplingar spåras i befintlig ändringshistorik, så samma källa inte
+  återskapar ett ersatt förslag vid återimport. Inget extra personregister skapas.
+- Befintlig workspace-transport gör den atomära skrivningen. Separat
+  bakgrundsgeokodning kan därefter spara koordinater enligt befintligt flöde.
 
 ```sh
 npm test
@@ -103,19 +103,12 @@ npm run test:table-import-browser
 npm run test:lokaler-browser
 ```
 
-Godkännandet provas med markerade respektive alla poster, uppskjutna beroenden,
-avbrott utan skrivning, ändrade källrubriker, koppling till befintlig fastighet,
-sökning och urval bland 122 fastigheter, dator/mobil samt återöppning av SQLite.
-Priset och kopplingarna verifieras efter sparning. Bakgrundsgeokodning stängs av
-just i provet som räknar importens skrivningar. Inga skarpa verksamhetsdata används.
+Verifierat med syntetiska filer 2026-10-24: 752 tester och syntaxkontroll av 133
+JavaScript-filer. Webbläsarprovet följer fil → tabell → ändrade val → API → SQLite
+→ återöppning: selektiva/allmänna urval, 122 nya fastigheter, saknad beteckning
+före/efter import, en person med flera roller och mål, återimport och avbrott utan
+skrivning. Dator/mobil, 80 befintliga avtalskopplingar, Excel-lägen och låsta
+budgetsnapshots kontrolleras separat. Ingen skarp verksamhetsdata används.
 
-Verifierat 2026-10-24: 739 tester godkända, 131 JavaScript-filer syntaxkontrollerade.
-Webbläsarprov för godkännandestegen, 80-raders lokaldata, tabellimport,
-SQLite, båda Excel-lägena, stabila fastighetskopplingar och importens
-versionsskydd är godkända.
-
-Radförklaringarna provas även för oförändrad återimport, kompletteringar,
-ändrade belopp, bortval av överordnade poster, ogiltiga datum, felaktiga
-identifierare, bortvalda kolumner, omkoppling till befintlig fastighet och
-okända källrubriker. Källceller läses från den redan öppnade arbetsboken först
-när raden öppnas. Rapportens radspår lagras inte som en extra datatabell.
+Originalceller hämtas från den redan öppnade arbetsboken. Rapportens radspår och
+sessionscache lagras inte som en extra datatabell.
