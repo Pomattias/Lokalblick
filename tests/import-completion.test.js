@@ -62,7 +62,7 @@ test('100 repeated field failures are one expandable problem type with all sourc
  assert.deepEqual(importTableRows(result.report.tables).map(item=>item.collection),['properties','objects','contracts']);
  const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas);
  assert.equal((html.match(/data-review-problem=/g)||[]).length,1);assert(!html.includes('import-problems'));assert(!html.includes('data-import-safe-rows'));assert(!html.includes('data-invalid-link'));assert(!html.includes('data-import-register="costEvidence"'));
- assert(html.indexOf('data-import-register="properties"')<html.indexOf('data-import-register="objects"'));assert.match(html,/Inget är sparat ännu/);assert.match(html,/100 källrader/);
+ assert(html.indexOf('data-import-register="properties"')<html.indexOf('data-import-register="objects"'));assert.match(html,/före sparning/);assert.match(html,/100 källrader/);
  const receipt=importReceiptHtml(result.data.sourceRegistry[0],result.data);assert.match(receipt,/1 problemtyp/);assert.match(receipt,/data-receipt-tables open/);
  const saved=sources(result.data,{status:()=>({}),company:()=>false});assert.equal((saved.match(/data-source-review-group/g)||[]).length,1);assert.match(saved,/<details class="review-details">/);
 });
@@ -75,7 +75,7 @@ test('corrected reimport fills held fields without duplicating entities or disca
 });
 test('required record choices remain visible even after more than 100 optional field failures',()=>{
  const base=emptyData();for(const id of ['P','Q'])base.properties.push(normalize('properties',{id,name:'Gemensamt namn',address:id}));
- const rows=Array.from({length:150},(_,i)=>{const values=row(i);values[5]='Se avtal';return values;});rows.push(['','Gemensamt namn','O-amb',100,'A-amb','2025-01-01','2029-12-31','']);
+ const rows=Array.from({length:150},(_,i)=>{const values=row(i);values[5]='Se avtal';return values;});rows.push(['','Gemensamt namn','',null,'','','','']);
  const {result,profiles}=prepare(fields,rows,base),groups=importReviewGroups(result.clean.workspace.importReview);
  assert.equal(result.report.blocking,1);assert.equal(groups[0].category,'blocked');
  const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas,{}, {story:{filter:'attention:link'}});assert.match(html,/<select data-link-property=/);assert(html.indexOf('data-import-link-proposals')<html.indexOf('data-review-category="fields"'));assert.equal(result.report.linkProposals.length,1);assert.match(html,/Alla källrader finns i granskningsunderlaget/);

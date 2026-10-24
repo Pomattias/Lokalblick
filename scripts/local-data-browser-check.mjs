@@ -78,7 +78,7 @@ try{
  // A later column review must retain the import-wide choice.
  await revealImportSettings(page);
  const centerRow=page.locator('.import-column-row').filter({has:page.locator('.import-column-name strong',{hasText:'Kostnadsställe'})});
- await centerRow.locator('[data-preview-map]').click();
+ await centerRow.locator('[data-preview-map]').selectOption('@search');
  await page.locator('[data-target="contracts.costCenter"]').click();
  await ready();
  assert.equal(await page.locator('[data-import-conflict-mode]').inputValue(),'keep');

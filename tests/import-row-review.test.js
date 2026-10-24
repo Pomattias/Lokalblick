@@ -12,11 +12,11 @@ import {matchingImportRows,importRowAttention,importColumnWarning,importLinkChoi
 function fixture(){
  const base=emptyData();
  for(let i=1;i<=22;i++)base.properties.push(normalize('properties',{id:'P'+i,name:'TESTET '+i,address:'Testgatan '+i}));
- const input=[['FastighetsID','Gatuadress','ObjektID','Avtalsnummer','Area','Säg upp senast'],
+ const input=[['FastighetsID','Gatuadress','ObjektID','Avtalsnummer','Area','Säg upp senast','Populärnamn'],
   ...Array.from({length:133},(_,i)=>['P1','Testgatan 1','O'+i,'KNOWN-'+i,100,i===0?'not a date':'']),
-  ...Array.from({length:21},(_,i)=>['','Testgatan '+(i+2),'WAIT-O'+i,'WAIT-'+String(i+1).padStart(3,'0'),100,''])];
+  ...Array.from({length:21},(_,i)=>['','Testgatan '+(i+2),'','','','','WAIT-'+String(i+1).padStart(3,'0')])];
  const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(input),'Underlag');
- const profiles=profileWorkbook(workbook,importSchemas,XLSX,[],{reviewed:true}),prepared={workbook,fileName:'syntetiskt.xlsx'};
+ const profiles=profileWorkbook(workbook,importSchemas,XLSX,[],{reviewed:true}),prepared={workbook,XLSX,fileName:'syntetiskt.xlsx'};
  const run=(rowMatches={})=>prepareCleanImport(workbook,profiles,base,{fileName:prepared.fileName,rowMatches},XLSX);
  return {base,profiles,prepared,run};
 }
@@ -29,7 +29,7 @@ test('all 154 source rows are retained and the 21 unresolved links are a filter 
  const html=importTableHtml(prepared,profiles,result,base,{filter:'attention:link'});
  assert.equal((html.match(/data-import-source-row=/g)||[]).length,21);assert.equal((html.match(/data-link-proposal=/g)||[]).length,21);
  assert.equal((html.match(/data-approve-link=/g)||[]).length,21);assert.doesNotMatch(html,/<section class="import-link-proposals"|data-import-link-suggestions/);
- assert.match(html,/Samtliga källrader finns i tabellen/);assert.match(html,/Behöver kopplas \(21\)/);
+ assert.doesNotMatch(html,/Samtliga källrader finns i tabellen/);assert.match(html,/Behöver kopplas \(21\)/);
 });
 
 test('a filtered search resolves exactly one link and does not approve other source rows',()=>{
@@ -83,4 +83,9 @@ test('numeric values in a designation column produce advice without silently cha
  assert.match(importColumnWarning(column),/kostnadsställe/);assert.equal(column.target,'properties.designation');
  assert.equal(importColumnWarning({...column,target:'contracts.costCenter'}),'');
  assert.equal(importColumnWarning({...column,samples:['EKEN 1','ASPEN 2']}),'');
+});
+
+test('expanded details are followed by source headers without repeating mapping controls or pending badges',()=>{
+ const {base,profiles,prepared,run}=fixture(),result=run(),story=explainImport(result,base,{profiles}),html=importTableHtml(prepared,profiles,result,base,{openRows:new Set([story.rows[0].key])});
+ assert.equal((html.match(/class="import-repeated-headers"/g)||[]).length,1);assert.match(html,/Nytt objekt/);assert.match(html,/Nytt avtal/);assert.doesNotMatch(html,/Ny objekt\b|Ny avtal\b|Behöver ditt val|Behöver åtgärd|Identifierade förslag väntar/);assert.doesNotMatch(html,/data-preview-map/);
 });

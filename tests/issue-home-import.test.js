@@ -48,7 +48,7 @@ test('explicit ObjectID, explicit mapping rows and saved choices are not reinter
  const again=profileTables(plain.workbook,importSchemas,XLSX,saved,{referenceData:seed});assert.equal(again[0].columns[1].target,'activities.objectId');assert.equal(again[0].columns[1].matchSource,'saved');
 });
 test('addresses match conservatively and never fabricate objects or overwrite property information',()=>{
- const rows=[['Kontroll','  TESTGATAN  1A  ','Annat beskrivande namn']],headers=['Ärendenamn','Gatuadress','Fastighet'],pending=run(rows,headers);assert.equal(pending.clean.issues.length,0);const first=run(rows,headers,base(),{rowMatches:approvals(pending)});
+ const rows=[['Kontroll','  TESTGATAN  1A  ','Annat beskrivande namn']],headers=['Ärendenamn','Gatuadress','Fastighet'],pending=run(rows,headers);assert.equal(pending.clean.issues.length,0);assert.equal(pending.report.linkProposals.length,1);const first=run(rows,headers,base(),{rowMatches:approvals(pending)});
  assert.equal(first.clean.issues[0].property_id,'1058');assert.equal(first.clean.issues[0].object_id,null);assert.deepEqual(first.clean.properties,base().properties);assert.equal(first.clean.objects.length,1);
  assert.equal(first.clean.issues[0].sources[0].matchingDecision.method,'explicit-row-choice');validateData(first.clean);
  for(const address of ['Testgatan 1','Testgatan 1B','Testgatan 11A','Testgatan 1–3']){
@@ -73,7 +73,7 @@ test('register sheets are imported before issue lookup sheets and repeat imports
  const seed=emptyData(),p=prepared([['Kontroll','Ny testgata 2']],['Ärendenamn','Gatuadress']);
  XLSX.utils.book_append_sheet(p.workbook,XLSX.utils.aoa_to_sheet([['FastighetsID','Fastighetsnamn','Gatuadress'],['F2','Ny fastighet','Ny testgata 2']]),'Fastigheter');
  p.profiles=profileTables(p.workbook,importSchemas,XLSX);
- const pending=prepareCleanImport(p.workbook,p.profiles,seed,{fileName:'syntetiska-arenden.xlsx'},XLSX);assert.equal(pending.clean.properties.length,1);assert.equal(pending.clean.issues.length,0);const result=prepareCleanImport(p.workbook,p.profiles,seed,{fileName:'syntetiska-arenden.xlsx',rowMatches:approvals(pending)},XLSX);assert.equal(result.clean.issues[0].property_id,'F2');assert.equal(result.clean.properties.length,1);
+ const pending=prepareCleanImport(p.workbook,p.profiles,seed,{fileName:'syntetiska-arenden.xlsx'},XLSX);assert.equal(pending.clean.properties.length,1);assert.equal(pending.clean.issues.length,1);assert.equal(pending.clean.issues[0].property_id,null);assert.equal(pending.report.linkProposals.length,0);const waitingInitial=prepareCleanImport(p.workbook,p.profiles,pending.clean,{fileName:'syntetiska-arenden.xlsx'},XLSX);const result=prepareCleanImport(p.workbook,p.profiles,pending.clean,{fileName:'syntetiska-arenden.xlsx',rowMatches:approvals(waitingInitial)},XLSX);assert.equal(result.clean.issues[0].property_id,'F2');assert.equal(result.clean.properties.length,1);
  const again=prepareCleanImport(p.workbook,p.profiles,result.clean,{fileName:'syntetiska-arenden.xlsx'},XLSX);assert.equal(again.clean.issues.length,1);assert.equal(again.clean.issues[0].id,result.clean.issues[0].id);assert.equal(again.clean.issues[0].property_id,'F2');
  const initially=run([['Kontroll','Okänd gata 2']],['Ärendenamn','Gatuadress']);
  initially.clean.properties[0].address='Okänd gata 2';

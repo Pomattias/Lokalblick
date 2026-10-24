@@ -8,14 +8,18 @@ radkorten och separata godkännandestegen har ersatts.
 
 - Varje kolumn behåller filens rubrik. Färgen och fältnamnet visar dess register:
   fastighet, objekt, avtal, pris på avtal, person, part, ärende eller beställning.
-  Rubriken innehåller fältkopplingen och **Importera inte**. Klicka på kopplingen
-  för att byta fält. **Inställningar för kolumnen** i fältväljaren öppnar
-  exempel, personformat, datumtolkning och villkor för avtalsposter.
-- Originalvärdet visas i cellen. Bortvalda eller väntande uppgifter märks med text;
+  Rubriken har separata val för **Tabell** och **Kolumn** samt kryssrutan
+  **Importera ej**. Avmarkering återställer destination och inställningar.
+  **Inställningar…** i kolumnvalet öppnar exempel, personformat, datumtolkning
+  och villkor för avtalsposter.
+- Originalvärdet visas i cellen. Bortval stryks över och fel beskrivs på raden;
   förändrade sparade värden visar före/efter. Färg betecknar register, aldrig säkerhet.
 - **🔗 Visa / ändra** i radens första kolumn öppnar den verkliga kedjan
   **Fastighet → Objekt → Avtal → Priser** och förklarar vilken identifierare som
-  matchade. Ogiltiga relationer får inga pilar som antyder en säker koppling.
+  matchade. Efter öppnade detaljer upprepas filens rubriker före nästa datarad,
+  utan fler fältval. Kedjan visar **Nytt objekt** och **Nytt avtal**; generella
+  väntemärken upprepas inte på varje post. Ogiltiga relationer får inga pilar
+  som antyder en säker koppling.
 - Personkopplingar visar **person, roll här och mål** separat. Ändra förslag
   eller lägg till en annan koppling för samma person. Ägarens kontaktperson är
   skild från fastighetsägaren, som är en part. Befintliga personkopplingar och
@@ -115,7 +119,7 @@ npm run test:table-import-browser
 npm run test:lokaler-browser
 ```
 
-Verifierat med syntetiska filer 2026-10-24: 770 tester och syntaxkontroll av 135
+Verifierat med syntetiska filer 2026-10-24: 783 tester och syntaxkontroll av 135
 JavaScript-filer. Webbläsarprovet följer fil → tabell → ändrade val → API → SQLite
 → återöppning: selektiva/allmänna urval, 122 nya fastigheter, saknad beteckning
 före/efter import, en person med flera roller och mål, återimport och avbrott utan
@@ -155,3 +159,10 @@ skrivning, återöppning av SQLite samt oförändrade låsta budgetsnapshots.
 
 Nummerkedjan och dolda interna nycklar provas i både SQLite och Excel med
 `npm run test:business-number-browser`.
+
+Adress och namn får bara ge kopplingsförslag för rader utan fastighets-/
+förvaltnings-/objekts-/avtalsnummer, mot fastigheter sparade före importen.
+Första inläsningen kopplar inte ihop olika numrerade fastigheter genom namn
+eller adress. Befintliga avtals- och objektkopplingar behålls; en avvikande
+adress blir en fältavvikelse. Verkliga nummerkonflikter stoppas.
+`npm run test:simple-import-browser` verifierar detta och överlappningskontrollen.

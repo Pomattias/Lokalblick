@@ -68,7 +68,7 @@ nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
 Verifierat 2026-10-24 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 770 godkända, 0 underkända, 0 överhoppade.
+- `npm test`: 783 godkända, 0 underkända, 0 överhoppade.
 - Repots förkontroll: syntax för 135 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
@@ -99,3 +99,9 @@ referenser och låsta budgetar behålls. Interna identifierare visas inte som
 fastighets-/objektnummer. Se `frontend/lokaler/business-identities.js`.
 `npm run test:business-number-browser` verifierar flödet mot både SQLite
 och Excel, inklusive befintliga interna nycklar och återimport.
+
+Importtabellen har separata tabell-/kolumnval och en kryssruta för bortval.
+Kopplingsförslag från adress/namn kräver en rad utan nummer och en fastighet
+som fanns före importen. Nya fastigheter med olika nummer hålls isär.
+`npm run test:simple-import-browser` provar hela flödet med efterföljande
+avtalsperioder, avvisat överlapp, avbryt, sparning och återimport.

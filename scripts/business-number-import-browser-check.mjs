@@ -36,7 +36,7 @@ try{
   try{
    await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('[data-dashboard-mode]').first().waitFor();await page.evaluate(()=>{window.LokalblickGeocodingService=null;});
    await begin();const baseline=JSON.stringify(store.snapshot());
-   const columns=page.locator('.import-column-row');assert.equal(await columns.count(),10);assert.equal(await columns.locator('button').count(),20);assert.equal(await columns.locator('small,details,select').count(),0);assert.doesNotMatch(await columns.allInnerTexts().then(rows=>rows.join(' ')),/Fler kolumnval|ifyllda|fältändringar/);
+   const columns=page.locator('.import-column-row');assert.equal(await columns.count(),10);assert.equal(await columns.locator('select').count(),20);assert.equal(await columns.locator('small,details,button').count(),0);assert.doesNotMatch(await columns.allInnerTexts().then(rows=>rows.join(' ')),/Fler kolumnval|ifyllda|fältändringar/);
    await page.locator('.import-mapping-dialog').evaluate(node=>node.scrollTop=0);await page.screenshot({path:join(artifacts,mode+'-'+existing+'-overview.png')});
    await withImportColumnSettings(page,'From',async settings=>{assert.equal(await settings.locator('[data-date-mode]').count(),1);await settings.locator('[data-date-mode]').selectOption('auto');await ready();});
    await page.locator('[data-open-row]').first().click();const detail=page.locator('.import-row-detail').first();await noInternal(detail);assert.match(await detail.innerText(),/Fastighetsnummer: SF4201/);assert.match(await detail.locator('[data-chain-table=objects]').innerText(),/Objekt SF4201-001/);assert.match(await detail.locator('[data-chain-table=agreements]').innerText(),/Avtal SF4201-001-03/);

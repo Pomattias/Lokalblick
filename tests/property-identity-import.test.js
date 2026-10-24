@@ -26,8 +26,9 @@ test('management numbers have their own property field and never replace canonic
  }
 });
 test('address-only enrichment joins a named property without replacing the name with its address',()=>{
- const b=book([['Lokallista',list],['Lokalbestånd',stock],['Fastighetslista',[['Postadress','Fastighetsägare'],['Testgatan 1A','Fiktiv ägare']]],['Lokaldata',[['Adress','Fastighetsnamn','Avtalsnummer'],['Testgatan 1 A','Testgatan 1 A','A3']]]]);
- const pending=run(b);assert.equal(pending.report.linkProposals.length,2);assert.equal(pending.clean.agreements.length,2);const result=run(b,emptyData(),profile(b),{rowMatches:approvals(pending)});assert.equal(result.report.blocking,0);assert.equal(result.report.review,0);assert.equal(result.clean.properties.length,1);assert.equal(result.clean.properties[0].name,'TESTET 1');assert.equal(result.clean.agreements.length,3);assert(result.clean.objects.every(o=>o.property_id===result.clean.properties[0].id));assert.equal(result.clean.parties.length,1);
+ const seed=run(book([['Lokallista',list],['Lokalbestånd',stock]])).clean;
+ const b=book([['Fastighetslista',[['Postadress','Fastighetsägare'],['Testgatan 1A','Fiktiv ägare']]],['Lokaldata',[['Förvaltningsobjekt','Adress','Fastighetsnamn','Avtalsnummer'],['1058','Testgatan 1 A','Testgatan 1 A','A3']]]]);
+ const pending=run(b,seed);assert.equal(pending.report.linkProposals.length,1);const result=run(b,seed,profile(b),{rowMatches:approvals(pending)});assert.equal(result.report.blocking,0);assert.equal(result.report.review,0);assert.equal(result.clean.properties.length,1);assert.equal(result.clean.properties[0].name,'TESTET 1');assert.equal(result.clean.agreements.length,3);assert(result.clean.objects.every(o=>o.property_id===result.clean.properties[0].id));assert.equal(result.clean.parties.length,1);
 });
 test('a genuine designation replaces an address fallback on a verified ID and address',()=>{
  const b=book([['A',[['FastighetsID','Adress'],['1058','Testgatan 1']]],['B',[['FastighetsID','Fastighetsnamn','Adress'],['1058','TESTET 1','Testgatan 1']]]]),first=run(b);
@@ -35,14 +36,14 @@ test('a genuine designation replaces an address fallback on a verified ID and ad
  const initial=run(book([['A',[['FastighetsID','Adress'],['1058','Testgatan 1']]]])),later=run(book([['B',[['FastighetsID','Fastighetsnamn','Adress'],['1058','TESTET 1','Testgatan 1']]]]),initial.clean);
  assert.equal(later.clean.properties[0].name,'TESTET 1');assert.equal(later.report.review,0);assert.equal(resolveImportChoices(later,{mode:'replace'}).clean.properties[0].name,'TESTET 1');
 });
-test('an ID always checks the address: differences are reviewed, conflicting known identities are blocked',()=>{
+test('an ID determines the property while addresses are reconciled as fields',()=>{
  const seed=run(book([['Lokallista',list]])).clean;
  const changed=run(book([['Fastigheter',[['FastighetsID','Adress'],[seed.properties[0].id,'Ny testgata 2']]]]),seed);
  assert.equal(changed.clean.properties.length,1);assert.equal(changed.clean.properties[0].address,'Testgatan 1A');assert.equal(changed.report.review,1);assert.equal(changed.report.blocking,0);assert.equal(resolveImportChoices(changed,{mode:'replace'}).clean.properties[0].address,'Ny testgata 2');
  seed.properties.push(normalize('properties',{id:'1059',name:'TESTET 2',address:'Andragatan 2'}));
  const wrong=run(book([['Lokallista',[list[0],['1058','Andragatan 2','A3',50]]]]),seed);
- assert.equal(wrong.report.blocking,1);assert.equal(wrong.clean.properties.length,2);assert.equal(wrong.clean.agreements.length,2);assert.match(wrong.clean.workspace.importReview[0].reason,/Förvaltningsobjekt och adress/);
- const unknown=run(book([['Fastigheter',[['FastighetsID','Adress'],['NEW-ID','Testgatan 1A']]]]),seed);assert.equal(unknown.report.blocking,1);assert.equal(unknown.clean.properties.length,2);assert.match(unknown.clean.workspace.importReview[0].reason,/annat FastighetsID/);
+ assert.equal(wrong.report.blocking,0);assert.equal(wrong.clean.properties.length,2);assert.equal(wrong.clean.agreements.length,3);assert.match(wrong.clean.workspace.importReview[0].reason,/Olika värden för Adress/);assert.equal(wrong.clean.properties[0].address,'Testgatan 1A');
+ const unknown=run(book([['Fastigheter',[['FastighetsID','Adress'],['NEW-ID','Testgatan 1A']]]]),seed);assert.equal(unknown.report.blocking,0);assert.equal(unknown.clean.properties.length,3);assert.equal(unknown.report.linkProposals.length,0);
 });
 test('shared addresses require disambiguation, while different houses, suffixes and ranges are never merged',()=>{
  const seed=emptyData();seed.properties.push(normalize('properties',{id:'F1',name:'TESTET 1',address:'Testgatan 1A'}),normalize('properties',{id:'F2',name:'TESTET 2',address:'Testgatan 1A'}));

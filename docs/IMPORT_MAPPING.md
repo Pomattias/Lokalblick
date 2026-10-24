@@ -11,10 +11,11 @@ fältnamnet visar exempelvis Fastighet, Objekt, Avtal, Pris på avtal eller Pers
 En flik kan innehålla uppgifter till flera register. Okända kolumner måste kopplas
 eller väljas bort; de skapar inga extra verksamhetsfält.
 
-Kolumnrubriken visar bara fältkopplingen och **Importera inte**.
-Klicka på kopplingen för att välja annat fält. I samma fältväljare öppnar
-**Inställningar för kolumnen** exempel, format, personformat, posttyp och koppling
-av prisvillkor. Inställningarna ändrar samma utkast; inget behöver väljas om. Datum och
+Varje källkolumn har två separata val: **Tabell** och **Kolumn**.
+**Importera ej** är en kryssruta. När den avmarkeras återställs fältvalet och
+tolkningen, även för datum och avtalsposter. **Inställningar…** i kolumnvalet
+öppnar exempel, format, personformat, posttyp och koppling av prisvillkor.
+**Sök alla fält…** öppnar sökning över registren. Inställningarna ändrar samma utkast; inget behöver väljas om. Datum och
 belopp kontrolleras enligt valt målfält. En månadsuppgift kan räknas om till år
 när källrubrik eller uttrycklig kolumnregel anger det.
 
@@ -33,8 +34,12 @@ Källuppgiften `4201` behålls för matchning. `SF4201-001-03` ger objekt
 Uttryckliga objektnummer och sparade kopplingar går före härledningen.
 Äldre interna nycklar återanvänds via entydiga verksamhetsnummer och visas
 aldrig som nummer i gränssnittet. Saknas säkert nummer visas vad som saknas. Kostnadsställe är text på
-avtalet och används inte som fastighetsidentifierare. Osäkra adress-/nummerförslag
-visar kandidater och underlag direkt på källraden; de kräver ett uttryckligt val. Motstridiga
+avtalet och används inte som fastighetsidentifierare. Adress- och namnmatchning får endast ge kopplingsförslag vid berikning av
+fastigheter som fanns före importen, och endast när raden saknar fastighets-,
+förvaltnings-, objekts- och avtalsnummer. En adress får inte konkurrera med en
+angiven identifierare eller slå ihop nya poster med olika nummer.
+Avvikande adresser på en identifierad post granskas som fältvärden.
+Tillåtna kopplingsförslag visar kandidater direkt på källraden; de kräver ett uttryckligt val. Motstridiga
 identifierare kan inte godkännas genom ett övergripande värdeval.
 
 Personer identifieras med person-ID, e-post eller entydigt namn och part.
@@ -74,7 +79,7 @@ Det tidigare separata provet använde utgångna fält som `costCenterPremises`
 och har ersatts. Kompletterande prov finns för tabellimport, lokaldata,
 priser, ärenden samt server- och webbläsarbaserad Excel-lagring.
 
-Verifierat med syntetiska underlag 2026-10-24: 770 godkända tester och
+Verifierat med syntetiska underlag 2026-10-24: 783 godkända tester och
 syntaxkontroll av 135 JavaScript-filer. Inga skarpa verksamhetsdata används.
 
 Väntande källrader hanteras i samma tabell med filtren **Behöver kopplas**,
@@ -86,3 +91,7 @@ urval och sökning.
 `npm run test:business-number-browser` provar SF-kedjan, kompakta rubriker,
 ändringsbara kolumninställningar, interna nycklar i befintliga poster, avbryt,
 sparning och återimport i både SQLite och Excel.
+
+`npm run test:simple-import-browser` provar separata val, beständiga bortval,
+rubrikrader efter öppnade detaljer och första inläsning med lika namn/adresser
+men olika nummer. Efterföljande avtal återanvänder objekt; överlapp avvisas.

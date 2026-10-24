@@ -7,16 +7,17 @@ export function importRowAttention(row,proposal=null){
  const link=Boolean(proposal&&!proposal.approved);
  const columns=row.columns.some(column=>column.needsMapping);
  const blocked=!link&&(row.rejected||row.reviews.some(review=>review.blocking||review.rowRejected||review.recordRejected));
- const complete=row.reviews.some(review=>review.fieldRejected||review.personLinkRejected)||Boolean(row.held?.length)||row.nodes.some(node=>node.table==='properties'&&node.identified!==false&&node.record&&!propertyDesignation({designation:node.record.name,address:node.record.address}));
+ const complete=!blocked&&(row.reviews.some(review=>review.fieldRejected||review.personLinkRejected)||Boolean(row.held?.length)||row.nodes.some(node=>node.table==='properties'&&node.identified!==false&&node.record&&!propertyDesignation({designation:node.record.name,address:node.record.address})));
  const create=row.nodes.some(node=>['properties','objects','agreements'].includes(node.table)&&node.identified!==false&&!node.existing&&node.status==='pending');
  const flags={link,complete,create,columns,blocked},primary=['link','blocked','columns','complete','create'].find(key=>flags[key]);
- const reason=link?(proposal.matches.length>1?'Flera fastigheter matchar. Välj rätt koppling på raden.':`${proposal.evidence||'Underlaget'} ger ett förslag. Godkänn kopplingen på raden.`):blocked||complete||columns?row.reviews[0]?.reason||row.columns.find(column=>column.needsMapping)?.reason||'Fastighetsbeteckning saknas. Fyll i den här eller efter importen.':create?'Identifierade förslag väntar på att du väljer vilka nya poster som får skapas.':null;
- return {...flags,primary,caption:importAttentionLabels[primary]||importStatuses[row.status],reason};
+ const reason=link?(proposal.matches.length>1?'Flera fastigheter matchar. Välj rätt koppling på raden.':`${proposal.evidence||'Underlaget'} ger ett förslag. Godkänn kopplingen på raden.`):blocked||complete||columns?row.reviews[0]?.reason||row.columns.find(column=>column.needsMapping)?.reason||'Fastighetsbeteckning saknas. Fyll i den här eller efter importen.':null;
+ return {...flags,primary,caption:blocked&&/redan ett avtal under perioden/.test(reason||'')?'Avtalsperiod överlappar':importAttentionLabels[primary]||importStatuses[row.status],reason};
 }
 
 export function importSourceValue(prepared,profile,row,column){
- if(prepared.workbook&&globalThis.XLSX){
-  const at=prepared.workbook.Sheets[profile.sheetKey||profile.name]?.[globalThis.XLSX.utils.encode_cell({r:row.row-1,c:(profile.startColumn||0)+(column.index??profile.columns.indexOf(column))})];
+ const xlsx=prepared.XLSX||globalThis.XLSX;
+ if(prepared.workbook&&xlsx){
+  const at=prepared.workbook.Sheets[profile.sheetKey||profile.name]?.[xlsx.utils.encode_cell({r:row.row-1,c:(profile.startColumn||0)+(column.index??profile.columns.indexOf(column))})];
   return at?.w??at?.v;
  }
  return (column.samples||column.examples||[])[row.sample||0];

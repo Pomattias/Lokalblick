@@ -4075,3 +4075,17 @@ body:not([data-view=budget]) .import-source-table>tbody>tr>th:first-child {posit
 .import-source-table>tbody>tr[data-row-attention=link]>th {border-left:3px solid #b58a22;}
 .import-source-table>tbody>tr[data-row-attention=complete]>th {border-left:3px solid #b36e39;}
 .import-column-warning {display:block;padding:5px;border:1px solid #c9ad69;border-radius:4px;background:#fff6df;font-size:11px;font-weight:400;}
+
+/* One destination and exclusion per source column; repeated headers are context only. */
+.import-source-table .import-column-row {display:grid!important;gap:6px;}
+.import-source-table .import-column-name {min-height:30px;}
+.import-source-table .import-column-row select {width:100%;min-width:0;min-height:34px;font-size:12px;}
+.import-source-table .import-target {margin:0;}
+.import-source-table .import-column-exclude {display:flex;align-items:center;gap:5px;font-size:12px;min-height:28px;}
+.import-source-table .import-column-exclude input {width:15px;height:15px;margin:0;}
+.import-header-labels {display:grid;grid-template-rows:30px 34px 34px;gap:6px;font-size:12px;align-items:center;}
+.import-row-actions {display:flex;align-items:center;flex-wrap:wrap;gap:5px;}
+.import-source-table .import-repeated-headers>th {background:var(--register-bg,var(--soft));border-top:2px solid var(--register-line,var(--line));font-weight:600;}
+.import-source-table .import-column-exclude {display:flex!important;flex-direction:row!important;justify-content:flex-start;}
+.import-source-table .import-column-exclude input {width:15px!important;min-width:15px!important;max-width:15px!important;}
+.import-source-table .import-column-row select {white-space:nowrap;text-overflow:ellipsis;}

@@ -112,7 +112,7 @@ export function profileWorkbook(workbook, schemas, XLSX, saved = [], options={})
       return {header:String(header),index,target,collection:rule?.collection || (target.startsWith('@')?inferred:target.split('.')[0]),
         transform:(rule?.transform==='text'?'auto':rule?.transform) || (norm(header)==='manadshyra'?'monthly':'auto'),
         examples,samples,format,date1904,dateMode:rule?.dateMode||'auto',invalidPolicy:rule?.invalidPolicy||'reject-row',emptyMarkers:options.reviewed,reason:contextualTarget&&!rule?'Avtalssammanhang och kolumnens betydelse används för förslaget.':'',filled:values.length,missing:matrix.slice(headerIndex+1).length-values.length,
-        approved:Boolean(rule),personFormat:rule?.personFormat,shared:rule?.shared===true,identity:!dateField(target.split('.')[1]||'')&&!numberField(target.split('.')[1]||'')&&(rule?.identity ?? /\.(?:id|sourceId|number|designation|email|orderReference)$/.test(target))};
+        approved:Boolean(rule),excludedTarget:rule?.excludedTarget,selectionTable:rule?.selectionTable,personFormat:rule?.personFormat,shared:rule?.shared===true,identity:!dateField(target.split('.')[1]||'')&&!numberField(target.split('.')[1]||'')&&(rule?.identity ?? /\.(?:id|sourceId|number|designation|email|orderReference)$/.test(target))};
     }).filter(Boolean);
     return {name,sheetKey,fileName:source?.fileName,fingerprint:source?.fingerprint,signature,layoutSignature,headerIndex,headerRow:start+headerIndex+1,startColumn:sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']).s.c:0,columns,rowCount:matrix.slice(headerIndex+1).filter(r=>r.some(present)).length,inferred};
   });

@@ -39,7 +39,7 @@ test('unclear numbers and date-shaped IDs keep the OB- rule without inferring an
 test('inference cannot bypass conflicting addresses or existing object ownership',()=>{
  const b=fixture();b.properties.push(normalize('properties',{id:'OTHER',name:'ANNAT 1',address:'Annan gata 2'}));b.objects.push(normalize('objects',{id:'SF1213-001',property_id:'OTHER'}));
  const objectConflict=run(source(['Avtalsnummer'],[['SF1213-001-03']]),b);assert.equal(objectConflict.report.linkProposals.length,0);assert.equal(objectConflict.clean.agreements.length,0);assert.match(objectConflict.data.importReview[0].reason,/ObjektID.*annan fastighet/);
- const addressConflict=run(source(['Avtalsnummer','Adress'],[['SF1213-002-03','Annan gata 2']]),b);assert.equal(addressConflict.report.linkProposals.length,0);assert.equal(addressConflict.clean.agreements.length,0);assert.match(addressConflict.data.importReview[0].reason,/adress.*olika fastigheter/);
+ const addressConflict=run(source(['Avtalsnummer','Adress'],[['SF1213-002-03','Annan gata 2']]),b);assert.equal(addressConflict.report.linkProposals.length,1);assert.equal(addressConflict.report.linkProposals[0].evidence,'Uppdelat avtalsnummer');assert.equal(addressConflict.report.linkProposals[0].matches[0].id,'SF1213');
 });
 test('approvals are bound to the agreement structure, source contents and current object, and history survives Excel',async()=>{
  const b=fixture(),s=source(['Avtalsnummer'],[['SF1213-001-03']]),pending=run(s,b),choices=approve(pending.report.linkProposals[0]);
@@ -52,7 +52,7 @@ test('bulk approval creates one new property and one object for successive lease
  const s=source(['Avtalsnummer','From','Tom'],[['SF1213-001-03','2027-01-01','2027-12-31'],['SF1213-001-04','2028-01-01','2028-12-31']]),pending=run(s),choices=Object.assign({},...pending.report.linkProposals.map(approve)),r=run(s,emptyData(),choices);
  assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects.length,1);assert.equal(r.clean.agreements.length,2);assert.equal(r.report.linkProposals.filter(p=>p.approved).length,2);validateData(r.clean);
 });
-test('an address-only proposal retains the known property ID despite a different agreement prefix',()=>{
- const b=fixture(),s=source(['Avtalsnummer','Adress'],[['SF9999-001-03','Testgatan 1']]),pending=run(s,b),p=pending.report.linkProposals[0];assert.deepEqual(p.matches.map(m=>m.id),['SF1213']);assert.equal(p.requiresSelection,undefined);
- const r=run(s,b,{[p.matchingKey]:{propertyId:'SF1213',signature:p.signature}});assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects[0].property_id,'SF1213');assert.equal(r.clean.objects[0].id,'SF9999-001');validateData(r.clean);
+test('an agreement number cannot be redirected to another property by its address',()=>{
+ const b=fixture(),s=source(['Avtalsnummer','Adress'],[['SF9999-001-03','Testgatan 1']]),pending=run(s,b),p=pending.report.linkProposals[0];assert.deepEqual(p.matches.map(m=>m.id),['SF9999']);assert.equal(p.requiresSelection,undefined);
+ const r=run(s,b,{[p.matchingKey]:{propertyId:'SF9999',signature:p.signature}});assert.equal(r.report.review,0);assert.equal(r.clean.properties.length,2);assert.equal(r.clean.objects[0].property_id,'SF9999');assert.equal(r.clean.objects[0].id,'SF9999-001');validateData(r.clean);
 });

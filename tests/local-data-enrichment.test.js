@@ -91,7 +91,7 @@ test('80 known agreement rows reuse saved links in a different file and order wi
 });
 
 test('large address proposal sets keep bulk approval and paginated choices in the source table',()=>{
- const base=emptyData(),w=XLSX.utils.book_new(),rows=[['AvtalsID','Gatuadress']];
+ const base=emptyData(),w=XLSX.utils.book_new(),rows=[['Populärnamn','Gatuadress']];
  for(let i=0;i<80;i++){
   base.properties.push(normalize('properties',{id:'p'+i,name:'Test '+i,address:'Exempelgatan '+i}));
   rows.push(['NyttAvtal'+i,'Exempelgatan '+i]);
@@ -105,7 +105,7 @@ test('large address proposal sets keep bulk approval and paginated choices in th
  assert.match(html,/Godkänn 80 entydiga kopplingsförslag i urvalet/);assert.match(html,/Behöver kopplas \(81\)/);assert.equal((html.match(/data-link-proposal=/g)||[]).length,30);assert.doesNotMatch(html,/data-import-link-exceptions|data-import-link-suggestions/);
  const rowMatches=Object.fromEntries(result.report.linkProposals.filter(p=>p.matches.length===1).map(p=>[p.matchingKey,{signature:p.signature,propertyId:p.matches[0].id}]));
  const selected=prepareCleanImport(w,profiles,base,{fileName:'syntetisk-lokaldata.xlsx',actor:'Test',rowMatches},XLSX);
- assert.equal(selected.clean.agreements.length,80);assert.equal(selected.report.blocking,1);assert.equal(selected.report.linkProposals.filter(p=>!p.approved).length,1);
+ assert.equal(selected.clean.agreements.length,0);assert.equal(selected.clean.properties.filter(p=>p.popular_name).length,80);assert.equal(selected.report.blocking,1);assert.equal(selected.report.linkProposals.filter(p=>!p.approved).length,1);
 });
 
 test('current SQLite adds optional metadata without replacing saved records, links or locked budgets',async()=>{

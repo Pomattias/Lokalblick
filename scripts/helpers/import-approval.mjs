@@ -17,11 +17,10 @@ export async function revealImportSettings(page){
  await page.locator('.import-mapping-dialog details[data-sheet-settings],.import-mapping-dialog details[data-import-enrichment],.import-mapping-dialog details[data-final-impact]').evaluateAll(nodes=>nodes.forEach(node=>node.open=true));
 }
 
-// Exercise the same two-step route a user takes from the compact column header.
+// Open advanced settings from the same field control used by the user.
 export async function withImportColumnSettings(page,column,inspect){
  const header=typeof column==='string'?page.locator('[data-import-column]').filter({has:page.locator('.import-column-name strong',{hasText:column})}):column;
- await header.locator('[data-preview-map]').click();
- await page.locator('.import-field-picker [data-picker-options]').click();
+ await header.locator('[data-preview-map]').selectOption('@settings');
  const settings=page.locator('.import-column-settings-dialog[open]');
  await inspect(settings);
  await page.locator('.import-mapping-dialog[aria-busy=false]').waitFor();

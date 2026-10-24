@@ -5,7 +5,7 @@ import {legacyFinanceFields,legacyFinanceMap} from './finance-model.js';
 import {personRole} from '../services/import-person-links.js';
 import {createBusinessLabels} from './business-identities.js';
 
-export const importStatuses={created:'Skapas',completed:'Kompletteras',changed:'Ändras',unchanged:'Oförändrat',skipped:'Läses inte in',pending:'Behöver ditt val'};
+export const importStatuses={created:'Skapas',completed:'Kompletteras',changed:'Ändras',unchanged:'Oförändrat',skipped:'Läses inte in',pending:'Väntar'};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),key=(table,id)=>JSON.stringify([table,id]);
 const present=value=>value!==null&&value!==undefined&&value!=='';
 const indexes=data=>Object.fromEntries(Object.keys(tables).map(table=>[table,new Map((data?.[table]||[]).map(row=>[row.id,row]))]));

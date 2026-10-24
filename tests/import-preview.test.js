@@ -10,7 +10,7 @@ test('one vertical row per column offers a direct field picker and an independen
  assert.equal((html.match(/data-preview-map=/g)||[]).length,2);
  assert.equal((html.match(/data-ignore-column=/g)||[]).length,2);
  assert.equal((html.match(/<p>Hemvist saknas<\/p>/g)||[]).length,1);
- assert.ok(html.includes('Avtal → Avtalsnummer'));
+ assert.ok(html.includes('>Avtal</option>'));assert.ok(html.includes('>Avtalsnummer</option>'));
  assert.ok(!html.includes('data-preview-collection'));assert.ok(!html.includes('sheet-preview'));assert.ok(!html.includes('Kompletterande information'));
  assert.ok(!html.includes('Används för att identifiera och koppla poster.'));assert.ok(!html.includes('data-column-settings'));assert.ok(!html.includes('data-date-mode'));
  assert.ok(importColumnSettingsHtml(prepared,mapping,result,schemas).includes('Används för att identifiera och koppla poster.'));
@@ -32,7 +32,7 @@ test('unknown and formerly supplemental columns require an explicit decision bef
  let html=columnPreviewHtml(prepared,{profiles:reviewed},{data:{},report:{}},schemas);
  assert.ok(html.includes('data-ignore-unmapped'));assert.ok(html.includes('data-apply class="primary-action" disabled'));
  reviewed[0].columns[2].target='@ignore';html=columnPreviewHtml(prepared,{profiles:reviewed},{data:{},report:{}},schemas);
- assert.ok(!html.includes('data-apply class="primary-action" disabled'));assert.ok(html.includes('Ångra bortval'));
+ assert.ok(!html.includes('data-apply class="primary-action" disabled'));assert.ok(html.includes('data-ignore-column="0:2" checked'));
 });
 test('saved targets removed from the database return to pending and all-excluded input cannot apply',()=>{
  const profiles=reviewProfiles([{name:'Test',columns:[{header:'Gammalt',target:'contracts.removed'},{header:'Bortvald',target:'@ignore'}]}],schemas);
@@ -44,4 +44,12 @@ test('expanded examples retain actual source row numbers and empty cells',()=>{
  const aligned=structuredClone(mapping);aligned.profiles[0].headerRow=4;aligned.profiles[0].columns[1].samples=['2027-12-31','','2029-12-31'];
  const html=importColumnSettingsHtml(prepared,aligned,{data:{},report:{}},schemas,{}, {},0,1);
  assert.ok(html.includes('Rad 5: 2027-12-31'));assert.ok(html.includes('Rad 6: Tomt'));assert.ok(html.includes('Rad 7: 2029-12-31'));
+});
+
+test('table and field are separate controls and exclusion is one checkbox per source column',()=>{
+ const html=columnPreviewHtml(prepared,mapping,{data:{},report:{}},schemas);
+ assert.equal((html.match(/<select data-preview-table=/g)||[]).length,2);
+ assert.equal((html.match(/<select class="import-target" data-preview-map=/g)||[]).length,2);
+ assert.equal((html.match(/type="checkbox" data-ignore-column=/g)||[]).length,2);
+ assert.doesNotMatch(html,/data-ignore-column[^>]*>Importera inte|Avtal → Avtalsnummer/);
 });

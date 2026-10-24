@@ -19,14 +19,15 @@ kolumnordning eller filnamn.
   återanvänder samma objekt när numret är entydigt; interna prefix visas inte.
 - **Kostnadsställe** hör till Avtal och lagras som text, inklusive ledande nollor.
   Det används inte som identitet; flera avtal kan ha samma kostnadsställe.
-- Adress och andra identifierare kontrolleras tillsammans. Om de pekar på olika
-  befintliga fastigheter eller objekt lämnas raden för rättning. Ett
-  övergripande val av värden kan inte godkänna en motstridig koppling.
+- Identifierare och sparade kopplingar bestämmer hemvist. Adressavvikelser
+  ändrar inte hemvisten och stoppar inte övrig säker berikning. Motstridiga
+  nummer lämnas för rättning och kan inte godkännas genom ett allmänt värdeval.
 
-Ett nytt avtal utan sparad objektkoppling måste kunna kopplas säkert. En unik
-adress ger ett förslag som kan godkännas samlat. En tvetydig adress kräver ett
-enskilt val. Riktiga ID-kolumner och redan sparade kopplingar går före gissningar
-från avtalsnumrets utseende.
+Ett nytt avtal kopplas med angivna nummer eller en granskad nummerhärledning.
+Adress- och namnförslag gäller endast berikning mot sparade fastigheter när
+raden saknar alla fastighets-/förvaltnings-/objekts-/avtalsnummer. Vid första
+inläsningen får sådana förslag inte koppla ihop olika numrerade fastigheter.
+Ett objekt kan ha flera avtalsperioder, men perioderna får aldrig överlappa.
 
 ## Övergripande val
 
@@ -109,7 +110,7 @@ Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
 Verifierat 2026-10-24 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 770 godkända, 0 underkända, 0 överhoppade.
+- `npm test`: 783 godkända, 0 underkända, 0 överhoppade.
 - Syntax/förkontroll: 135 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,

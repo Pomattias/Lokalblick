@@ -46,7 +46,7 @@ test('a new object can be deferred while the approved property remains visible a
 test('known agreements explain their saved links and a true reimport is unchanged',()=>{
  const base=prepare().result.clean,{result,profiles}=prepare(base),story=explainImport(result,base,{approved:approveImportPlan(result,base),profiles});
  assert.equal(story.rows[0].status,'unchanged');assert.equal(story.counts.unchanged,1);assert.match(story.rows[0].explanation,/Avtalsnummer A1 finns redan.*sparade objekt O1 och fastighet P1/);assert(story.rows[0].nodes.every(node=>node.existing));
- const suggested=prepare(base,[['Testgatan 1','A2',100]],['Gatuadress','Avtalsnummer','Area']);assert.equal(suggested.result.report.linkProposals.length,1);assert.match(importTableHtml({fileName:'syntetiskt.xlsx'},suggested.profiles,suggested.result,base),/data-link-proposal="0"/);
+ const suggested=prepare(base,[['P1','Testgatan 1','A2',100]],['FastighetsID','Gatuadress','Avtalsnummer','Area']);assert.equal(suggested.result.report.linkProposals.length,0);assert.match(importTableHtml({fileName:'syntetiskt.xlsx'},suggested.profiles,suggested.result,base),/A2/);
 });
 test('empty facts are completed while changed prices display old and new values',()=>{
  const base=prepare().result.clean;base.objects[0].area=null;
