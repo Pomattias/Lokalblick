@@ -48,7 +48,7 @@ export function importConflictGroups(result){
   if(!spec||['ref','json'].includes(spec.type))continue;
   if(!records.has(table))records.set(table,new Map(result.clean[table].map(row=>[row.id,row])));
   const key=conflictKey(review),record=records.get(table).get(review.recordId);if(!record)continue;
-  if(!groups.has(key))groups.set(key,{key,collection:review.collection,recordId:review.recordId,field:review.field,label:spec.label,recordLabel:record?.name||record?.title||record?.id,current:record?.[field],candidates:[]});
+  if(!groups.has(key))groups.set(key,{key,collection:review.collection,recordId:review.recordId,field:review.field,label:spec.label,table,storedField:field,record,currentOrigin:review.currentOrigin,recordLabel:record?.name||record?.title||record?.id,current:record?.[field],candidates:[]});
   if(!candidates.has(key))candidates.set(key,new Map());
   const group=groups.get(key),valueKey=JSON.stringify(review.proposed),candidate=candidates.get(key).get(valueKey);
   if(candidate)candidate.reviews.push(review);else{const option={key:valueKey,value:review.proposed,reviews:[review]};group.candidates.push(option);candidates.get(key).set(valueKey,option);}

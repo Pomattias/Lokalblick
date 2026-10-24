@@ -19,20 +19,32 @@ export function retainCreationChoices(previous, next, choices) {
 // Edits belong to this import draft. The ordinary plan still gates creation,
 // validates dependencies and performs the single final, atomic save.
 export function editImportDraft(result, base, edits={}, actor='Excelimport') {
- if(!Object.keys(edits.properties||{}).length&&!Object.keys(edits.contacts||{}).length)return result;
+ if(!Object.keys(edits.properties||{}).length&&!Object.keys(edits.contacts||{}).length&&!Object.keys(edits.people||{}).length)return result;
  const clean=structuredClone(result.clean),report=structuredClone(result.report),at=new Date().toISOString();
- const put=(table,record,origin)=>{
+ const propertyIds=new Set((report.sourceRows||[]).flatMap(row=>row.records.properties||[])),peopleIds=new Set([...(report.sourceRows||[]).flatMap(row=>row.records.people||[]),...Object.entries(edits.contacts||{}).filter(([id,e])=>!e.imported||clean.contacts.some(c=>c.id===id)).map(([,e])=>e.record.person_id)]);
+ const put=(table,record,origin,manualFields=[])=>{
   const collection=viewCollections[table]||table,rows=clean[table],old=rows.find(row=>row.id===record.id);
   const normalized=normalize(table,record,record.id);
   for(const field of ['id',...tables[table].fields.map(field=>field.key)])if(JSON.stringify(old?.[field])!==JSON.stringify(normalized[field])){
    report.changes=report.changes.filter(change=>!(change.collection===collection&&change.recordId===record.id&&change.field===(viewFields[table]?.[field]||field)));
    report.changes.push({collection,recordId:record.id,field:viewFields[table]?.[field]||field,from:base[table].find(row=>row.id===record.id)?.[field]??null,to:normalized[field],provenance:{...origin,source:'manual',at,confirmedBy:actor}});
   }
+  const currentReviews=new Set(report.reviewIds||[]);for(const review of clean.workspace.importReview||[])if(currentReviews.has(review.id)&&review.collection===collection&&review.recordId===record.id&&manualFields.includes(Object.entries(viewFields[table]||{}).find(([,v])=>v===review.field)?.[0]||review.field)){review.status='accepted';review.reviewedBy=actor;review.reviewedAt=at;review.decision='manual';}
   if(old)Object.assign(old,normalized);else rows.push(normalized);
  };
  for(const [id,name] of Object.entries(edits.properties||{})){
   const record=clean.properties.find(row=>row.id===id);
-  if(record&&String(name).trim())put('properties',{...record,name:String(name).trim()},{});
+  if(record&&propertyIds.has(id))put('properties',{...record,name:String(name).trim()||record.address||'Fastighetsbeteckning saknas'},{},['name']);
+ }
+ for(const [id,values] of Object.entries(edits.people||{})){
+  const person=clean.people.find(row=>row.id===id);if(!person||!peopleIds.has(id))continue;
+  const fields=Object.fromEntries(Object.entries(values).filter(([field])=>['name','email','phone'].includes(field))),original={...person};
+  if(fields.email?.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim()))throw Error('Ogiltig e-postadress. Rätta personens e-post före sparning.');
+  const seen=new Set(),personDecisions=[];for(const trace of report.sourceRows||[])for(const [contactId,key]of Object.entries(trace.contactKeys||{})){
+   const contact=clean.contacts.find(row=>row.id===contactId);if(contact?.person_id!==id||seen.has(key))continue;seen.add(key);
+   personDecisions.push({key,personId:id,original:trace.contactInputs?.[key]||original,values:fields});
+  }
+  put('people',{...person,...fields},{personDecisions},Object.keys(fields));
  }
  for(const [id,edit] of Object.entries(edits.contacts||{})){
   const original=result.clean.contacts.find(row=>row.id===id);

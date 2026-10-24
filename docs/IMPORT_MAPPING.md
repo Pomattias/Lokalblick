@@ -79,8 +79,8 @@ Det tidigare separata provet använde utgångna fält som `costCenterPremises`
 och har ersatts. Kompletterande prov finns för tabellimport, lokaldata,
 priser, ärenden samt server- och webbläsarbaserad Excel-lagring.
 
-Verifierat med syntetiska underlag 2026-10-24: 783 godkända tester och
-syntaxkontroll av 135 JavaScript-filer. Inga skarpa verksamhetsdata används.
+Verifierat med syntetiska underlag 2026-10-24: 791 godkända tester och
+syntaxkontroll av 138 JavaScript-filer. Inga skarpa verksamhetsdata används.
 
 Väntande källrader hanteras i samma tabell med filtren **Behöver kopplas**,
 **Behöver kompletteras** och **Nya poster att godkänna**.
@@ -95,3 +95,9 @@ sparning och återimport i både SQLite och Excel.
 `npm run test:simple-import-browser` provar separata val, beständiga bortval,
 rubrikrader efter öppnade detaljer och första inläsning med lika namn/adresser
 men olika nummer. Efterföljande avtal återanvänder objekt; överlapp avvisas.
+
+Cellkorrigeringar följer källa, blad, rad, kolumn och valt målfält. Arbetsboken
+klonas bara för ändrade celler och importmotorn validerar korrigeringarna.
+`manualCorrections` och fältproveniens beskriver manuella ändringar. Personfakta
+redigeras i persontabellen och deras beslut följer befintlig ändringshistorik.
+Värdeskillnader och identitetsförslag jämförs som tabellrader; se [arbetsgången](SAFE_IMPORT.md#redigering-och-tydliga-jämförelser).

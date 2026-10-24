@@ -44,13 +44,13 @@ raderas inte. Undantag kan väljas per uppgift. Valet finns kvar när kolumnvale
 ändras och posterna kontrolleras igen. Identifierare, relationer och ogiltiga
 värden omfattas inte av ett generellt godkännande.
 
-Tomma celler i filen raderar inte befintliga värden. Nya fastigheter, objekt och avtal måste godkännas i egna steg före sparning.
+Tomma celler i filen raderar inte befintliga värden. Nya fastigheter, objekt och avtal väljs i tabellen över nya poster före sparning.
 Befintliga poster berikas. Se [Granskad import](SAFE_IMPORT.md). Låsta budgetsnapshots ändras inte.
 
 ## En kortare granskningslista
 
 - Kända avtal redovisas som återanvända kopplingar, utan nya kryssrutor per rad.
-- Nya entydiga förslag har en gemensam godkännandeknapp. Listan är hopfälld.
+- Entydiga kopplingsförslag kan väljas gemensamt för det aktuella urvalet. Jämförelsen finns vid källraden.
 - Osäkra kopplingar visas öppna under **Behöver väljas**.
 - Godkända kopplingar kan öppnas separat för kontroll.
 - Granska filtabellen och välj nya poster i samma dialog. Saknad beteckning kan
@@ -110,8 +110,8 @@ Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
 Verifierat 2026-10-24 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 783 godkända, 0 underkända, 0 överhoppade.
-- Syntax/förkontroll: 135 JavaScript-filer.
+- `npm test`: 791 godkända, 0 underkända, 0 överhoppade.
+- Syntax/förkontroll: 138 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,
   ledande nollor, sparning och återläsning godkända.
@@ -124,3 +124,9 @@ bortval och knappar som leder till rätt kolumnval eller kopplingsförslag. Se
 
 `npm run test:business-number-browser` verifierar SF-nummer, kompakta
 kolumnrubriker och återimport mot både nya och befintliga poster i SQLite/Excel.
+
+**Visa / redigera** ändrar celler direkt i importtabellen. Personer visas i en
+samlad tabell med namn, e-post, telefon, roll och mål. Värdeskillnader visar
+två jämförbara rader och förklarar vilket nummer som är gemensamt. Frågan om
+samma eller egen fastighet används endast vid berikning utan identifierare.
+Se [redigering och jämförelser](SAFE_IMPORT.md#redigering-och-tydliga-jämförelser).

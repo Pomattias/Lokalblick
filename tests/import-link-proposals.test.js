@@ -38,5 +38,5 @@ test('approved identities and provenance survive Excel without a second relation
 });
 test('ambiguous keyless choices are inline, escaped and have no duplicate approval checkbox',()=>{
  const base=fixture();base.properties[1].address='Testgatan 1A';base.properties[0].name='<Test & hus>';const src=source([['Testgatan 1A','Namn']]),pending=run(src,base),html=columnPreviewHtml({fileName:'syntetiska-kopplingar.xlsx'},{profiles:src.profiles},pending,importSchemas);
- assert.match(html,/data-import-link-proposals/);assert.match(html,/&lt;Test &amp; hus&gt;/);assert.match(html,/data-link-property/);assert.doesNotMatch(html,/data-approve-link-proposals|data-approve-link="0"|<section class="import-link-proposals"/);assert.match(html,/data-import-source-row=/);
+ assert.match(html,/data-import-link-proposals/);assert.match(html,/&lt;Test &amp; hus&gt;/);assert.match(html,/data-link-use/);assert.doesNotMatch(html,/data-approve-link-proposals|data-approve-link="0"|<section class="import-link-proposals"/);assert.match(html,/data-import-source-row=/);
 });

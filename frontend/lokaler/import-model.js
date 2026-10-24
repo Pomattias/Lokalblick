@@ -1,3 +1,4 @@
+import {editedImportWorkbook} from './import-cell-edits.js';
 import {createImportRow} from './import-row-transaction.js';
 import {importSchemas} from './import-schema.js';
 export {importSchemas} from './import-schema.js';
@@ -52,6 +53,7 @@ const canHoldField=(table,field)=>{
  */
 export function prepareCleanImport(workbook,profiles,base=emptyData(),context={},XLSX){
  profiles=clone(profiles);
+ workbook=editedImportWorkbook(workbook,profiles,context.cellEdits,context.fileName||'Excel',XLSX);
  for(const profile of profiles)assignAgreementItemKeys(profile);
  const data=clone(base),changes=[],decisions=[],reviews=[],linkProposals=[],reusedLinks=new Map(),sourceRows=[];
  // Session-local IDs keep editable person/link suggestions stable while the
@@ -65,7 +67,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   return [profile,new Map(profile.columns.map(column=>[column.index,{source:profile.fileName||context.fileName||'Excel',sheet:profile.name,index:column.index,header:column.header,target:column.target,label:labels.get(column.target)||column.target,...(column.itemType?{itemType:column.itemType,itemLabel:tables.agreement_items.fields.find(field=>field.key==='type').values[column.itemType]}:{}),read:0,skipped:0,review:0}]))];
  }));
  data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const prior=clone(data),priorAgreementIds=new Set(prior.agreements.map(row=>row.id)),priorPropertyIds=new Set(prior.properties.map(row=>row.id)),priorObjects=new Map(prior.objects.map(row=>[row.id,row]));const aliases=propertyAliases(data.workspace.auditLog);
- const contactChoices=new Map();
+ const contactChoices=new Map(),personChoices=new Map();
  const priorLabels=createBusinessLabels(prior),objectNumbers=new Map();
  for(const row of prior.objects)if(isInternalIdentifier(row.id)){
   const number=priorLabels.number('objects',row.id);
@@ -73,6 +75,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   if(!objectNumbers.has(number))objectNumbers.set(number,[]);objectNumbers.get(number).push(row.id);
  }
  for(const entry of prior.workspace.auditLog||[])for(const field of entry.fields||[]){const decision=field.provenance?.contactDecision;if(decision?.key&&decision.recordId)contactChoices.set(decision.key,decision.recordId);}
+ for(const entry of prior.workspace.auditLog||[])for(const field of entry.fields||[]){for(const d of field.provenance?.personDecisions||[])if(d?.key&&d.personId)personChoices.set(d.key,d);}
  let rowCount=0;
  let indexes,partyNames,partyNumbers,propertyIdentities,propertyAddresses,propertyManagementNumbers,emails,personNames,matchIssueHome,homeIndexSize;
  const rebuild=()=>{
@@ -111,10 +114,12 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
    const {undo,touched:rowTouched,read:readColumns,held:heldColumns,startReviews,touch}=transaction;
    let rejected=false,reusedLink=null,recordStage='properties',deferredError=null;
    const source=profile.fileName||context.fileName||'Excel',origin={source,sheet:profile.name,row:r+1};
+   const corrections=selected.flatMap(column=>{const cell=sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})];return cell?.__importEdit?[{column:column.header,target:column.target,from:cell.__importEdit.originalValue,to:cell.v}]:[];});if(corrections.length)origin.manualCorrections=corrections;
    const raw={},itemRows=new Map(),contacts=new Map(),linkedNumbers=new Map(),sourceValues=selected.map(column=>{const cell=sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})];return {column:column.header,index:column.index,target:column.target,raw:cell?.v??'',hyperlink:cell?.l?.Target};});let fieldInProgress='',columnInProgress=null,partyNumberColumn=null;const finance={};
-   let itemInProgress=null;const contactKeys={};
+   let itemInProgress=null;const contactKeys={},contactInputs={};
    const columnFor=(table,field)=>table==='parties'&&field==='organization_number'&&partyNumberColumn||selected.find(c=>fieldMap[c.target]?.table===table&&fieldMap[c.target]?.field===field&&!fieldMap[c.target]?.partyRole&&(table!=='agreement_items'||!itemInProgress||!c.itemType||(c.itemKey||c.itemType)===itemInProgress));
-   const originFor=(table,field)=>{const column=columnFor(table,field);return {column:column?.header,columnIndex:column?.index,collection:viewCollections[table]||table,field:viewFields[table]?.[field]||field};};
+   const manualField=(table,field)=>{const column=columnFor(table,field);return Boolean(column&&sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.__importEdit);};
+   const originFor=(table,field)=>{const column=columnFor(table,field);const edit=column&&sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.__importEdit;return {column:column?.header,columnIndex:column?.index,collection:viewCollections[table]||table,field:viewFields[table]?.[field]||field,...(edit?{manual:true,originalValue:edit.originalValue,confirmedBy:context.actor||'Excelimport'}:{})};};
    const holdField=(table,field,error,existing)=>{
     const column=columnFor(table,field);if(!column||!canHoldField(table,field)||fieldMap[column.target]?.finance)return false;
     if(heldColumns.has(column.index))return false;
@@ -126,7 +131,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
    const checkpoint=()=>transaction.checkpoint(linkedNumbers);
    const merge=(table,record,existing)=>{
     const previous=existing?{...existing}:null;
-    const values={...existing,...Object.fromEntries(Object.entries(record).filter(([,value])=>present(value)))};
+    const values={...existing,...Object.fromEntries(Object.entries(record).filter(([field,value])=>present(value)||manualField(table,field)))};
     let normalized;
     while(!normalized)try{normalized=normalize(table,values);}catch(error){
      const period=error.message==='Ogiltiga koordinater.'?['latitude','longitude']:error.message.startsWith('Slutdatum')?['valid_from','valid_to']:error.message.startsWith('Tidplanens')?['planned_from','planned_to']:null;
@@ -143,7 +148,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      const legacy=viewFields[table]?.[field]||field,collection=viewCollections[table]||table;
      const selectedTarget=columnFor(table,field)?.target.split('.')[1]||legacy;
      const inputColumn=columnFor(table,field);
-     const rule=importPreference(data.workspace.importFieldPreferences,fieldMap[inputColumn?.target]?.partyRole?inputColumn.target.split('.')[0]:collection,selectedTarget,source,profile,inputColumn);
+     const rule=manualField(table,field)?'accept':importPreference(data.workspace.importFieldPreferences,fieldMap[inputColumn?.target]?.partyRole?inputColumn.target.split('.')[0]:collection,selectedTarget,source,profile,inputColumn);
      if(field==='management_object_number')throw Object.assign(Error('Förvaltningsobjekt skiljer sig från den sparade fastigheten. Kontrollera kopplingen.'),{collection,field:legacy,column:inputColumn?.header,columnIndex:inputColumn?.index,current:existing[field],proposed:value});
      if(tables[table].fields.find(f=>f.key===field)?.type==='ref'){const error=Error('Olika värden för '+(tables[table].fields.find(f=>f.key===field)?.label||field)+'. Importen får inte flytta en befintlig koppling.');Object.assign(error,{collection,field:legacy,column:inputColumn?.header,columnIndex:inputColumn?.index,current:existing[field],proposed:value});throw error;}
      if(table==='properties'&&field==='address'&&importAddressKey(value)===importAddressKey(existing[field])){normalized[field]=existing[field];continue;}
@@ -152,8 +157,8 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(field==='name'&&existing.name===existing.id)continue;
      if(table==='properties'&&field==='name'&&existing.address&&importAddressKey(existing.name)===importAddressKey(existing.address)&&importAddressKey(value)!==importAddressKey(existing.address)&&(!priorPropertyIds.has(existing.id)||(raw.properties?.id===existing.id||present(raw.properties?.management_object_number)&&(text(raw.properties.management_object_number)===existing.id||key(raw.properties.management_object_number)===key(existing.management_object_number)))&&raw.properties?.address&&importAddressKey(raw.properties.address)===importAddressKey(existing.address)))continue;
      if(rule!=='accept'){
-      const reason='Olika värden för '+tables[table].fields.find(f=>f.key===field).label;
-      const review={id:'CLEAN-'+hash(JSON.stringify([source,profile.name,r+1,collection,existing.id,field,value])),kind:'canonical-conflict',status:'pending',...origin,collection,field:legacy,recordId:existing.id,column:inputColumn?.header,columnIndex:inputColumn?.index,current:existing[field],proposed:value,reason,blocking:false,rowRejected:false};
+      const reason='Olika värden för '+tables[table].fields.find(f=>f.key===field).label,currentOrigin=changes.findLast(change=>change.collection===collection&&change.recordId===existing.id&&change.field===legacy)?.provenance;
+      const review={id:'CLEAN-'+hash(JSON.stringify([source,profile.name,r+1,collection,existing.id,field,value])),kind:'canonical-conflict',status:'pending',...origin,collection,field:legacy,recordId:existing.id,...(currentOrigin?{currentOrigin}:{}),column:inputColumn?.header,columnIndex:inputColumn?.index,current:existing[field],proposed:value,reason,blocking:false,rowRejected:false};
       reviews.push(review);decisions.push({...origin,collection,classification:'B',reason});normalized[field]=existing[field];continue;
      }
     }
@@ -175,7 +180,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(existing.address){const address=importAddressKey(existing.address);if(!propertyAddresses.has(address))propertyAddresses.set(address,[]);propertyAddresses.get(address).push(existing);}
      matchIssueHome=null;
     }
-    for(const [field] of Object.entries(record))if(field!=='id'&&JSON.stringify(previous?.[field])!==JSON.stringify(existing[field]))changes.push({collection:viewCollections[table]||table,recordId:existing.id,field:viewFields[table]?.[field]||field,from:previous?.[field]??null,to:existing[field],provenance:itemInProgress?{...origin,...originFor(table,field)}:origin});
+    for(const [field] of Object.entries(record))if(field!=='id'&&JSON.stringify(previous?.[field])!==JSON.stringify(existing[field]))changes.push({collection:viewCollections[table]||table,recordId:existing.id,field:viewFields[table]?.[field]||field,from:previous?.[field]??null,to:existing[field],provenance:itemInProgress||manualField(table,field)?{...origin,...originFor(table,field)}:origin});
     touch(table,existing.id);
     return existing;
    };
@@ -199,7 +204,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      fieldInProgress=column.target;columnInProgress=column;
      const role=personRole(column.target),part=contactPart(column.target),mapping=fieldMap[column.target];
      try{
-     const cell=sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})];if(cell?.f&&!present(cell?.v))throw Error('Formeln saknar beräknat värde.');if(!present(cell?.v)&&!cell?.l?.Target)continue;
+     const cell=sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})];if(cell?.f&&!present(cell?.v))throw Error('Formeln saknar beräknat värde.');if(!present(cell?.v)&&!cell?.l?.Target){if(cell?.__importEdit&&mapping&&!mapping.finance){const spec=tables[mapping.table].fields.find(f=>f.key===mapping.field);if(spec&&!spec.required&&spec.type!=='ref'){raw[mapping.table] ||= {};raw[mapping.table][mapping.field]=null;readColumns.add(column.index);}}continue;}
      let value;
      if(role||part&&['email','phone','sourceId'].includes(part.field))value=text(interpretCell(cell,{...column,target:'people.'+(part?.field||'name')},XLSX));
      else if(part)value=interpretCell(cell,{...column,target:'assignments.'+part.field,emptyMarkers:true},XLSX);
@@ -246,18 +251,23 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     // address as a permanent foreign key. Re-evaluation still starts from base.
     const approveProperty=(candidates,evidence,inferred=null)=>{
      const matchingKey=JSON.stringify([source,profile.name,r+1]);
-     const matches=candidates.map(row=>({id:row.id,label:row.name,number:managementPropertyNumber(row.management_object_number)||(!isInternalIdentifier(row.id)?row.id:null),detail:[row.identityDetail,row.management_object_number?'Förvaltningsobjekt '+row.management_object_number:null,inferred&&!inferred.identityChoice&&!priorPropertyIds.has(row.id)?'Ny fastighet':null,row.address,row.city].filter(Boolean).join(' · '),...(row.disabled?{disabled:true}: {})}));
+     const matches=candidates.map(row=>({id:row.id,existing:priorPropertyIds.has(row.id),label:row.name,number:managementPropertyNumber(row.management_object_number)||(!isInternalIdentifier(row.id)?row.id:null),detail:[row.identityDetail,row.management_object_number?'Förvaltningsobjekt '+row.management_object_number:null,inferred&&!inferred.identityChoice&&!priorPropertyIds.has(row.id)?'Ny fastighet':null,row.address,row.city].filter(Boolean).join(' · '),...(row.disabled?{disabled:true}: {})}));
      const matchingInputs=sourceValues.filter(value=>{
       const mapping=fieldMap[value.target];
       return mapping&&(mapping.table==='properties'||mapping.field==='id'&&['objects','agreements','issues'].includes(mapping.table)||['property_id','object_id','agreement_id'].includes(mapping.field));
      });
      const signature=JSON.stringify([matchingInputs.map(value=>[value.target,value.raw]),matches,...(inferred?[inferred]:[])]);
      const choice=context.rowMatches?.[matchingKey];
-     const approved=choice?.signature===signature&&matches.some(row=>row.id===choice.propertyId&&!row.disabled);
-     linkProposals.push({matchingKey,signature,matches,evidence,source,sheet:profile.name,row:r+1,approved:Boolean(approved),propertyId:approved?choice.propertyId:null,
+     const canCreateNew=!issueContext&&allowTextMatch&&!inferred&&['Adress','Fastighetsnamn'].includes(evidence);
+     const newProperty=choice?.signature===signature&&choice.action==='new'&&canCreateNew;
+     const newNumber=newProperty?managementPropertyNumber(choice.propertyNumber):null;
+     const newPropertyId=newProperty?(newNumber||generatedPropertyId(source+'#new:'+matchingKey,profile.name,raw.properties||{})):null;
+     if(newProperty&&(indexes.properties.has(newPropertyId)||newNumber&&data.properties.some(p=>key(managementPropertyNumber(p.management_object_number)||p.id)===key(newNumber))))throw Error('Fastighetsnumret finns redan. Välj den befintliga fastigheten eller ange ett annat nummer.');
+     const approved=newProperty||choice?.signature===signature&&matches.some(row=>row.id===choice.propertyId&&!row.disabled);
+     linkProposals.push({matchingKey,signature,matches,evidence,source,sheet:profile.name,row:r+1,approved:Boolean(approved),propertyId:approved?(newPropertyId||choice.propertyId):null,canCreateNew,newProperty:Boolean(newProperty),propertyNumber:choice?.propertyNumber||'',
       ...(inferred?{inferredIds:inferred}:{}),...(inferred?.identityChoice?{requiresSelection:true}:{}),records:[inferred?.objectId||raw.objects?.id||raw.agreements?.object_id?{label:'Objekt',value:text(inferred?.objectId||raw.objects?.id||raw.agreements?.object_id)}:null,raw.agreements?.id?{label:'Avtal',value:text(raw.agreements.id)}:null,raw.issues?{label:'Ärende',value:text(raw.issues.title||raw.issues.id)}:null].filter(Boolean)});
      if(!approved)throw Object.assign(Error('Godkänn föreslagen fastighetskoppling i listan före import.'),{collection:'properties',field:'id',matchingKey,matches,linkProposal:true});
-     return candidates.find(row=>row.id===choice.propertyId);
+     return newProperty?{id:newPropertyId,createNew:true}:candidates.find(row=>row.id===choice.propertyId);
     };
     for(const [table,row]of Object.entries(raw))for(const field of tables[table]?.fields||[])if(field.type==='ref'&&field.table==='properties'&&row[field.key])row[field.key]=resolvePropertyId(aliases,text(row[field.key]));
     if(raw.properties?.id)raw.properties.id=resolvePropertyId(aliases,text(raw.properties.id));
@@ -354,8 +364,9 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
       }
      }
      const chosen=!p.id&&!anchorProperty&&!byManagement&&candidates.length?approveProperty(candidates,p.address?'Adress':'Fastighetsnamn'):null;
-     const existing=byId||anchorProperty||byManagement||chosen;
-     origin.matchingDecision={propertyId:existing?.id||text(p.id),method:numberChoice?'agreement-number-approved':anchorAgreement?'existing-agreement-link':anchorObject?'existing-object-link':byManagement?'management-object-number':chosen?'explicit-row-choice':p.id?'property-id':p.address?'property-address':'property-name',...(numberChoice?{agreementId:numberParts.agreementId,objectId:raw.objects?.id||raw.agreements?.object_id}:{}),addressChecked:Boolean(p.address)};
+     if(chosen?.createNew)p.id=chosen.id;
+     const existing=byId||anchorProperty||byManagement||(chosen?.createNew?null:chosen);
+     origin.matchingDecision={propertyId:existing?.id||text(p.id),method:chosen?.createNew?'explicit-new-property':numberChoice?'agreement-number-approved':anchorAgreement?'existing-agreement-link':anchorObject?'existing-object-link':byManagement?'management-object-number':chosen?'explicit-row-choice':p.id?'property-id':p.address?'property-address':'property-name',...(numberChoice?{agreementId:numberParts.agreementId,objectId:raw.objects?.id||raw.agreements?.object_id}:{}),addressChecked:Boolean(p.address)};
      if(p.owner_party_id||linkedNumbers.has('owner'))p.owner_party_id=party(p.owner_party_id||existing?.owner_party_id,'owner');
      const incomingName=p.name&&(!existing||!p.address||importAddressKey(p.name)!==importAddressKey(p.address)||importAddressKey(existing.name)===importAddressKey(existing.address))?p.name:null;
      const preferredNumber=managementPropertyNumber(p.management_object_number);
@@ -465,12 +476,15 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(!target)throw Error('Kontaktkolumnen saknar identifierad fastighet, avtal eller ärende.');
      if(values.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email))throw Error('Ogiltig e-postadress i kontaktkolumnen.');
      const contactKey=JSON.stringify([source,profile.name,key(values.name),key(values.email),text(values.sourceId),role,target.id,values.fromDate||null,values.toDate||null]);
+     contactInputs[contactKey]={name:values.name,email:values.email??null,phone:values.phone??null};
      const chosen=indexes.contacts.get(contactChoices.get(contactKey));
      if(chosen&&!chosen.cancelled&&indexes.people.has(chosen.person_id)){
       touch('contacts',chosen.id);touch('people',chosen.person_id);contactKeys[chosen.id]=contactKey;continue;
      }
      const contactParty=role==='owner'?target.owner_party_id:role==='tenant'?target.tenant_party_id:data.parties.filter(p=>p.kind==='our').length===1?data.parties.find(p=>p.kind==='our').id:null;
-     let person=values.sourceId?indexes.people.get(text(values.sourceId)):values.email?emails.get(key(values.email)):null;
+     const personChoice=personChoices.get(contactKey),chosenPerson=personChoice&&indexes.people.get(personChoice.personId);
+     if(chosenPerson)for(const [field,value]of Object.entries(personChoice.values))if(['name','email','phone'].includes(field)&&(values[field]??null)===(personChoice.original[field]??null))values[field]=value;
+     let person=values.sourceId?indexes.people.get(text(values.sourceId)):values.email?emails.get(key(values.email))||chosenPerson:chosenPerson;
      if(!values.sourceId&&!person){const matches=[...new Map([...(personNames.get(key(values.name))||[]),...(personNames.get(key(originalPersonName))||[])].filter(p=>!contactParty||!p.party_id||p.party_id===contactParty).map(p=>[p.id,p])).values()];if(matches.length>1)throw Error('Namnet tillhör flera personer. Koppla PersonID eller e-post.');person=matches[0];}
      if(values.sourceId&&values.email&&emails.has(key(values.email))&&emails.get(key(values.email)).id!==(person?.id||text(values.sourceId)))throw Error('PersonID och e-post pekar på olika personer.');
      if(!person&&values.sourceId&&[...(personNames.get(key(values.name))||[]),...(personNames.get(key(originalPersonName))||[])].some(p=>!contactParty||!p.party_id||p.party_id===contactParty))throw Error('Namnet finns redan med ett annat PersonID. Kontrollera personens identitet före koppling.');
@@ -505,7 +519,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
    }
    if(!rejected)for(const [table,ids]of rowTouched)for(const id of ids)touched[table].add(id);
    if(!rejected&&reusedLink&&rowTouched.get('agreements')?.has(reusedLink.agreementId))reusedLinks.set(reusedLink.agreementId,reusedLink);
-   traceRow({...origin,records:Object.fromEntries([...rowTouched].map(([table,ids])=>[table,[...ids]])),...(Object.keys(contactKeys).length?{contactKeys}:{}),read:[...readColumns],held:[...heldColumns],rejected,hints:{propertyId:raw.properties?.id,managementNumber:raw.properties?.management_object_number,address:raw.properties?.address,objectId:raw.objects?.id||raw.agreements?.object_id,agreementId:raw.agreements?.id||raw.agreement_items?.agreement_id}});
+   traceRow({...origin,records:Object.fromEntries([...rowTouched].map(([table,ids])=>[table,[...ids]])),...(Object.keys(contactKeys).length?{contactKeys,contactInputs}:{}),read:[...readColumns],held:[...heldColumns],rejected,hints:{propertyId:raw.properties?.id,managementNumber:raw.properties?.management_object_number,propertyName:raw.properties?.name,city:raw.properties?.city,address:raw.properties?.address,objectId:raw.objects?.id||raw.agreements?.object_id,agreementId:raw.agreements?.id||raw.agreement_items?.agreement_id}});
    for(const value of sourceValues){const stat=columnStats.get(profile).get(value.index);if(rejected||heldColumns.has(value.index)){if(present(value.raw))stat.skipped++;}else if(readColumns.has(value.index))stat.read++;}
   }
  }

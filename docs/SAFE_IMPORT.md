@@ -12,9 +12,9 @@ radkorten och separata godkännandestegen har ersatts.
   **Importera ej**. Avmarkering återställer destination och inställningar.
   **Inställningar…** i kolumnvalet öppnar exempel, personformat, datumtolkning
   och villkor för avtalsposter.
-- Originalvärdet visas i cellen. Bortval stryks över och fel beskrivs på raden;
+- Filens värde eller din korrigering visas i cellen. Bortval stryks över och fel beskrivs på raden;
   förändrade sparade värden visar före/efter. Färg betecknar register, aldrig säkerhet.
-- **🔗 Visa / ändra** i radens första kolumn öppnar den verkliga kedjan
+- **Visa / redigera** i radens första kolumn gör cellerna redigerbara och visar kedjan
   **Fastighet → Objekt → Avtal → Priser** och förklarar vilken identifierare som
   matchade. Efter öppnade detaljer upprepas filens rubriker före nästa datarad,
   utan fler fältval. Kedjan visar **Nytt objekt** och **Nytt avtal**; generella
@@ -100,7 +100,9 @@ Fristående person- eller partsregister är fortfarande valda importunderlag.
 - `frontend/v2/import-table.js`: filtabell, registerfärger, radförklaringar och kopplingar.
 - `frontend/v2/import-approval.js`: gemensam lista för nya registerposter.
 - `frontend/v2/import-row-review.js`: orsaker, filter och kopplingsval på källraderna.
-- `frontend/v2/import-contact.js`: redigering av föreslagen person, roll och mål.
+- `frontend/v2/import-people.js`: samlad persontabell, personuppgifter, roller och mål.
+- `frontend/v2/import-contact.js`: tillägg av extra personkopplingar.
+- `frontend/v2/import-cell-editor.js` och `frontend/lokaler/import-cell-edits.js`: cellredigering och isolerade källkorrigeringar.
 - `frontend/lokaler/import-review.js`: isolerade kompletteringar, återanvända personer
   och giltiga beslut som följer med omräkning.
 - `frontend/lokaler/import-plan.js`: skapandebeslut, beroenden, validering, historik och kvitto.
@@ -119,7 +121,7 @@ npm run test:table-import-browser
 npm run test:lokaler-browser
 ```
 
-Verifierat med syntetiska filer 2026-10-24: 783 tester och syntaxkontroll av 135
+Verifierat med syntetiska filer 2026-10-24: 791 tester och syntaxkontroll av 138
 JavaScript-filer. Webbläsarprovet följer fil → tabell → ändrade val → API → SQLite
 → återöppning: selektiva/allmänna urval, 122 nya fastigheter, saknad beteckning
 före/efter import, en person med flera roller och mål, återimport och avbrott utan
@@ -134,7 +136,7 @@ sessionscache lagras inte som en extra datatabell.
 Ett väntande adressförslag är en koppling som behöver väljas, inte en extra
 källrad. Alla källrader finns kvar i filtabellen även när en identifierare
 eller koppling ännu inte godkänts. Varje väntande koppling visas med sitt
-förslag och val direkt i radens första kolumn. Den tidigare separata
+jämförelse direkt under sin källrad, med samma tabellutformning. Den tidigare separata
 kopplingslistan har tagits bort.
 
 **Behöver kopplas** samlar osäkra fastighets-/nummerförslag. **Behöver
@@ -166,3 +168,38 @@ Första inläsningen kopplar inte ihop olika numrerade fastigheter genom namn
 eller adress. Befintliga avtals- och objektkopplingar behålls; en avvikande
 adress blir en fältavvikelse. Verkliga nummerkonflikter stoppas.
 `npm run test:simple-import-browser` verifierar detta och överlappningskontrollen.
+
+## Redigering och tydliga jämförelser
+
+**Visa / redigera** öppnar radens celler. **Klart** avslutar redigeringen;
+**Spara import** är fortfarande den enda skrivningen. Fastighetsbeteckningen
+ändras i sin cell, utan ett separat formulär i kopplingskortet. Saknas kolumnen
+visas en kompletteringskolumn. Delade sakuppgifter, exempelvis en fastighets
+beteckning, uppdateras på alla berörda källrader. Nummer korrigeras per källrad
+och går genom samma kontroll av identifierare och sparade föräldrakopplingar.
+Källfilen ändras aldrig. Bortval/remappning gör en gammal cellkorrigering inaktiv.
+
+**Personer i importen** visar namn, e-post, telefon, part, roll och mål i en
+samlad tabell med sökning. Personuppgifterna redigeras en gång för alla personens
+kopplingar; roller och mål väljs per ny koppling. Sparade kopplingar ändras i
+registret. Korrigerade personuppgifter och kopplingsval spåras i befintlig
+ändringshistorik, så återimport av samma underlag återanvänder personen.
+
+Två olika slags jämförelser har olika frågor:
+
+- **Värdeskillnad på samma nummer:** tabellen visar tidigare och inkommande rad,
+  samma fastighetsnummer, beteckning och adress. Den förklarar om den tidigare
+  raden kommer från samma fil eller är sparad före importen. Användaren väljer
+  ett värde; detta ändrar aldrig kopplingen till en annan fastighet.
+- **Kopplingsförslag vid berikning utan nummer:** filens rad jämförs med sparade
+  kandidater. **Samma fastighet** väljer kopplingen. **Egen fastighet** skapar
+  en egen post, med valfritt fastighetsnummer, och räknas som dess skapandebeslut.
+  Ett redan registrerat nummer får inte återanvändas för en egen ny fastighet.
+
+Första inläsningen jämför inte fastigheter genom adress eller namn.
+Tabellen över nya poster visar nummer, koppling, källa och varför skapandet
+behöver väljas. Befintliga fastigheter godkänns inte en gång till.
+
+`npm run test:inline-edit-browser` följer fokuserad cell → worker → personval →
+API → SQLite/server-Excel. Provet kontrollerar återimport, samma/egen fastighet,
+värdejämförelser, bibehållna skapandeval, avbrott och låsta budgetsnapshots.

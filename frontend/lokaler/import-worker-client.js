@@ -10,7 +10,7 @@ export function createCleanEvaluator(workbook,base,context){
    active={id,timer,reject};
    worker.onmessage=event=>{if(event.data.id!==active?.id)return;clearTimeout(active.timer);active=null;if(event.data.identityCache)identityCache=event.data.identityCache;event.data.error?reject(Error(event.data.error)):resolve(event.data.result);};
    worker.onerror=()=>{clearTimeout(timer);active=null;worker?.terminate();worker=null;reject(Error('Importkontrollen kunde inte startas. Försök igen.'));};
-   worker.postMessage({type:'evaluate',id,profiles,preferences:draft.importFieldPreferences,rowMatches:draft.importRowMatches});
+   worker.postMessage({type:'evaluate',id,profiles,preferences:draft.importFieldPreferences,rowMatches:draft.importRowMatches,cellEdits:draft.importCellEdits});
   });
  };
  evaluate.baseline=structuredClone(base);evaluate.invalidate=()=>{if(active)stop();};evaluate.cancel=stop;return evaluate;

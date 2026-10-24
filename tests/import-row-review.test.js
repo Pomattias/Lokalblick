@@ -28,7 +28,7 @@ test('all 154 source rows are retained and the 21 unresolved links are a filter 
  assert.equal(rows.length,21);assert(rows.every(row=>row.row>=135));assert(rows.every(row=>row.attention.caption==='Behöver kopplas'));
  const html=importTableHtml(prepared,profiles,result,base,{filter:'attention:link'});
  assert.equal((html.match(/data-import-source-row=/g)||[]).length,21);assert.equal((html.match(/data-link-proposal=/g)||[]).length,21);
- assert.equal((html.match(/data-approve-link=/g)||[]).length,21);assert.doesNotMatch(html,/<section class="import-link-proposals"|data-import-link-suggestions/);
+ assert.equal((html.match(/data-link-use=/g)||[]).length,21);assert.doesNotMatch(html,/<section class="import-link-proposals"|data-import-link-suggestions/);
  assert.doesNotMatch(html,/Samtliga källrader finns i tabellen/);assert.match(html,/Behöver kopplas \(21\)/);
 });
 
@@ -63,19 +63,19 @@ test('optional missing designations are marked for completion even when other fa
  const attention=importRowAttention(row);assert.equal(attention.complete,true);assert.equal(attention.caption,'Behöver kompletteras');assert.equal(attention.blocked,false);
  assert.match(attention.reason,/efter importen/);
  const html=importLinkChoiceHtml({matches:[{id:'P',label:'Testvägen 1',detail:'Adress: Testvägen 1'}],row:2},0,{address:'Testvägen 1'});
- assert.match(html,/<strong>Fastighetsbeteckning saknas · P<\/strong>/);assert.doesNotMatch(html,/<strong>Testvägen/);
+ assert.match(html,/Fastighetsbeteckning saknas/);assert.doesNotMatch(html,/<strong>Testvägen/);
 });
 
 test('ambiguous candidates require one selection and never offer a bulk-approved checkbox',()=>{
  const proposal={matches:[{id:'A',label:'EKEN 1'},{id:'B',label:'EKEN 2'}],records:[],row:2},html=importLinkChoiceHtml(proposal,0);
- assert.match(html,/data-link-property="0"/);assert.doesNotMatch(html,/data-approve-link=/);assert.match(html,/Ditt val används direkt/);
+ assert.match(html,/data-link-use="0"/);assert.doesNotMatch(html,/data-approve-link=/);assert.match(html,/Kontrollera kopplingen från numren/);
  const row={status:'pending',columns:[],reviews:[],nodes:[],rejected:true};
  assert.equal(importRowAttention(row,proposal).caption,'Behöver kopplas');
 });
 
 test('the inline choice escapes candidate labels, addresses and record identifiers',()=>{
  const html=importLinkChoiceHtml({matches:[{id:'<id>',label:'<script>bad</script>',detail:'<img>'}],records:[{label:'Avtal',value:'<id>'}],row:2},3);
- assert.doesNotMatch(html,/<script>|<img>|<id>/);assert.match(html,/&lt;script&gt;/);assert.match(html,/data-approve-link="3"/);
+ assert.doesNotMatch(html,/<script>|<img>|<id>/);assert.match(html,/&lt;script&gt;/);assert.match(html,/data-link-use="3"/);
 });
 
 test('numeric values in a designation column produce advice without silently changing the mapping',()=>{

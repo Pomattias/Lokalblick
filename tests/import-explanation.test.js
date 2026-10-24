@@ -104,6 +104,6 @@ test('a missing column mapping explains the problem and links directly to that c
 });
 test('row cards escape source text and missing designations are never replaced by addresses',()=>{
  const base=emptyData(),input=[...row];input[1]=input[2];
- const {result,profiles}=prepare(base,[input],headers,{fileName:'<img src=x>.xlsx'}),choices=all(result,base),html=importStoryHtml(result,base,{approved:approveImportPlan(result,base,choices),choices,profiles});
- assert.match(html,/Fastighetsbeteckning saknas/);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img/);assert.match(html,/data-chain-table="objects"/);assert.match(html,/Komplettera beteckning nu/);
+ const {result,profiles,workbook}=prepare(base,[input],headers,{fileName:'<img src=x>.xlsx'}),choices=all(result,base),story=explainImport(result,base,{profiles}),html=importTableHtml({fileName:'<img src=x>.xlsx',workbook,XLSX},profiles,result,base,{approved:approveImportPlan(result,base,choices),choices,openRows:new Set([story.rows[0].key])});
+ assert.match(html,/Fastighetsbeteckning saknas/);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img/);assert.match(html,/data-chain-table="objects"/);assert.match(html,/data-import-cell=/);assert.doesNotMatch(html,/Komplettera beteckning nu|data-complete-property/);
 });

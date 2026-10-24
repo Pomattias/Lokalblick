@@ -29,7 +29,8 @@
     "test:approval-browser": "node scripts/import-approval-browser-check.mjs",
     "test:inline-import-browser": "node scripts/inline-import-browser-check.mjs",
     "test:business-number-browser": "node scripts/business-number-import-browser-check.mjs",
-    "test:simple-import-browser": "node scripts/simple-import-browser-check.mjs"
+    "test:simple-import-browser": "node scripts/simple-import-browser-check.mjs",
+    "test:inline-edit-browser": "node scripts/inline-edit-import-browser-check.mjs"
   },
   "engines": {
     "node": ">=20"

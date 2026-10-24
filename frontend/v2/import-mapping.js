@@ -1,3 +1,5 @@
+import {importPeopleHtml} from './import-people.js';
+import {importCellCorrections} from './import-cell-editor.js';
 import {createBusinessLabels} from '../lokaler/business-identities.js';
 import {importValueChoices} from "./import-summary.js";
 import {importApprovalHtml,chooseExistingProperty,matchingCreations} from './import-approval.js';
@@ -127,13 +129,14 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
   const impact=summary.filter(row=>row.created||row.updated).map(row=>`${row.label}: ${row.created} nya, ${row.completed??row.updated??0} kompletteras, ${row.changed||0} ändras`).join(' · ');
   return `<h2>Granska importen</h2><p>${esc(prepared.fileName)} · Granska kolumnval och kopplingar före sparning.</p>
     <div class="import-impact" data-import-impact role="status"><strong>Det här kommer att sparas</strong><p>${esc(options.stale?'Kontrollerar ändrade kolumnval…':impact||'Inga nya eller ändrade poster har valts.')}</p><small>${included} kolumner valda · ${all.length-included-unmapped} väljs bort${unmapped?' · '+unmapped+' behöver väljas':''}${options.pendingCreations?' · '+options.pendingCreations+' nya registerposter inväntar godkännande':''}</small></div>
-    ${importTableHtml(prepared,mapping.profiles,result,baseline,{approved:options.projected,choices:options.creationChoices,explanation:options.explanation,...options.story,columnHtml:rowHtml,stale:options.stale,edits:options.edits})}
+    ${importTableHtml(prepared,mapping.profiles,result,baseline,{approved:options.projected,choices:options.creationChoices,explanation:options.explanation,...options.story,columnHtml:rowHtml,stale:options.stale,edits:options.edits,cellEdits:options.cellEdits})}
+    ${importPeopleHtml(result,baseline,{approved:options.projected,edits:options.edits,editing:options.story?.peopleEditing,query:options.story?.peopleQuery,limit:options.story?.peopleLimit})}
     ${options.approvalHtml||''}
     ${skippedFinancialHtml(options.financialSuggestions||[],schemas)}
     ${unmapped?'<button type="button" data-ignore-unmapped>Läs inte in kolumner som saknar fältval</button>':''}
     ${duplicates.length?`<div data-mapping-conflicts role="alert"><strong>Rätta dubbelkopplingarna före import</strong>${duplicates.map(group=>`<p>${esc(mapping.profiles[group.profileIndex].name)}: ${esc(group.columns.map(column=>column.header).join(' och '))} är kopplade till ${esc(fieldLabel(fields.find(field=>field.target===group.target)||{label:group.target}))}.</p>`).join('')}</div>`:''}
     <details data-sheet-settings><summary>Filens rubriker och matchningsrad</summary>${mapping.profiles.map((profile,pi)=>profile.canonical?`<section class="import-sheet-settings"><p>Kolumnerna kan fortfarande gå till olika register.</p><strong>${esc(profile.fileName||prepared.fileName)} · ${esc(profile.name)}</strong><label>Utgångspunkt för förslag<select data-import-table="${pi}" aria-label="Utgångspunkt för ${esc(profile.name)}">${schemas.map(s=>`<option value="${esc(s.key)}" ${s.key===profile.primaryTable?'selected':''}>${esc(s.sheet)}</option>`).join('')}</select></label><label>Rad ${profile.headerRow+1} efter rubrikerna<select data-mapping-row="${pi}" aria-label="Matchningsrad för ${esc(profile.name)}">${profile.mappingRowSuggested?'<option value="ask">En möjlig matchningsrad hittades – välj</option>':''}<option value="no" ${profile.mappingRowDecision==='no'||!profile.mappingRowSuggested&&!profile.mappingRow?'selected':''}>Vanlig datarad</option><option value="yes" ${profile.mappingRow?'selected':''}>Innehåller Lokalblick-fältnamn</option></select></label>${importIdentityWarnings(profile,schemas).map(warning=>`<small role="alert">${esc(warning)}</small>`).join('')}</section>`:'').join('')}</details>
-    ${options.stale?'':importValueChoices(options.conflicts||importConflictGroups(result),{...options,data:result.clean,canonical:mapping.profiles.some(profile=>profile.canonical),reusedLinks:result.report.reusedLinks?.length||0})}
+    ${options.stale?'':importValueChoices(options.conflicts||importConflictGroups(result),{...options,prepared,profiles:mapping.profiles,data:result.clean,canonical:mapping.profiles.some(profile=>profile.canonical),reusedLinks:result.report.reusedLinks?.length||0})}
     ${options.stale?'':importProblemsHtml(reviews,prepared,mapping,schemas,result.clean)}
     ${!options.stale&&result.report.blocking?`<p role="alert">${result.report.blocking} källrader väntar på godkänd koppling eller behöver rättas.</p>${result.clean?`<label><input type="checkbox" data-import-safe-rows ${options.allowPartial?'checked':''} ${result.report.rows<=result.report.blocking?'disabled':''}> Läs bara in ${result.report.rows-result.report.blocking} godkända rader. Lämna ${result.report.blocking} väntande eller felaktiga rader utanför.</label>`:''}`:''}
     ${!options.stale?`<details data-final-impact><summary>Resultat per register</summary><div class="import-result-table"><table aria-label="Slutligt importbeslut"><thead><tr><th>Register</th><th>Nya</th><th>Kompletteras</th><th>Ändras</th><th>Oförändrade</th></tr></thead><tbody>${summary.map(row=>`<tr data-import-register="${esc(row.collection)}"><th>${esc(row.label)}</th><td>${row.created}</td><td>${row.completed??row.updated??0}</td><td>${row.changed||0}</td><td>${row.unchanged||0}</td></tr>`).join('')}</tbody></table></div>${feedback?`<p>${esc(feedback)}</p>`:''}${importedIssues.length?`<p data-issue-home-result>${importedIssues.filter(issue=>issue.property_id).length} kopplade till fastighet · ${importedIssues.filter(issue=>issue.object_id).length} till objekt · ${unlinkedIssues.length} att koppla. Ofullständiga ärenden kan kopplas senare under Ärenden → Att koppla.</p>`:''}${result.report.consolidation?`<small>${result.report.consolidation.files} filer · ${result.report.consolidation.sheets} flikar · ${result.report.consolidation.uniqueRecords} identifierade poster.</small>`:''}</details>`:''}
@@ -143,7 +146,7 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
 export async function previewImport(prepared,base,schemas,actor,evaluator=null) {
   const mapping={profiles:reviewProfiles(prepared.profiles,schemas)},fields=fieldCatalog(schemas,true);
   const draft=structuredClone(base);draft.importFieldPreferences ||= {};
-  const story={filter:'',query:'',limit:30,openRows:new Set()},approval={query:'',filter:'',limit:100},edits={properties:Object.create(null),contacts:Object.create(null)};
+  const story={filter:'',query:'',limit:30,openRows:new Set(),peopleEditing:new Set(),peopleQuery:'',peopleLimit:100,newPropertyNumbers:Object.create(null)},approval={query:'',filter:'',limit:100},edits={properties:Object.create(null),contacts:Object.create(null),people:Object.create(null)};
   const baseline=evaluator?.baseline||collectWorkspace(base);
   let plan=[],creationChoices={},projected,explanation;
   const financialSuggestions=mapping.profiles.flatMap((profile,pi)=>skippedFinancialSuggestions(prepared.workbook,profile,schemas,window.XLSX).map(column=>({key:pi+':'+profile.columns.findIndex(c=>c.index===column.index),column})));
@@ -151,11 +154,11 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
   suggestIssueNumberColumns(mapping.profiles,base);
   const context={fingerprint:prepared.fingerprint,fileName:prepared.fileName,schemas,actor,strictColumns:true,personLinks:true,objectAreas:true,allowMappingConflicts:true,identityCache:{}};
   let conflictMode='review';
-  const evaluate=()=>{const working=conflictMode==='review'?draft:{...draft,importFieldPreferences:{}};const profiles=mapping.profiles.map(profile=>({...profile,columns:profile.columns.map(column=>pending(column)?{...column,target:'@ignore'}:column)}));return evaluator?evaluator(profiles,working):prepareMappedImport(prepared.workbook,profiles,working,{...context,rowMatches:draft.importRowMatches},window.XLSX);};
+  const evaluate=()=>{const working=conflictMode==='review'?draft:{...draft,importFieldPreferences:{}};const profiles=mapping.profiles.map(profile=>({...profile,columns:profile.columns.map(column=>pending(column)?{...column,target:'@ignore'}:column)}));return evaluator?evaluator(profiles,working):prepareMappedImport(prepared.workbook,profiles,working,{...context,rowMatches:draft.importRowMatches,cellEdits:draft.importCellEdits},window.XLSX);};
   const d=dialog('<p role="status">Kontrollerar valda kolumner…</p>','import-mapping-dialog');
   return new Promise((resolve,reject)=>{
     const disclosures=new Map();
-    let result,rawResult,closed=false,generation=0,resultGeneration=0,allowPartial=false,stale=false,conflictChoices={};
+    let result,rawResult,closed=false,generation=0,resultGeneration=0,allowPartial=false,stale=false,conflictChoices={},cellsDirty=false;
     let settingsDialog=null,settingsKey=null;
     const closeSettings=()=>{settingsDialog?.close();settingsDialog?.remove();settingsDialog=null;if(!closed)d.querySelector(`[data-preview-map="${settingsKey}"]`)?.focus();};
     const renderSettings=()=>{
@@ -171,11 +174,11 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     const close=()=>{closed=true;closeSettings();evaluator?.cancel?.();d.close();d.remove();};
     const abort=()=>{close();const error=Error('Importen avbröts');error.name='AbortError';reject(error);};
     const locate=key=>{const [pi,ci]=key.split(':').map(Number);return {profile:mapping.profiles[pi],column:mapping.profiles[pi].columns[ci]};};
-    const sourceRowOf=node=>node?.closest('[data-import-source-row]')?.dataset.importSourceRow||node?.closest('[data-source-key]')?.dataset.sourceKey||null;
+    const sourceRowOf=node=>node?.closest('[data-import-source-row]')?.dataset.importSourceRow||node?.closest('[data-source-key]')?.dataset.sourceKey||node?.closest('[data-person-row]')?.dataset.personRow||null;
     const viewState=()=>{
-      const focused=document.activeElement,focusAttr=['data-approve-link','data-link-property','data-create-record','data-open-row','data-select-creations','data-map-property','data-story-search','data-story-filter','data-approval-search','data-approval-filter','data-property-designation','data-column-rule','data-date-mode','data-preview-map','data-preview-table','data-ignore-column','data-person-format','data-person-shared','data-import-conflict-mode','data-import-conflict-choice','data-item-type','data-item-key','data-import-table','data-mapping-row','data-issue-number'].find(attr=>focused?.hasAttribute(attr));
+      const focused=document.activeElement,focusAttr=['data-approve-link','data-link-property','data-create-record','data-open-row','data-select-creations','data-map-property','data-story-search','data-story-filter','data-approval-search','data-approval-filter','data-people-search','data-property-designation','data-import-cell','data-person-field','data-contact-role','data-contact-target','data-column-rule','data-date-mode','data-preview-map','data-preview-table','data-ignore-column','data-person-format','data-person-shared','data-import-conflict-mode','data-import-conflict-choice','data-item-type','data-item-key','data-import-table','data-mapping-row','data-issue-number'].find(attr=>focused?.hasAttribute(attr));
       for(const node of d.querySelectorAll('details'))if(disclosureKey(node))disclosures.set(disclosureKey(node),node.open);
-      return {scroll:d.scrollTop,horizontal:[...d.querySelectorAll('.import-source-scroll')].map(node=>node.scrollLeft),open:new Map(disclosures),focusAttr,focusValue:focusAttr?focused.getAttribute(focusAttr):null,focusRow:sourceRowOf(focused),selection:focused?.selectionStart};
+      return {scroll:d.scrollTop,horizontal:[...d.querySelectorAll('.import-source-scroll')].map(node=>node.scrollLeft),open:new Map(disclosures),focusAttr,focusValue:focusAttr?focused.getAttribute(focusAttr):null,focusRow:sourceRowOf(focused),focusField:focused?.dataset.personKey,selection:focused?.selectionStart};
     };
     const disclosureKey=node=>{
      for(const attr of ['data-new-records','data-sheet-settings','data-final-impact','data-import-enrichment','data-import-errors','data-import-value-choices'])if(node.hasAttribute(attr))return attr;
@@ -188,15 +191,17 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
        if(result.clean){
         const reviewed=reviewImportDraft(result,baseline,edits,plan,creationChoices,actor);
         result=reviewed.edited;plan=reviewed.plan;creationChoices=reviewed.choices;
+        const selectedNew=new Set((rawResult.report.linkProposals||[]).filter(p=>p.approved&&p.newProperty).map(p=>p.propertyId));
+        for(const entry of plan)if(entry.table==='properties'&&selectedNew.has(entry.record.id)&&!creationChoice(entry,creationChoices))creationChoices[entry.key]={signature:entry.signature,action:'create'};
         projected=approveImportPlan(result,baseline,creationChoices,actor);
         explanation=explainImport(result,baseline,{approved:projected,choices:creationChoices,profiles:mapping.profiles});
        }
       }catch(failure){error=failure;result=null;}
-      d.innerHTML=columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial,stale,conflicts:importConflictGroups(rawResult),conflictMode,conflictChoices,financialSuggestions:pendingFinancialSuggestions(),story,explanationBase:baseline,projected,explanation,creationChoices,deferred:projected?.report.creationReview?.deferred.length,approvalHtml:result?.clean?importApprovalHtml(plan,creationChoices,baseline,approval):'',edits,pendingCreations:plan.filter(entry=>!creationChoice(entry,creationChoices)).length});d.setAttribute('aria-busy',stale?'true':'false');
+      d.innerHTML=columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial,stale,conflicts:importConflictGroups(rawResult).filter(g=>!(g.table==='properties'&&g.field==='designation'&&Object.hasOwn(edits.properties,g.recordId))&&!(g.table==='people'&&Object.hasOwn(edits.people[g.recordId]||{},g.storedField))),conflictMode,conflictChoices,financialSuggestions:pendingFinancialSuggestions(),story,explanationBase:baseline,projected,explanation,creationChoices,deferred:projected?.report.creationReview?.deferred.length,approvalHtml:result?.clean?importApprovalHtml(plan,creationChoices,baseline,approval):'',edits,cellEdits:draft.importCellEdits,pendingCreations:plan.filter(entry=>!creationChoice(entry,creationChoices)).length});d.setAttribute('aria-busy',stale?'true':'false');
       for(const group of d.querySelectorAll('details'))if(state.open.has(disclosureKey(group)))group.open=state.open.get(disclosureKey(group));
-      const focus=state.focusAttr?[...d.querySelectorAll(`[${state.focusAttr}]`)].find(node=>node.getAttribute(state.focusAttr)===state.focusValue&&(!state.focusRow||sourceRowOf(node)===state.focusRow)):null;
+      const focus=state.focusAttr?[...d.querySelectorAll(`[${state.focusAttr}]`)].find(node=>node.getAttribute(state.focusAttr)===state.focusValue&&(!state.focusRow||sourceRowOf(node)===state.focusRow)&&(!state.focusField||node.dataset.personKey===state.focusField)):null;
       focus?.focus({preventScroll:true});
-      if(['data-story-search','data-approval-search','data-property-designation'].includes(state.focusAttr)&&state.selection!=null)focus?.setSelectionRange(state.selection,state.selection);
+      if(['data-story-search','data-approval-search','data-people-search','data-property-designation','data-import-cell','data-person-field'].includes(state.focusAttr)&&state.selection!=null)focus?.setSelectionRange(state.selection,state.selection);
       [...d.querySelectorAll('.import-source-scroll')].forEach((node,index)=>{node.scrollLeft=state.horizontal?.[index]||0;});
       for(const node of d.querySelectorAll('[data-column-rule]')){const {profile,column}=locate(node.dataset.columnRule);node.value=importPreference(draft.importFieldPreferences,...column.target.split('.'),profile.fileName||prepared.fileName,profile,column)||'';}
       d.scrollTop=state.scroll;
@@ -207,7 +212,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       if(closed)return;
       const blockedKey=value=>JSON.stringify([...(value?.report.sourceRows||[]).filter(row=>row.rejected).map(row=>JSON.stringify([row.source,row.sheet,row.row])),...(value?.report.linkProposals||[]).filter(row=>!row.approved).map(row=>row.matchingKey)].sort());
       const previousBlocked=blockedKey(rawResult);
-      const state=viewState();const revision=++generation;d.setAttribute('aria-busy','true');d.querySelector('[data-apply]')?.setAttribute('disabled','');
+      const state=viewState();cellsDirty=false;const revision=++generation;d.setAttribute('aria-busy','true');d.querySelector('[data-apply]')?.setAttribute('disabled','');
       try{let next=await evaluate();if(closed||revision!==generation)return;
         // Registers from other sheets are now available too. At most one extra
         // evaluation, only when their evidence actually changes a column choice.
@@ -237,20 +242,42 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     const locateColumn=key=>{const row=d.querySelector(`[data-import-column="${key}"]`);if(row){row.scrollIntoView({block:'center'});row.querySelector('[data-preview-map]')?.focus();}};
     d.addEventListener('input',event=>{
      const node=event.target;
+     if(node.hasAttribute('data-people-search')){story.peopleQuery=node.value;story.peopleLimit=100;render(viewState(),false);return;}
+     if(node.hasAttribute('data-new-property-number')){story.newPropertyNumbers[node.dataset.matchingKey]=node.value;return;}
+     if(node.hasAttribute('data-person-field')){edits.people[node.dataset.personField] ||= {};edits.people[node.dataset.personField][node.dataset.personKey]=node.value;return;}
+     if(node.hasAttribute('data-import-cell')){
+      cellsDirty=true;const [source,sheet,row,index,target]=JSON.parse(node.dataset.importCell),profile=mapping.profiles.find(p=>p.name===sheet&&(p.fileName||prepared.fileName)===source),column=profile.columns.find(c=>c.index===index&&c.target===target);
+      const current=explanation.rows.find(r=>r.source===source&&r.sheet===sheet&&r.row===row);draft.importCellEdits ||= {};
+      Object.assign(draft.importCellEdits,importCellCorrections(explanation.rows,mapping.profiles,current,column,node.value,prepared.fileName));
+      return;
+     }
      if(node.hasAttribute('data-property-designation')){edits.properties[node.dataset.propertyDesignation]=node.value;return;}
      if(node.hasAttribute('data-story-search')||node.hasAttribute('data-approval-search')){
       const state=viewState(),search=node.hasAttribute('data-story-search')?story:approval;search.query=node.value;search.limit=node.hasAttribute('data-story-search')?30:100;render(state,false);
      }
     });
+    // Keep the clicked action alive when committing an editor would rebuild the table.
+    d.addEventListener('pointerdown',event=>{if(event.target.closest('button')&&document.activeElement?.matches('[data-import-cell],[data-person-field],[data-property-designation]'))event.preventDefault();});
     d.addEventListener('click',async event=>{
       const button=event.target.closest('button');if(!button)return;
 
       try{
+        if(cellsDirty&&!button.hasAttribute('data-cancel'))await refresh();
+        if(button.hasAttribute('data-people-more')){story.peopleLimit+=100;render(viewState(),false);return;}
+        if(button.hasAttribute('data-edit-import-person')||button.hasAttribute('data-show-person')){const id=button.dataset.editImportPerson||button.dataset.showPerson;if(button.hasAttribute('data-show-person')){story.peopleEditing.add(id);story.peopleQuery=result.clean.people.find(p=>p.id===id)?.name||'';story.peopleLimit=100;}else if(story.peopleEditing.has(id))story.peopleEditing.delete(id);else story.peopleEditing.add(id);render(viewState());if(button.hasAttribute('data-show-person'))d.querySelector('[data-import-people]')?.scrollIntoView({block:'start'});return;}
+        if(button.hasAttribute('data-clear-import-value')){delete conflictChoices[button.dataset.clearImportValue];render(viewState());return;}
+        if(button.hasAttribute('data-link-use')||button.hasAttribute('data-link-new')||button.hasAttribute('data-link-reset')){
+         const index=Number(button.dataset.linkUse??button.dataset.linkNew??button.dataset.linkReset),proposal=rawResult.report.linkProposals[index];draft.importRowMatches ||= {};
+         if(button.hasAttribute('data-link-reset'))delete draft.importRowMatches[proposal.matchingKey];
+         else if(button.hasAttribute('data-link-new'))draft.importRowMatches[proposal.matchingKey]={action:'new',signature:proposal.signature,propertyNumber:story.newPropertyNumbers[proposal.matchingKey]||''};
+         else draft.importRowMatches[proposal.matchingKey]={propertyId:button.dataset.linkTarget,signature:proposal.signature};
+         refresh();return;
+        }
         if(button.hasAttribute('data-open-row')){const key=button.dataset.openRow;if(story.openRows.has(key))story.openRows.delete(key);else story.openRows.add(key);render(viewState(),false);return;}
         if(button.hasAttribute('data-filter-import-rows')){story.filter=button.dataset.filterImportRows;story.limit=30;render(viewState(),false);d.querySelector('[data-import-table-review]').scrollIntoView({block:'start'});return;}
         if(button.hasAttribute('data-story-more')){story.limit+=30;render(viewState(),false);return;}
         if(button.hasAttribute('data-show-creations')){const section=d.querySelector('[data-new-records]');if(section){section.open=true;section.scrollIntoView({block:'start'});}return;}
-        if(button.hasAttribute('data-complete-property')){const input=[...button.closest('.import-row-detail').querySelectorAll('[data-property-designation]')].find(node=>node.dataset.propertyDesignation===button.dataset.completeProperty);input?.focus();return;}
+
         if(button.hasAttribute('data-select-creations')){
          const matches=matchingCreations(plan,approval);
          for(const entry of matches)if(creationChoice(entry,creationChoices)?.action!=='map'&&(button.dataset.selectCreations==='none'||creationAvailable(entry,plan,creationChoices,baseline)))creationChoices[entry.key]={signature:entry.signature,action:button.dataset.selectCreations==='all'?'create':'defer'};
@@ -274,7 +301,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
         if(button.hasAttribute('data-approve-link-proposals')){
           if(stale||d.getAttribute('aria-busy')==='true'||resultGeneration!==generation)return;
           draft.importRowMatches ||= {};
-          const rows=matchingImportRows(prepared,mapping.profiles,result,explanation.rows,story),keys=new Set(rows.map(row=>row.key));
+          const rows=matchingImportRows(prepared,mapping.profiles,result,explanation.rows,{...story,cellEdits:draft.importCellEdits}),keys=new Set(rows.map(row=>row.key));
           for(const proposal of rawResult.report.linkProposals||[])if(keys.has(proposal.matchingKey)&&!proposal.approved&&proposal.matches.length===1&&!proposal.requiresSelection&&!proposal.matches[0].disabled)draft.importRowMatches[proposal.matchingKey]={propertyId:proposal.matches[0].id,signature:proposal.signature};
           refresh();return;
         }
@@ -300,6 +327,13 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     const onChange=async event=>{
      try{
       const node=event.target;
+      if(node.hasAttribute('data-contact-role')||node.hasAttribute('data-contact-target')){
+       const id=node.dataset.contactRole||node.dataset.contactTarget,original=rawResult.clean.contacts.find(c=>c.id===id);if(!original||baseline.contacts.some(c=>c.id===id))return;
+       const record={...(edits.contacts[id]?.record||result?.clean.contacts.find(c=>c.id===id)||original)},trace=rawResult.report.sourceRows.find(r=>r.records.contacts?.includes(id));
+       if(node.hasAttribute('data-contact-role')){record.role=node.value;const allowed=record.role==='owner'?['property_id']:record.role==='tenant'?['agreement_id']:['property_id','agreement_id','issue_id','order_id'];for(const field of ['property_id','agreement_id','issue_id','order_id'])if(!allowed.includes(field))record[field]=null;}
+       else{for(const field of ['property_id','agreement_id','issue_id','order_id'])record[field]=null;if(node.value){const split=node.value.indexOf(':');record[node.value.slice(0,split)]=node.value.slice(split+1);}}
+       edits.contacts[id]={record,rowKey:JSON.stringify([trace.source,trace.sheet,trace.row]),originalPersonId:original.person_id,imported:true,origin:{source:trace.source,sheet:trace.sheet,row:trace.row}};render(viewState());return;
+      }
       if(node.hasAttribute('data-preview-table')){const {profile,column}=locate(node.dataset.previewTable);column.selectionTable=node.value;update(profile,column,'@unmapped');return;}
       if(node.hasAttribute('data-preview-map')){
        const key=node.dataset.previewMap,{profile,column}=locate(key),value=node.value;
@@ -310,28 +344,11 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       if(node.hasAttribute('data-ignore-column')){const {profile,column}=locate(node.dataset.ignoreColumn);excludeImportColumn(prepared.workbook,profile,column,node.checked,window.XLSX);invalidate();return;}
 
 
-      if(event.target.hasAttribute('data-property-designation')){render(viewState());return;}
+      if(node.hasAttribute('data-import-cell')){if(cellsDirty)refresh();return;}
+      if(node.hasAttribute('data-person-field')||node.hasAttribute('data-property-designation')){render(viewState());return;}
       if(event.target.hasAttribute('data-create-record')){const entry=plan.find(row=>row.key===event.target.dataset.createRecord);creationChoices[entry.key]={signature:entry.signature,action:event.target.checked?'create':'defer'};render(viewState());return;}
       if(event.target.hasAttribute('data-approval-filter')){approval.filter=event.target.value;approval.limit=100;render(viewState(),false);return;}
       if(event.target.hasAttribute('data-story-filter')){story.filter=event.target.value;story.limit=30;render(viewState(),false);return;}
-      if(event.target.hasAttribute('data-link-property')){
-        if(stale||d.getAttribute('aria-busy')==='true'||resultGeneration!==generation)return;
-        const index=Number(event.target.dataset.linkProperty),proposal=rawResult.report.linkProposals[index];
-        draft.importRowMatches ||= {};
-        if(event.target.value)draft.importRowMatches[proposal.matchingKey]={propertyId:event.target.value,signature:proposal.signature};
-        else delete draft.importRowMatches[proposal.matchingKey];
-        refresh();
-        return;
-      }
-      if(event.target.hasAttribute('data-approve-link')){
-        if(stale||d.getAttribute('aria-busy')==='true'||resultGeneration!==generation)return;
-        const index=Number(event.target.dataset.approveLink),proposal=rawResult.report.linkProposals[index];
-        const propertyId=proposal.matches.length===1?proposal.matches[0].id:d.querySelector(`[data-link-property="${index}"]`).value;
-        draft.importRowMatches ||= {};
-        if(event.target.checked&&propertyId)draft.importRowMatches[proposal.matchingKey]={propertyId,signature:proposal.signature};
-        else delete draft.importRowMatches[proposal.matchingKey];
-        refresh();return;
-      }
       if(event.target.hasAttribute('data-issue-number')){const {profile,column}=locate(event.target.dataset.issueNumber);update(profile,column,event.target.value||'@unmapped');return;}
       if(event.target.hasAttribute('data-person-format')){const {column}=locate(event.target.dataset.personFormat);column.personFormat=event.target.value;column.approved=true;invalidate();return;}
       if(event.target.hasAttribute('data-item-key')){const {column}=locate(event.target.dataset.itemKey);column.itemKey=event.target.value||undefined;column.approved=true;invalidate();return;}
@@ -347,7 +364,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
         if(d.getAttribute('aria-busy')==='true'||resultGeneration!==generation||!rawResult)return;
         const state=viewState();
         if(event.target.hasAttribute('data-import-conflict-mode')){conflictMode=event.target.value;refresh();return;}
-        else{const group=importConflictGroups(rawResult)[Number(event.target.dataset.importConflictChoice)],value=event.target.value;if(!value)delete conflictChoices[group.key];else conflictChoices[group.key]=value==='keep'?'keep':group.candidates[Number(value.split(':')[1])].key;}
+        else{const groups=importConflictGroups(rawResult),group=groups.find(g=>g.key===event.target.dataset.importConflictKey)||groups[Number(event.target.dataset.importConflictChoice)],value=event.target.value;if(!value)delete conflictChoices[group.key];else conflictChoices[group.key]=value==='keep'?'keep':group.candidates[Number(value.split(':')[1])].key;}
         render(state);return;
       }
       if(event.target.hasAttribute('data-import-safe-rows')){allowPartial=event.target.checked;const all=mapping.profiles.flatMap(p=>p.columns),valid=!stale&&result&&resultGeneration===generation&&d.getAttribute('aria-busy')!=='true'&&!all.some(pending)&&all.some(selected)&&!mappingConflicts(mapping.profiles).length;d.querySelector('[data-apply]').disabled=!(valid&&(!result.report.blocking||allowPartial));return;}

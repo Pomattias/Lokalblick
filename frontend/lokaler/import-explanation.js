@@ -77,6 +77,7 @@ export function explainImport(candidate,base,{approved=null,choices={},profiles=
   else if(method==='existing-object-link')explanation=`Objekt ${object?.id||trace.hints?.objectId} finns redan. Dess sparade fastighetskoppling används.`;
   else if(method==='management-object-number')explanation=`Förvaltningsobjekt ${trace.hints?.managementNumber||property?.record?.management_object_number} matchar fastighet ${property?.actualId}.`;
   else if(method==='management-object-number-new')explanation=`Förvaltningsobjekt ${trace.hints?.managementNumber||property?.record?.management_object_number} används för den nya fastigheten ${property?.actualId}.`;
+  else if(method==='explicit-new-property')explanation='Du har valt att skapa en egen fastighet. Den kopplas inte till förslaget från adressen.';
   else if(method==='explicit-row-choice')explanation=`Du har godkänt förslaget att koppla källraden till fastighet ${property?.actualId||trace.matchingDecision.propertyId}.`;
   else if(method==='agreement-number-approved')explanation='Du har godkänt de föreslagna identifierarna från avtalsnumret.';
   else if(property&&!property.existing&&method==='property-address')explanation=property.status==='created'?`Du har godkänt en ny fastighet från adressen ${property.record?.address}.`:`En ny fastighet föreslås från adressen ${property.record?.address}. Förslaget behöver godkännas.`;

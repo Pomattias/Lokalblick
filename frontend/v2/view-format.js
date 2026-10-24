@@ -62,7 +62,7 @@ export const propertyDesignation = property => {
     .replace(/\s+/g, " ").replace(/(\d)\s+([a-zåäö])(?=$|[\s,.])/gi, "$1$2")
     .toLocaleLowerCase("sv");
   // An imported address fallback is not evidence of a designation.
-  return isInternalIdentifier(designation)||key(designation) === key(property?.address) ? "" : designation;
+  return designation==='Fastighetsbeteckning saknas'||isInternalIdentifier(designation)||key(designation) === key(property?.address) ? "" : designation;
 };
 export const propertyAddress = property => String(property?.address || "").trim();
 export const propertyReference = property => property

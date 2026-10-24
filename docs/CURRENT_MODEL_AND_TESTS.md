@@ -68,8 +68,8 @@ nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
 Verifierat 2026-10-24 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 783 godkända, 0 underkända, 0 överhoppade.
-- Repots förkontroll: syntax för 135 JavaScript-filer och kontroll av filtyper.
+- `npm test`: 791 godkända, 0 underkända, 0 överhoppade.
+- Repots förkontroll: syntax för 138 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
 - Tabellimport i webbläsare: mappning, återimport, kontakter, SQLite-sparning
@@ -105,3 +105,9 @@ Kopplingsförslag från adress/namn kräver en rad utan nummer och en fastighet
 som fanns före importen. Nya fastigheter med olika nummer hålls isär.
 `npm run test:simple-import-browser` provar hela flödet med efterföljande
 avtalsperioder, avvisat överlapp, avbryt, sparning och återimport.
+
+`npm run test:inline-edit-browser` kontrollerar direkt cellredigering, delade
+fastighetsuppgifter, personfakta/roller/mål, återimport utan persondubletter,
+fokuserad cell vid sparning, jämförelser av värden och samma/egen fastighet
+i SQLite och server-Excel. Skapandebeslut görs en gång och inga adresser
+kopplar ihop numrerade fastigheter vid första inläsningen.
