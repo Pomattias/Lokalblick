@@ -6,6 +6,8 @@ import {maintenanceTables,maintenanceResponsibilities,maintenanceResults,assessm
 export const roles = { owner: 'Fastighetsägarens kontakt', coordinator: 'Vår ansvarige', tenant: 'Hyresgästens kontakt' };
 export const statuses = { open: 'Öppet', ongoing: 'Pågår', done: 'Klart', draft: 'Utkast', ordered: 'Beställd' };
 export const priorities = { low: 'Låg', normal: 'Normal', high: 'Hög' };
+// Source provenance can grow on reimport without changing a business fact.
+export const sameRecordFacts=(left,right)=>!left||!right?left===right:[...new Set([...Object.keys(left),...Object.keys(right)])].filter(key=>key!=='sources').every(key=>JSON.stringify(left[key])===JSON.stringify(right[key]));
 const field = (key, label, type = 'text', extra = {}) => ({ key, label, type, ...extra });
 export const tables = {
  parties: { label: 'Parter', singular: 'Part', prefix: 'PAR', fields: [field('name', 'Namn', 'text', { required: true })] },

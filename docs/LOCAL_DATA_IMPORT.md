@@ -102,12 +102,16 @@ sparad källregel, ändrade kolumnval, mobil/dator, återimport, editorvisning o
 återläsning efter SQLite-omstart. ID:n och låst budget ska vara oförändrade.
 Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
-Verifierat 2026-10-23 med Node.js 24.19.0 och system-Chromium:
+Verifierat 2026-10-24 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 723 godkända, 0 underkända, 0 överhoppade.
-- Syntax/förkontroll: 129 JavaScript-filer.
+- `npm test`: 739 godkända, 0 underkända, 0 överhoppade.
+- Syntax/förkontroll: 131 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,
   ledande nollor, sparning och återläsning godkända.
 - Kontroll av odefinierade namn i ändrade produktionsmoduler och testskript,
   samt `git diff --check`: godkända.
+
+Granskningen visar nu även status och kopplingskedja per källrad, med skäl för
+bortval och knappar som leder till rätt kolumnval eller kopplingsförslag. Se
+[Granskad import](SAFE_IMPORT.md#förstå-vad-som-läses-in).

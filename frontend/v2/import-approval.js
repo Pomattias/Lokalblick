@@ -1,3 +1,5 @@
+import {importStoryHtml,fillImportSourceDetail} from './import-story.js';
+import {explainImport} from '../lokaler/import-explanation.js';
 import {importCreationPlan,creationChoice,creationAvailable,approveImportPlan} from '../lokaler/import-plan.js';
 import {tables} from '../lokaler/model.js';
 import {viewCollections,viewFields} from '../lokaler/view-fields.js';
@@ -32,13 +34,15 @@ function chooseExistingProperty(properties){
  });
 }
 
-export function reviewImportApproval(result,base,actor){
+export function reviewImportApproval(result,base,actor,options={}){
  const plan=importCreationPlan(result,base),choices={},propertyLookup=new Map(result.clean.properties.map(row=>[row.id,row]));
  const stages=[...['properties','objects','agreements'].filter(table=>plan.some(entry=>entry.table===table)),'prices','summary'];
- let step=0,projected,search='',limit=100;
- const d=document.createElement('dialog');d.className='followup-dialog import-dialog import-approval-dialog';document.body.append(d);d.showModal();
+ let step=0,projected,rowExplanation,search='',limit=100,lastStage=null;const story={filter:'',query:'',limit:30};
+ const d=options.dialog||document.createElement('dialog'),originalClass=d.className;
+ if(!options.dialog){d.className='followup-dialog import-dialog';document.body.append(d);d.showModal();}
+ d.classList.add('import-approval-dialog');
  return new Promise(resolve=>{
-  const finish=value=>{d.close();d.remove();resolve(value);};
+  const finish=value=>{d.removeEventListener('cancel',onCancel);d.removeEventListener('click',onClick);d.removeEventListener('input',onInput);d.removeEventListener('change',onChange);d.removeEventListener('toggle',onToggle,true);if(options.dialog)d.className=originalClass;else{d.close();d.remove();}resolve(value);};
   const stageRows=()=>plan.filter(entry=>entry.table===stages[step]);
   const rowsHtml=()=>{
    const matching=stageRows().filter(entry=>[label(entry,propertyLookup),entry.record.id,origins(entry)].join(' ').toLocaleLowerCase('sv').includes(search.toLocaleLowerCase('sv')));
@@ -56,18 +60,27 @@ export function reviewImportApproval(result,base,actor){
     return `<tr><td>${esc(item.agreement_id)}</td><td>${esc(item.name)}</td><td>${old?money(old.base_amount):'Ny post'}</td><td>${money(item.base_amount)}</td><td>${esc([item.valid_from||'Start saknas',item.valid_to||'Tills vidare',tables.agreement_items.fields.find(field=>field.key==='adjustment_method')?.values?.[item.adjustment_method]||item.adjustment_method].join(' · '))}${changes.length?`<details><summary>Visa ändrade villkor</summary>${changes.map(field=>`<p>${esc(field.label)}: ${esc(value(field,old?.[field.key]))} → ${esc(value(field,item[field.key]))}</p>`).join('')}</details>`:''}</td></tr>`;
    }).join('')}</tbody></table></div>`:'<p>Inga avtalspriser i denna import.</p>'}<p>Visar ${Math.min(limit,items.length)} av ${items.length} matchande priser.</p>${limit<items.length?'<button type="button" data-approval-more>Visa 100 till</button>':''}<p>${projected.report.creationReview.deferred.length} poster lämnas till senare, inklusive beroende uppgifter.</p>`;
   };
-  const summaryHtml=()=>`<p>Kontrollera vad som faktiskt kommer att sparas. Tidigare steg har bara ändrat utkastet.</p><div class="import-result-table"><table aria-label="Slutligt importbeslut"><thead><tr><th>Register</th><th>Nya</th><th>Ändras</th><th>Oförändrade</th></tr></thead><tbody>${projected.report.tables.filter(row=>row.created||row.updated||row.unchanged).map(row=>`<tr><th>${esc(row.label)}</th><td>${row.created}</td><td>${row.updated}</td><td>${row.unchanged}</td></tr>`).join('')}</tbody></table></div><p>${projected.report.creationReview.mapped.length} fastighetsförslag kopplas till befintliga fastigheter. <strong>${projected.report.creationReview.deferred.length} poster lämnas till senare.</strong></p><p>${projected.report.review} uppgifter finns i granskningsunderlaget. Olösta värdeskillnader skriver inte över sparade värden.</p><details><summary>Visa nya poster och ändrade uppgifter</summary>${projected.report.changes.slice(0,200).map(change=>`<p><strong>${esc(change.recordId)} · ${esc(changeCaption(change))}</strong><br>${esc(change.from??'Saknas')} → ${esc(change.to??'Saknas')}</p>`).join('')}<small>Visar upp till 200 ändringar. Hela granskningsunderlaget kan hämtas nedan.</small></details><button type="button" data-export-approved>Hämta slutlig granskning (JSON)</button>`;
+  const summaryHtml=()=>`<p>Kontrollera vad som faktiskt kommer att sparas. Tidigare steg har bara ändrat utkastet.</p><div class="import-result-table"><table aria-label="Slutligt importbeslut"><thead><tr><th>Register</th><th>Nya</th><th>Kompletteras</th><th>Ändras</th><th>Oförändrade</th></tr></thead><tbody>${rowExplanation.records.filter(row=>row.created||row.updated||row.unchanged).map(row=>`<tr><th>${esc(row.label)}</th><td>${row.created}</td><td>${row.completed||0}</td><td>${row.changed||0}</td><td>${row.unchanged}</td></tr>`).join('')}</tbody></table></div><p>${projected.report.creationReview.mapped.length} fastighetsförslag kopplas till befintliga fastigheter. <strong>${projected.report.creationReview.deferred.length} poster lämnas till senare.</strong></p><p>${projected.report.review} uppgifter finns i granskningsunderlaget. Olösta värdeskillnader skriver inte över sparade värden.</p><details><summary>Visa nya poster och ändrade uppgifter</summary>${projected.report.changes.filter(change=>change.field!=='sources').slice(0,200).map(change=>`<p><strong>${esc(change.recordId)} · ${esc(changeCaption(change))}</strong><br>${esc(change.from??'Saknas')} → ${esc(change.to??'Saknas')}</p>`).join('')}<small>Visar upp till 200 ändringar. Hela granskningsunderlaget kan hämtas nedan.</small></details><button type="button" data-export-approved>Hämta slutlig granskning (JSON)</button>`;
   const render=()=>{
+   const scroll=d.scrollTop,opened=new Set([...d.querySelectorAll('details[open][data-source-detail]')].map(node=>node.dataset.sourceDetail));
    projected=approveImportPlan(result,base,choices,actor);
    const stage=stages[step],isRecords=['properties','objects','agreements'].includes(stage);
-   d.innerHTML=`<h2>Godkänn import · ${esc(titles[stage])}</h2><ol class="import-approval-steps" aria-label="Importsteg">${stages.map((key,i)=>`<li${i===step?' aria-current="step"':''}>${esc(titles[key])}</li>`).join('')}</ol>${isRecords?`<p>Markera de nya poster som får skapas. Omarkerade poster och deras beroenden lämnas till senare. Befintliga poster återanvänds.</p><label>Sök bland nya poster<input type="search" data-approval-search value="${esc(search)}" placeholder="Beteckning, adress eller nummer"></label><div class="actions"><button type="button" data-select-creations="all">Markera alla möjliga i registret</button><button type="button" data-select-creations="none">Avmarkera alla</button></div><div data-creation-list>${rowsHtml()}</div>`:stage==='prices'?`<label>Sök bland priser<input type="search" data-approval-search value="${esc(search)}" placeholder="Avtalsnummer eller prispost"></label><div data-price-list>${pricesHtml()}</div>`:summaryHtml()}<p data-approval-error role="alert"></p><div class="actions import-review-actions"><button type="button" data-approval-cancel>Tillbaka till kolumnval</button>${step?'<button type="button" data-approval-back>Föregående steg</button>':''}${stage==='summary'?'<button type="button" class="primary-action" data-confirm-import>Godkänn och spara import</button>':`<button type="button" class="primary-action" data-approval-next>${isRecords?'Godkänn markerade och fortsätt':'Godkänn prisgranskning och fortsätt'}</button>`}</div>`;
-   d.scrollTop=0;
+   rowExplanation=explainImport(result,base,{approved:projected,choices,profiles:options.profiles||[]});
+   const impact=rowExplanation.records.filter(row=>row.created||row.updated).map(row=>`${row.label}: ${row.created} nya, ${row.completed||0} kompletteras, ${row.changed||0} ändras`).join(' · ');
+   const explanation=rowExplanation;
+   d.innerHTML=`<h2>Granska och godkänn import</h2><div class="import-impact" data-import-impact role="status"><strong>Det här kommer att sparas:</strong><p>${esc(impact||'Inga nya eller ändrade registerposter har godkänts.')}</p><small>${explanation.rows.length} källrader granskade · ${explanation.counts.pending||0} behöver ditt val · ${explanation.counts.skipped||0} läses inte in. Inget sparas förrän du godkänner slutkontrollen.</small></div><ol class="import-approval-steps" aria-label="Importsteg">${stages.map((key,i)=>`<li${i===step?' aria-current="step"':''}>${esc(titles[key])}</li>`).join('')}</ol><h3 data-approval-stage>${esc(titles[stage])}</h3>${isRecords?`<p>Markera de nya poster som får skapas. Omarkerade poster och deras beroenden lämnas till senare. Befintliga poster återanvänds.</p><label>Sök bland nya poster<input type="search" data-approval-search value="${esc(search)}" placeholder="Beteckning, adress eller nummer"></label><div class="actions"><button type="button" data-select-creations="all">Markera alla möjliga i registret</button><button type="button" data-select-creations="none">Avmarkera alla</button></div><div data-creation-list>${rowsHtml()}</div>`:stage==='prices'?`<label>Sök bland priser<input type="search" data-approval-search value="${esc(search)}" placeholder="Avtalsnummer eller prispost"></label><div data-price-list>${pricesHtml()}</div>`:summaryHtml()}${importStoryHtml(result,base,{approved:projected,choices,profiles:options.profiles||[],...story,explanation:rowExplanation})}<p data-approval-error role="alert"></p><div class="actions import-review-actions"><button type="button" data-approval-cancel>Tillbaka till kolumnval</button>${step?'<button type="button" data-approval-back>Föregående steg</button>':''}${stage==='summary'?'<button type="button" class="primary-action" data-confirm-import>Godkänn och spara import</button>':`<button type="button" class="primary-action" data-approval-next>${isRecords?'Godkänn markerade och fortsätt':'Godkänn prisgranskning och fortsätt'}</button>`}</div>`;
+   for(const detail of d.querySelectorAll('details[data-source-detail]'))if(opened.has(detail.dataset.sourceDetail))detail.open=true;
+   d.scrollTop=lastStage===stage?scroll:0;lastStage=stage;
   };
   const fail=error=>{d.querySelector('[data-approval-error]').textContent=error.message;d.querySelector('[data-confirm-import]')?.setAttribute('disabled','');};
-  d.addEventListener('cancel',event=>{event.preventDefault();finish(null);});
-  d.addEventListener('click',async event=>{
+  const onCancel=event=>{event.preventDefault();finish(null);};
+  const onClick=async event=>{
    const button=event.target.closest('button');if(!button)return;
    try{
+    if(button.hasAttribute('data-story-link')){options.onLocate?.('link:'+button.dataset.storyLink);finish(null);return;}
+    if(button.hasAttribute('data-story-column')){options.onLocate?.(button.dataset.storyColumn);finish(null);return;}
+    if(button.hasAttribute('data-story-register')){const index=stages.indexOf(button.dataset.storyRegister);if(index>=0){step=index;search='';limit=100;render();d.querySelector('[data-creation-list]')?.scrollIntoView({block:'start'});}return;}
+    if(button.hasAttribute('data-story-more')){const scroll=d.scrollTop;story.limit+=30;render();d.scrollTop=scroll;return;}
     if(button.hasAttribute('data-export-approved')){const url=URL.createObjectURL(new Blob([JSON.stringify(projected.report,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='lokalblick-godkand-importgranskning.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),0);return;}
     if(button.hasAttribute('data-approval-cancel')){finish(null);return;}
     if(button.hasAttribute('data-map-property')){const entry=plan.find(row=>row.key===button.dataset.mapProperty),targetId=await chooseExistingProperty(base.properties);if(targetId){choices[entry.key]=choice(entry,'map',{targetId});render();}return;}
@@ -78,13 +91,16 @@ export function reviewImportApproval(result,base,actor){
     if(button.hasAttribute('data-approval-back')){step--;search='';limit=100;render();}
     if(button.hasAttribute('data-confirm-import')){if(stages[step]!=='summary')throw Error('Granska samtliga steg före sparning.');finish(approveImportPlan(result,base,choices,actor));}
    }catch(error){fail(error);}
-  });
-  d.addEventListener('input',event=>{if(event.target.hasAttribute('data-approval-search')){search=event.target.value;limit=100;if(stages[step]==='prices')d.querySelector('[data-price-list]').innerHTML=pricesHtml();else d.querySelector('[data-creation-list]').innerHTML=rowsHtml();}});
-  d.addEventListener('change',event=>{
+  };
+  const onInput=event=>{if(event.target.hasAttribute('data-story-search')){const cursor=event.target.selectionStart,scroll=d.scrollTop;story.query=event.target.value;story.limit=30;render();d.scrollTop=scroll;const input=d.querySelector('[data-story-search]');input?.focus({preventScroll:true});input?.setSelectionRange(cursor,cursor);return;}if(event.target.hasAttribute('data-approval-search')){search=event.target.value;limit=100;if(stages[step]==='prices')d.querySelector('[data-price-list]').innerHTML=pricesHtml();else d.querySelector('[data-creation-list]').innerHTML=rowsHtml();}};
+  const onChange=event=>{
    try{
+    if(event.target.hasAttribute('data-story-filter')){story.filter=event.target.value;story.limit=30;const scroll=d.scrollTop;render();d.scrollTop=scroll;return;}
     if(event.target.hasAttribute('data-create-record')){const entry=plan.find(row=>row.key===event.target.dataset.createRecord);choices[entry.key]=choice(entry,event.target.checked?'create':'defer');render();}
    }catch(error){fail(error);}
-  });
+  };
+  const onToggle=event=>{if(event.target.matches('details[data-source-detail]'))fillImportSourceDetail(event.target,options.prepared,options.profiles||[],window.XLSX,{candidate:result,base,approved:projected,choices});};
+  d.addEventListener('cancel',onCancel);d.addEventListener('click',onClick);d.addEventListener('input',onInput);d.addEventListener('change',onChange);d.addEventListener('toggle',onToggle,true);
   render();
  });
 }

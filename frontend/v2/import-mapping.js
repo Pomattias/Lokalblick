@@ -1,6 +1,7 @@
 import {importValueChoices,importLinkProposalsHtml} from "./import-summary.js";
 import {reviewImportApproval} from './import-approval.js';
 import {collectWorkspace} from '../lokaler/view-adapter.js';
+import {importStoryHtml,fillImportSourceDetail} from './import-story.js';
 import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate,issueNumberColumn,suggestIssueNumberColumns,resolveFieldName,skippedFinancialSuggestions,assignAgreementItemKeys} from '../services/import-matching.js';
 import {importConflictGroups,resolveImportChoices,importReviewGroups,importTableRows} from '../lokaler/import-conflicts.js';
 import {columnPreferenceKey,importPreference} from '../services/import-preferences.js';
@@ -121,9 +122,10 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
     </div>`;
   };
   const groups=[['conflict','Dubbelkopplingar',(_column,key)=>duplicateKeys.has(key)],['pending','Behöver väljas',pending],['mapped','Föreslagna kopplingar',(column,key)=>selected(column)&&!pending(column)&&!duplicateKeys.has(key)],['ignored','Importeras inte',column=>column.target==='@ignore']];
-  return `<h2>2. Granska kolumnernas fördelning</h2><p>${esc(prepared.fileName)}. En Excel-flik kan berika flera register. Varje kolumn matchas separat mot ett befintligt fält. Granska förslagen eller välj Importera inte.</p>
-    <p class="import-selection-status" role="status">${included} kolumner läses in · ${all.length-included-unmapped} väljs bort${unmapped?' · '+unmapped+' behöver väljas':''}</p>
+  return `<h2>Granska underlaget och kolumnvalen</h2><p>${esc(prepared.fileName)}. En Excel-flik kan berika flera register. Varje kolumn matchas separat mot ett befintligt fält. Granska förslagen eller välj Importera inte.</p>
+    <p class="import-selection-status" role="status">${included} kolumner valda · ${all.length-included-unmapped} väljs bort${unmapped?' · '+unmapped+' behöver väljas':''}</p>
     ${options.stale?'':importValueChoices(options.conflicts||importConflictGroups(result),{...options,canonical:mapping.profiles.some(profile=>profile.canonical),reusedLinks:result.report.reusedLinks?.length||0})}
+    ${!options.stale&&options.explanationBase?importStoryHtml(result,options.explanationBase,{profiles:mapping.profiles,...options.story}):''}
     ${skippedFinancialHtml(options.financialSuggestions||[],schemas)}
     ${duplicates.length?`<div data-mapping-conflicts role="alert"><strong>Rätta dubbelkopplingarna före import</strong>${duplicates.map(group=>`<p>${esc(mapping.profiles[group.profileIndex].name)}: ${esc(group.columns.map(column=>column.header).join(' och '))} är kopplade till ${esc(fieldLabel(fields.find(field=>field.target===group.target)||{label:group.target}))}. Välj vilket fält varje kolumn ska fylla.</p>`).join('')}</div>`:''}
     ${mapping.profiles.filter(p=>p.canonical).map((profile,pi)=>`<section class="import-sheet-settings"><strong>${esc(profile.fileName||prepared.fileName)} · ${esc(profile.name)}</strong><small>${profile.rowCount} datarader · ${profile.tableConfidence==='review'?'Kontrollera förslagens utgångspunkt':'Automatisk utgångspunkt för förslag'}</small><label>Utgångspunkt för förslag<select data-import-table="${pi}" aria-label="Utgångspunkt för ${esc(profile.name)}">${schemas.map(s=>`<option value="${esc(s.key)}" ${s.key===profile.primaryTable?'selected':''}>${esc(s.sheet)}</option>`).join('')}</select></label><label>Rad ${profile.headerRow+1} efter rubrikerna<select data-mapping-row="${pi}" aria-label="Matchningsrad för ${esc(profile.name)}">${profile.mappingRowSuggested?'<option value="ask">En möjlig matchningsrad hittades – välj</option>':''}<option value="no" ${profile.mappingRowDecision==='no'||!profile.mappingRowSuggested&&!profile.mappingRow?'selected':''}>Vanlig datarad</option><option value="yes" ${profile.mappingRow?'selected':''}>Innehåller Lokalblick-fältnamn</option></select></label><small>Valet hjälper Lokalblick att tolka rubriker. Kolumnerna kan fortfarande gå till olika register.</small>${destinationSummary(profile,schemas,pi)}${importIdentityWarnings(profile,schemas).map(warning=>`<small role="alert">${esc(warning)}</small>`).join('')}</section>`).join('')}
@@ -134,7 +136,7 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
         return columns.length?`<section class="import-column-sheet"><h3>${esc(profile.fileName||prepared.fileName)} · ${esc(profile.name)} <small>${profile.rowCount} rader</small></h3>${group==='mapped'?[...new Set(columns.map(({column})=>column.target.split('.')[0]))].map(collection=>`<section class="import-destination-fields" data-import-destination-fields="${pi}:${esc(collection)}"><h4>${esc(collectionCaption(schemas.find(s=>s.key===collection)||{sheet:'Kontaktuppgifter'}))}</h4>${columns.filter(({column})=>column.target.split('.')[0]===collection).map(({column,ci})=>rowHtml(profile,pi,column,ci)).join('')}</section>`).join(''):columns.map(({column,ci})=>rowHtml(profile,pi,column,ci)).join('')}</section>`:'';
       }).join('')}</details>`;
     }).join('')}</div>
-    <section class="import-result" data-import-result><h3>3. Granska hela importen</h3>${options.stale?'<p role="status">Kolumnvalen har ändrats. Kontrollera posterna innan du importerar.</p>':`<p>Alla valda register kontrolleras tillsammans. Inget är sparat ännu.</p>${tableRows.length?`<div class="import-result-table"><table aria-label="Resultat per tabell"><thead><tr><th>Register</th><th>Klara</th><th>Nya</th><th>Kompletteras</th><th>Oförändrade</th></tr></thead><tbody>${tableRows.map(table=>`<tr data-import-register="${esc(table.collection)}"><th>${esc(collectionCaption({key:table.collection,sheet:table.label}))}</th><td>${table.created+table.updated+(table.unchanged||0)}</td><td>${table.created}</td><td>${table.updated}</td><td>${table.unchanged??0}</td></tr>`).join('')}</tbody></table></div>`:'<p>Inga poster klara att läsa in.</p>'}${feedback?`<small>${esc(feedback)}. Öppna bara det du vill kontrollera nedan.</small>`:'<small>Inga kvarstående kompletteringar eller osäkra kopplingar.</small>'}${importedIssues.length?`<p data-issue-home-result>${importedIssues.filter(issue=>issue.property_id).length} kopplade till fastighet · ${importedIssues.filter(issue=>issue.object_id).length} till objekt · <strong>${unlinkedIssues.length} att koppla</strong>.</p>`:''}${unlinkedIssues.length?'<p>Ofullständiga eller motstridiga kopplingar sparas som <strong>Att koppla</strong>. Kontrollera kolumnvalet ovan eller koppla dem senare under Ärenden → Att koppla.</p>':''}`}</section>
+    <section class="import-result" data-import-result><h3>Förslag per register</h3>${options.stale?'<p role="status">Kolumnvalen har ändrats. Kontrollera posterna innan du importerar.</p>':`<p>Detta är förslag före ditt godkännande. Nya fastigheter, objekt och avtal godkänns i nästa steg. Inget är sparat ännu.</p>${tableRows.length?`<div class="import-result-table"><table aria-label="Resultat per tabell"><thead><tr><th>Register</th><th>Berörda</th><th>Föreslås som nya</th><th>Kompletteras/ändras</th><th>Oförändrade</th></tr></thead><tbody>${tableRows.map(table=>`<tr data-import-register="${esc(table.collection)}"><th>${esc(collectionCaption({key:table.collection,sheet:table.label}))}</th><td>${table.created+table.updated+(table.unchanged||0)}</td><td>${table.created}</td><td>${table.updated}</td><td>${table.unchanged??0}</td></tr>`).join('')}</tbody></table></div>`:'<p>Inga poster klara att läsa in.</p>'}${feedback?`<small>${esc(feedback)}. Öppna bara det du vill kontrollera nedan.</small>`:'<small>Inga kvarstående kompletteringar eller osäkra kopplingar.</small>'}${importedIssues.length?`<p data-issue-home-result>${importedIssues.filter(issue=>issue.property_id).length} kopplade till fastighet · ${importedIssues.filter(issue=>issue.object_id).length} till objekt · <strong>${unlinkedIssues.length} att koppla</strong>.</p>`:''}${unlinkedIssues.length?'<p>Ofullständiga eller motstridiga kopplingar sparas som <strong>Att koppla</strong>. Kontrollera kolumnvalet ovan eller koppla dem senare under Ärenden → Att koppla.</p>':''}`}</section>
     ${!options.stale&&result.report.consolidation?`<small>${result.report.consolidation.files} filer · ${result.report.consolidation.sheets} flikar · ${result.report.consolidation.uniqueRecords} identifierade poster.</small>`:''}
     ${options.stale?'':agreementItemsPreview(result,schemas)}
     ${options.stale?'':importLinkProposalsHtml(result.report.linkProposals)}
@@ -146,6 +148,7 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
 export async function previewImport(prepared,base,schemas,actor,evaluator=null) {
   const mapping={profiles:reviewProfiles(prepared.profiles,schemas)},fields=fieldCatalog(schemas,true);
   const draft=structuredClone(base);draft.importFieldPreferences ||= {};
+  const story={filter:'',query:'',limit:30};
   const financialSuggestions=mapping.profiles.flatMap((profile,pi)=>skippedFinancialSuggestions(prepared.workbook,profile,schemas,window.XLSX).map(column=>({key:pi+':'+profile.columns.findIndex(c=>c.index===column.index),column})));
   const pendingFinancialSuggestions=()=>financialSuggestions.filter(({key})=>{const [pi,ci]=key.split(':').map(Number),profile=mapping.profiles[pi],column=profile.columns[ci];return !profile.mappingRow&&!['recurringCosts','costEvidence'].includes(profile.primaryTable)&&column.matchSource==='saved'&&['@ignore','@unmapped'].includes(column.target);});
   suggestIssueNumberColumns(mapping.profiles,base);
@@ -160,16 +163,17 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     const abort=()=>{close();const error=Error('Importen avbröts');error.name='AbortError';reject(error);};
     const locate=key=>{const [pi,ci]=key.split(':').map(Number);return {profile:mapping.profiles[pi],column:mapping.profiles[pi].columns[ci]};};
     const viewState=()=>{
-      const focused=document.activeElement,focusAttr=['data-column-rule','data-date-mode','data-preview-map','data-ignore-column','data-person-format','data-person-shared','data-import-conflict-mode','data-import-conflict-choice','data-item-type','data-item-key','data-import-table','data-mapping-row','data-issue-number'].find(attr=>focused?.hasAttribute(attr));
+      const focused=document.activeElement,focusAttr=['data-story-search','data-story-filter','data-column-rule','data-date-mode','data-preview-map','data-ignore-column','data-person-format','data-person-shared','data-import-conflict-mode','data-import-conflict-choice','data-item-type','data-item-key','data-import-table','data-mapping-row','data-issue-number'].find(attr=>focused?.hasAttribute(attr));
       for(const node of d.querySelectorAll('details'))if(disclosureKey(node))disclosures.set(disclosureKey(node),node.open);
-      return {scroll:d.scrollTop,open:new Map(disclosures),focusAttr,focusValue:focusAttr?focused.getAttribute(focusAttr):null};
+      return {scroll:d.scrollTop,open:new Map(disclosures),focusAttr,focusValue:focusAttr?focused.getAttribute(focusAttr):null,selection:focused?.selectionStart};
     };
-    const disclosureKey=node=>node.dataset.columnGroup?'group:'+node.dataset.columnGroup:node.dataset.exampleKey?'example:'+node.dataset.exampleKey:node.dataset.reviewProblem?'review:'+node.dataset.reviewProblem:node.hasAttribute('data-import-errors')?'errors':node.hasAttribute('data-import-value-choices')?'value-choices':node.hasAttribute('data-import-item-records')?'item-records':node.hasAttribute('data-import-link-exceptions')?'link-exceptions':node.hasAttribute('data-import-link-suggestions')?'link-suggestions':node.hasAttribute('data-import-link-approved')?'link-approved':null;
+    const disclosureKey=node=>node.dataset.columnGroup?'group:'+node.dataset.columnGroup:node.dataset.exampleKey?'example:'+node.dataset.exampleKey:node.dataset.reviewProblem?'review:'+node.dataset.reviewProblem:node.hasAttribute('data-import-errors')?'errors':node.hasAttribute('data-import-value-choices')?'value-choices':node.hasAttribute('data-import-item-records')?'item-records':node.hasAttribute('data-import-link-exceptions')?'link-exceptions':node.hasAttribute('data-import-link-suggestions')?'link-suggestions':node.hasAttribute('data-import-link-approved')?'link-approved':node.dataset.sourceDetail?'source:'+node.dataset.sourceDetail:null;
     const render=state=>{
       let error;try{result=resolveImportChoices(rawResult,{mode:conflictMode,choices:conflictChoices},actor);}catch(failure){error=failure;result=null;}
-      d.innerHTML=columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial,stale,conflicts:importConflictGroups(rawResult),conflictMode,conflictChoices,financialSuggestions:pendingFinancialSuggestions()});d.setAttribute('aria-busy','false');
+      d.innerHTML=columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial,stale,conflicts:importConflictGroups(rawResult),conflictMode,conflictChoices,financialSuggestions:pendingFinancialSuggestions(),story,explanationBase:(result||rawResult).clean?(evaluator?.baseline||collectWorkspace(base)):null});d.setAttribute('aria-busy','false');
       for(const group of d.querySelectorAll('details'))if(state.open.has(disclosureKey(group)))group.open=state.open.get(disclosureKey(group));
       if(state.focusAttr)d.querySelector(`[${state.focusAttr}="${state.focusValue}"]`)?.focus({preventScroll:true});
+      if(state.focusAttr==='data-story-search'&&state.selection!=null)d.querySelector('[data-story-search]')?.setSelectionRange(state.selection,state.selection);
       for(const node of d.querySelectorAll('[data-column-rule]')){const {profile,column}=locate(node.dataset.columnRule);node.value=importPreference(draft.importFieldPreferences,...column.target.split('.'),profile.fileName||prepared.fileName,profile,column)||'';}
       d.scrollTop=state.scroll;
       if(error){d.querySelector('[data-import-error]').textContent=error.message;d.querySelector('[data-apply]').disabled=true;}
@@ -202,10 +206,18 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       invalidate();
     };
     const fail=error=>{d.setAttribute('aria-busy','false');result=null;const output=d.querySelector('[data-import-error]');if(output)output.textContent=error.message;else d.insertAdjacentHTML('beforeend','<p data-import-error role="alert">'+esc(error.message)+'</p><button type="button" data-cancel>Avbryt</button>');const apply=d.querySelector('[data-apply]');if(apply)apply.disabled=true;};
-    d.addEventListener('cancel',event=>{event.preventDefault();abort();});
+    d.addEventListener('cancel',event=>{if(d.classList.contains('import-approval-dialog'))return;event.preventDefault();abort();});
+    const locateColumn=key=>{if(key.startsWith('link:')){const proposal=d.querySelector(`[data-link-proposal="${Number(key.slice(5))}"]`);if(proposal){const details=proposal.closest('details');if(details)details.open=true;proposal.scrollIntoView({block:'center'});(proposal.querySelector('[data-link-property]')||proposal.querySelector('[data-approve-link]'))?.focus();}return;}const row=d.querySelector(`[data-import-column="${key}"]`);if(row){row.closest('[data-column-group]').open=true;row.scrollIntoView({block:'center'});row.querySelector('[data-preview-map]')?.focus();}};
+    d.addEventListener('toggle',event=>{if(!d.classList.contains('import-approval-dialog')&&event.target.matches('details[data-source-detail]'))fillImportSourceDetail(event.target,prepared,mapping.profiles,window.XLSX,{candidate:result||rawResult,base:evaluator?.baseline||collectWorkspace(base)});},true);
+    d.addEventListener('input',event=>{if(d.classList.contains('import-approval-dialog')||!event.target.hasAttribute('data-story-search'))return;const state=viewState();story.query=event.target.value;story.limit=30;render(state);});
     d.addEventListener('click',async event=>{
       const button=event.target.closest('button');if(!button)return;
+      if(d.classList.contains('import-approval-dialog'))return;
       try{
+        if(button.hasAttribute('data-story-more')){story.limit+=30;render(viewState());return;}
+        if(button.hasAttribute('data-story-link')){locateColumn('link:'+button.dataset.storyLink);return;}
+        if(button.hasAttribute('data-story-column')){locateColumn(button.dataset.storyColumn);return;}
+        if(button.hasAttribute('data-story-register')){const apply=d.querySelector('[data-apply]');if(apply.disabled)throw Error('Kontrollera kolumnval och osäkra kopplingar innan nya poster kan godkännas.');apply.click();return;}
         if(button.hasAttribute('data-restore-financial')){
           const proposals=pendingFinancialSuggestions().filter(proposal=>button.dataset.restoreFinancial==='all'||proposal.key===button.dataset.restoreFinancial);
           for(const proposal of proposals){const {column}=locate(proposal.key);Object.assign(column,proposal.column,{approved:true,matchSource:'manual'});}
@@ -241,8 +253,9 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
           if(mappingConflicts(mapping.profiles).length)throw Error('Rätta dubbelkopplingarna innan importen genomförs.');
           if(result.report.blocking)result.report.partial=true;
           if(result.clean){
-            const approved=await reviewImportApproval(result,evaluator?.baseline||collectWorkspace(base),actor);
-            if(!approved)return;
+            const state=viewState();let columnToLocate=null;
+            const approved=await reviewImportApproval(result,evaluator?.baseline||collectWorkspace(base),actor,{dialog:d,prepared,profiles:mapping.profiles,onLocate:key=>{columnToLocate=key;}});
+            if(!approved){render(state);if(columnToLocate)locateColumn(columnToLocate);return;}
             result=approved;
           }
           result.report.actor=actor;close();resolve(result);
@@ -250,6 +263,8 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       }catch(error){fail(error);}
     });
     d.addEventListener('change',event=>{
+      if(d.classList.contains('import-approval-dialog'))return;
+      if(event.target.hasAttribute('data-story-filter')){story.filter=event.target.value;story.limit=30;render(viewState());return;}
       if(event.target.hasAttribute('data-link-property')){
         if(stale||d.getAttribute('aria-busy')==='true'||resultGeneration!==generation)return;
         const index=Number(event.target.dataset.linkProperty),proposal=rawResult.report.linkProposals[index];

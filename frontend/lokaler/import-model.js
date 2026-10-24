@@ -52,9 +52,10 @@ const canHoldField=(table,field)=>{
 export function prepareCleanImport(workbook,profiles,base=emptyData(),context={},XLSX){
  profiles=clone(profiles);
  for(const profile of profiles)assignAgreementItemKeys(profile);
- const data=clone(base),changes=[],decisions=[],reviews=[],linkProposals=[],reusedLinks=new Map();
+ const data=clone(base),changes=[],decisions=[],reviews=[],linkProposals=[],reusedLinks=new Map(),sourceRows=[];
  const touched=Object.fromEntries(Object.keys(tables).map(table=>[table,new Set()]));
  let rejectedRows=0;
+ const traceRow=row=>{if(sourceRows.length>=20000)throw Error('Högst 20 000 datarader per import. Dela underlaget i mindre filer.');sourceRows.push(row);};
  const columnStats=new Map(profiles.map(profile=>{
   const labels=new Map([...importSchemas.flatMap(schema=>schema.columns.map(([field,label])=>({target:schema.key+'.'+field,label:schema.sheet+' → '+label}))),...contactFields(profile)].map(field=>[field.target,field.label]));
   return [profile,new Map(profile.columns.map(column=>[column.index,{source:profile.fileName||context.fileName||'Excel',sheet:profile.name,index:column.index,header:column.header,target:column.target,label:labels.get(column.target)||column.target,...(column.itemType?{itemType:column.itemType,itemLabel:tables.agreement_items.fields.find(field=>field.key==='type').values[column.itemType]}:{}),read:0,skipped:0,review:0}]))];
@@ -90,7 +91,10 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   const range=XLSX.utils.decode_range(sheet['!ref']);
   for(let r=profile.dataStartRow??profile.headerRow;r<=range.e.r;r++){
    const selected=profile.columns.filter(column=>!column.target.startsWith('@'));
-   if(!selected.some(column=>present(sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.v)))continue;
+   if(!selected.some(column=>present(sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.v))){
+    if(profile.columns.some(column=>present(sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.v)))traceRow({source:profile.fileName||context.fileName||'Excel',sheet:profile.name,row:r+1,records:{},read:[],held:[],ignored:true});
+    continue;
+   }
    if(++rowCount>20000)throw Error('Högst 20 000 datarader per import. Dela underlaget i mindre filer.');
    const transaction=createImportRow({data,tableNames:Object.keys(tables),changes,reviews,decisions,selected,fieldMap});
    const {undo,touched:rowTouched,read:readColumns,held:heldColumns,startReviews,touch}=transaction;
@@ -497,9 +501,10 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
    }
    if(!rejected)for(const [table,ids]of rowTouched)for(const id of ids)touched[table].add(id);
    if(!rejected&&reusedLink&&rowTouched.get('agreements')?.has(reusedLink.agreementId))reusedLinks.set(reusedLink.agreementId,reusedLink);
+   traceRow({...origin,records:Object.fromEntries([...rowTouched].map(([table,ids])=>[table,[...ids]])),read:[...readColumns],held:[...heldColumns],rejected,hints:{propertyId:raw.properties?.id,managementNumber:raw.properties?.management_object_number,address:raw.properties?.address,objectId:raw.objects?.id||raw.agreements?.object_id,agreementId:raw.agreements?.id||raw.agreement_items?.agreement_id}});
    for(const value of sourceValues){const stat=columnStats.get(profile).get(value.index);if(rejected||heldColumns.has(value.index)){if(present(value.raw))stat.skipped++;}else if(readColumns.has(value.index))stat.read++;}
   }
  }
  return completeCleanImport({data,prior,profiles,context,changes,decisions,
-  reviews,linkProposals,reusedLinks:[...reusedLinks.values()],touched,aliases,rowCount,rejectedRows,columnStats});
+  reviews,linkProposals,reusedLinks:[...reusedLinks.values()],sourceRows,touched,aliases,rowCount,rejectedRows,columnStats});
 }

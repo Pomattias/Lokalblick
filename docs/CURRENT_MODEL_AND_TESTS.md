@@ -66,10 +66,10 @@ npm run test:table-import-browser
 Testerna använder syntetiska data och tillfälliga filer. Vid arbete med den
 nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
-Verifierat 2026-10-23 med Node.js 24.19.0 och systemets Chromium:
+Verifierat 2026-10-24 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 723 godkända, 0 underkända, 0 överhoppade.
-- Repots förkontroll: syntax för 129 JavaScript-filer och kontroll av filtyper.
+- `npm test`: 739 godkända, 0 underkända, 0 överhoppade.
+- Repots förkontroll: syntax för 131 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
 - Tabellimport i webbläsare: mappning, återimport, kontakter, SQLite-sparning

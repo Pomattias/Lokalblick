@@ -4,6 +4,37 @@ Importen är ett utkast fram till **Godkänn och spara import**. Den befintliga
 importmotorn läser och identifierar underlaget; godkännandet avgör vilka nya
 fastigheter, objekt och avtal som får sparas. Datamodellen är oförändrad.
 
+## Förstå vad som läses in
+
+Kolumnval och godkännandesteg använder **samma dialog**. Kopplingskedjan per
+källrad, sökning och statusfilter finns både före och under godkännandet.
+
+| Status | Betydelse i det aktuella utkastet |
+| --- | --- |
+| Skapas | En ny post har godkänts och kommer att skapas vid slutlig sparning. |
+| Kompletteras | Saknade uppgifter på en befintlig post fylls i. |
+| Ändras | Ett tidigare värde ersätts enligt dina värdeval. |
+| Oförändrat | Befintliga uppgifter återanvänds utan ändrade verksamhetsvärden. |
+| Läses inte in | Raden eller uppgiften är bortvald eller beror på en bortvald post. |
+| Behöver ditt val | Ett förslag, fältval, värde eller en koppling behöver granskas. Säkra delar kan fortfarande ingå; raden anger när bara vissa uppgifter läses in. |
+
+Varje källrad visar fil, flik och verkligt radnummer samt kedjan
+**Fastighet → Objekt → Avtal → Priser**. Priser på samma avtal visas tillsammans.
+En känd avtalskoppling förklaras exempelvis med att avtalsnumret redan finns och
+att dess sparade objekt och fastighet återanvänds. En felaktig eller oklar
+relation visas som ej kopplad, utan pilar som antyder en bekräftad relation.
+
+Öppna **Visa källrad och vad kolumnerna används till** för att se originalvärde,
+vald kolumnkoppling och resultat i Lokalblick. Där framgår även bortvalda
+kolumner, avvikande värden som behålls och ogiltiga värden som inte används.
+**Visa kolumnval och rätta** respektive **Granska föreslagen fastighetskoppling**
+öppnar rätt kontroll i samma granskningsvy.
+
+Sammanställningen uppdateras när poster godkänns eller väljs bort. Antal
+källrader hålls isär från antal registerposter: en rad kan beröra en fastighet,
+ett objekt, ett avtal och flera priser. Att läsa samma verksamhetsvärden från
+en annan fil kan komplettera källspårningen utan att uppgifterna räknas som ändrade.
+
 ## Arbetsgång
 
 1. **Kolumnval och förhandsgranskning.** Läs hela underlaget och granska
@@ -78,7 +109,13 @@ sökning och urval bland 122 fastigheter, dator/mobil samt återöppning av SQLi
 Priset och kopplingarna verifieras efter sparning. Bakgrundsgeokodning stängs av
 just i provet som räknar importens skrivningar. Inga skarpa verksamhetsdata används.
 
-Verifierat 2026-10-23: 723 tester godkända, 129 JavaScript-filer syntaxkontrollerade.
+Verifierat 2026-10-24: 739 tester godkända, 131 JavaScript-filer syntaxkontrollerade.
 Webbläsarprov för godkännandestegen, 80-raders lokaldata, tabellimport,
 SQLite, båda Excel-lägena, stabila fastighetskopplingar och importens
 versionsskydd är godkända.
+
+Radförklaringarna provas även för oförändrad återimport, kompletteringar,
+ändrade belopp, bortval av överordnade poster, ogiltiga datum, felaktiga
+identifierare, bortvalda kolumner, omkoppling till befintlig fastighet och
+okända källrubriker. Källceller läses från den redan öppnade arbetsboken först
+när raden öppnas. Rapportens radspår lagras inte som en extra datatabell.

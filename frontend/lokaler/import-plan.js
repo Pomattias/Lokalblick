@@ -1,4 +1,4 @@
-import {tables,validateData} from './model.js';
+import {tables,validateData,sameRecordFacts} from './model.js';
 import {viewCollections,viewFields} from './view-fields.js';
 import {projectWorkspace} from './view-adapter.js';
 import {refreshImportReceipt} from './import-receipt.js';
@@ -51,10 +51,11 @@ export function approveImportPlan(result,base,choices={},actor='Excelimport'){
  // existing names, management numbers or other saved property facts.
  for(const [from,to]of mapped){
   const proposed=clean.properties.find(row=>row.id===from),target=clean.properties.find(row=>row.id===to);
+  const origins=planIndexes.get(plan).get(token('properties',from))?.origins||[];
   for(const field of tables.properties.fields){
    const value=proposed[field.key];if(value==null||value==='')continue;
    if(target[field.key]==null||target[field.key]==='')target[field.key]=structuredClone(value);
-   else if(!same(target[field.key],value))addedReviews.push({id:'PLAN-MAP-'+token(from,field.key),kind:'canonical-conflict',status:'pending',source:report.sourceName,collection:'properties',recordId:to,field:viewFields.properties[field.key]||field.key,current:target[field.key],proposed:value,reason:'Olika uppgifter vid vald koppling till befintlig fastighet.',blocking:false,rowRejected:false});
+   else if(!same(target[field.key],value))addedReviews.push({id:'PLAN-MAP-'+token(from,field.key),kind:'canonical-conflict',status:'pending',...origins[0],source:origins[0]?.source||report.sourceName,occurrences:origins.map(({source,sheet,row})=>({source,sheet,row})),collection:'properties',recordId:to,field:viewFields.properties[field.key]||field.key,current:target[field.key],proposed:value,reason:'Olika uppgifter vid vald koppling till befintlig fastighet.',blocking:false,rowRejected:false});
   }
  }
  for(const [table,spec]of Object.entries(tables))for(const record of clean[table]){
@@ -121,7 +122,7 @@ export function approveImportPlan(result,base,choices={},actor='Excelimport'){
  report.creationReview={mapped:[...mapped].map(([from,to])=>({from,to})),deferred:deferred.map(row=>({collection:row.collection,id:row.recordId}))};
  report.tables=Object.entries(viewCollections).map(([table,name])=>{
   const ids=new Set([...Object.keys(report.recordStates?.[name]||{}),...report.changes.filter(change=>change.collection===name).map(change=>change.recordId),...(table==='properties'?mapped.values():[])]),states=Object.create(null);
-  for(const id of ids){const record=present[table].get(id);if(record)states[id]=!before[table].has(id)?'created':same(record,before[table].get(id))?'unchanged':'updated';}
+  for(const id of ids){const record=present[table].get(id);if(record)states[id]=!before[table].has(id)?'created':sameRecordFacts(record,before[table].get(id))?'unchanged':'updated';}
   report.recordStates[name]=states;
   return {collection:name,label:tables[table].label,created:Object.values(states).filter(state=>state==='created').length,updated:Object.values(states).filter(state=>state==='updated').length,unchanged:Object.values(states).filter(state=>state==='unchanged').length,review:pending.filter(row=>row.collection===name).length};
  });

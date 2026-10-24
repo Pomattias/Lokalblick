@@ -1,7 +1,7 @@
 import { consolidateImportReviews } from "./import-conflicts.js";
 import { resolvePropertyId } from "./property-identity.js";
 import { refreshImportReceipt } from "./import-receipt.js";
-import { tables, validateData } from "./model.js";
+import { tables, validateData, sameRecordFacts } from "./model.js";
 import { viewCollections } from "./view-fields.js";
 import { projectWorkspace } from "./view-adapter.js";
 import { hashImportIdentity as hash } from "./import-identities.js";
@@ -27,11 +27,11 @@ function countImportedRecords(data, prior, touched, aliases, reviews) {
       const before = old.get(record.id);
       recordStates[collection][record.id] = !before
         ? "created"
-        : JSON.stringify(before) !== JSON.stringify(record)
+        : !sameRecordFacts(before,record)
           ? "updated"
           : "unchanged";
       if (!before) created++;
-      else if (JSON.stringify(before) !== JSON.stringify(record)) updated++;
+      else if (!sameRecordFacts(before,record)) updated++;
       else unchanged++;
     }
     return {
@@ -116,6 +116,7 @@ export function completeCleanImport({
   reviews,
   linkProposals,
   reusedLinks=[],
+  sourceRows=[],
   touched,
   aliases,
   rowCount,
@@ -196,6 +197,8 @@ export function completeCleanImport({
     (row) => row.kind === "clean-import" && row.name === sourceName,
   ).receipt = {
     rows: rowCount,
+    scannedRows:sourceRows.length,
+    ignoredRows:sourceRows.filter(row=>row.ignored).length,
     readRows: rowCount - rejectedRows,
     rejectedRows,
     partialRows: new Set(
@@ -214,6 +217,7 @@ export function completeCleanImport({
       recordStates,
       linkProposals,
       reusedLinks,
+      sourceRows:sourceRows.map(row=>({...row,records:{...row.records,...(row.records.properties?{properties:[...new Set(row.records.properties.map(id=>resolvePropertyId(aliases,id)))]}:{})}})),
       reviewIds: reviews.map((r) => r.id),
       sourceName,
       changes,
