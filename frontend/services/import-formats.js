@@ -1,5 +1,5 @@
 // Conservative local interpretation. Identity columns never become numbers or dates.
-export const dateField=field=>/^(start|end|.*Date|orderedAt|paidAt|completedAt|terminatedOn)$/.test(field);
+export const dateField=field=>/^(start|end|notice|.*Date|orderedAt|paidAt|completedAt|terminatedOn)$/.test(field);
 export const numberField=field=>field!=='areaType'&&/^(usedArea|costSharePercent|area|baseRent|baseAdditions|annual|employees|users|rooms|commonArea|apartmentArea|latitude|longitude|estimatedCost|orderedCost|finalCost|planningYear|planningQuarter|planningMonth|startYear|endYear|budgetYear|budgetInvestigation|budgetExecution|budgetFurnishing|preliminaryCost|investmentThreshold|rentSurchargeRate|cost|year|period|actual|budget|allocation|noticePeriod|renewalPeriod|rentBase|additionBase|rentIndexPercent|additionIndexPercent)/.test(field);
 const identityField=field=>/^(id|.*Id|number|orderReference|phone|email|ekotObject|costCenter.*)$/.test(field);
 const currencyField=field=>/^(baseRent|baseAdditions|annual.*|estimatedCost|orderedCost|finalCost|investmentThreshold|cost|preliminaryCost|budget|budgetInvestigation|budgetExecution|budgetFurnishing|actual)$/.test(field);

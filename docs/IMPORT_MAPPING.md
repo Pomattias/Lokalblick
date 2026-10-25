@@ -81,7 +81,7 @@ Det tidigare separata provet använde utgångna fält som `costCenterPremises`
 och har ersatts. Kompletterande prov finns för tabellimport, lokaldata,
 priser, ärenden samt server- och webbläsarbaserad Excel-lagring.
 
-Verifierat med syntetiska underlag 2026-10-25: 807 godkända tester och
+Verifierat med syntetiska underlag 2026-10-25: 814 godkända tester och
 syntaxkontroll av 138 JavaScript-filer. Inga skarpa verksamhetsdata används.
 
 Väntande källrader hanteras i samma tabell med filtren **Behöver kopplas**,
@@ -104,3 +104,8 @@ klonas bara för ändrade celler och importmotorn validerar korrigeringarna.
 `manualCorrections` och fältproveniens beskriver manuella ändringar. Personfakta
 redigeras i persontabellen och deras beslut följer befintlig ändringshistorik.
 Värdeskillnader och identitetsförslag jämförs som tabellrader; se [arbetsgången](SAFE_IMPORT.md#redigering-och-tydliga-jämförelser).
+
+Importtabellens datumvisning använder ÅÅÅÅ-MM-DD från det underliggande
+Excelvärdet och valt 1900-/1904-system, inte cellens amerikanska visningstext.
+Tolkningen av oklara textdatum ändras inte av visningsformatet. Felmeddelanden
+visas vid den berörda cellen och nämner kolumnen i radens sammanfattning.

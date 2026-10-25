@@ -121,7 +121,7 @@ npm run test:table-import-browser
 npm run test:lokaler-browser
 ```
 
-Verifierat med syntetiska filer 2026-10-25: 807 tester och syntaxkontroll av 138
+Verifierat med syntetiska filer 2026-10-25: 814 tester och syntaxkontroll av 138
 JavaScript-filer. Webbläsarprovet följer fil → tabell → ändrade val → API → SQLite
 → återöppning: selektiva/allmänna urval, 122 nya fastigheter, saknad beteckning
 före/efter import, en person med flera roller och mål, återimport och avbrott utan
@@ -241,3 +241,22 @@ skapa egen fastighet är hopfällda. Öppnade detaljer behålls vid omräkning.
 `npm run test:property-enrichment-browser` provar automatisk koppling,
 komplettering, befintliga nummer, personer/kontakter, avbrott utan skrivning,
 återimport och kompakt granskning i både SQLite och server-Excel.
+
+
+## Svensk datumvisning och konkreta fältfel
+
+Importtabellen visar tolkningsbara datum som **ÅÅÅÅ-MM-DD**, även när Excel
+har amerikanskt cellformat `m/d/yy`. Visningen använder cellens underliggande
+värde och vald datumtolkning. Även bortvalda datumkolumner visas enligt samma
+standard. Källfilens cellvärden och format skrivs inte om.
+
+Datum som inte kan tolkas behåller sin ursprungliga text och markeras vid den
+exakta cellen. Datumredigeringen visar formatet ÅÅÅÅ-MM-DD och kopplar feltexten
+till fältet. Källkod, telefonnummer och ID behandlas inte som datum. Tvåsiffriga
+år och text som ”Se avtal” görs inte om genom gissning.
+
+Radens feltext anger kolumnen. Oklara kolumnval beskriver vilket fältval som
+saknas; ett datumfel på en annan cell blandas inte ihop med den förklaringen.
+Vanliga värdeskillnader utan formatfel markeras inte som ogiltiga inmatningsfält.
+`npm run test:import-date-browser` verifierar visning, bortval, fältfel,
+rättning, avbryt, sparning och återimport i både SQLite och server-Excel.

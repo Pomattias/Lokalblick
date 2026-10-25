@@ -114,7 +114,7 @@ Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
 Verifierat 2026-10-25 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 807 godkända, 0 underkända, 0 överhoppade.
+- `npm test`: 814 godkända, 0 underkända, 0 överhoppade.
 - Syntax/förkontroll: 138 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,
@@ -134,3 +134,8 @@ samlad tabell med en rad per person, namn, e-post, telefon och bolag/organisatio
 två jämförbara rader och förklarar vilket nummer som är gemensamt. Frågan om
 samma eller egen fastighet används endast vid berikning utan identifierare.
 Se [redigering och jämförelser](SAFE_IMPORT.md#redigering-och-tydliga-jämförelser).
+
+Datum visas i svensk standard, ÅÅÅÅ-MM-DD, i importtabell och cellredigering.
+Ett datum som saknas i underlaget ersätts inte av ett gissat värde. Ogiltiga
+värden visas med fältets feltext, så att övrig giltig information kan granskas
+separat. Källfilens datumformat ändras inte.

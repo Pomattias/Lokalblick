@@ -48,13 +48,13 @@ test('new-record approval is explained separately from missing or rejected data'
  assert.equal(attention.create,true);assert.equal(attention.link,false);assert.equal(attention.complete,false);assert.equal(attention.blocked,false);
  assert.equal(attention.caption,'Nya poster att godkänna');
  const partial=matchingImportRows(prepared,profiles,result,story.rows,{filter:'attention:complete'});
- assert.equal(partial.length,1);assert.equal(partial[0].row,2);assert.match(partial[0].attention.reason,/datum/);
+ assert.equal(partial.length,1);assert.equal(partial[0].row,2);assert.match(partial[0].attention.reason,/datum/i);
 });
 
 test('the actual field error stays visible before its new agreement has been approved',()=>{
  const {base,profiles,prepared,run}=fixture(),result=run(),approved=approveImportPlan(result,base),story=explainImport(result,base,{approved,profiles});
  const rows=matchingImportRows(prepared,profiles,result,story.rows,{filter:'attention:complete'});
- assert.equal(rows.length,1);assert.equal(rows[0].row,2);assert.match(rows[0].attention.reason,/datum/);assert(rows[0].reasons.some(reason=>/datum/.test(reason)));
+ assert.equal(rows.length,1);assert.equal(rows[0].row,2);assert.match(rows[0].attention.reason,/datum/i);assert(rows[0].reasons.some(reason=>/datum/.test(reason)));
  assert.equal(approved.clean.agreements.length,0,'Explanations never bypass creation approval');
 });
 

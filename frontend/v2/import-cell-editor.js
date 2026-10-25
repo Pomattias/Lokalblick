@@ -3,7 +3,7 @@ import {tables} from '../lokaler/model.js';
 import {viewCollections,viewFields} from '../lokaler/view-fields.js';
 import {importCellKey} from '../lokaler/import-cell-edits.js';
 import {personRole,contactPart} from '../services/import-person-links.js';
-import {importSourceValue} from './import-row-review.js';
+import {importSourceValue,importDateColumn} from './import-row-review.js';
 import {esc} from './view-format.js';
 export function importCellOwner(row,column,profile){
  const role=personRole(column.target),part=contactPart(column.target);
@@ -14,17 +14,17 @@ export function importCellOwner(row,column,profile){
  if(table==='agreement_items'&&column.itemType)nodes=nodes.filter(n=>n.record.type===column.itemType&&(!column.itemKey||n.record.id.startsWith(column.itemKey+'|')));
  return nodes.length===1?{table,id:nodes[0].actualId,field,record:nodes[0].record}:null;
 }
-export function importCellHtml(prepared,profile,row,column,{editing=false,edits={},cellEdits={},labels,candidate}){
- const owner=importCellOwner(row,column,profile),key=importCellKey(profile,row.row,column,row.source),manual=cellEdits[key];
- let value=manual?manual.value:importSourceValue(prepared,profile,row,column);
+export function importCellHtml(prepared,profile,row,column,{editing=false,edits={},cellEdits={},labels,candidate,problem=null}){
+ const owner=importCellOwner(row,column,profile);
+ let value=importSourceValue({...prepared,cellEdits},profile,row,column);
  if(owner?.table==='properties'&&owner.field==='name'&&Object.hasOwn(edits.properties||{},owner.id))value=edits.properties[owner.id];
  if(owner?.table==='people'&&['name','email','phone'].includes(owner.field))value=edits.people?.[owner.id]?.[owner.field]??candidate.clean.people.find(p=>p.id===owner.id)?.[owner.field]??value;
  if(!editing||column.target.startsWith('@')||isInternalIdentifier(value))return `<span>${esc(value==null||value===''?'–':labels.text(value))}</span>`;
- const label=column.header+' · rad '+row.row;
+ const label=column.header+' · rad '+row.row,invalid=problem?` aria-invalid="true" aria-describedby="${esc(problem.id)}"`:'';
 
- if(owner?.table==='people'&&['name','email','phone'].includes(owner.field))return `<input type="text" data-person-field="${esc(owner.id)}" data-person-key="${owner.field}" aria-label="${esc(label)}" value="${esc(value??'')}" maxlength="20000">`;
+ if(owner?.table==='people'&&['name','email','phone'].includes(owner.field))return `<input type="text" data-person-field="${esc(owner.id)}" data-person-key="${owner.field}" aria-label="${esc(label)}"${invalid} value="${esc(value??'')}" maxlength="20000">`;
  const field=owner?.field&&tables[owner.table]?.fields.find(f=>f.key===owner.field);if(field?.type==='json')return `<span>${esc(labels.text(value))}</span>`;
- return `<input type="text" data-import-cell="${esc(key)}" aria-label="${esc(label)}" value="${esc(value??'')}" maxlength="20000">`;
+ return `<input type="text" data-import-cell="${esc(importCellKey(profile,row.row,column,row.source))}" aria-label="${esc(label)}"${invalid} value="${esc(value??'')}"${importDateColumn(column)?' placeholder="ÅÅÅÅ-MM-DD"':''} maxlength="20000">`;
 }
 
 

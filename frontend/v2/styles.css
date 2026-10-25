@@ -4210,3 +4210,7 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
 .import-link-actions {display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;}
 .import-link-actions>details {max-width:100%;}
 .import-link-list :is(th,td) {padding:6px 8px;}
+
+.import-source-table td[data-cell-problem] {box-shadow:inset 3px 0 #a33125;}
+.import-source-table .import-cell-problem {color:#8b251c;background:#fff2ef;padding:4px 6px;white-space:normal;}
+.import-source-table input[aria-invalid=true] {border-color:#a33125;}

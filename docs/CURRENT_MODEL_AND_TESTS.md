@@ -68,7 +68,7 @@ nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
 Verifierat 2026-10-25 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 807 godkända, 0 underkända, 0 överhoppade.
+- `npm test`: 814 godkända, 0 underkända, 0 överhoppade.
 - Repots förkontroll: syntax för 138 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
@@ -128,3 +128,8 @@ och sparade fält. Oklara träffar visas som kompakta kandidatrader med valfri
 fördjupning. `property-text-enrichment.test.js` och
 `npm run test:property-enrichment-browser` verifierar regeln, historiken och
 sparflödet i SQLite/server-Excel.
+
+`import-date-display.test.js` och `npm run test:import-date-browser` täcker svensk
+ISO-visning av Exceldatum, båda datumsystemen, bortvalda kolumner, oförändrade
+identifierare, tydliga fältfel, tillgänglig felbeskrivning och rättning/sparning
+i SQLite/server-Excel. Underliggande cellvärden och ursprungliga filer bevaras.

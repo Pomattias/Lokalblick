@@ -1,3 +1,4 @@
+import {parseDate,dateField} from '../services/import-formats.js';
 import {importCellKey} from '../lokaler/import-cell-edits.js';
 import {createBusinessLabels,visibleNumber} from '../lokaler/business-identities.js';
 import {propertyDesignation,esc} from './view-format.js';
@@ -11,18 +12,28 @@ export function importRowAttention(row,proposal=null){
  const complete=!blocked&&(row.reviews.some(review=>review.fieldRejected||review.personLinkRejected)||Boolean(row.held?.length)||row.nodes.some(node=>node.table==='properties'&&node.identified!==false&&node.record&&!propertyDesignation({designation:node.record.name,address:node.record.address})));
  const create=row.nodes.some(node=>['properties','objects','agreements'].includes(node.table)&&node.identified!==false&&!node.existing&&node.status==='pending');
  const flags={link,complete,create,columns,blocked},primary=['link','blocked','columns','complete','create'].find(key=>flags[key]);
- const reason=link?(proposal.matches.length>1?'Flera fastigheter matchar. Välj rätt koppling på raden.':'Jämför filens rad med förslaget nedan.'):blocked||complete||columns?row.reviews[0]?.reason||row.columns.find(column=>column.needsMapping)?.reason||'Fastighetsbeteckning saknas. Fyll i den här eller efter importen.':null;
+ const issue=blocked?row.reviews.find(r=>r.blocking||r.rowRejected||r.recordRejected):complete?row.reviews.find(r=>r.fieldRejected||r.personLinkRejected):null;
+ const unmapped=row.columns.find(c=>c.needsMapping),reason=link?(proposal.matches.length>1?'Flera fastigheter matchar. Välj rätt koppling på raden.':'Jämför filens rad med förslaget nedan.'):primary==='columns'?`${unmapped.header}: välj kolumn eller Importera ej.`:issue?`${issue.column||({properties:'Fastighet',objects:'Objekt',contracts:'Avtal',organizations:'Bolag',people:'Person'})[issue.collection]||'Raden'}: ${importProblemText(issue.reason)}`:complete?'Fastighetsbeteckning saknas. Fyll i den här eller efter importen.':blocked?row.reasons?.[0]||'Raden behöver kontrolleras.':null;
  return {...flags,primary,caption:importAttentionLabels[primary]||importStatuses[row.status],reason};
 }
 
+export function importDateColumn(column,cell=null){
+ const target=column.target==='@ignore'?column.excludedTarget||'':column.target||'',field=target.startsWith('@')?'':target.split('.').at(-1);
+ if(/^(id|.*Id|number|orderReference|phone|email|ekotObject|costCenter.*)$/.test(field||''))return false;
+ return column.valueType==='date'||dateField(field||'')||!field&&(column.format?.type==='date'||cell?.t==='d');
+}
 export function importSourceValue(prepared,profile,row,column){
- const edit=prepared.cellEdits?.[importCellKey(profile,row.row,column,row.source)];if(edit)return edit.value;
- const xlsx=prepared.XLSX||globalThis.XLSX;
- if(prepared.workbook&&xlsx){
-  const at=prepared.workbook.Sheets[profile.sheetKey||profile.name]?.[xlsx.utils.encode_cell({r:row.row-1,c:(profile.startColumn||0)+(column.index??profile.columns.indexOf(column))})];
-  return at?.w??at?.v;
- }
- return (column.samples||column.examples||[])[row.sample||0];
+ const xlsx=prepared.XLSX||globalThis.XLSX,edit=prepared.cellEdits?.[importCellKey(profile,row.row,column,row.source)];
+ const at=prepared.workbook&&xlsx?prepared.workbook.Sheets[profile.sheetKey||profile.name]?.[xlsx.utils.encode_cell({r:row.row-1,c:(profile.startColumn||0)+(column.index??profile.columns.indexOf(column))})]:null;
+ const raw=edit?edit.value:at?.v??(column.samples||column.examples||[])[row.sample||0];
+ if(raw!=null&&raw!==''&&importDateColumn(column,at))try{return parseDate(raw,xlsx,column.date1904??Boolean(prepared.workbook?.Workbook?.WBProps?.date1904),column.dateMode||'auto');}catch{/* Keep unparseable source text visible for correction. */}
+ return edit?edit.value:at?.w??raw;
+}
+const importProblemText=reason=>/Ogiltigt eller tvetydigt datum|Ogiltigt datum/.test(reason||'')?'Datum kan inte tolkas. Ange ÅÅÅÅ-MM-DD eller lämna tomt.':reason;
+export function importCellProblem(row,column){
+ if(column.target?.startsWith('@'))return null;
+ const review=row.reviews.find(r=>(r.columnIndex===column.index||r.collection+'.'+r.field===column.target)&&(r.fieldRejected||r.personLinkRejected||r.blocking||r.rowRejected||r.recordRejected));
+ return review?importProblemText(review.reason):null;
 }
 
 // The same predicate governs table rows and bulk approval, including matches
