@@ -893,6 +893,20 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
       controls.appendChild(status);
     } else footer.prepend(status);
   }
+  // Reuse the existing save/undo controls in the same header as Redigera/Stäng.
+  // Their form ownership, dirty-state checks and read-mode visibility stay intact.
+  if(form&&footer&&col!=="activities"&&ui.view!=="budget"){
+    const heading=form.querySelector(':scope > .section-title');
+    const close=form.querySelector('[data-editor-close]');
+    if(heading&&close){
+      const actions=document.createElement('div');
+      actions.className='ui-heading-actions editor-heading-actions';
+      const activate=form.querySelector('[data-editor-activate]');
+      if(activate)actions.append(activate);
+      actions.append(footer,close);
+      heading.append(actions);
+    }
+  }
   if(form&&ui.view!=="budget"){
     editor.workspace=mountWorkspace(root,{data:()=>data,collection:col,id,selection:editor.selection,source:editor.source,canEdit:canEdit(),showMaintenance:ui.view!=='budget',saved:navigation.saved});
     if(navigation.tab||navigation.editing)editor.workspace?.setTab(navigation.tab||'info');

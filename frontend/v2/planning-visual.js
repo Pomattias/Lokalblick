@@ -83,5 +83,7 @@ export function planningMonthButtons(activity,year,span=1,context="plan"){
       (context==="plan"?' data-plan-issue="'+String(activity.id).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))+'"':"")+
       ' aria-label="'+key+' · '+label+' · välj start-/slutmånad" aria-pressed="'+active+'" title="'+key+' · '+label+'"></button>';
   }).join("");
-  return buttons+(selected.size===0?'<span class="timeline-unscheduled">Ej tidsatt</span>':"");
+  const hasPeriod=validISO(activity.startDate)||validISO(activity.endDate)||Boolean(activity.planningYear&&(activity.planningMonth||activity.planningMonths?.length||activity.planningQuarter));
+  const emptyLabel=hasPeriod?"Utanför visad period":"Ej tidsatt";
+  return buttons+(selected.size===0?'<span class="timeline-unscheduled">'+emptyLabel+'</span>':"");
 }

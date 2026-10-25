@@ -72,3 +72,10 @@ test("Rendering supports three years and accessible buttons, without a second st
   assert.match(plan,/aria-pressed="true"/);
   assert.match(form,/aria-label=/);
 });
+
+
+test("Dates outside the displayed period are not described as unscheduled",()=>{
+  assert.match(planningMonthButtons({startDate:"2026-01-01",endDate:"2026-12-31"},2027),/Utanför visad period/);
+  assert.match(planningMonthButtons({},2027),/Ej tidsatt/);
+  assert.doesNotMatch(planningMonthButtons({startDate:"2026-12-01",endDate:"2027-02-28"},2027),/timeline-unscheduled/);
+});
