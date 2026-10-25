@@ -51,8 +51,9 @@ try {
     await page.locator('#edit-form.editor-readonly').waitFor();await page.keyboard.press('Escape');
     for(const width of [390,320,667]){
       await page.setViewportSize({width,height:900});
-      assert.equal(await wrapper.locator('[data-table-sort]').isVisible(),true);
-      await wrapper.locator('[data-table-sort]').selectOption('0:desc');
+      assert.equal(await table.locator('[data-column-sort="0"]').isVisible(),true);
+      if(await table.locator('[data-column-sort="0"]').getAttribute('data-direction')!=='asc')await table.locator('[data-column-sort="0"]').click();
+      await table.locator('[data-column-sort="0"]').click();
       assert.equal(await table.locator('[data-column-sort="0"]').getAttribute('data-direction'),'desc');
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No page overflow: '+view+' '+width);
       await page.screenshot({path:`${artifacts}/${view}-${width}.png`});

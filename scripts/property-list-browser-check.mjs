@@ -285,7 +285,8 @@ try {
     await page.setViewportSize({width,height:844});
     assert.ok(await noOverflow(page),'Property list fits at '+width);
     assert.equal(await page.locator('.property-list-summary').first().locator('td').nth(4).isVisible(),false);
-    await page.locator('[data-table-sort]').selectOption('0:asc');
+    const headingSort=page.locator('.property-list [data-column-sort="0"]');
+    if(await headingSort.getAttribute('data-direction')!=='asc')await headingSort.click();
     await toggle.click();
     assert.ok(await group.locator('[data-group-detail]').isVisible());
     const detailWidth = await group.locator('[data-group-detail]>td').evaluate(cell=>cell.getBoundingClientRect().width);

@@ -180,10 +180,13 @@ function bindBudget(){
     busy=true;try{requireActorIdentity();captureChanges(before);data=await transport.save(data);}catch(e){data=before;throw e;}finally{busy=false;}
   }});
 }
+let noticeTimer;
 function notice(message, error = false) {
+  clearTimeout(noticeTimer);
   const node = document.querySelector("#notice");
   node.textContent = message;
   node.className = error ? "notice error" : "notice";
+  if(!error&&message==="Demodata sparad")noticeTimer=setTimeout(()=>{node.textContent="";},3000);
 }
 let manualGeoDialog = null;
 function validGeoPosition(p) {

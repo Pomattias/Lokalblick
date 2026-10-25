@@ -1,6 +1,8 @@
 // Shared table interactions. Grouped bodies keep an expandable record together
 // while ordinary tables retain their existing row-based behavior.
 const container = table => table.closest('.compact-data-table');
+const cellText = cell => cell?.querySelector('.property-mobile-meta')
+  ? cell.querySelector(':scope > button')?.textContent || '' : cell?.textContent || '';
 const grouped = table => table.hasAttribute('data-row-groups');
 const entries = table => grouped(table)
   ? [...table.tBodies].filter(body => body.hasAttribute('data-row-group'))
@@ -14,7 +16,7 @@ export function refreshSmartTable(table) {
   const records = entries(table);
   for (const {node, row} of records) {
     node.hidden = !inputs.every(input => !normalize(input.value) ||
-      normalize(row.cells[Number(input.dataset.columnFilter)]?.textContent).includes(normalize(input.value)));
+      normalize(cellText(row.cells[Number(input.dataset.columnFilter)])).includes(normalize(input.value)));
   }
   if (!grouped(table)&&!table.dataset.listKey) return;
   const visible = records.filter(({node}) => !node.hidden).length;
@@ -29,7 +31,7 @@ export function sortSmartTable(table, index, direction) {
   const collator = new Intl.Collator('sv-SE', {numeric:true, sensitivity:'base'});
   const value = row => {
     const cell = row.cells[index];
-    return cell?.hasAttribute('data-sort-value') ? Number(cell.dataset.sortValue) : cell?.textContent?.trim() || '';
+    return cell?.hasAttribute('data-sort-value') ? Number(cell.dataset.sortValue) : cellText(cell).trim();
   };
   const records = entries(table).sort((a, b) => {
     const av = value(a.row), bv = value(b.row);
@@ -48,8 +50,7 @@ export function sortSmartTable(table, index, direction) {
     button.dataset.direction = direction;
     button.closest('th').setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
   }
-  const mobileSort = container(table)?.querySelector('[data-table-sort]');
-  if (mobileSort) mobileSort.value = `${index}:${direction}`;
+
 }
 
 function setExpanded(body, expanded) {
@@ -87,12 +88,6 @@ export function bindSmartTables(root) {
       const table = event.target.closest('table[data-smart-table]');
       if (table) refreshSmartTable(table);
     }
-  });
-  root.addEventListener('change', event => {
-    if (!event.target.matches('[data-table-sort]')) return;
-    const table = event.target.closest('.compact-data-table')?.querySelector('table[data-smart-table]');
-    const [index, direction] = event.target.value.split(':');
-    if (table) sortSmartTable(table, Number(index), direction);
   });
   root.addEventListener('click', event => {
     const toggle = event.target.closest('[data-toggle-column-filters]');

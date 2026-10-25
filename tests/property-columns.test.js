@@ -27,8 +27,8 @@ test("property and address remain distinct in V2 tables",()=>{
    assert.match(html,/Adress(?:\s*<span|<\/th>)/);
  }
  const properties=overview(data,selection,{year:2026,perspective:"Fastigheter",contractId:""});
- assert.match(properties,/<td class="primary-cell"><button[^>]*data-edit="properties"[^>]*>HAMNEN 2<\/button><\/td>/);
- assert.match(properties,/<td class="primary-cell"><button[^>]*>Beteckning saknas<\/button><\/td>/);
+ assert.match(properties,/<td class="primary-cell"><button[^>]*data-edit="properties"[^>]*>HAMNEN 2<\/button><span class="property-inline-address"> · Kajgatan 14<\/span>/);
+ assert.match(properties,/<td class="primary-cell"><button[^>]*>Beteckning saknas<\/button><span class="property-inline-address">/);
  assert.match(properties,/Kajgatan 14/);
  const upkeep=overview(data,selection,{year:2026,perspective:"Ärenden",issueType:"Underhåll",contractId:""});
  assert.match(upkeep,/Renovering/);
