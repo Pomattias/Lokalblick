@@ -18,6 +18,13 @@ export function contractPhase(data,contract,at) {
   const object=(data.objects||[]).find(row=>row.id===contract.objectId);
   return phase==='current'&&object?periodPhase(object,at):phase;
 }
+// Count the same selected records in both meanings. The overview includes all
+// periods; the portfolio lists show current periods and retain a history list.
+export function contractPeriodCounts(data,contracts,at=globalThis.LokalblickResponsibility.today()) {
+  const counts={total:contracts.length,current:0,past:0,future:0,at};
+  for(const contract of contracts)counts[contractPhase(data,contract,at)]++;
+  return counts;
+}
 export function rentalTotals(data,contracts,year) {
   let rent=0,area=0,needsReview=0,preliminary=0;
   for(const contract of contracts) {

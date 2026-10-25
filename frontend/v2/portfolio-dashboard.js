@@ -170,7 +170,7 @@ export function portfolioDashboard(data,selection,year,mode=""){
   const chartDimension=a.selected?"property":a.dimension;
   const barTitle=(a.selected?"Ärenden per typ":a.lens?"Ärenden per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.lens]):"Ärenden per typ")+" · kr och antal";
   const barRows=a.selected||!a.lens?a.activityTypes:a.groups;
-  const shortcuts=[["properties","Fastigheter",a.view.properties.length],["contracts","Avtal",a.view.contracts.length],["activities","Ärenden",a.view.items.length],["plan","Planera","›"]]
+  const shortcuts=[["properties","Fastigheter",a.view.properties.length],["contracts","Avtal totalt",a.view.contracts.length],["activities","Ärenden",a.view.items.length],["plan","Planera","›"]]
     .map(([view,label,value])=>'<button type="button" class="portfolio-shortcut ui-button ui-button--compact" data-view="'+view+'">'+label+' <strong>'+(typeof value==="number"?fmt(value):value)+'</strong></button>').join("");
   return '<div class="dashboard-intro portfolio-heading"><div><h2>Portföljöversikt</h2><p>'+esc(title)+'</p></div><span class="dashboard-year ui-label">År '+esc(year)+'</span></div>'+
     (a.selected?'<div class="portfolio-breadcrumb"><strong>'+esc(selectedLabel)+'</strong><button type="button" data-dashboard-clear>Visa hela fördelningen ×</button></div>':'')+
@@ -185,8 +185,8 @@ export function portfolioDashboard(data,selection,year,mode=""){
       '<button type="button" data-view="contracts" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa avtal ›</button></section>'+
       '<section class="dashboard-panel ui-card"><h3>Att bevaka</h3>'+
       '<div class="dashboard-fact"><span>Ärenden utan ansvarig</span><strong>'+fmt(a.unassigned)+'</strong></div>'+
-      '<div class="dashboard-fact"><span>Avtal att kontrollera</span><strong>'+fmt(a.review)+'</strong></div>'+
-      '<div class="dashboard-fact"><span>Fastigheter / avtal</span><strong>'+fmt(a.view.properties.length)+' / '+fmt(a.view.contracts.length)+'</strong></div>'+
+      '<div class="dashboard-fact"><span>Avtal att kontrollera · samtliga perioder</span><strong>'+fmt(a.review)+'</strong></div>'+
+      '<div class="dashboard-fact"><span>Fastigheter / avtal totalt</span><strong>'+fmt(a.view.properties.length)+' / '+fmt(a.view.contracts.length)+'</strong></div>'+
       '<button type="button" data-view="plan" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Öppna Planera ›</button></section>'+
       '</div><div class="portfolio-shortcuts" aria-label="Gå till detaljerna">'+shortcuts+'</div>';
 }

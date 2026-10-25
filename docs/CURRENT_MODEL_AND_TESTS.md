@@ -68,7 +68,7 @@ nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
 Verifierat 2026-10-25 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 823 godkända, 0 underkända, 0 överhoppade.
+- `npm test`: 827 godkända, 0 underkända, 0 överhoppade.
 - Repots förkontroll: syntax för 139 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
@@ -135,3 +135,19 @@ identifierare, tydliga fältfel, tillgänglig felbeskrivning och rättning/sparn
 i SQLite/server-Excel. Underliggande cellvärden och ursprungliga filer bevaras.
 
 Berikning har en fast kompletteringsregel och ett synligt val för nya registerposter. Samma utkast kan komplettera en fastighet och utelämna objektuppgifter utan nummer. Ett bortvalt nytt bolag stoppar inte övriga giltiga fält. `npm run test:enrichment-browser` verifierar standardval, personer/bolag, selektivt/allmänt urval, kort problemlista, avbryt, återimport och mobil i SQLite/server-Excel.
+
+## Avtal totalt och gällande avtal
+
+Översikten räknar **Avtal totalt**, inklusive tidigare och kommande perioder.
+Fastighets-, objekt- och avtalslistan räknar **Gällande avtal** enligt registrerade
+avtals- och objektdatum. Dagens datum används, oberoende av prognosåret för hyran.
+Start- och slutdag ingår i perioden. Saknade avtalsdatum är öppna gränser;
+objektets period kan ändå göra avtalet tidigare eller kommande.
+
+Varje avtalskort visar även en synlig fördelning mellan totalt, gällande, tidigare
+och kommande. **Avtal → Tidigare och kommande avtal** innehåller historiken.
+Ingen post tas bort av filtreringen och hyres-/Budgetberäkningarna ändras inte.
+Regeln och summeringen finns i `frontend/v2/portfolio-context.js`.
+`node scripts/agreement-counts-browser-check.mjs` provar alla fyra vyerna,
+154 totalt/117 gällande, full historik och oförändrad lagring i SQLite/server-Excel.
+Testfördelningen 20 tidigare + 17 kommande är syntetisk, inte en slutsats om verksamhetsdatan.

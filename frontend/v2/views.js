@@ -1,7 +1,7 @@
 // View entry point. Keep rendering separate from navigation and persistence.
 import {organizationLabel,esc,options,internalPeople,units,calc,num,money} from "./view-format.js";
 import {responsible,scope} from "./model.js";
-import {rentalTotals} from "./portfolio-context.js";
+import {rentalTotals,contractPeriodCounts} from "./portfolio-context.js";
 import {buildPortfolioInsights} from "./portfolio-dashboard.js";
 import {scopedBudgetRows} from "./view-budget.js";
 export function filters(data, s, dashboardMode, presentation = {}) {
@@ -65,13 +65,19 @@ function activityMetrics(data, items, year) {
 function summaryCards(cards) {
   return `<div class="summary">${cards
     .map(
-      ([label, value, foot]) =>
-        `<div${foot ? ` title="${esc(foot)}"` : ""}><span>${label}</span><strong>${value}</strong>${foot ? `<span class="visually-hidden">${esc(foot)}</span>` : ""}</div>`,
+      ([label, value, foot, detail]) =>
+        `<div${foot ? ` title="${esc(foot)}"` : ""}><span>${label}</span><strong>${value}</strong>${detail?`<span class="summary-explanation">${esc(detail)}</span>`:''}${foot ? `<span class="visually-hidden">${esc(foot)}</span>` : ""}</div>`,
     )
     .join("")}</div>`;
 }
 export function summary(data, s, year, ui = {}) {
   const view = ui.portfolioView || scope(data, s);
+  const counts=contractPeriodCounts(data,view.allContracts||view.contracts);
+  const periodNote=`Gällande enligt registrerad avtals- och objekttid per ${counts.at}. Avtal utan datum räknas som gällande om objektets period tillåter det.`;
+  const periodDetail=`${num(counts.past)} tidigare · ${num(counts.future)} kommande`;
+  const agreementCard=ui.portfolioView
+    ? ['Gällande avtal',num(view.contracts.length),periodNote,`${num(counts.total)} totalt · ${periodDetail}`]
+    : ['Avtal totalt',num(view.contracts.length),periodNote,`${num(counts.current)} gällande · ${periodDetail}`];
   const perspective =
     ui.view === "contracts" ? "Avtal"
     : ui.view === "overview" ? "Fastigheter"
@@ -82,14 +88,14 @@ export function summary(data, s, year, ui = {}) {
   if(ui.view==='objects')return summaryCards([
     ['Objekt',num((view.objects||[]).length)],
     ['Fastigheter',num(view.properties.length)],
-    ['Avtal',num(view.contracts.length)],
+    agreementCard,
     ['Objektarea',num((view.objects||[]).reduce((sum,object)=>sum+(Number(object.area)||0),0))+' m²'],
   ]);
   if (ui.view === "overview") {
     const insights=buildPortfolioInsights(data,s,year,ui.dashboardMode||"");
     return summaryCards([
       ["Årshyra "+year,money(insights.rent)],
-      ["Avtal",num(view.contracts.length)+" st"],
+      [agreementCard[0],num(view.contracts.length)+" st",agreementCard[2],agreementCard[3]],
       ["Avtalad yta",num(insights.area)+" m²"],
       ["Fastigheter",num(view.properties.length)+" st"],
       ["Ärenden · kr",money(insights.activityCost),"Bedömd totalkostnad, samtliga år"],
@@ -143,7 +149,7 @@ export function summary(data, s, year, ui = {}) {
   if (perspective === "Fastigheter") {
     return summaryCards([
       ["Fastigheter", num(view.properties.length)],
-      ["Avtal", num(view.contracts.length)],
+      agreementCard,
       ["Total hyra " + year, money(rent.rent)],
       ["Hyra / kvm", rent.area > 0 && rent.rentPerSqm!==null ? money(rent.rentPerSqm) : "–"],
     ]);
@@ -151,7 +157,7 @@ export function summary(data, s, year, ui = {}) {
 
   if (perspective === "Avtal") {
     return summaryCards([
-      ["Avtal", num(view.contracts.length)],
+      agreementCard,
       ["Area", num(rent.area) + " m²"],
       ["Total hyra " + year, money(rent.rent)],
       ["Hyra / kvm", rent.area > 0 && rent.rentPerSqm!==null ? money(rent.rentPerSqm) : "–"],
