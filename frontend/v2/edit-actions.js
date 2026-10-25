@@ -21,7 +21,8 @@ export function decorateEditActions(root) {
     if(!button.matches('[data-editor-activate],[data-person-edit],.table-pencil')&&!/^(Ändra|Redigera)(\s|$)/i.test(label))continue;
     const headerEdit=button.hasAttribute('data-editor-activate');
     button.dataset.editAction='';button.classList.add(headerEdit?'edit-text-action':'edit-action');
-    const recordName=button.closest('tr')?.querySelector('.primary-cell button,.primary-cell strong,td:first-child')?.textContent.trim();
+    const primaryCell=button.closest('tr')?.querySelector('.primary-cell,td:first-child');
+    const recordName=(primaryCell?.querySelector('button,strong')||primaryCell)?.textContent.trim();
     button.setAttribute('aria-label',label==='Ändra'&&recordName?'Ändra '+recordName:label==='✎'?'Redigera':label);
     button.title=button.getAttribute('aria-label');
     if(button.dataset.edit&&button.dataset.id)button.dataset.editMode='edit';
