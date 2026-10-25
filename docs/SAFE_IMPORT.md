@@ -32,8 +32,8 @@ ger fastighetsnumret `SF4201` för en ny post. Objektet får avtalsnumret utan
 den sista delen. Avtalsnumret ändras inte. Saknas en säker tolkning visas
 att numret saknas; interna nycklar används enbart för lagrade referenser.
 Befintliga kopplingar behålls och nya avtalsversioner återanvänder ett entydigt
-befintligt objekt. Tvetydigheter och överlappande avtalsperioder lämnas för
-granskning.
+befintligt objekt. Olika avtals-ID får gälla samtidigt på objektet, även om
+datumen är lika eller saknas. Tvetydiga identifierare lämnas för granskning.
 
 | Status | Betydelse i det aktuella utkastet |
 | --- | --- |
@@ -100,8 +100,8 @@ Fristående person- eller partsregister är fortfarande valda importunderlag.
 - `frontend/v2/import-table.js`: filtabell, registerfärger, radförklaringar och kopplingar.
 - `frontend/v2/import-approval.js`: gemensam lista för nya registerposter.
 - `frontend/v2/import-row-review.js`: orsaker, filter och kopplingsval på källraderna.
-- `frontend/v2/import-people.js`: samlad persontabell, personuppgifter, roller och mål.
-- `frontend/v2/import-contact.js`: tillägg av extra personkopplingar.
+- `frontend/v2/import-people.js`: samlad persontabell, personuppgifter och bolagsnamn.
+- `frontend/v2/import-contact.js`: tillägg och ändring av nya personkopplingar vid källraden.
 - `frontend/v2/import-cell-editor.js` och `frontend/lokaler/import-cell-edits.js`: cellredigering och isolerade källkorrigeringar.
 - `frontend/lokaler/import-review.js`: isolerade kompletteringar, återanvända personer
   och giltiga beslut som följer med omräkning.
@@ -121,7 +121,7 @@ npm run test:table-import-browser
 npm run test:lokaler-browser
 ```
 
-Verifierat med syntetiska filer 2026-10-24: 791 tester och syntaxkontroll av 138
+Verifierat med syntetiska filer 2026-10-25: 800 tester och syntaxkontroll av 138
 JavaScript-filer. Webbläsarprovet följer fil → tabell → ändrade val → API → SQLite
 → återöppning: selektiva/allmänna urval, 122 nya fastigheter, saknad beteckning
 före/efter import, en person med flera roller och mål, återimport och avbrott utan
@@ -167,7 +167,7 @@ förvaltnings-/objekts-/avtalsnummer, mot fastigheter sparade före importen.
 Första inläsningen kopplar inte ihop olika numrerade fastigheter genom namn
 eller adress. Befintliga avtals- och objektkopplingar behålls; en avvikande
 adress blir en fältavvikelse. Verkliga nummerkonflikter stoppas.
-`npm run test:simple-import-browser` verifierar detta och överlappningskontrollen.
+`npm run test:simple-import-browser` verifierar detta och samtidiga avtals-ID.
 
 ## Redigering och tydliga jämförelser
 
@@ -179,10 +179,15 @@ beteckning, uppdateras på alla berörda källrader. Nummer korrigeras per käll
 och går genom samma kontroll av identifierare och sparade föräldrakopplingar.
 Källfilen ändras aldrig. Bortval/remappning gör en gammal cellkorrigering inaktiv.
 
-**Personer i importen** visar namn, e-post, telefon, part, roll och mål i en
-samlad tabell med sökning. Personuppgifterna redigeras en gång för alla personens
-kopplingar; roller och mål väljs per ny koppling. Sparade kopplingar ändras i
-registret. Korrigerade personuppgifter och kopplingsval spåras i befintlig
+**Personer i importen** visar en rad per person med namn, e-post, telefon,
+**Bolag / organisation** och personens importresultat. Sökning och sidindelning
+gäller personer. Roll, mål och antal kopplingar visas inte i personöversikten.
+Bolagsnamnet hämtas från personens organisation. För fastighetsägarens
+kontaktperson visas även de företrädda fastighetsbolagen, utan dubbletter.
+Saknas uppgiften visas ett streck; bolag gissas inte från adresser eller
+andra roller. Personuppgifter redigeras en gång för alla kopplingar.
+**Ändra koppling** i källradens detaljer redigerar nya kopplingars roll och mål.
+Sparade kopplingar ändras i registret. Korrigerade personuppgifter och kopplingsval spåras i befintlig
 ändringshistorik, så återimport av samma underlag återanvänder personen.
 
 Två olika slags jämförelser har olika frågor:
@@ -203,3 +208,8 @@ behöver väljas. Befintliga fastigheter godkänns inte en gång till.
 `npm run test:inline-edit-browser` följer fokuserad cell → worker → personval →
 API → SQLite/server-Excel. Provet kontrollerar återimport, samma/egen fastighet,
 värdejämförelser, bibehållna skapandeval, avbrott och låsta budgetsnapshots.
+
+
+Olika avtals-ID begränsas inte av varandras perioder på objektet. Kontrollen
+används likadant i importmotorn, modellen och lagringen. Exakta avtals-ID,
+objektreferenser, giltiga datum och bashyrans villkor per avtal behålls.

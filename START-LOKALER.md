@@ -260,8 +260,8 @@ Appens lagring använder den aktuella modellen. Arbetsböcker och databaser frå
 äldre prototyper konverteras inte och gamla fält arkiveras inte. Skapa en ny
 ren arbetsyta och läs in externa underlag genom importguiden.
 
-Tomma objektdatum lämnas tomma. Avtals- och kontaktperioder får inte överlappa
-på ett otillåtet sätt. Historik visas genom befintliga fördjupningar. Importen
+Tomma objektdatum lämnas tomma. Olika avtals-ID kan gälla samtidigt på samma
+objekt, även med lika eller tomma datum. Kontaktperioder valideras fortfarande. Historik visas genom befintliga fördjupningar. Importen
 hittar inte på indexvillkor, datum eller ekonomiska regler som saknas i underlaget.
 
 ## Arbetsbok och säkerhetskopior

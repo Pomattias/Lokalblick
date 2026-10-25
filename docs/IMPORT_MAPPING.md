@@ -79,7 +79,7 @@ Det tidigare separata provet använde utgångna fält som `costCenterPremises`
 och har ersatts. Kompletterande prov finns för tabellimport, lokaldata,
 priser, ärenden samt server- och webbläsarbaserad Excel-lagring.
 
-Verifierat med syntetiska underlag 2026-10-24: 791 godkända tester och
+Verifierat med syntetiska underlag 2026-10-25: 800 godkända tester och
 syntaxkontroll av 138 JavaScript-filer. Inga skarpa verksamhetsdata används.
 
 Väntande källrader hanteras i samma tabell med filtren **Behöver kopplas**,
@@ -94,7 +94,8 @@ sparning och återimport i både SQLite och Excel.
 
 `npm run test:simple-import-browser` provar separata val, beständiga bortval,
 rubrikrader efter öppnade detaljer och första inläsning med lika namn/adresser
-men olika nummer. Efterföljande avtal återanvänder objekt; överlapp avvisas.
+men olika nummer. Olika avtals-ID återanvänder objekt även med lika eller
+överlappande datum. Personöversikten visar varje person en gång och bolagsnamn.
 
 Cellkorrigeringar följer källa, blad, rad, kolumn och valt målfält. Arbetsboken
 klonas bara för ändrade celler och importmotorn validerar korrigeringarna.

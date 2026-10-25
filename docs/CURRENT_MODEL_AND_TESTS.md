@@ -66,9 +66,9 @@ npm run test:table-import-browser
 Testerna använder syntetiska data och tillfälliga filer. Vid arbete med den
 nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
-Verifierat 2026-10-24 med Node.js 24.19.0 och systemets Chromium:
+Verifierat 2026-10-25 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 791 godkända, 0 underkända, 0 överhoppade.
+- `npm test`: 800 godkända, 0 underkända, 0 överhoppade.
 - Repots förkontroll: syntax för 138 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
@@ -104,10 +104,20 @@ Importtabellen har separata tabell-/kolumnval och en kryssruta för bortval.
 Kopplingsförslag från adress/namn kräver en rad utan nummer och en fastighet
 som fanns före importen. Nya fastigheter med olika nummer hålls isär.
 `npm run test:simple-import-browser` provar hela flödet med efterföljande
-avtalsperioder, avvisat överlapp, avbryt, sparning och återimport.
+avtalsperioder, samtidiga avtals-ID på samma objekt, avbryt, sparning och återimport.
 
 `npm run test:inline-edit-browser` kontrollerar direkt cellredigering, delade
 fastighetsuppgifter, personfakta/roller/mål, återimport utan persondubletter,
 fokuserad cell vid sparning, jämförelser av värden och samma/egen fastighet
 i SQLite och server-Excel. Skapandebeslut görs en gång och inga adresser
 kopplar ihop numrerade fastigheter vid första inläsningen.
+
+
+Verifierat 2026-10-25: olika avtals-ID med samma eller tomma datum får dela
+objekt i import, SQLite och Excel. Den gamla SQL-spärren tas bort när en
+befintlig arbetsyta öppnas, utan att registerposter eller version ändras.
+Dubblett-ID vid skapande, felvända datum, objektets giltighetstid och en
+samtidig bashyra per avtal valideras fortfarande.
+Personöversikten visar en rad per person med bolag/organisation; kopplingarnas
+roller och mål redigeras i källradens detaljer. `simultaneous-agreements.test.js`
+och `import-people.test.js` täcker dessa regler.

@@ -163,7 +163,6 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      }
     }
     }
-    if(table==='agreements'&&data.agreements.some(row=>row.id!==normalized.id&&row.object_id===normalized.object_id&&(!row.valid_to||!normalized.valid_from||row.valid_to>=normalized.valid_from)&&(!normalized.valid_to||!row.valid_from||normalized.valid_to>=row.valid_from)))throw Error('Objektet har redan ett avtal under perioden.');
     if(table==='parties'&&data.parties.some(p=>p.id!==normalized.id&&key(p.name)===key(normalized.name)))throw Error('PartID och partens namn pekar på olika parter.');
     const fits=(agreement,object)=>(!object.valid_from||agreement.valid_from&&agreement.valid_from>=object.valid_from)&&(!object.valid_to||agreement.valid_to&&agreement.valid_to<=object.valid_to);
     if(table==='agreements'&&indexes.objects.has(normalized.object_id)&&!fits(normalized,indexes.objects.get(normalized.object_id)))throw Object.assign(Error('Avtalets period måste rymmas inom objektets giltighetstid.'),originFor(table,'valid_to'));

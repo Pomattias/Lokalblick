@@ -12,7 +12,7 @@ export function importRowAttention(row,proposal=null){
  const create=row.nodes.some(node=>['properties','objects','agreements'].includes(node.table)&&node.identified!==false&&!node.existing&&node.status==='pending');
  const flags={link,complete,create,columns,blocked},primary=['link','blocked','columns','complete','create'].find(key=>flags[key]);
  const reason=link?(proposal.matches.length>1?'Flera fastigheter matchar. Välj rätt koppling på raden.':'Jämför filens rad med förslaget nedan.'):blocked||complete||columns?row.reviews[0]?.reason||row.columns.find(column=>column.needsMapping)?.reason||'Fastighetsbeteckning saknas. Fyll i den här eller efter importen.':null;
- return {...flags,primary,caption:blocked&&/redan ett avtal under perioden/.test(reason||'')?'Avtalsperiod överlappar':importAttentionLabels[primary]||importStatuses[row.status],reason};
+ return {...flags,primary,caption:importAttentionLabels[primary]||importStatuses[row.status],reason};
 }
 
 export function importSourceValue(prepared,profile,row,column){

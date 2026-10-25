@@ -56,7 +56,7 @@ test('person facts are edited once, preserve identity on reimport and do not aff
  const edited=editImportDraft(r,f.base,{people:{[id]:{name:'Person Rättad',email:'person@example.test',phone:'010123'}}},'Testare'),saved=approveImportPlan(edited,f.base,all(edited,f.base));
  assert.equal(r.clean.people[0].name,'Person Ett');assert.equal(saved.clean.people[0].name,'Person Rättad');
  const again=f.run({},saved.clean);assert.equal(again.clean.people.length,1);assert.equal(again.clean.contacts.length,1);assert.equal(again.clean.people[0].id,id);assert.equal(again.clean.people[0].name,'Person Rättad');assert.equal(again.clean.people[0].email,'person@example.test');
- const html=importPeopleHtml(edited,f.base,{approved:saved,editing:new Set([id])});assert.match(html,/<th data-register="people">E-post/);assert.match(html,/data-person-key="phone"/);assert.match(html,/data-contact-role/);assert.match(html,/data-contact-target/);assert.doesNotMatch(html,/>PER-|>KOP-/);
+ const html=importPeopleHtml(edited,f.base,{approved:saved,editing:new Set([id])});assert.match(html,/<th data-register="people">E-post/);assert.match(html,/data-person-key="phone"/);assert.doesNotMatch(html,/data-contact-role|data-contact-target|Roll här|Kopplas till/);assert.match(html,/Bolag \/ organisation/);assert.doesNotMatch(html,/>PER-|>KOP-/);
  f.profiles[0].columns[2].target='@ignore';const excluded=f.run({},saved.clean),ignored=editImportDraft(excluded,saved.clean,{people:{[id]:{name:'Ska ignoreras'}}});assert.equal(ignored.clean.people[0].name,'Person Rättad');
 });
 

@@ -27,7 +27,9 @@ Ett nytt avtal kopplas med angivna nummer eller en granskad nummerhärledning.
 Adress- och namnförslag gäller endast berikning mot sparade fastigheter när
 raden saknar alla fastighets-/förvaltnings-/objekts-/avtalsnummer. Vid första
 inläsningen får sådana förslag inte koppla ihop olika numrerade fastigheter.
-Ett objekt kan ha flera avtalsperioder, men perioderna får aldrig överlappa.
+Ett objekt kan ha flera olika avtals-ID med samma eller överlappande perioder.
+Tomma datum hindrar inte import av olika avtal. Samma avtals-ID återanvänds
+vid berikning; befintliga objektkopplingar flyttas inte.
 
 ## Övergripande val
 
@@ -108,9 +110,9 @@ sparad källregel, ändrade kolumnval, mobil/dator, återimport, editorvisning o
 återläsning efter SQLite-omstart. ID:n och låst budget ska vara oförändrade.
 Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
-Verifierat 2026-10-24 med Node.js 24.19.0 och system-Chromium:
+Verifierat 2026-10-25 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 791 godkända, 0 underkända, 0 överhoppade.
+- `npm test`: 800 godkända, 0 underkända, 0 överhoppade.
 - Syntax/förkontroll: 138 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,
@@ -126,7 +128,7 @@ bortval och knappar som leder till rätt kolumnval eller kopplingsförslag. Se
 kolumnrubriker och återimport mot både nya och befintliga poster i SQLite/Excel.
 
 **Visa / redigera** ändrar celler direkt i importtabellen. Personer visas i en
-samlad tabell med namn, e-post, telefon, roll och mål. Värdeskillnader visar
+samlad tabell med en rad per person, namn, e-post, telefon och bolag/organisation. Värdeskillnader visar
 två jämförbara rader och förklarar vilket nummer som är gemensamt. Frågan om
 samma eller egen fastighet används endast vid berikning utan identifierare.
 Se [redigering och jämförelser](SAFE_IMPORT.md#redigering-och-tydliga-jämförelser).

@@ -176,7 +176,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     const locate=key=>{const [pi,ci]=key.split(':').map(Number);return {profile:mapping.profiles[pi],column:mapping.profiles[pi].columns[ci]};};
     const sourceRowOf=node=>node?.closest('[data-import-source-row]')?.dataset.importSourceRow||node?.closest('[data-source-key]')?.dataset.sourceKey||node?.closest('[data-person-row]')?.dataset.personRow||null;
     const viewState=()=>{
-      const focused=document.activeElement,focusAttr=['data-approve-link','data-link-property','data-create-record','data-open-row','data-select-creations','data-map-property','data-story-search','data-story-filter','data-approval-search','data-approval-filter','data-people-search','data-property-designation','data-import-cell','data-person-field','data-contact-role','data-contact-target','data-column-rule','data-date-mode','data-preview-map','data-preview-table','data-ignore-column','data-person-format','data-person-shared','data-import-conflict-mode','data-import-conflict-choice','data-item-type','data-item-key','data-import-table','data-mapping-row','data-issue-number'].find(attr=>focused?.hasAttribute(attr));
+      const focused=document.activeElement,focusAttr=['data-approve-link','data-link-property','data-create-record','data-open-row','data-select-creations','data-map-property','data-story-search','data-story-filter','data-approval-search','data-approval-filter','data-people-search','data-property-designation','data-import-cell','data-person-field','data-column-rule','data-date-mode','data-preview-map','data-preview-table','data-ignore-column','data-person-format','data-person-shared','data-import-conflict-mode','data-import-conflict-choice','data-item-type','data-item-key','data-import-table','data-mapping-row','data-issue-number'].find(attr=>focused?.hasAttribute(attr));
       for(const node of d.querySelectorAll('details'))if(disclosureKey(node))disclosures.set(disclosureKey(node),node.open);
       return {scroll:d.scrollTop,horizontal:[...d.querySelectorAll('.import-source-scroll')].map(node=>node.scrollLeft),open:new Map(disclosures),focusAttr,focusValue:focusAttr?focused.getAttribute(focusAttr):null,focusRow:sourceRowOf(focused),focusField:focused?.dataset.personKey,selection:focused?.selectionStart};
     };
@@ -327,13 +327,6 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     const onChange=async event=>{
      try{
       const node=event.target;
-      if(node.hasAttribute('data-contact-role')||node.hasAttribute('data-contact-target')){
-       const id=node.dataset.contactRole||node.dataset.contactTarget,original=rawResult.clean.contacts.find(c=>c.id===id);if(!original||baseline.contacts.some(c=>c.id===id))return;
-       const record={...(edits.contacts[id]?.record||result?.clean.contacts.find(c=>c.id===id)||original)},trace=rawResult.report.sourceRows.find(r=>r.records.contacts?.includes(id));
-       if(node.hasAttribute('data-contact-role')){record.role=node.value;const allowed=record.role==='owner'?['property_id']:record.role==='tenant'?['agreement_id']:['property_id','agreement_id','issue_id','order_id'];for(const field of ['property_id','agreement_id','issue_id','order_id'])if(!allowed.includes(field))record[field]=null;}
-       else{for(const field of ['property_id','agreement_id','issue_id','order_id'])record[field]=null;if(node.value){const split=node.value.indexOf(':');record[node.value.slice(0,split)]=node.value.slice(split+1);}}
-       edits.contacts[id]={record,rowKey:JSON.stringify([trace.source,trace.sheet,trace.row]),originalPersonId:original.person_id,imported:true,origin:{source:trace.source,sheet:trace.sheet,row:trace.row}};render(viewState());return;
-      }
       if(node.hasAttribute('data-preview-table')){const {profile,column}=locate(node.dataset.previewTable);column.selectionTable=node.value;update(profile,column,'@unmapped');return;}
       if(node.hasAttribute('data-preview-map')){
        const key=node.dataset.previewMap,{profile,column}=locate(key),value=node.value;

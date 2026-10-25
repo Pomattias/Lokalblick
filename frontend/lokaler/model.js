@@ -174,7 +174,6 @@ export function validateData(data, before) {
    for (let i = 1; i < group.length; i++) if ((group[i].valid_from || '') <= (group[i - 1].valid_to || '9999-12-31')) throw Error(message);
   }
  };
- periods(data.agreements, row => row.object_id, 'Objektet har redan ett avtal under perioden.');
  periods(data.contacts.filter(row=>!row.cancelled), row => JSON.stringify([row.role, row.property_id, row.agreement_id, row.issue_id, row.order_id, row.role === 'coordinator' ? null : row.person_id]), 'Personkopplingen överlappar en befintlig koppling. Avsluta den tidigare perioden först.');
  for (const agreement of data.agreements) {
   const object = indexes.objects.get(agreement.object_id);

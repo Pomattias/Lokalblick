@@ -49,12 +49,12 @@ test('databas: persistens, exakta avtalsnummer och summering av unika objekt ink
  assert.equal(totals.area, 150); assert.equal(totals.apartments, 2); assert.equal(totals.annualRent, 120000);
  const reopened = await reopen(); assert.equal(reopened.snapshot().version, 1); assert.deepEqual(reopened.snapshot().data, state.data);
 }));
-test('databas: avtal får inte överlappa eller lämna objektets period', async () => withStore(async store => {
+test('databas: olika avtals-ID får överlappa men måste rymmas inom objektets period', async () => withStore(async store => {
  await store.mutate(fixtures(), 0);
- await assert.rejects(store.mutate([{ table: 'agreements', record: { id: '91', object_id: 'OBJ1', valid_from: '2026-01-01' } }], 1), /redan ett avtal/);
+ await store.mutate([{ table: 'agreements', record: { id: '91', object_id: 'OBJ1', valid_from: '2026-01-01' } }], 1);
  const object = store.snapshot().data.objects[0];
- await assert.rejects(store.mutate([{ table: 'objects', record: { ...object, valid_from: '2026-01-01' } }], 1), /rymma/);
- assert.equal(store.snapshot().data.agreements.length, 2); assert.equal(store.snapshot().version, 1);
+ await assert.rejects(store.mutate([{ table: 'objects', record: { ...object, valid_from: '2026-01-01' } }], 2), /rymma/);
+ assert.equal(store.snapshot().data.agreements.length, 3); assert.equal(store.snapshot().version, 2);
 }));
 test('databas: arv order → ärende → fastighet utan kopierad person', async () => withStore(async store => {
  await store.mutate(fixtures(), 0);

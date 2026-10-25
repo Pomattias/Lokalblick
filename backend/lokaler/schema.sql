@@ -68,16 +68,10 @@ CREATE INDEX IF NOT EXISTS contacts_property ON contacts(property_id, role);
 CREATE INDEX IF NOT EXISTS contacts_agreement ON contacts(agreement_id, role);
 CREATE INDEX IF NOT EXISTS contacts_issue ON contacts(issue_id, role);
 CREATE INDEX IF NOT EXISTS contacts_order ON contacts(order_id, role);
-CREATE TRIGGER IF NOT EXISTS agreement_overlap_insert BEFORE INSERT ON agreements
-WHEN EXISTS (SELECT 1 FROM agreements a WHERE a.object_id = NEW.object_id
- AND coalesce(a.valid_from, '0000-01-01') <= coalesce(NEW.valid_to, '9999-12-31')
- AND coalesce(NEW.valid_from, '0000-01-01') <= coalesce(a.valid_to, '9999-12-31'))
-BEGIN SELECT RAISE(ABORT, 'Objektet har redan ett avtal under perioden.'); END;
-CREATE TRIGGER IF NOT EXISTS agreement_overlap_update BEFORE UPDATE ON agreements
-WHEN EXISTS (SELECT 1 FROM agreements a WHERE a.id <> NEW.id AND a.object_id = NEW.object_id
- AND coalesce(a.valid_from, '0000-01-01') <= coalesce(NEW.valid_to, '9999-12-31')
- AND coalesce(NEW.valid_from, '0000-01-01') <= coalesce(a.valid_to, '9999-12-31'))
-BEGIN SELECT RAISE(ABORT, 'Objektet har redan ett avtal under perioden.'); END;
+-- Distinct agreement IDs may be active on the same object simultaneously.
+-- Drop the obsolete constraint too when opening an existing workspace.
+DROP TRIGGER IF EXISTS agreement_overlap_insert;
+DROP TRIGGER IF EXISTS agreement_overlap_update;
 CREATE TRIGGER IF NOT EXISTS contact_overlap_insert BEFORE INSERT ON contacts
 WHEN NEW.cancelled = 0 AND EXISTS (SELECT 1 FROM contacts c WHERE c.cancelled = 0 AND c.role = NEW.role
  AND c.property_id IS NEW.property_id AND c.agreement_id IS NEW.agreement_id

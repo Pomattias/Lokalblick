@@ -37,10 +37,10 @@ test('source spelling, hyphen prefix and leading zeroes survive agreement/object
  }
  assert.equal(agreementNumberParts('2027-01-01'),null);assert.equal(agreementNumberParts('Okänt nummer'),null);
 });
-test('consecutive leases share a business-numbered object; overlapping periods remain invalid',()=>{
+test('different agreement IDs share a business-numbered object, including overlapping periods',()=>{
  const headers=['Förvaltningsobjekt','Avtalsnummer','Gatuadress','From','Tom'],rows=[['4201','SF4201-001-03','Provgatan 1','2027-01-01','2027-12-31'],['4201','SF4201-001-04','Provgatan 1','2028-01-01','2028-12-31']];
  const {result:r}=prepare(rows,emptyData(),headers);assert.equal(r.report.blocking,0);assert.equal(r.clean.properties.length,1);assert.equal(r.clean.objects.length,1);assert.equal(r.clean.agreements.length,2);
- rows[1][3]='2027-06-01';const overlap=prepare(rows,emptyData(),headers).result;assert.equal(overlap.clean.agreements.length,1);assert(overlap.data.importReview.some(r=>r.recordRejected&&/redan ett avtal/.test(r.reason)));validateData(overlap.clean);
+ rows[1][3]='2027-06-01';const overlap=prepare(rows,emptyData(),headers).result;assert.equal(overlap.clean.agreements.length,2);assert.equal(overlap.report.blocking,0);validateData(overlap.clean);
 });
 test('reimport preserves legacy canonical keys and locked budgets while displaying business numbers',()=>{
  const base=legacy(),before=structuredClone(base),{result:r}=prepare([['4201','SF4201-001-03','Provgatan 1',100]],base);
@@ -76,9 +76,9 @@ test('missing or contradictory business numbers are honest labels and UUIDs stay
 });
 
 
-test('a new lease revision reuses the legacy object by its derived number and validates overlap',()=>{
+test('a new agreement reuses the legacy object by its derived number even for overlapping periods',()=>{
  const base=legacy();base.agreements[0].valid_from='2027-01-01';base.agreements[0].valid_to='2027-12-31';
  const headers=['Förvaltningsobjekt','Avtalsnummer','Gatuadress','From','Tom'],rows=[['4201','SF4201-001-04','Provgatan 1','2028-01-01','2028-12-31']];
  const r=prepare(rows,base,headers).result;assert.equal(r.report.review,0);assert.equal(r.clean.objects.length,1);assert.equal(r.clean.agreements[1].object_id,base.objects[0].id);validateData(r.clean);
- rows[0][3]='2027-06-01';const overlapping=prepare(rows,base,headers).result;assert.equal(overlapping.clean.objects.length,1);assert.equal(overlapping.clean.agreements.length,1);assert(overlapping.data.importReview.some(r=>r.recordRejected));
+ rows[0][3]='2027-06-01';const overlapping=prepare(rows,base,headers).result;assert.equal(overlapping.clean.objects.length,1);assert.equal(overlapping.clean.agreements.length,2);assert.equal(overlapping.report.blocking,0);validateData(overlapping.clean);
 });

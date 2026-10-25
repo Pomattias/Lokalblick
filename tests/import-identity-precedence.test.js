@@ -48,7 +48,7 @@ test('real number conflicts still reject the row instead of moving a saved agree
 test('same-name records with different addresses are never labelled as address matches',()=>{
  const base=seed(),r=run(source([[base.properties[0].name,'En annan adress']],['Fastighetsbeteckning','Gatuadress']),base);assert.equal(r.report.linkProposals.length,0);assert.equal(r.clean.properties.length,3);
 });
-test('a new lease never bypasses the one-agreement-at-a-time rule',()=>{
+test('distinct agreement IDs may overlap on the same saved object',()=>{
  const base=seed();base.agreements[0].valid_from='2027-01-01';base.agreements[0].valid_to='2027-12-31';const r=run(source([['4201','SF4201-001-04','2027-06-01','2028-12-31']],['Förvaltningsobjekt','Avtalsnummer','From','Tom']),base);
- assert.equal(r.clean.agreements.length,1);assert(r.data.importReview.some(r=>/redan ett avtal under perioden/.test(r.reason)));assert.equal(r.clean.objects.length,1);validateData(r.clean);
+ assert.equal(r.clean.agreements.length,2);assert.equal(r.report.blocking,0);assert.equal(r.clean.objects.length,1);validateData(r.clean);
 });

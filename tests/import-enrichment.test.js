@@ -49,10 +49,10 @@ test('scalar object and agreement differences do not discard enrichment or their
  const selected=resolveImportChoices(result,{mode:'replace'},'Testare');assert.equal(selected.clean.objects[0].area,125);assert.equal(selected.report.review,0);
  const zero=prepare([sheet(['objects.id','objects.area'],[['O1',0]])],base());assert.equal(resolveImportChoices(zero,{mode:'replace'}).clean.objects[0].area,0);
 });
-test('all selected values are validated together and a failed period change leaves the draft intact',()=>{
+test('selected dates may overlap another agreement and leave the original draft intact',()=>{
  const data=base();data.agreements[0].valid_from='2025-01-01';data.agreements[0].valid_to='2025-12-31';data.agreements.push(normalize('agreements',{id:'A3',object_id:'O1',valid_from:'2026-01-01',valid_to:'2026-12-31'}));validateData(data);
  const result=prepare([sheet(['contracts.id','contracts.end','contracts.businessName'],[['A1','2026-06-01','Berikad']])],data),before=JSON.stringify(result);
- assert.equal(result.report.blocking,0);assert.equal(result.clean.agreements[0].business_name,'Berikad');assert.throws(()=>resolveImportChoices(result,{mode:'replace'}),/redan ett avtal/);assert.equal(JSON.stringify(result),before);
+ assert.equal(result.report.blocking,0);assert.equal(result.clean.agreements[0].business_name,'Berikad');const chosen=resolveImportChoices(result,{mode:'replace'});assert.equal(chosen.clean.agreements[0].valid_to,'2026-06-01');assert.equal(chosen.clean.agreements.length,3);validateData(chosen.clean);assert.equal(JSON.stringify(result),before);
 });
 test('global overwrite never bypasses ID, reference or date errors',()=>{
  const result=prepare([sheet(['properties.id','objects.id','objects.area'],[['F2','O1',200]])],base());assert.equal(result.report.blocking,1);assert.equal(importConflictGroups(result).length,0);const chosen=resolveImportChoices(result,{mode:'replace'});assert.equal(chosen.clean.objects[0].property_id,'F1');assert.equal(chosen.clean.objects[0].area,100);
