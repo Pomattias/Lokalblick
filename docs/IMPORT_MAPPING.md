@@ -38,7 +38,7 @@ avtalet och används inte som fastighetsidentifierare. Adress- och namnmatchning
 fastigheter som fanns före importen, och endast när raden saknar fastighets-,
 förvaltnings-, objekts- och avtalsnummer. En adress får inte konkurrera med en
 angiven identifierare eller slå ihop nya poster med olika nummer.
-Avvikande adresser på en identifierad post granskas som fältvärden.
+Vid berikning behålls sparad adress; ett annat filvärde kräver inget godkännande. Beskrivande värden kan korrigeras direkt i cellen.
 En entydig match på både sparad fastighetsbeteckning och adress kopplas
 automatiskt utan nytt nummer eller godkännande. Övriga kopplingsförslag visas
 kompakt vid källraden och kräver ett uttryckligt val. Motstridiga
@@ -81,8 +81,8 @@ Det tidigare separata provet använde utgångna fält som `costCenterPremises`
 och har ersatts. Kompletterande prov finns för tabellimport, lokaldata,
 priser, ärenden samt server- och webbläsarbaserad Excel-lagring.
 
-Verifierat med syntetiska underlag 2026-10-25: 814 godkända tester och
-syntaxkontroll av 138 JavaScript-filer. Inga skarpa verksamhetsdata används.
+Verifierat med syntetiska underlag 2026-10-25: 823 godkända tester och
+syntaxkontroll av 139 JavaScript-filer. Inga skarpa verksamhetsdata används.
 
 Väntande källrader hanteras i samma tabell med filtren **Behöver kopplas**,
 **Behöver kompletteras** och **Nya poster att godkänna**.
@@ -109,3 +109,5 @@ Importtabellens datumvisning använder ÅÅÅÅ-MM-DD från det underliggande
 Excelvärdet och valt 1900-/1904-system, inte cellens amerikanska visningstext.
 Tolkningen av oklara textdatum ändras inte av visningsformatet. Felmeddelanden
 visas vid den berörda cellen och nämner kolumnen i radens sammanfattning.
+
+Berikning i en befintlig arbetsyta behåller sparade fakta och kopplingar. **Importera ej nya** är förvalt. **Importera nya – välj i listan** visar ett samlat urval för fastigheter, objekt, avtal, personer och bolag. Saknad objektidentifierare hindrar inte säker fastighetsberikning. Fel grupperas i en kort åtgärdstabell. Se [arbetsgången](SAFE_IMPORT.md).

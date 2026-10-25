@@ -55,14 +55,14 @@ test('duplicate mappings of optional numeric fields still block instead of silen
  const {result}=prepare(['properties.id','properties.designation','objects.id','objects.area','objects.area'],[['F1','Test','O1',100,200]]);
  assert.equal(result.report.blocking,1);assert.equal(result.clean.objects.length,0);assert.equal(result.clean.properties.length,0);
 });
-test('100 repeated field failures are one expandable problem type with all source records preserved',()=>{
+test('100 repeated field failures are one compact problem type with all source records preserved',()=>{
  const input=Array.from({length:100},(_,i)=>{const values=row(i);values[5]='Se avtal';return values;});
  const {result,profiles}=prepare(fields,input),reviews=result.clean.workspace.importReview,groups=importReviewGroups(reviews);
  assert.equal(reviews.length,100);assert.equal(groups.length,1);assert.equal(groups[0].rowCount,100);assert.equal(groups[0].recordCount,100);assert.equal(groups[0].category,'fields');
  assert.deepEqual(importTableRows(result.report.tables).map(item=>item.collection),['properties','objects','contracts']);
  const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas);
- assert.equal((html.match(/data-review-problem=/g)||[]).length,1);assert(!html.includes('import-problems'));assert(!html.includes('data-import-safe-rows'));assert(!html.includes('data-invalid-link'));assert(!html.includes('data-import-register="costEvidence"'));
- assert(html.indexOf('data-import-register="properties"')<html.indexOf('data-import-register="objects"'));assert.match(html,/före sparning/);assert.match(html,/100 källrader/);
+ assert.equal((html.match(/data-review-category=/g)||[]).length,1);assert(html.includes('import-problems'));assert(!html.includes('data-import-safe-rows'));assert(!html.includes('data-invalid-link'));assert(!html.includes('data-import-register="costEvidence"'));
+ assert(html.indexOf('data-import-register="properties"')<html.indexOf('data-import-register="objects"'));assert.match(html,/Övriga säkert kopplade uppgifter kan sparas/);assert.match(html,/>100<\/td>/);
  const receipt=importReceiptHtml(result.data.sourceRegistry[0],result.data);assert.match(receipt,/1 problemtyp/);assert.match(receipt,/data-receipt-tables open/);
  const saved=sources(result.data,{status:()=>({}),company:()=>false});assert.equal((saved.match(/data-source-review-group/g)||[]).length,1);assert.match(saved,/<details class="review-details">/);
 });
@@ -78,7 +78,7 @@ test('required record choices remain visible even after more than 100 optional f
  const rows=Array.from({length:150},(_,i)=>{const values=row(i);values[5]='Se avtal';return values;});rows.push(['','Gemensamt namn','',null,'','','','']);
  const {result,profiles}=prepare(fields,rows,base),groups=importReviewGroups(result.clean.workspace.importReview);
  assert.equal(result.report.blocking,1);assert.equal(groups[0].category,'blocked');
- const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas,{}, {story:{filter:'attention:link'}});assert.match(html,/data-link-use=/);assert(html.indexOf('data-import-link-proposals')<html.indexOf('data-review-category="fields"'));assert.equal(result.report.linkProposals.length,1);assert.match(html,/Alla källrader finns i granskningsunderlaget/);
+ const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas,{}, {story:{filter:'attention:link'}});assert.match(html,/data-link-use=/);assert(html.indexOf('data-import-link-proposals')<html.indexOf('data-review-category="fields"'));assert.equal(result.report.linkProposals.length,1);assert.match(html,/Hämta granskningsunderlag/);assert.match(html,/>150<\/td>/);
 });
 test('held source values, field receipt counts and Budget survive the actual Excel roundtrip',async()=>{
  const input=row();input[5]='Se avtal';const {result}=prepare(fields,[input]);result.clean.workspace.budgetPlans=[{year:2027,locked:true,rows:[{amount:987}]}];
@@ -112,7 +112,7 @@ test('bad agreement identity leaves safely matched properties and explicit objec
   const {result,profiles}=prepare(targets,[values]);assert.equal(result.report.blocking,0);assert.equal(result.clean.properties[0].name,'TESTET 1');assert.equal(result.clean.agreements.length,0);assert.equal(result.clean.objects.length,explicit?1:0);
   const review=result.clean.workspace.importReview.find(row=>row.recordRejected);assert(review);assert.equal(review.collection,'contracts');assert.equal(review.field,'id');assert.equal(review.value,'A1\nA2');
   const receipt=result.clean.workspace.sourceRegistry[0].receipt;assert.equal(receipt.readRows,1);assert.equal(receipt.rejectedRows,0);assert.equal(receipt.partialRows,1);assert.equal(receipt.columns.find(row=>row.target==='properties.designation').read,1);assert.equal(receipt.columns.find(row=>row.target==='contracts.id').read,0);assert.equal(receipt.columns.find(row=>row.target==='contracts.id').skipped,1);
-  const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas);assert.doesNotMatch(html,/data-apply class="primary-action" disabled/);assert.match(html,/Övriga säkert identifierade uppgifter/);
+  const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas);assert.doesNotMatch(html,/data-apply class="primary-action" disabled/);assert.match(html,/Övriga säkert kopplade uppgifter kan sparas/);
   assert.throws(()=>resolveReview(result.data,review.id,'accept','','Testare'),/läs in på nytt/);assert.equal(resolveImportChoices(result,{mode:'replace'}).clean.agreements.length,0);validateData(result.clean);
  }
 });

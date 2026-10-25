@@ -97,7 +97,7 @@ test('date and number failures point to the actual source column, never the last
  const result=prepareCleanImport(workbook,profiles,fixture(),{},XLSX),reviews=result.clean.workspace.importReview;
  assert.equal(result.report.blocking,0);assert.equal(result.clean.issues.length,2);assert(reviews.every(review=>review.fieldRejected&&!review.rowRejected));assert.equal(reviews[0].column,'Planerad start');assert.equal(reviews[0].value,'inte ett datum');assert.equal(reviews[1].column,'Kostnad');assert.equal(reviews[1].value,'okänt');
  const html=columnPreviewHtml({fileName:'test.xlsx'},{profiles},result,importSchemas);
- assert.match(html,/Kolumn: Planerad start/);assert(!html.includes('Kolumn: Betalas som hyrespåslag'));
+ assert.match(html,/<td>Planerad start<\/td>/);assert(!html.includes('<td>Betalas som hyrespåslag</td>'));
 });
 test('a 158-row source keeps all identifiable cases and leaves only the 14 invalid optional values for completion',()=>{
  const rows=[...Array.from({length:144},(_,i)=>['Ärende '+i,'O1','',1000,'2027-01-01','']),...Array.from({length:11},(_,i)=>['Datumfel '+i,'O1','',1000,'osäkert datum','']),...Array.from({length:3},(_,i)=>['Beloppsfel '+i,'O1','','okänt','2027-01-01',''])];

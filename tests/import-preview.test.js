@@ -9,7 +9,7 @@ test('one vertical row per column offers a direct field picker and an independen
  const html=columnPreviewHtml(prepared,mapping,result,schemas);
  assert.equal((html.match(/data-preview-map=/g)||[]).length,2);
  assert.equal((html.match(/data-ignore-column=/g)||[]).length,2);
- assert.equal((html.match(/<p>Hemvist saknas<\/p>/g)||[]).length,1);
+ assert.equal((html.match(/<td>Hemvist saknas<\/td>/g)||[]).length,1);
  assert.ok(html.includes('>Avtal</option>'));assert.ok(html.includes('>Avtalsnummer</option>'));
  assert.ok(!html.includes('data-preview-collection'));assert.ok(!html.includes('sheet-preview'));assert.ok(!html.includes('Kompletterande information'));
  assert.ok(!html.includes('Används för att identifiera och koppla poster.'));assert.ok(!html.includes('data-column-settings'));assert.ok(!html.includes('data-date-mode'));

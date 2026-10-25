@@ -33,29 +33,25 @@ Ett objekt kan ha flera olika avtals-ID med samma eller överlappande perioder.
 Tomma datum hindrar inte import av olika avtal. Samma avtals-ID återanvänds
 vid berikning; befintliga objektkopplingar flyttas inte.
 
-## Övergripande val
+## Övergripande val vid berikning
 
-Valet visas före detaljlistorna och gäller den aktuella importen:
+Sparade fakta, nummer och relationer behålls; tomma fält fylls. Värdeskillnader
+kräver inget godkännande. Beskrivande uppgifter kan korrigeras direkt i tabellen.
 
-| Val | Beteende |
-| --- | --- |
-| Fyll tomma fält och granska värdeskillnader | Kompletterar saknade uppgifter. Sparade källval används; övriga skillnader visas för granskning. |
-| Fyll tomma fält och behåll sparade värden | Kompletterar saknade uppgifter och behåller tidigare värden vid skillnader. |
-| Uppdatera med filens entydiga värden | Använder ett entydigt nytt värde. Flera olika nya värden för samma uppgift kräver fortfarande ett val. |
+- **Importera ej nya** är förvalt. Befintliga poster berikas.
+- **Importera nya – välj i listan** öppnar urvalet för nya fastigheter, objekt,
+  avtal, personer och bolag. Välj enskilda eller hela det filtrerade urvalet.
+- **Spara berikning** sparar en gång. Uppgifter utan säker hemvist lämnas utanför
+  med konkret orsak. Saknat objektnummer stoppar inte fastighetsberikning.
 
-Behåll/uppdatera gäller före tidigare källregler i just denna import. Reglerna
-raderas inte. Undantag kan väljas per uppgift. Valet finns kvar när kolumnvalen
-ändras och posterna kontrolleras igen. Identifierare, relationer och ogiltiga
-värden omfattas inte av ett generellt godkännande.
-
-Tomma celler i filen raderar inte befintliga värden. Nya fastigheter, objekt och avtal väljs i tabellen över nya poster före sparning.
-Befintliga poster berikas. Se [Granskad import](SAFE_IMPORT.md). Låsta budgetsnapshots ändras inte.
+Första inläsningen behåller sin granskning av nya registerposter.
+Se [granskad import](SAFE_IMPORT.md). Låsta budgetsnapshots ändras inte.
 
 ## En kortare granskningslista
 
 - Kända avtal redovisas som återanvända kopplingar, utan nya kryssrutor per rad.
 - Entydiga kopplingsförslag kan väljas gemensamt för det aktuella urvalet. Jämförelsen finns vid källraden.
-- Osäkra kopplingar visas öppna under **Behöver väljas**.
+- Osäkra kopplingar öppnas vid källraden via **Välj fastighetskoppling**.
 - Godkända kopplingar kan öppnas separat för kontroll.
 - Granska filtabellen och välj nya poster i samma dialog. Saknad beteckning kan
   fyllas i nu eller efter importen. Sparning sker först vid **Spara import**.
@@ -114,8 +110,8 @@ Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
 Verifierat 2026-10-25 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 814 godkända, 0 underkända, 0 överhoppade.
-- Syntax/förkontroll: 138 JavaScript-filer.
+- `npm test`: 823 godkända, 0 underkända, 0 överhoppade.
+- Syntax/förkontroll: 139 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,
   ledande nollor, sparning och återläsning godkända.
@@ -130,8 +126,7 @@ bortval och knappar som leder till rätt kolumnval eller kopplingsförslag. Se
 kolumnrubriker och återimport mot både nya och befintliga poster i SQLite/Excel.
 
 **Visa / redigera** ändrar celler direkt i importtabellen. Personer visas i en
-samlad tabell med en rad per person, namn, e-post, telefon och bolag/organisation. Värdeskillnader visar
-två jämförbara rader och förklarar vilket nummer som är gemensamt. Frågan om
+samlad tabell med en rad per person, namn, e-post, telefon och bolag/organisation. Vid berikning behålls sparade värden utan jämförelsefrågor. Första inläsningens värdeval visar jämförbara rader. Frågan om
 samma eller egen fastighet används endast vid berikning utan identifierare.
 Se [redigering och jämförelser](SAFE_IMPORT.md#redigering-och-tydliga-jämförelser).
 

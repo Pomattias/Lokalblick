@@ -72,13 +72,13 @@ test('invalid source links are not described as successful saved-agreement match
 });
 test('a bad optional date explains a partial import rather than hiding the valid records',()=>{
  const base=prepare().result.clean,{result,profiles}=prepare(base,[[...row,'not a date','Fylls i']], [...headers,'Säg upp senast','Användning']),approved=approveImportPlan(result,base),story=explainImport(result,base,{approved,profiles});
- assert.equal(story.rows[0].status,'pending');assert.equal(story.rows[0].partial,true);assert.equal(approved.clean.agreements[0].usage,'Fylls i');assert.match(story.rows[0].columns.find(column=>column.header==='Säg upp senast').reason,/datum/);
+ assert.equal(story.rows[0].status,'completed');assert.equal(story.rows[0].partial,true);assert.equal(approved.clean.agreements[0].usage,'Fylls i');assert.match(story.rows[0].columns.find(column=>column.header==='Säg upp senast').reason,/datum/);
 });
 test('explicit mapping explains the chosen existing property and retains differing facts for a decision',()=>{
  const base=emptyData();base.properties.push(normalize('properties',{id:'E',name:'SPARAD 1',address:'Sparad gata 1'}));
  const {result,profiles}=prepare(base),choices=all(result,base),entry=importCreationPlan(result,base).find(entry=>entry.table==='properties');choices[entry.key]={signature:entry.signature,action:'map',targetId:'E'};
  const approved=approveImportPlan(result,base,choices),story=explainImport(result,base,{approved,choices,profiles});
- assert.equal(story.rows[0].nodes.find(node=>node.table==='properties').actualId,'E');assert.match(story.rows[0].explanation,/Du kopplar fastighetsförslaget P1 till befintlig fastighet E/);assert.equal(story.rows[0].status,'pending');assert(story.rows[0].reasons.some(reason=>/Olika uppgifter vid vald koppling/.test(reason)));assert.equal(story.rows[0].columns.find(column=>column.header==='Fastighetsnamn').status,'pending');
+ assert.equal(story.rows[0].nodes.find(node=>node.table==='properties').actualId,'E');assert.match(story.rows[0].explanation,/Du kopplar fastighetsförslaget P1 till befintlig fastighet E/);assert.equal(story.rows[0].status,'created');assert(story.rows[0].reasons.some(reason=>/Olika uppgifter vid vald koppling/.test(reason)));assert.equal(story.rows[0].columns.find(column=>column.header==='Fastighetsnamn').status,'pending');
 });
 test('counts are source rows rather than a sum of properties, objects, agreements and prices',()=>{
  const base=emptyData(),{result,profiles}=prepare(base,[row,row]),choices=all(result,base),approved=approveImportPlan(result,base,choices),story=explainImport(result,base,{approved,choices,profiles});

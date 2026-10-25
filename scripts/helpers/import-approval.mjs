@@ -3,6 +3,7 @@
 export async function approveAllImportRecords(page){
  const dialog=page.locator('.import-mapping-dialog[open]');
  if(!await dialog.count())return;
+ const mode=dialog.locator('[data-import-new-mode]');if(await mode.count())await mode.selectOption('include');
  const list=dialog.locator('[data-new-records]');
  if(await list.count()){
   await list.evaluate(node=>node.open=true);

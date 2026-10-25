@@ -68,8 +68,8 @@ nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
 Verifierat 2026-10-25 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 814 godkända, 0 underkända, 0 överhoppade.
-- Repots förkontroll: syntax för 138 JavaScript-filer och kontroll av filtyper.
+- `npm test`: 823 godkända, 0 underkända, 0 överhoppade.
+- Repots förkontroll: syntax för 139 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
 - Tabellimport i webbläsare: mappning, återimport, kontakter, SQLite-sparning
@@ -133,3 +133,5 @@ sparflödet i SQLite/server-Excel.
 ISO-visning av Exceldatum, båda datumsystemen, bortvalda kolumner, oförändrade
 identifierare, tydliga fältfel, tillgänglig felbeskrivning och rättning/sparning
 i SQLite/server-Excel. Underliggande cellvärden och ursprungliga filer bevaras.
+
+Berikning har en fast kompletteringsregel och ett synligt val för nya registerposter. Samma utkast kan komplettera en fastighet och utelämna objektuppgifter utan nummer. Ett bortvalt nytt bolag stoppar inte övriga giltiga fält. `npm run test:enrichment-browser` verifierar standardval, personer/bolag, selektivt/allmänt urval, kort problemlista, avbryt, återimport och mobil i SQLite/server-Excel.

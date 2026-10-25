@@ -51,6 +51,6 @@ test('the mapping template preserves destinations and separate item categories t
 });
 test('a compact overview explains actual destinations, categories and the per-column choice',()=>{
  const book=source(),ps=profiles(book),result=run(book,ps),html=columnPreviewHtml({fileName:'syntetiska-avtal.xlsx'},{profiles:ps},result,importSchemas);
- assert.match(html,/Granska kolumnval och kopplingar/);assert.match(html,/Utgångspunkt för förslag/);assert.doesNotMatch(html,/<label>Huvudtabell/);for(const collection of ['properties','objects','contracts','agreementItems'])assert.match(html,new RegExp('data-register="'+collection+'"'));
+ assert.match(html,/Granska importen/);assert.match(html,/Utgångspunkt för förslag/);assert.doesNotMatch(html,/<label>Huvudtabell/);for(const collection of ['properties','objects','contracts','agreementItems'])assert.match(html,new RegExp('data-register="'+collection+'"'));
  assert.match(html,/Grundbelopp, kr\/år · Värme/);assert.equal((html.match(/data-preview-map=/g)||[]).length,ps[0].columns.length);assert.doesNotMatch(html,/data-import-destination-fields|data-column-group/);
 });

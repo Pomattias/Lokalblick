@@ -4214,3 +4214,21 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
 .import-source-table td[data-cell-problem] {box-shadow:inset 3px 0 #a33125;}
 .import-source-table .import-cell-problem {color:#8b251c;background:#fff2ef;padding:4px 6px;white-space:normal;}
 .import-source-table input[aria-invalid=true] {border-color:#a33125;}
+
+/* Import uses one type scale and table language throughout, including pickers. */
+.followup-dialog.import-dialog {font:13px/1.45 var(--ui-font-family);color:var(--ink);}
+.followup-dialog.import-dialog :is(h2,h3,h4,strong,summary,th,td,label,small,input,select,button) {font-family:inherit;}
+.followup-dialog.import-dialog h2 {font-size:20px;font-weight:600;margin:0 0 8px;}
+.followup-dialog.import-dialog :is(h3,h4) {font-size:14px;font-weight:600;}
+.followup-dialog.import-dialog :is(table,button,input,select,label,p,summary) {font-size:13px;}
+.followup-dialog.import-dialog small {font-size:12px;}
+.followup-dialog.import-dialog .import-comparison-table {width:100%;font-size:13px;}
+.import-policy {display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,300px);gap:16px;align-items:center;margin:12px 0;}
+.import-policy p {margin:0;}
+.import-policy label {display:grid;gap:4px;}
+.import-problems {margin:16px 0;padding-top:12px;border-top:1px solid var(--line);}
+.import-problems td:last-child {white-space:nowrap;}
+.import-problems button {margin:2px;}
+.import-approval-dialog {width:min(880px,calc(100vw - 24px));}
+.import-approval-dialog input {width:100%;margin:6px 0 12px;}
+@media(max-width:600px) {.import-policy {grid-template-columns:minmax(0,1fr);gap:8px;}}

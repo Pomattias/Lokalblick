@@ -1,6 +1,6 @@
 import {esc} from './view-format.js';
 
-export function importPeopleHtml(candidate,base,{approved=null,edits={},editing=new Set(),query='',limit=100}={}){
+export function importPeopleHtml(candidate,base,{approved=null,edits={},editing=new Set(),query='',limit=100,enrichment=false,allowNew=false}={}){
  if(!candidate.clean)return '';
  const data=candidate.clean,ids=new Set((candidate.report.sourceRows||[]).flatMap(row=>row.records.people||[])),people=data.people.filter(p=>ids.has(p.id));if(!people.length)return '';
  const parties=new Map(data.parties.map(p=>[p.id,p])),properties=new Map(data.properties.map(p=>[p.id,p])),companies=new Map();
@@ -16,7 +16,7 @@ export function importPeopleHtml(candidate,base,{approved=null,edits={},editing=
  const value=(person,field)=>edits.people?.[person.id]?.[field]??person[field]??'';
  const matching=people.filter(person=>[...['name','email','phone'].map(field=>value(person,field)),companyName(person)].join(' ').toLocaleLowerCase('sv').includes(query.toLocaleLowerCase('sv')));
  const before=new Map(base.people.map(p=>[p.id,p])),saved=approved&&new Map(approved.clean.people.map(p=>[p.id,p]));
- const status=person=>saved&&!saved.has(person.id)?'Läses inte in':!before.has(person.id)?'Ny person':['name','email','phone','party_id'].some(field=>person[field]!==before.get(person.id)[field])?'Uppdateras':'Befintlig person';
+ const status=person=>saved&&!saved.has(person.id)?enrichment&&!before.has(person.id)?allowNew?'Ny person · Ej vald':'Ny person · Importera ej nya':'Läses inte in':!before.has(person.id)?'Ny person':['name','email','phone','party_id'].some(field=>person[field]!==before.get(person.id)[field])?'Uppdateras':'Befintlig person';
  const input=(person,field)=>`<input type="text" data-person-field="${esc(person.id)}" data-person-key="${field}" aria-label="${({name:'Namn',email:'E-post',phone:'Telefon'})[field]} för ${esc(person.name)}" value="${esc(value(person,field))}" maxlength="20000">`;
  return `<section data-import-people><h3>Personer i importen <small>${people.length} ${people.length===1?'person':'personer'}</small></h3><label>Sök person eller bolag<input type="search" data-people-search value="${esc(query)}"></label><div class="import-source-scroll" tabindex="0"><table class="import-source-table import-people-table" aria-label="Personer i importen"><thead><tr><th>Visa / redigera</th>${['Namn','E-post','Telefon','Bolag / organisation','Resultat'].map(label=>`<th data-register="people">${label}</th>`).join('')}</tr></thead><tbody>${matching.slice(0,limit).map(person=>{
   const active=editing.has(person.id);

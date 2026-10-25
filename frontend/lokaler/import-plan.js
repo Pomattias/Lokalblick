@@ -4,6 +4,8 @@ import {projectWorkspace} from './view-adapter.js';
 import {refreshImportReceipt} from './import-receipt.js';
 
 export const creationTables=['properties','objects','agreements'];
+// During enrichment the one new-record choice also governs people/companies.
+const creationTablesFor=result=>result.report.enrichment?['parties','people',...creationTables]:creationTables;
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const token=(table,id)=>JSON.stringify([table,id]);
 const collection=table=>viewCollections[table]||table;
@@ -13,12 +15,12 @@ const planOrigins=new WeakMap();
 export function importCreationPlan(result,base){
  const before=index(base),out=[],recordOrigins=new Map();
  for(const change of result.report.changes||[]){const key=token(change.collection,change.recordId);if(!recordOrigins.has(key))recordOrigins.set(key,[]);recordOrigins.get(key).push(...(change.provenance?.occurrences||[change.provenance]).filter(Boolean));}
- for(const table of creationTables)for(const record of result.clean[table])if(!before[table].has(record.id)){
+ for(const table of creationTablesFor(result))for(const record of result.clean[table])if(!before[table].has(record.id)){
   const origins=recordOrigins.get(token(collection(table),record.id))||[];
   out.push({key:token(table,record.id),table,record,signature:JSON.stringify(record),origins:[...new Map(origins.map(origin=>[JSON.stringify([origin.source,origin.sheet,origin.row]),origin])).values()]});
  }
  const lookup=new Map(out.map(entry=>[entry.key,entry]));
- for(const table of creationTables)for(const row of base[table])lookup.set(token(table,row.id),{existing:true});
+ for(const table of creationTablesFor(result))for(const row of base[table])lookup.set(token(table,row.id),{existing:true});
  planIndexes.set(out,lookup);planOrigins.set(out,recordOrigins);return out;
 }
 export function creationChoice(entry,choices){
@@ -55,7 +57,7 @@ export function approveImportPlan(result,base,choices={},actor='Excelimport'){
   for(const field of tables.properties.fields){
    const value=proposed[field.key];if(value==null||value==='')continue;
    if(target[field.key]==null||target[field.key]==='')target[field.key]=structuredClone(value);
-   else if(!same(target[field.key],value))addedReviews.push({id:'PLAN-MAP-'+token(from,field.key),kind:'canonical-conflict',status:'pending',...origins[0],source:origins[0]?.source||report.sourceName,occurrences:origins.map(({source,sheet,row})=>({source,sheet,row})),collection:'properties',recordId:to,field:viewFields.properties[field.key]||field.key,current:target[field.key],proposed:value,reason:'Olika uppgifter vid vald koppling till befintlig fastighet.',blocking:false,rowRejected:false});
+   else if(!result.report.enrichment&&!same(target[field.key],value))addedReviews.push({id:'PLAN-MAP-'+token(from,field.key),kind:'canonical-conflict',status:'pending',...origins[0],source:origins[0]?.source||report.sourceName,occurrences:origins.map(({source,sheet,row})=>({source,sheet,row})),collection:'properties',recordId:to,field:viewFields.properties[field.key]||field.key,current:target[field.key],proposed:value,reason:'Olika uppgifter vid vald koppling till befintlig fastighet.',blocking:false,rowRejected:false});
   }
  }
  for(const [table,spec]of Object.entries(tables))for(const record of clean[table]){
@@ -65,14 +67,20 @@ export function approveImportPlan(result,base,choices={},actor='Excelimport'){
    record[field.key]=target;
   }
  }
- for(const table of creationTables)clean[table]=clean[table].filter(row=>!excluded.has(token(table,row.id)));
+ for(const table of creationTablesFor(result))clean[table]=clean[table].filter(row=>!excluded.has(token(table,row.id)));
  // Remove dependent new rows, including prices, contacts and inspections.
  // Restore an existing record in full if a proposed dependency is withheld.
  let changed=true;
  while(changed){
   changed=false;const present=index(clean);
   for(const [table,spec]of Object.entries(tables))clean[table]=clean[table].flatMap(record=>{
-   const missing=spec.fields.some(field=>field.type==='ref'&&record[field.key]&&!present[field.table].has(record[field.key]));
+   const missingFields=spec.fields.filter(field=>field.type==='ref'&&record[field.key]&&!present[field.table].has(record[field.key]));
+   // Withholding a new company must not undo other valid enrichment. Optional
+   // references retain their saved value (or remain blank); required parents
+   // still withhold the dependent record as a whole.
+   const optional=field=>result.report.enrichment&&field.table==='parties'&&!field.required;
+   for(const field of missingFields.filter(optional))record[field.key]=before[table].get(record.id)?.[field.key]??null;
+   const missing=missingFields.some(field=>!optional(field));
    if(!missing)return [record];changed=true;
    const old=before[table].get(record.id);if(old)return [structuredClone(old)];
    excluded.add(token(table,record.id));return [];
