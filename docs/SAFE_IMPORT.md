@@ -121,7 +121,7 @@ npm run test:table-import-browser
 npm run test:lokaler-browser
 ```
 
-Verifierat med syntetiska filer 2026-10-25: 800 tester och syntaxkontroll av 138
+Verifierat med syntetiska filer 2026-10-25: 807 tester och syntaxkontroll av 138
 JavaScript-filer. Webbläsarprovet följer fil → tabell → ändrade val → API → SQLite
 → återöppning: selektiva/allmänna urval, 122 nya fastigheter, saknad beteckning
 före/efter import, en person med flera roller och mål, återimport och avbrott utan
@@ -135,8 +135,8 @@ sessionscache lagras inte som en extra datatabell.
 
 Ett väntande adressförslag är en koppling som behöver väljas, inte en extra
 källrad. Alla källrader finns kvar i filtabellen även när en identifierare
-eller koppling ännu inte godkänts. Varje väntande koppling visas med sitt
-jämförelse direkt under sin källrad, med samma tabellutformning. Den tidigare separata
+eller koppling ännu inte godkänts. Varje väntande koppling visas i en kompakt lista direkt under sin källrad.
+Den större jämförelsen öppnas endast via **Jämför uppgifter**. Den tidigare separata
 kopplingslistan har tagits bort.
 
 **Behöver kopplas** samlar osäkra fastighets-/nummerförslag. **Behöver
@@ -197,7 +197,7 @@ Två olika slags jämförelser har olika frågor:
   raden kommer från samma fil eller är sparad före importen. Användaren väljer
   ett värde; detta ändrar aldrig kopplingen till en annan fastighet.
 - **Kopplingsförslag vid berikning utan nummer:** filens rad jämförs med sparade
-  kandidater. **Samma fastighet** väljer kopplingen. **Egen fastighet** skapar
+  kandidater. **Använd befintlig** väljer kopplingen. **Egen fastighet** skapar
   en egen post, med valfritt fastighetsnummer, och räknas som dess skapandebeslut.
   Ett redan registrerat nummer får inte återanvändas för en egen ny fastighet.
 
@@ -213,3 +213,31 @@ värdejämförelser, bibehållna skapandeval, avbrott och låsta budgetsnapshots
 Olika avtals-ID begränsas inte av varandras perioder på objektet. Kontrollen
 används likadant i importmotorn, modellen och lagringen. Exakta avtals-ID,
 objektreferenser, giltiga datum och bashyrans villkor per avtal behålls.
+
+
+## Automatisk berikning av en känd fastighet
+
+När raden saknar fastighets-/förvaltnings-/objekts-/avtalsnummer och **både
+fastighetsbeteckning och adress** matchar exakt en tidigare sparad fastighet,
+kopplas raden automatiskt. Skillnader i versaler, extra blanksteg och redan
+stödda adressformat normaliseras. En given ort får inte motsäga sparad ort.
+Fastighetsnumret, sparade relationer och andra ifyllda uppgifter behålls;
+tomma fält kompletteras. En ifylld fastighetsägare ersätts inte och ett
+konkurrerande ägarbolag skapas inte av den automatiska kompletteringen.
+Manuella cellkorrigeringar följer den vanliga valideringen.
+
+Raden visar **Kopplad automatiskt** och det befintliga fastighetsnumret.
+Ingen ny fastighet föreslås och inget kopplingsgodkännande behövs. Historiken
+anger matchningsmetoden `property-designation-address`. Underlaget och de
+låsta budgetsnapshotsen ändras inte. Matchningen jämför bara med portföljen
+som fanns före importen, inte tidigare rader i samma fil.
+
+Enbart adress eller enbart beteckning, flera möjliga träffar, adress lagrad
+som beteckning och verkligt olika beteckningar kräver fortfarande granskning.
+Exempel: TESTET 14 och TESTET 11 räknas inte som samma beteckning.
+Granskningen visar en liten kandidatrad; **Jämför uppgifter** och valet att
+skapa egen fastighet är hopfällda. Öppnade detaljer behålls vid omräkning.
+
+`npm run test:property-enrichment-browser` provar automatisk koppling,
+komplettering, befintliga nummer, personer/kontakter, avbrott utan skrivning,
+återimport och kompakt granskning i både SQLite och server-Excel.

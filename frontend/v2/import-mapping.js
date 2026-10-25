@@ -182,6 +182,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     };
     const disclosureKey=node=>{
      for(const attr of ['data-new-records','data-sheet-settings','data-final-impact','data-import-enrichment','data-import-errors','data-import-value-choices'])if(node.hasAttribute(attr))return attr;
+     for(const attr of ['data-property-comparison','data-new-property-choice'])if(node.hasAttribute(attr))return attr+':'+node.closest('[data-source-key]')?.dataset.sourceKey;
      for(const attr of ['data-review-problem'])if(node.hasAttribute(attr))return attr+':'+node.getAttribute(attr);
      return null;
     };

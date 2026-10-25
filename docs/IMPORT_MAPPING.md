@@ -39,7 +39,9 @@ fastigheter som fanns före importen, och endast när raden saknar fastighets-,
 förvaltnings-, objekts- och avtalsnummer. En adress får inte konkurrera med en
 angiven identifierare eller slå ihop nya poster med olika nummer.
 Avvikande adresser på en identifierad post granskas som fältvärden.
-Tillåtna kopplingsförslag visar kandidater direkt på källraden; de kräver ett uttryckligt val. Motstridiga
+En entydig match på både sparad fastighetsbeteckning och adress kopplas
+automatiskt utan nytt nummer eller godkännande. Övriga kopplingsförslag visas
+kompakt vid källraden och kräver ett uttryckligt val. Motstridiga
 identifierare kan inte godkännas genom ett övergripande värdeval.
 
 Personer identifieras med person-ID, e-post eller entydigt namn och part.
@@ -79,7 +81,7 @@ Det tidigare separata provet använde utgångna fält som `costCenterPremises`
 och har ersatts. Kompletterande prov finns för tabellimport, lokaldata,
 priser, ärenden samt server- och webbläsarbaserad Excel-lagring.
 
-Verifierat med syntetiska underlag 2026-10-25: 800 godkända tester och
+Verifierat med syntetiska underlag 2026-10-25: 807 godkända tester och
 syntaxkontroll av 138 JavaScript-filer. Inga skarpa verksamhetsdata används.
 
 Väntande källrader hanteras i samma tabell med filtren **Behöver kopplas**,

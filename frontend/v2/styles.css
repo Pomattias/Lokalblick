@@ -4206,3 +4206,7 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
  body[data-view="properties"] .property-list .property-list-summary .primary-cell>button {display:inline;width:auto;max-width:100%;vertical-align:bottom;}
  body[data-view="properties"] .property-list .property-mobile-meta {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;}
 }
+
+.import-link-actions {display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;}
+.import-link-actions>details {max-width:100%;}
+.import-link-list :is(th,td) {padding:6px 8px;}

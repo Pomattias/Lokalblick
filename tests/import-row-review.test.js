@@ -68,7 +68,7 @@ test('optional missing designations are marked for completion even when other fa
 
 test('ambiguous candidates require one selection and never offer a bulk-approved checkbox',()=>{
  const proposal={matches:[{id:'A',label:'EKEN 1'},{id:'B',label:'EKEN 2'}],records:[],row:2},html=importLinkChoiceHtml(proposal,0);
- assert.match(html,/data-link-use="0"/);assert.doesNotMatch(html,/data-approve-link=/);assert.match(html,/Kontrollera kopplingen från numren/);
+ assert.match(html,/data-link-use="0"/);assert.doesNotMatch(html,/data-approve-link=/);assert.match(html,/Flera sparade fastigheter passar/);
  const row={status:'pending',columns:[],reviews:[],nodes:[],rejected:true};
  assert.equal(importRowAttention(row,proposal).caption,'Behöver kopplas');
 });

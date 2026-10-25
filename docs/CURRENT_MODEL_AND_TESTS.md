@@ -68,7 +68,7 @@ nya modellen används en ny arbetsyta; inga skarpa filer ändras av kodarbetet.
 
 Verifierat 2026-10-25 med Node.js 24.19.0 och systemets Chromium:
 
-- `npm test`: 800 godkända, 0 underkända, 0 överhoppade.
+- `npm test`: 807 godkända, 0 underkända, 0 överhoppade.
 - Repots förkontroll: syntax för 138 JavaScript-filer och kontroll av filtyper.
 - Budget-/karttest: låsning, bekräftelse, version, utfall, historik, återläsning
   och navigering under zoomning på mobil och dator.
@@ -121,3 +121,10 @@ samtidig bashyra per avtal valideras fortfarande.
 Personöversikten visar en rad per person med bolag/organisation; kopplingarnas
 roller och mål redigeras i källradens detaljer. `simultaneous-agreements.test.js`
 och `import-people.test.js` täcker dessa regler.
+
+Automatisk textmatchning vid berikning kräver entydig sparad beteckning och
+adress, utan konkurrerande källnummer eller ort. Den behåller fastighetsnumret
+och sparade fält. Oklara träffar visas som kompakta kandidatrader med valfri
+fördjupning. `property-text-enrichment.test.js` och
+`npm run test:property-enrichment-browser` verifierar regeln, historiken och
+sparflödet i SQLite/server-Excel.

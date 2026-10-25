@@ -25,7 +25,9 @@ kolumnordning eller filnamn.
 
 Ett nytt avtal kopplas med angivna nummer eller en granskad nummerhärledning.
 Adress- och namnförslag gäller endast berikning mot sparade fastigheter när
-raden saknar alla fastighets-/förvaltnings-/objekts-/avtalsnummer. Vid första
+raden saknar alla fastighets-/förvaltnings-/objekts-/avtalsnummer. Om både
+beteckning och adress entydigt stämmer används den sparade fastigheten direkt:
+numret och ifyllda fält behålls, tomma fält kompletteras. Vid första
 inläsningen får sådana förslag inte koppla ihop olika numrerade fastigheter.
 Ett objekt kan ha flera olika avtals-ID med samma eller överlappande perioder.
 Tomma datum hindrar inte import av olika avtal. Samma avtals-ID återanvänds
@@ -112,7 +114,7 @@ Inga skarpa filer eller verksamhetsdata används i dessa prov.
 
 Verifierat 2026-10-25 med Node.js 24.19.0 och system-Chromium:
 
-- `npm test`: 800 godkända, 0 underkända, 0 överhoppade.
+- `npm test`: 807 godkända, 0 underkända, 0 överhoppade.
 - Syntax/förkontroll: 138 JavaScript-filer.
 - Lokaldataflödet och tabellimportens webbläsartest: godkända.
 - SQLite, server-Excel och webbläsar-Excel: metadatafält, redigering,

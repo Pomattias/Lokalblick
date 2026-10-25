@@ -19,8 +19,9 @@ import {assignAgreementItemKeys} from '../services/import-matching.js';
 import {personRole,contactPart,contactFields,personFormat,parsePersonIdentity} from '../services/import-person-links.js';
 const clone=value=>structuredClone(value),present=value=>value!==null&&value!==undefined&&value!=='';
 const text=value=>String(value??'').trim(),key=value=>text(value).replace(/\s+/g,' ').toLocaleLowerCase('sv');
-// Matching evidence belongs to audit history. Source-row identity stays stable
-// when the same file later reuses an already saved agreement link.
+const propertyNameKey=value=>text(value).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase('sv');
+const propertyTextKey=record=>{const name=propertyNameKey(record.name),address=importAddressKey(record.address);return name&&address&&!isInternalIdentifier(record.name)&&name!=='fastighetsbeteckning saknas'&&!/^\d+$/.test(name)&&importAddressKey(name)!==address?JSON.stringify([name,address]):null;};
+// Matching evidence belongs to audit history; financial source identity stays stable.
 const financialSource=origin=>{const {matchingDecision,...source}=origin;return source;};
 const validLink=value=>{try{const url=new URL(value);return /^https?:$/.test(url.protocol)&&!!url.hostname&&!/\s/.test(value);}catch{return false;}};
 const fieldMap=Object.fromEntries(Object.entries(viewCollections).flatMap(([table,collection])=>tables[table].fields.map(({key:field})=>[collection+'.'+(viewFields[table][field]||field),{table,field}])));
@@ -67,6 +68,8 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   return [profile,new Map(profile.columns.map(column=>[column.index,{source:profile.fileName||context.fileName||'Excel',sheet:profile.name,index:column.index,header:column.header,target:column.target,label:labels.get(column.target)||column.target,...(column.itemType?{itemType:column.itemType,itemLabel:tables.agreement_items.fields.find(field=>field.key==='type').values[column.itemType]}:{}),read:0,skipped:0,review:0}]))];
  }));
  data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const prior=clone(data),priorAgreementIds=new Set(prior.agreements.map(row=>row.id)),priorPropertyIds=new Set(prior.properties.map(row=>row.id)),priorObjects=new Map(prior.objects.map(row=>[row.id,row]));const aliases=propertyAliases(data.workspace.auditLog);
+ // Automatic text matches use the saved snapshot, never earlier rows in this file.
+ const savedTextProperties=new Map();for(const row of prior.properties){const identity=propertyTextKey(row);if(identity){if(!savedTextProperties.has(identity))savedTextProperties.set(identity,[]);savedTextProperties.get(identity).push(row);}}
  const contactChoices=new Map(),personChoices=new Map();
  const priorLabels=createBusinessLabels(prior),objectNumbers=new Map();
  for(const row of prior.objects)if(isInternalIdentifier(row.id)){
@@ -149,6 +152,8 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      const selectedTarget=columnFor(table,field)?.target.split('.')[1]||legacy;
      const inputColumn=columnFor(table,field);
      const rule=manualField(table,field)?'accept':importPreference(data.workspace.importFieldPreferences,fieldMap[inputColumn?.target]?.partyRole?inputColumn.target.split('.')[0]:collection,selectedTarget,source,profile,inputColumn);
+     // A confirmed designation/address match enriches blanks and retains saved facts.
+     if(table==='properties'&&origin.matchingDecision?.method==='property-designation-address'&&!manualField(table,field)){normalized[field]=existing[field];continue;}
      if(field==='management_object_number')throw Object.assign(Error('Förvaltningsobjekt skiljer sig från den sparade fastigheten. Kontrollera kopplingen.'),{collection,field:legacy,column:inputColumn?.header,columnIndex:inputColumn?.index,current:existing[field],proposed:value});
      if(tables[table].fields.find(f=>f.key===field)?.type==='ref'){const error=Error('Olika värden för '+(tables[table].fields.find(f=>f.key===field)?.label||field)+'. Importen får inte flytta en befintlig koppling.');Object.assign(error,{collection,field:legacy,column:inputColumn?.header,columnIndex:inputColumn?.index,current:existing[field],proposed:value});throw error;}
      if(table==='properties'&&field==='address'&&importAddressKey(value)===importAddressKey(existing[field])){normalized[field]=existing[field];continue;}
@@ -362,11 +367,16 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
        if(missingObject){raw.objects ||= {};raw.objects.id=numberParts.objectId;}
       }
      }
-     const chosen=!p.id&&!anchorProperty&&!byManagement&&candidates.length?approveProperty(candidates,p.address?'Adress':'Fastighetsnamn'):null;
+     const exact=allowTextMatch?(savedTextProperties.get(propertyTextKey(p))||[]).filter(cityFits):[];
+     const automatic=!p.id&&!anchorProperty&&!byManagement&&exact.length===1?indexes.properties.get(exact[0].id):null;
+     const chosen=automatic||(!p.id&&!anchorProperty&&!byManagement&&candidates.length?approveProperty(candidates,p.address?'Adress':'Fastighetsnamn'):null);
      if(chosen?.createNew)p.id=chosen.id;
      const existing=byId||anchorProperty||byManagement||(chosen?.createNew?null:chosen);
-     origin.matchingDecision={propertyId:existing?.id||text(p.id),method:chosen?.createNew?'explicit-new-property':numberChoice?'agreement-number-approved':anchorAgreement?'existing-agreement-link':anchorObject?'existing-object-link':byManagement?'management-object-number':chosen?'explicit-row-choice':p.id?'property-id':p.address?'property-address':'property-name',...(numberChoice?{agreementId:numberParts.agreementId,objectId:raw.objects?.id||raw.agreements?.object_id}:{}),addressChecked:Boolean(p.address)};
-     if(p.owner_party_id||linkedNumbers.has('owner'))p.owner_party_id=party(p.owner_party_id||existing?.owner_party_id,'owner');
+     origin.matchingDecision={propertyId:existing?.id||text(p.id),method:automatic?'property-designation-address':chosen?.createNew?'explicit-new-property':numberChoice?'agreement-number-approved':anchorAgreement?'existing-agreement-link':anchorObject?'existing-object-link':byManagement?'management-object-number':chosen?'explicit-row-choice':p.id?'property-id':p.address?'property-address':'property-name',...(numberChoice?{agreementId:numberParts.agreementId,objectId:raw.objects?.id||raw.agreements?.object_id}:{}),addressChecked:Boolean(p.address)};
+     if(p.owner_party_id||linkedNumbers.has('owner')){
+      if(automatic&&existing.owner_party_id){p.owner_party_id=existing.owner_party_id;linkedNumbers.delete('owner');}
+      else p.owner_party_id=party(p.owner_party_id||existing?.owner_party_id,'owner');
+     }
      const incomingName=p.name&&(!existing||!p.address||importAddressKey(p.name)!==importAddressKey(p.address)||importAddressKey(existing.name)===importAddressKey(existing.address))?p.name:null;
      const preferredNumber=managementPropertyNumber(p.management_object_number);
      const generatedId=preferredNumber||generatedPropertyId(source,profile.name,p);
