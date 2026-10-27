@@ -201,3 +201,36 @@ test('cost centres and source identifiers retain leading zeroes while monetary v
   assert.equal(edited.costCenter,'003418');assert.equal(edited.managementObjectNumber,'0004100');assert.equal(edited.cost,12500);
  }finally{globalThis.FormData=original;}
 });
+
+test('avtalsformuläret visar kärnuppgifter direkt och kompletteringar utfällbart',()=>{
+  const clean={...data,cleanModel:true,objects:[{id:'o1',propertyId:'p1',number:'101',area:100}]};
+  const c={...contract,objectId:'o1',tenantPartyId:'tenant',businessDescription:'Vård <test>'};
+  const html=renderContractEditor(clean,c,'c1',false,{portfolio:true});
+  const main=html.split('data-contract-section="identity">')[1].split('</section>')[0];
+  const extra=html.split('data-contract-context>')[1].split('</details>')[0];
+  for(const key of ['id','tenantPartyId','objectId'])
+    assert.match(main,new RegExp('name="'+key+'"'),key);
+  for(const key of ['businessDescription','category','costCenter'])
+    assert.match(extra,new RegExp('name="'+key+'"'),key);
+  assert.doesNotMatch(main,/name="businessDescription"|Orgnr hyresgäst|Fastighetsägare/);
+  assert.match(extra,/Vård &lt;test&gt;/);
+  assert.match(extra,/Fastighetsägare/);
+  assert.match(html,/<details class="contract-secondary" data-contract-context><summary>Fler avtalsuppgifter<\/summary>/);
+  assert.ok(html.indexOf('data-contract-section="dates"')<html.indexOf('data-contract-context'),
+    'Avtalstid visas före kompletteringar');
+  for(const key of ['tenantPartyId','objectId','businessDescription','start','end'])
+    assert.equal((html.match(new RegExp('name="'+key+'"','g'))||[]).length,1,key);
+});
+
+test('årstakten är synlig före kostnadsposter och ändrar inte beräkningar',()=>{
+  const html=renderContractEditor(data,{...contract,tenantPartyId:'tenant'},'c1',false,{portfolio:true});
+  const economics=html.split('data-contract-section="economics"')[1].split('</section>')[0];
+  assert.match(economics,/contract-finance-summary/);
+  assert.match(economics,/Aktuell årstakt:/);
+  assert.ok(economics.indexOf('contract-finance-summary')<economics.indexOf('<div class="table-wrap">'));
+  assert.equal((economics.match(/Aktuell årstakt:/g)||[]).length,1);
+  assert.match(economics,/data-object-area/);
+  assert.match(html,/data-item-new="c1"/);
+  assert.doesNotMatch(renderContractEditor(data,contract,'c1'),/contract-finance-summary/,
+    'Budgetavtalets äldre visning är oförändrad');
+});

@@ -93,10 +93,9 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
     (!id&&!c.propertyId ? field("Fastighet",select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")) : "")+
     (presentation.portfolio?field("AvtalsID",input({...c,id:c.number||c.id},"id","text",Boolean(id),'required maxlength="100"')):field("Avtalsnummer",input(c,"number","text",masterLocked)))+
     field("Hyresgäst / verksamhet",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
-    field("Verksamhetsbeskrivning",'<textarea name="businessDescription" rows="3">'+esc(c.businessDescription||'')+'</textarea>')+
-    (data.cleanModel&&presentation.portfolio?field('Orgnr hyresgäst',partyNumberInput(data,'contracts',c)):'')+
+    (presentation.portfolio?'':field("Verksamhetsbeskrivning",'<textarea name="businessDescription" rows="3">'+esc(c.businessDescription||'')+'</textarea>'))+
     field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>objectLabel(x),"Välj objekt"))+
-    field("Fastighetsägare",display(ownerName))+
+    (presentation.portfolio?'':field("Fastighetsägare",display(ownerName)))+
     '</div>'+documentLink+'</section>';
 
   const rentTerms = '<details class="contract-secondary" data-contract-rent-terms'+(!id?' open':'')+'><summary>Hyresvillkor och beräkning</summary><div class="contract-grid">'+
@@ -140,6 +139,9 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
   // Supplementary source and relationship fields stay mounted for FormData,
   // but do not interrupt the agreement's identity, economics and dates.
   const additional = presentation.portfolio?('<details class="contract-secondary" data-contract-context><summary>Fler avtalsuppgifter</summary><div class="contract-grid">'+
+    field("Verksamhetsbeskrivning",'<textarea name="businessDescription" rows="3">'+esc(c.businessDescription||'')+'</textarea>')+
+    (data.cleanModel?field('Orgnr hyresgäst',partyNumberInput(data,'contracts',c)):'')+
+    field("Fastighetsägare",display(ownerName))+
     field("Lokalkategori",categorySelect)+
     (data.cleanModel?field("Kostnadsställe",input(c,"costCenter"))+field("Kundtyp avtal",input(c,"customerType"))+field("Avtalstyp",input(c,"agreementType")):"")+
     field('Användning',input(c,'use','text',company&&!!id))+

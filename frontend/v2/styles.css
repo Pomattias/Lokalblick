@@ -4288,3 +4288,20 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
   display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:3px 0 8px;
 }
 #editor-root .record-workspace .object-more>.form-grid>label {min-width:0;}
+/* Avtal: bara avtalsnummer, hyresgäst och objekt i huvuddelen. Kompletteringar
+   finns kvar i samma formulär med en enda sparväg. */
+#editor-root .record-workspace.contract-editor [data-contract-section="identity"] {padding-bottom:6px;}
+#editor-root .record-workspace.contract-editor [data-contract-context] {
+  margin:9px 0 5px;border-top:1px solid var(--line);padding-top:2px;
+}
+#editor-root .record-workspace.contract-editor [data-contract-context] > .contract-grid {padding:4px 0 8px;}
+#editor-root .record-workspace.contract-editor [data-finance-panel] .contract-finance-summary {
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 12px;
+  margin:2px 0 8px;font-size:12px;
+}
+#editor-root .record-workspace.contract-editor [data-finance-panel] .contract-finance-summary strong {
+  font-size:14px;font-weight:600;color:var(--ink);
+}
+#editor-root .record-workspace.contract-editor [data-finance-panel] .contract-finance-summary small {
+  color:var(--muted);font-size:11px;
+}
