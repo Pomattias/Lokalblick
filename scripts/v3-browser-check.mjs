@@ -78,7 +78,7 @@ try{
   }).filter(x=>x.right>innerWidth+2||x.width>innerWidth+2).sort((a,b)=>b.right-a.right).slice(0,25);
   return {viewport:innerWidth,scrollWidth:sw,nodes};
  });
- console.log('V3 mobile layout diagnostic:',JSON.stringify(geometry));
+ if(geometry.scrollWidth>geometry.viewport)console.error('V3 mobile layout diagnostic:',JSON.stringify(geometry));
  assert.equal(geometry.scrollWidth<=geometry.viewport,true);
  assert.deepEqual(errors,[]);
  console.log('v3 browser: responsive CRUD, version history, inspection, finance and model view OK');

@@ -123,3 +123,13 @@ main{padding:21px 24px 32px}
  .relation-link{padding:8px}
  .import-grid{grid-template-columns:1fr}
 }
+
+/* V3 viewport invariant: one content column below the two-pane minimum width. */
+@media(min-width:581px) and (max-width:850px){
+ .workspace{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:580px){
+ .workspace{display:grid;grid-template-columns:minmax(0,1fr)}
+ .workspace>.register,.workspace>.detail{width:100%;min-width:0}
+ .sidebar nav{min-width:0;max-width:100%}
+}
