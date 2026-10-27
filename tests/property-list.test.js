@@ -33,7 +33,7 @@ test('expanded property uses current shared responsibility without old assignmen
 
 test('expanded contracts follow the existing selection and disclose a partial result', () => {
   const data = sample(), html = render(data,{...selection,unit:'VARDBO'});
-  assert.match(html,/1 av 2 i aktuellt urval/);
+  assert.match(html,/1 av 2 avtal i aktuellt urval/);
   assert.match(html,/data-edit="contracts" data-id="c1"/);
   assert.doesNotMatch(html,/data-edit="contracts" data-id="c2"/);
   assert.match(html,/data-sort-value="100"/);
@@ -64,7 +64,9 @@ test('expanded fastighet visar objekt före avtal, inklusive objekt utan avtal',
   assert.match(html,/data-edit="objects" data-id="o2"/);
   assert.match(html,/Butik &lt;A&gt;/);
   assert.match(html,/Inget avtal kopplat till objektet/);
-  assert.match(html,/Avtal utan objektkoppling/);
+  // normalize() derives an object for an imported agreement without an object list.
+  assert.match(html,/data-edit="objects" data-id="OBJ\|c2"/);
+  assert.doesNotMatch(html,/Avtal utan objektkoppling/);
   assert.equal((html.match(/data-edit="contracts" data-id="c1"/g)||[]).length,1);
   assert.equal((html.match(/data-edit="contracts" data-id="c2"/g)||[]).length,1);
   assert.ok(html.indexOf('data-edit="objects" data-id="o1"')<html.indexOf('data-edit="contracts" data-id="c1"'));
