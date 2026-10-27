@@ -80,6 +80,6 @@ test('v3 local-only API rejects requests with a foreign host or cross-site origi
   assert.match(await config.text(),/databaseVersion:3/);
   const page=await fetch(s.base+'/frontend/v3/index.html');
   assert.equal(page.status,200);
-  assert.match(await page.text(),/Ny datamodell/);
+  assert.match(await page.text(),/data-view="overview"/);
  }finally{await s.close();}
 });
