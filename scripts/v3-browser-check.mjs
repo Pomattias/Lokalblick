@@ -30,6 +30,7 @@ try{
  await add('spaces',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=name]').fill('Entré')});
  await add('inspections',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=inspected_on]').fill('2026-10-27')});
  await go('sources');
+ await page.locator('[data-import-register]').selectOption('properties');
  const csv=Buffer.from('Fastighetsnamn;Adress\nImportfastigheten;Importgatan 4\n','utf8');
  await page.locator('[data-import-file]').setInputFiles({name:'syntetiskt.csv',mimeType:'text/csv',buffer:csv});
  await page.locator('[data-import-apply]:not([disabled])').waitFor();

@@ -7,7 +7,7 @@ const viewNames={properties:'Fastigheter',objects:'Objekt',agreements:'Avtal',pa
 const itemNames={properties:'fastighet',objects:'objekt',agreements:'avtal',parties:'part',people:'person',...moreItems};
 const dateToday=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
 const roles={owner:'Fastighetsägare',owner_contact:'Fastighetsägarens kontakt',coordinator:'Lokalsamordnare',tenant:'Hyresgäst',tenant_contact:'Hyresgästens kontakt',asset_manager:'Förvaltare',project_manager:'Projektledare'};
-const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:''};
+const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:'',rentEditId:null};
 const registerItems=()=>state.snapshot?moreRecords(state.view,state.snapshot):[];
 $('#as-of').value=state.asOf;
 async function api(body=null){
@@ -75,7 +75,7 @@ function renderDetail(){
   actions='<button class="secondary" type="button" data-mode="revise">Ny avtalsversion</button><button class="secondary" type="button" data-mode="role">Koppla part/person</button><button class="secondary" type="button" data-mode="rent">Hyra / tillägg</button>';
   history='<h3>Avtalsversioner</h3><div class="timeline">'+row.versions.map(v=>'<article><strong>'+esc(v.valid_from)+'</strong><span>'+esc(v.legal_end_on||'Tills vidare')+'</span></article>').join('')+'</div>';
   const rents=state.snapshot.agreementItems.filter(i=>i.agreement_id===row.id);
-  history+='<h3>Hyra och tillägg</h3><div class="timeline">'+(rents.map(i=>'<article><strong>'+esc(i.name)+'</strong><span>'+esc(formatMoney(i.base_amount))+' · '+esc(i.valid_from||'Utan start')+'</span></article>').join('')||'<span class="muted">Inga hyresposter.</span>')+'</div>';
+  history+='<h3>Hyra och tillägg</h3><div class="timeline">'+(rents.map(i=>'<article><strong>'+esc(i.name)+' · '+esc(formatMoney(i.base_amount))+'</strong><span>'+esc(i.valid_from||'Utan start')+' – '+esc(i.valid_to||'Tills vidare')+' <button type="button" class="secondary" data-edit-rent="'+esc(i.id)+'">Ändra</button></span></article>').join('')||'<span class="muted">Inga hyresposter.</span>')+'</div>';
  } else if(state.view==='parties'){
   facts=[fact('Namn',row.name),fact('Organisationsnummer',row.organization_number),fact('Typ',row.kind)].join('');
   actions+='<button class="secondary" type="button" data-mode="link">Koppla person</button>';
@@ -91,6 +91,20 @@ function renderDetail(){
 function render(){document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-current',b.dataset.view===state.view?'page':'false'));renderList();renderDetail();}
 function formSchema(mode,row){
  const v=state.view,r=row||{},a=state.snapshot;
+ if(v==='agreements'&&mode==='editRent'){
+  const item=a.agreementItems.find(i=>i.id===state.rentEditId);
+  if(!item)throw Error('Hyresposten saknas.');
+  return {title:'Redigera hyra eller tillägg',action:'updateAgreementItem',id:item.id,
+   fields:label('Benämning','name',item.name,'text','required')+
+   label('Grundbelopp per år, kr','base_amount',item.base_amount,'number','required min="0" step="any"')+
+   label('Giltig från','valid_from',item.valid_from,'date')+
+   label('Giltig till','valid_to',item.valid_to,'date')+
+   select('Uppräkning','adjustment_method',[{id:'none',label:'Ingen'},{id:'kpi',label:'KPI'},{id:'fixed',label:'Fast årlig procent'},{id:'kpi-limited',label:'KPI min/max'}],item.adjustment_method||'none')+
+   label('Basår','base_year',item.base_year,'number','min="1900"')+
+   label('KPI-bastal','base_index',item.base_index,'number','min="0" step="any"')+
+   label('Indexandel (0–1)','index_share',item.index_share,'number','min="0" max="1" step="any"')+
+   label('Årlig uppräkning, %','annual_percent',item.annual_percent,'number','step="any"')};
+ }
  if(Object.hasOwn(moreViews,v)){
   const spec=moreFormSchema(v,mode,row,{state,select,label,asOptions});
   if(spec)return spec;
@@ -117,7 +131,12 @@ function formSchema(mode,row){
   return {title:'Hyra eller tillägg',action:'addAgreementItem',fixed:{agreement_id:r.id},
     fields:select('Typ','type',[{id:'base',label:'Bashyra'},{id:'addition',label:'Tilläggshyra'},...['heat','water','electricity','cooling','waste','tax','other'].map(id=>({id,label:id}))],'base',true)+
      label('Benämning','name','Bashyra','text','required')+label('Grundbelopp, kr per år','base_amount','','number','required min="0" step="any"')+
-     label('Giltig från','valid_from',state.asOf,'date')+label('Giltig till','valid_to','','date')};
+     label('Giltig från','valid_from',state.asOf,'date')+label('Giltig till','valid_to','','date')+
+     select('Uppräkning','adjustment_method',[{id:'none',label:'Ingen'},{id:'kpi',label:'KPI'},{id:'fixed',label:'Fast årlig procent'},{id:'kpi-limited',label:'KPI min/max'}],'none')+
+     label('Basår','base_year',state.asOf.slice(0,4),'number','min="1900"')+
+     label('KPI-bastal','base_index','','number','min="0" step="any"')+
+     label('Indexandel (0–1)','index_share','','number','min="0" max="1" step="any"')+
+     label('Årlig procent','annual_percent','','number','step="any"')};
  }
  if(mode==='end')return {title:'Avsluta objekt',action:'endObject',fields:label('Slutdatum','ended_on',state.asOf,'date','required')};
  if(v==='properties')return {title:mode==='create'?'Ny fastighet':'Redigera fastighet',action:mode==='create'?'createProperty':'updateProperty',
@@ -150,7 +169,7 @@ function openForm(mode){
  try{
   const row=mode==='create'?null:selected();
   const spec=formSchema(mode,row);
-  state.mode={...spec,id:row?.id||null};
+  state.mode={...spec,id:spec.id||row?.id||null};
   $('#form-title').textContent=spec.title;$('#form-fields').innerHTML=spec.fields;
   $('#editor').showModal();$('#edit-form').querySelector('input,select')?.focus();
  }catch(error){notify(error.message,true)}
@@ -160,6 +179,10 @@ async function saveForm(e){
  const entries=Object.fromEntries(new FormData(form).entries());
  for(const [k,v]of Object.entries(entries))if(v==='')delete entries[k];
  const fields={...entries,...spec.fixed};
+ if(spec.action==='updateAgreementItem')
+  for(const key of ['valid_from','valid_to','base_year','base_index','index_share','annual_percent']){
+   const input=form.elements.namedItem(key);if(input)fields[key]=input.value||null;
+  }
  if(spec.transform)spec.transform(fields);
  const command={action:spec.action,fields};
  if(spec.id)command.id=spec.id;
@@ -174,6 +197,8 @@ async function refresh(){
  catch(error){notify(error.message,true)}
 }
 document.addEventListener('click',e=>{
+ const rent=e.target.closest('[data-edit-rent]');
+ if(rent){state.rentEditId=rent.dataset.editRent;openForm('editRent');return;}
  const nav=e.target.closest('[data-view]');
  if(nav){state.view=nav.dataset.view;state.id=['overview','sources','datamodel'].includes(state.view)?moreRecords(state.view,state.snapshot)[0]?.id||null:null;state.search='';$('#filter').value='';render();return;}
  const row=e.target.closest('[data-id]');if(row?.classList.contains('record-row')){state.id=row.dataset.id;render();return;}

@@ -87,6 +87,22 @@ test('v3 batch import is atomic and rejects a duplicate object without partial i
   assert.equal(s.db.prepare('SELECT version FROM store_meta').get().version,base);
  }finally{await s.close();}
 });
+test('v3 dated rent items can close a previous period and introduce the next rent safely',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Hyresfastighet'});const property=s.state().properties[0].id;
+  await s.post('createObject',{property_id:property,object_number:'1',valid_from:'2020-01-01',area:100});
+  await s.post('createAgreement',{object_id:s.state().objects[0].id,agreement_number:'HYR-1',valid_from:'2020-01-01'});
+  const agreement=s.state().agreements[0].id;
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'base',name:'Bashyra',base_amount:120000,valid_from:'2020-01-01',base_year:2020,index_share:0.7,adjustment_method:'kpi'});
+  const item=s.state().agreementItems[0];
+  assert.equal(item.index_share,0.7);
+  await s.post('updateAgreementItem',{valid_to:'2026-12-31'},item.id);
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'base',name:'Bashyra 2027',base_amount:135000,valid_from:'2027-01-01'});
+  assert.equal(s.state().agreementItems.length,2);
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'base',name:'Felaktig överlappning',base_amount:1,valid_from:'2026-06-01'},undefined,400);
+  assert.equal(s.state().agreementItems.length,2);
+ }finally{await s.close();}
+});
 test('v3 introspection and all 21 business tables are present in API',async()=>{
  const s=await setup();try{
   const snapshot=s.state();

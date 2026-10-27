@@ -146,11 +146,46 @@ function perform(db,command) {
     party_id:optional(p.party_id),person_id:optional(p.person_id),
     assignment_mode:p.assignment_mode==='block'?'block':'assign',shared:p.shared?1:0});break;
   }
-  case 'addAgreementItem':{
-   const agreement_id=text(p.agreement_id,'avtal'),type=text(p.type,'typ');
-   insert(db,'agreement_items',{id:id(),agreement_id,type,name:text(p.name,'benämning'),base_amount:nonneg(p.base_amount,'belopp'),
-    valid_from:p.valid_from?date(p.valid_from):null,valid_to:p.valid_to?date(p.valid_to):null,
-    adjustment_method:optional(p.adjustment_method)||'none'});break;
+  case 'addAgreementItem':
+  case 'updateAgreementItem':{
+   const allowed=['agreement_id','type','name','base_amount','valid_from','valid_to','adjustment_method',
+    'base_year','base_index','index_share','annual_percent','min_percent','max_percent','limit_basis','floor','reconcilable'];
+   const data=fields(p,allowed);
+   const existing=command.action==='updateAgreementItem'?lookup(db,'agreement_items',text(command.id,'AvtalspostID')):null;
+   if(command.action==='updateAgreementItem'&&!existing)throw Error('Hyresposten saknas.');
+   const agreement_id=existing?.agreement_id||text(data.agreement_id,'avtal');
+   if(data.agreement_id&&data.agreement_id!==agreement_id)throw Error('En hyrespost kan inte flyttas mellan avtal.');
+   if(!lookup(db,'agreements',agreement_id))throw Error('Avtalet saknas.');
+   const amount=data.base_amount===undefined?existing?.base_amount:nonneg(data.base_amount,'belopp');
+   if(amount==null)throw Error('Grundbelopp krävs.');
+   const values={agreement_id,type:data.type||existing?.type,name:data.name||existing?.name,base_amount:amount};
+   if(!values.type||!values.name)throw Error('Ange posttyp och benämning.');
+   for(const key of ['valid_from','valid_to']){
+    if(data[key]!==undefined)values[key]=data[key]?date(data[key]):null;
+    else if(!existing)values[key]=null;
+   }
+   if(values.valid_from&&values.valid_to&&values.valid_from>values.valid_to)throw Error('Slutdatum får inte vara före startdatum.');
+   values.adjustment_method=data.adjustment_method===undefined?existing?.adjustment_method||'none':data.adjustment_method||'none';
+   for(const key of ['base_year','base_index','index_share','annual_percent','min_percent','max_percent']){
+    if(data[key]===undefined){if(!existing)values[key]=null;continue;}
+    if(data[key]===null){values[key]=null;continue;}
+    const v=Number(data[key]);
+    if(!Number.isFinite(v)||key==='base_year'&&(!Number.isInteger(v)||v<1900))
+     throw Error('Ogiltigt värde för '+key+'.');
+    if(key==='index_share'&&(v<0||v>1))throw Error('Indexandel ska vara mellan 0 och 1.');
+    values[key]=v;
+   }
+   for(const key of ['limit_basis']){
+    if(data[key]!==undefined)values[key]=optional(data[key]);
+   }
+   for(const key of ['floor','reconcilable']){
+    if(data[key]!==undefined)values[key]=Number(data[key])?1:0;
+   }
+   if(existing){
+    delete values.agreement_id;
+    update(db,'agreement_items',existing.id,values);
+   }else insert(db,'agreement_items',{id:id(),...values});
+   break;
   }
   default:if(!runModuleCommand(db,command,{id,date,text,optional,nonneg,fields,insert,update,lookup,previousDay}))throw Error('Åtgärden stöds inte i Lokalblick v3.');
  }
