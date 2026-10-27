@@ -4394,3 +4394,172 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
   }
   #editor-root .record-workspace .context-tabs button {padding:7px 5px;}
 }
+
+
+/* Shared V2/Vercel portfolio list language: two-row mobile sorting chips,
+   compact three-line agreement cards, two-line property cards and readable KPIs.
+   Existing native sort/filter handlers, semantics and desktop tables remain intact. */
+.contract-mobile-property {display:none;}
+@media(max-width:700px) {
+  /* The three global selectors must never truncate "Organisatoriskt område". */
+  body:not([data-view="budget"]) #filters .filters {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:6px;
+    min-width:0;
+  }
+  body:not([data-view="budget"]) #filters .filters>.filter-chip:nth-child(3),
+  body[data-view="overview"] #filters .dashboard-mode-filters>.dashboard-mode-button:nth-child(3){
+    grid-column:1/-1;
+  }
+  body:not([data-view="budget"]) #filters .filters .filter-chip,
+  body[data-view="overview"] #filters .dashboard-mode-filters .dashboard-mode-button {
+    min-width:0;min-height:36px;height:auto;padding:6px 10px;
+    font-size:12px;line-height:1.2;white-space:normal;
+    text-align:center;justify-content:center;
+  }
+  #filters .filters .filter-chip .filter-value,
+  #filters .filters .filter-chip .filter-caption {
+    max-width:100%;white-space:normal;overflow-wrap:normal;
+    text-overflow:clip;font-size:12px;line-height:1.2;
+  }
+  #filters .ui-search-action-row {grid-column:1/-1;min-width:0;}
+
+  /* The KPIs use two balanced rows; secondary counts are no longer squeezed
+     into a quarter-screen tile or obscured by the next table. */
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:0;margin:8px 0 10px;
+  }
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary>div{
+    min-width:0;min-height:66px;padding:8px 10px!important;
+    border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  }
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary>div:nth-child(2n){border-right:0;}
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary>div:nth-last-child(-n+2){border-bottom:0;}
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary>div>span{font-size:11px!important;line-height:1.2;}
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary strong{
+    display:block;font-size:16px!important;line-height:1.15;
+    margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-variant-numeric:tabular-nums;
+  }
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary .summary-explanation{
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+    max-height:2.6em;overflow:hidden;margin-top:3px;
+    font-size:10px!important;line-height:1.25;overflow-wrap:anywhere;
+  }
+
+  /* All portfolio sort controls are actual column-sort buttons.
+     Six relevant controls fit as two rows of three, without sideways scroll. */
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    column-gap:6px;row-gap:6px;
+    overflow:visible;padding:8px 10px;
+    border-top:1px solid var(--line);background:var(--paper);
+  }
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child > th{
+    display:block;flex:none;min-width:0;padding:0;
+  }
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child > th:not([data-mobile-sort="true"]){
+    display:none;
+  }
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"]>.column-sort{
+    display:flex;align-items:center;justify-content:center;gap:4px;
+    min-width:0;width:100%;height:32px;min-height:32px;
+    padding:5px 6px;border:1px solid var(--line);border-radius:7px;
+    background:var(--soft);color:var(--ink);
+    font-size:11px;line-height:1.15;font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child > th .column-sort span{
+    flex:none;font-size:12px;color:var(--muted);
+  }
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[aria-sort]>.column-sort{
+    background:#e5f2eb;border-color:var(--accent);color:var(--accent);
+    text-decoration:none;box-shadow:inset 0 -2px var(--accent);
+  }
+  .portfolio-list .compact-table-heading{gap:6px;padding:8px 10px;}
+  .portfolio-list .compact-table-heading>button{white-space:nowrap;font-size:11px;}
+
+  /* Shared card rhythm and a fixed edit affordance across tables. */
+  .portfolio-list:not(.property-list) tbody>tr:not([data-table-empty]){
+    min-height:0;padding:8px 54px 8px 10px;
+    border-top:1px solid var(--line);column-gap:8px;row-gap:3px;
+  }
+  .portfolio-list:not(.property-list) tbody>tr>td:last-child{
+    position:absolute;right:8px;top:7px;grid-column:auto;grid-row:auto;
+    display:flex;align-items:center;justify-content:center;width:38px;
+    min-width:38px;height:38px;
+  }
+  .portfolio-list:not(.property-list) tbody>tr:not([data-table-empty]){position:relative;}
+  .portfolio-list:not(.property-list) tbody>tr>td:last-child :is(button,.table-pencil){min-width:32px;min-height:32px;}
+
+  /* Agreement card:
+     1) number + tenant; 2) property + address; 3) rent + area. */
+  .portfolio-list table[data-list-key="contracts"] tbody>tr:not([data-table-empty]){
+    display:grid;grid-template-columns:minmax(0,1fr) auto;
+    grid-template-rows:auto auto auto;
+    gap:4px 8px;padding:8px 56px 9px 10px;
+  }
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(3){
+    display:flex;align-items:baseline;gap:8px;
+    min-width:0;grid-column:1/3;grid-row:1;
+    padding-right:0;white-space:nowrap;overflow:hidden;
+  }
+  .portfolio-list table[data-list-key="contracts"] td:nth-child(3) .text-button{
+    flex:0 0 auto;white-space:nowrap;font-size:13px;
+  }
+  .portfolio-list table[data-list-key="contracts"] td:nth-child(3) .contract-tenant-name{
+    display:inline;flex:1 1 auto;min-width:0;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+    font-size:11px;line-height:1.3;
+  }
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(1){
+    display:block;grid-column:1/3;grid-row:2;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:12px;line-height:1.35;
+  }
+  .portfolio-list table[data-list-key="contracts"] .contract-desktop-property {display:none;}
+  .portfolio-list table[data-list-key="contracts"] .contract-mobile-property {display:inline;white-space:nowrap;}
+  .portfolio-list table[data-list-key="contracts"] .contract-mobile-property strong{font-weight:600;}
+  .portfolio-list table[data-list-key="contracts"] .contract-mobile-address{font-weight:400;color:var(--muted);}
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(2){display:none;}
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(5){
+    display:block;grid-column:1;grid-row:3;align-self:center;
+    font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(4){
+    display:block;grid-column:2;grid-row:3;align-self:center;text-align:right;
+    font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:last-child{
+    grid-column:auto;grid-row:auto;top:7px;right:8px;
+  }
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(n+6):nth-child(-n+9){display:none;}
+
+  /* Property and object cards share the same 2-row text baseline. */
+  body[data-view="properties"] .property-list .property-list-summary{
+    min-height:60px;padding:6px 96px 6px 10px;
+  }
+  body[data-view="properties"] .property-list .property-list-summary>td.primary-cell{
+    line-height:22px;
+  }
+  body[data-view="properties"] .property-list .property-list-summary .property-mobile-meta{
+    line-height:20px;
+  }
+  body[data-view="properties"] .property-list .property-list-summary .property-mobile-overview{
+    line-height:20px;
+  }
+  .portfolio-list.object-list tbody>tr:not([data-group-detail]):not([data-table-empty]){
+    min-height:60px;padding-top:6px;padding-bottom:6px;
+  }
+}
+
+/* The compact mobile caption preserves the full aria-label and desktop title. */
+.column-sort .sort-short-label {display:none;}
+@media(max-width:700px) {
+  .portfolio-list > table[data-smart-table] .column-sort .sort-full-label {display:none;}
+  .portfolio-list > table[data-smart-table] .column-sort .sort-short-label {
+    display:inline;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+}

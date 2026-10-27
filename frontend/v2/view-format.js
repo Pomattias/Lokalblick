@@ -26,9 +26,26 @@ export const edit = (col, id, label = "Ändra") =>
   `<button data-edit="${esc(col)}" data-id="${esc(id)}">${label}</button>`;
 export const table = (head, rows, interactive = false, heading = "", grouped = false, presentation = {}) => {
   const portfolio=Boolean(presentation.key),noun=presentation.noun||'poster';
+  // Keep sortable native columns on desktop, but show only the most useful
+  // sorting actions as two rows of chips on mobile in every portfolio register.
+  const mobileSortByRegister={
+    properties:[0,1,2,3,4,5],
+    contracts:[0,2,3,4,5,6],
+    activities:[0,1,3,4,5],
+    objects:[0,1,2,3,4],
+    'objects-history':[0,1,2,3,4],
+    'contracts-history':[0,1,2,3,4]
+  };
+  const mobileSortColumns=mobileSortByRegister[presentation.key]||head.map((x,i)=>x?i:-1).filter(i=>i>=0).slice(0,6);
+  const compactSortLabel = name => String(name)
+    .replace(/\s+\d{4}$/,'')
+    .replace(/^Ansvarig hos oss$/,'Ansvarig')
+    .replace(/^Årshyra\/m²$/,'Kr/m²')
+    .replace(/^Avtal t\.o\.m\.$/,'Slutdatum')
+    .replace(/^Uppsägning$/,'Uppsägning');
   const empty = `<tr${portfolio&&!grouped?` data-table-empty${rows.length?' hidden':''}`:''}><td colspan="${head.length}" class="empty">Inga ${portfolio?noun:grouped?'fastigheter':'poster'} i aktuellt urval.</td></tr>`;
   const bodies = grouped ? rows.join("") + `<tbody data-table-empty${rows.length ? " hidden" : ""}>${empty}</tbody>` : `<tbody>${rows.length?rows.join('')+(portfolio?empty:''):empty}</tbody>`;
-  return `<div class="table-wrap${interactive?" compact-data-table":""}${grouped?(presentation.groupClass?" "+esc(presentation.groupClass):" property-list"):""}${portfolio?' portfolio-list':''}">${interactive?`<div class="compact-table-heading"><strong>${esc(heading)}</strong><span${grouped||portfolio?' data-table-count aria-live="polite"':''}>${rows.length} ${portfolio?noun:grouped?"fastigheter":"poster"}</span><button type="button" data-toggle-column-filters aria-label="Visa kolumnfilter" title="Visa kolumnfilter"${grouped||portfolio?' aria-expanded="false"':''}>${grouped||portfolio?"Kolumnfilter":"⚑"}</button></div>`:""}<table${interactive?' data-smart-table="1"':''}${portfolio?` data-list-key="${esc(presentation.key)}" data-table-noun="${esc(noun)}"`:''}${grouped?` data-row-groups aria-label="${esc(portfolio?noun:'Fastigheter')}"`:''}><thead><tr>${head.map((x,i) => `<th scope="col">${interactive && x ? `<button type="button" class="column-sort" data-column-sort="${i}" aria-label="Sortera på ${esc(x)}">${esc(x)} <span aria-hidden="true">↕</span></button>` : x}</th>`).join("")}</tr>${interactive?`<tr class="column-filters" hidden>${head.map((x,i)=>`<th${grouped||portfolio?` data-label="${esc(x)}"`:""}>${x && i<head.length-1 ? `<input type="search" data-column-filter="${i}" aria-label="Filtrera ${esc(x)}" placeholder="Filtrera" autocomplete="off">`:""}</th>`).join("")}</tr>`:""}</thead>${bodies}</table></div>`;
+  return `<div class="table-wrap${interactive?" compact-data-table":""}${grouped?(presentation.groupClass?" "+esc(presentation.groupClass):" property-list"):""}${portfolio?' portfolio-list':''}">${interactive?`<div class="compact-table-heading"><strong>${esc(heading)}</strong><span${grouped||portfolio?' data-table-count aria-live="polite"':''}>${rows.length} ${portfolio?noun:grouped?"fastigheter":"poster"}</span><button type="button" data-toggle-column-filters aria-label="Visa kolumnfilter" title="Visa kolumnfilter"${grouped||portfolio?' aria-expanded="false"':''}>${grouped||portfolio?"Kolumnfilter":"⚑"}</button></div>`:""}<table${interactive?' data-smart-table="1"':''}${portfolio?` data-list-key="${esc(presentation.key)}" data-table-noun="${esc(noun)}"`:''}${grouped?` data-row-groups aria-label="${esc(portfolio?noun:'Fastigheter')}"`:''}><thead><tr>${head.map((x,i) => `<th scope="col"${interactive&&x&&mobileSortColumns.includes(i)?' data-mobile-sort="true"':""}>${interactive && x ? `<button type="button" class="column-sort" data-column-sort="${i}" aria-label="Sortera på ${esc(x)}"><span class="sort-full-label">${esc(x)}</span><span class="sort-short-label">${esc(compactSortLabel(x))}</span> <span class="sort-direction" aria-hidden="true">↕</span></button>` : x}</th>`).join("")}</tr>${interactive?`<tr class="column-filters" hidden>${head.map((x,i)=>`<th${grouped||portfolio?` data-label="${esc(x)}"`:""}>${x && i<head.length-1 ? `<input type="search" data-column-filter="${i}" aria-label="Filtrera ${esc(x)}" placeholder="Filtrera" autocomplete="off">`:""}</th>`).join("")}</tr>`:""}</thead>${bodies}</table></div>`;
 };
 export const row = (cells,sortValues={}) =>
   `<tr>${cells.map((x, i) => `<td${i === 0 ? ' class="primary-cell"' : i===cells.length-1 ? ' class="row-actions"' : ""}${Object.hasOwn(sortValues,i)?` data-sort-value="${esc(sortValues[i])}"`:''}>${x}</td>`).join("")}</tr>`;

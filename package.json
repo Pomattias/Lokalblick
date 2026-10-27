@@ -40,7 +40,8 @@
     "test:v3-browser": "node scripts/v3-browser-check.mjs",
     "test:v3": "node --test tests/lokalblick-v3-*.test.js",
     "lokalblick": "node scripts/start-v3.mjs",
-    "lokaler:v3": "node scripts/start-v3.mjs"
+    "lokaler:v3": "node scripts/start-v3.mjs",
+    "test:portfolio-mobile-table-browser": "node scripts/portfolio-mobile-table-browser-check.mjs"
   },
   "engines": {
     "node": ">=20"

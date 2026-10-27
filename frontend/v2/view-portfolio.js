@@ -22,9 +22,9 @@ function contractRows(data, contracts, year, portfolio = false) {
     const total=v.total;
     const complete=v.rent.status!=="Behöver kontroll"&&v.addition.status!=="Behöver kontroll";
     return row([
-      esc(propertyDesignation(p) || (p.id ? "Beteckning saknas" : "Ej kopplad")),
+      `<span class="contract-desktop-property">${esc(propertyDesignation(p) || (p.id ? "Beteckning saknas" : "Ej kopplad"))}</span><span class="contract-mobile-property"><strong>${esc(propertyDesignation(p) || "Beteckning saknas")}</strong><span class="contract-mobile-address"> · ${esc(propertyAddress(p) || "Adress saknas")}</span></span>`,
       propertyAddressCell(p),
-      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||c.id)}</strong></button><small>${esc(tenantName(data,c))}</small>`,
+      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||c.id)}</strong></button><small class="contract-tenant-name">${esc(tenantName(data,c))}</small>`,
       num(area),
       contractComponentLabel(v.rent),
       contractComponentLabel(v.addition),
