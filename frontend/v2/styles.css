@@ -4236,3 +4236,41 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
 .import-approval-dialog {width:min(880px,calc(100vw - 24px));}
 .import-approval-dialog input {width:100%;margin:6px 0 12px;}
 @media(max-width:600px) {.import-policy {grid-template-columns:minmax(0,1fr);gap:8px;}}
+
+/* Keep identity, owner and city visible; supplementary fields remain editable
+   in the same form, without an additional register or save action. */
+#editor-root .property-editor #edit-form .property-more,
+#editor-root .property-editor #edit-form .property-map-details {
+  margin:6px 0 2px;border-top:1px solid var(--line);
+}
+#editor-root .property-editor #edit-form :is(.property-more,.property-map-details)>summary {
+  cursor:pointer;min-height:36px;padding:8px 0;font-size:12px;
+  font-weight:600;color:var(--ink);
+}
+#editor-root .property-editor #edit-form .property-more>.property-grid {padding:2px 0 6px;}
+#editor-root .property-editor #edit-form .property-map-summary {
+  margin-left:8px;color:var(--muted);font-weight:400;font-size:11px;
+}
+#editor-root .property-editor #edit-form .property-map-section {
+  border-top:0;margin:0;padding:0 0 6px;
+}
+#editor-root .property-editor #edit-form .property-map-section>h3 {display:none;}
+
+/* One fixed two-column header independent of the buttons visible in each mode.
+   Changing Visa/Redigera must never change the title/address track width. */
+#editor-root .property-editor #edit-form>.property-heading {
+  display:grid;grid-template-columns:minmax(0,1fr) 184px;
+  gap:8px;align-items:center;flex-wrap:nowrap;
+}
+#editor-root .property-editor #edit-form>.property-heading .property-heading-text {
+  grid-column:1;grid-row:1;width:100%;min-width:0;flex:none;
+}
+#editor-root .property-editor #edit-form>.property-heading .editor-heading-actions {
+  grid-column:2;grid-row:1;min-width:0;max-width:184px;
+}
+@media(max-width:700px) {
+  #editor-root .property-editor #edit-form>.property-heading {
+    grid-template-columns:minmax(0,1fr) 170px;
+  }
+  #editor-root .property-editor #edit-form>.property-heading .editor-heading-actions {max-width:170px;}
+}

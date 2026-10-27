@@ -85,8 +85,12 @@ export function renderPropertyEditor(data, p, id, company=false, presentation={p
           options(ownerList,x=>x.id,x=>x.name,p.ownerPartyId,"Välj fastighetsägare")+'</select>')+
         (data.cleanModel&&presentation.portfolio?control('Orgnr fastighetsägare',partyNumberInput(data,'properties',p)):'')+
         control("Ort",textInput(p,"city"))+
-        (data.cleanModel?control("Förvaltningsobjekt",textInput(p,"managementObjectNumber"))+control("Populärnamn",textInput(p,"popularName"))+control("Antal lägenheter",'<span>'+esc(p.apartmentCount??0)+'</span>'):"")+
-      '</div></section>'+
+      '</div>'+
+      (data.cleanModel?'<details class="property-more" data-property-extra><summary>Fler fastighetsuppgifter</summary><div class="property-grid">'+
+        control("Förvaltningsobjekt",textInput(p,"managementObjectNumber"))+
+        control("Populärnamn",textInput(p,"popularName"))+
+        control("Antal lägenheter",'<span>'+esc(p.apartmentCount??0)+'</span>')+
+      '</div></details>':'')+'</section>'+
       '<section class="property-section"><h3>Kontaktpersoner</h3><div class="property-grid">'+
         personSelect(data,"ownerResponsiblePersonId",p.ownerResponsiblePersonId,ownerPeople,"Fastighetsägarens kontaktperson","owner")+
         personSelect(data,"responsiblePersonId",p.responsiblePersonId,ourPeople,"Vår kontaktperson","our")+
@@ -94,7 +98,7 @@ export function renderPropertyEditor(data, p, id, company=false, presentation={p
       '</div><details class="property-help"><summary>Om kontaktkopplingar</summary><p>Kontakter sparas på respektive avtal. Välj Ej kopplad för att koppla bort utan att radera personen.</p></details></section>'+
       responsibilityHtml(data,'property',p.id)+
       (data.cleanModel&&id&&presentation.portfolio?propertyCostsPanel(data,p.id):'')+
-      '<section class="property-section"><h3>Placering på kartan</h3>'+
+      '<details class="property-map-details" data-property-map-details><summary>Placering på kartan <span class="property-map-summary">'+(geo?'Position finns':'Position saknas')+'</span></summary><section class="property-section property-map-section">'+
       '<p class="property-map-hint">'+(geo
         ? 'Klicka eller dra nålen för att ändra position.'
         : 'Klicka på kartan för att placera nålen.')+'</p>'+
@@ -104,7 +108,7 @@ export function renderPropertyEditor(data, p, id, company=false, presentation={p
       '<span data-property-coordinate-status>'+ (geo?"Koordinater finns":"Välj plats på kartan")+'</span></div>'+
       '<input type="hidden" data-property-lat'+(geo?' name="latitude" value="'+esc(p.latitude)+'"':'')+'>'+
       '<input type="hidden" data-property-lng'+(geo?' name="longitude" value="'+esc(p.longitude)+'"':'')+'>'+
-      '</section>'+
+      '</section></details>'+
       (company?'<p class="computed">Källstyrd fastighetsdata ändras i underlaget. Kompletteringar och valda koordinater sparas via backend.</p>':'')+
       '<div class="actions editor-actions">'+
       '<button type="submit" class="primary">Spara ändring</button></div>'+
@@ -150,11 +154,33 @@ export function attachPropertyMap(root, data, p, mapService) {
         status.textContent="Ändrad position – spara ändring";
       },
     });
-    return () => controller.destroy();
+    const release=()=>controller.destroy();
+    release.invalidate=()=>controller.invalidateSize?.();
+    return release;
   } catch (_) {
     element.textContent="Kartan kunde inte laddas. Kontrollera kartanslutningen.";
     return () => {};
   }
+}
+
+
+/** Mount the auxiliary map only after the user opens the optional map section.
+ *  The selected coordinates stay in the original form when details are collapsed. */
+export function bindPropertyMap(root,data,p,mapService) {
+  const details=root.querySelector("[data-property-map-details]");
+  if(!details)return attachPropertyMap(root,data,p,mapService);
+  let release=null;
+  const activate=()=>{
+    if(!details.open)return;
+    if(release)release.invalidate?.();
+    else release=attachPropertyMap(root,data,p,mapService);
+  };
+  details.addEventListener("toggle",activate);
+  activate();
+  return ()=>{
+    details.removeEventListener("toggle",activate);
+    release?.();
+  };
 }
 
 export function updatePropertyOwnerContacts(root,data) {

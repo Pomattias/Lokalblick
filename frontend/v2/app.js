@@ -64,7 +64,7 @@ import { editorHtml, readEditor } from "./editor.js";
 import { previewImport } from "./import-mapping.js";
 import { fieldHistory,recordHistory } from "./field-history.js";
 import { planActivityPeriod, planningMonthHeader, planningMonthButtons } from "./planning-visual.js";
-import { attachPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
+import { bindPropertyMap, updatePropertyOwnerContacts } from "./property-editor.js";
 import { contextPersonSelect, newPersonDefaults, personFormHtml,
   updatedPersonRecord, refreshPropertyPersonSelectors } from "./property-person-dialog.js";
 const transport = createTransport(),
@@ -930,7 +930,7 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
   }
   document.body.classList.add("editing");
   if (col === "properties"&&(!editor.workspace||editor.workspace.state.tab==="info")) {
-    propertyMapCleanup = attachPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
+    propertyMapCleanup = bindPropertyMap(root, data, result.record, globalThis.LokalblickMapService);
   }
   if(navigation.saved&&!editor.workspace)root.querySelector('.editor').scrollTop=navigation.saved.scroll||0;
   // Preserve scroll and keyboard state when opening any existing record.
@@ -1120,7 +1120,7 @@ document.addEventListener("click", (event) =>
     if(b.hasAttribute("data-issue-expand")){toggleIssueText(b);return;}
     if(handleEditorCommand(b,{editor,data,openEditor,closeEditor,setEditorReadMode,hasUnsavedEditorChanges,refreshPropertyMap:tab=>{
       if(propertyMapCleanup){propertyMapCleanup();propertyMapCleanup=null;}
-      if(editor.col==="properties"&&tab==="info")propertyMapCleanup=attachPropertyMap(document.querySelector("#editor-root"),data,editor.record,globalThis.LokalblickMapService);
+      if(editor.col==="properties"&&tab==="info")propertyMapCleanup=bindPropertyMap(document.querySelector("#editor-root"),data,editor.record,globalThis.LokalblickMapService);
     }}))return;
 
     if (b.hasAttribute("data-dashboard-mode")) {

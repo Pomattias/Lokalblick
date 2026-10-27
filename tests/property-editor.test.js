@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import { renderPropertyEditor, attachPropertyMap, updatePropertyOwnerContacts } from "../frontend/v2/property-editor.js";
+import { renderPropertyEditor, attachPropertyMap, bindPropertyMap, updatePropertyOwnerContacts } from "../frontend/v2/property-editor.js";
 import { readEditor } from "../frontend/v2/editor.js";
 import {normalize} from "../frontend/v2/model.js";
 
@@ -172,4 +172,55 @@ test("saving a tenant contact from the property keeps dated responsibility histo
   assert.equal(history.find(a=>a.personId==="ourPerson").fromDate,"2026-10-15");
   assert.equal(updated.contracts.find(c=>c.id==="a1").tenantResponsiblePersonId,"ourPerson");
   assert.ok(updated.auditLog.some(entry=>entry.collection==="assignments"));
+});
+
+test("Fastighet visar grunddata direkt och behåller kompletteringar i samma formulär",()=>{
+  const clean={...data,cleanModel:true};
+  const html=renderPropertyEditor(clean,clean.properties[0],"p1");
+  const main=html.indexOf('name="ownerPartyId"'),extra=html.indexOf('data-property-extra');
+  const map=html.indexOf('data-property-map-details');
+  assert.ok(main>=0&&main<extra,"Fastighetsägare visas före extra uppgifter");
+  assert.match(html,/<details class="property-more" data-property-extra><summary>Fler fastighetsuppgifter<\/summary>/);
+  assert.match(html,/name="managementObjectNumber"/);
+  assert.match(html,/name="popularName"/);
+  assert.match(html,/<details class="property-map-details" data-property-map-details>/);
+  assert.ok(extra<map,"Kartan är en sekundär åtgärd efter grunduppgifterna");
+  assert.equal((html.match(/name="city"/g)||[]).length,1);
+  assert.equal((html.match(/id="property-editor-map"/g)||[]).length,1);
+});
+
+test("Fastighetskartan startas först när kartavsnittet öppnas",()=>{
+  const handlers=new Map();
+  const details={
+    open:false,
+    addEventListener:(name,handler)=>handlers.set(name,handler),
+    removeEventListener:(name)=>handlers.delete(name)
+  };
+  const fields={
+    "#property-editor-map":{},
+    "[data-property-coordinates]":{textContent:""},
+    "[data-property-coordinate-status]":{textContent:""},
+    "[data-property-lat]":{name:"",value:""},
+    "[data-property-lng]":{name:"",value:""},
+    "#edit-form":{dataset:{}},
+    "[data-property-map-details]":details
+  };
+  let created=0,resized=0,destroyed=0,choose;
+  const service={createAuxiliary(options){
+    created++;choose=options.onSelectPosition;
+    return {invalidateSize(){resized++;},destroy(){destroyed++;}};
+  }};
+  const dispose=bindPropertyMap({querySelector:s=>fields[s]},data,data.properties[0],service);
+  assert.equal(created,0,"Stängd karta ska inte laddas i bakgrunden");
+  details.open=true;handlers.get("toggle")();
+  assert.equal(created,1);
+  choose({latitude:55.12345,longitude:13.65432});
+  assert.equal(fields["[data-property-lat]"].value,"55.12345");
+  details.open=false;handlers.get("toggle")();
+  details.open=true;handlers.get("toggle")();
+  assert.equal(created,1,"Öppna igen ska återanvända kartan och bevara vald position");
+  assert.equal(resized,1);
+  dispose();
+  assert.equal(destroyed,1);
+  assert.equal(handlers.size,0);
 });
