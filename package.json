@@ -34,7 +34,9 @@
     "test:property-enrichment-browser": "node scripts/property-enrichment-browser-check.mjs",
     "test:import-date-browser": "node scripts/import-date-display-browser-check.mjs",
     "test:enrichment-browser": "node scripts/enrichment-flow-browser-check.mjs",
-    "test:mobile-record-browser": "node scripts/mobile-record-flow-browser-check.mjs"
+    "test:mobile-record-browser": "node scripts/mobile-record-flow-browser-check.mjs",
+    "db:v3:create": "node scripts/create-lokalblick-v3.mjs",
+    "test:db-v3": "node --test tests/lokalblick-v3-database.test.js"
   },
   "engines": {
     "node": ">=20"
