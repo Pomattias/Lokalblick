@@ -6,8 +6,14 @@ parallella verksamhetsregister ska inte återinföras för att få tester gröna
 
 ## Regler som gäller
 
-- **Verksamhet:** `business_name` och `business_description` på lagrade Avtal,
-  projicerade som `businessName` och `businessDescription` i gränssnittet.
+- **Hyresgäst = verksamhet:** `tenant_party_id` kopplar Avtal till en part i
+  `parties`. Partens namn används som båda begreppen i gränssnittet.
+  `business_description` ligger kvar på avtalet. `business_name` är
+  tillfälligt kvar i SQLite-/Excel-schemat för att äldre arbetsytor ska gå att
+  öppna, men är inte längre ett separat redigerings- eller importval.
+  Det härledda namnet skrivs inte tillbaka över tidigare lagrat `business_name`.
+  Nya importkolumner med rubriken Verksamhet styrs till hyresgästens part;
+  motstridiga namn ska granskas, inte slås ihop automatiskt.
 - **Ytor:** ägs av Objekt. Avtal får beräknade läsvärden. Redigering av en yta
   på avtalet avvisas; importens granskning ändrar objektet.
 - **Ekonomi:** hyra/tillägg finns i Avtalsposter, fastighetskostnader i sitt

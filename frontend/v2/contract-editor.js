@@ -92,8 +92,7 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
   const identity = '<section class="contract-section" data-contract-section="identity"><h3>Avtal</h3><div class="contract-grid">'+
     (!id&&!c.propertyId ? field("Fastighet",select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")) : "")+
     (presentation.portfolio?field("AvtalsID",input({...c,id:c.number||c.id},"id","text",Boolean(id),'required maxlength="100"')):field("Avtalsnummer",input(c,"number","text",masterLocked)))+
-    field("Hyresgäst",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
-    field("Verksamhet",input(c,"businessName"))+
+    field("Hyresgäst / verksamhet",select("tenantPartyId",data.organizations||[],c,x=>x.id,x=>x.name,"Ej kopplad"))+
     field("Verksamhetsbeskrivning",'<textarea name="businessDescription" rows="3">'+esc(c.businessDescription||'')+'</textarea>')+
     (data.cleanModel&&presentation.portfolio?field('Orgnr hyresgäst',partyNumberInput(data,'contracts',c)):'')+
     field("Objekt",select("objectId",(data.objects||[]).filter(o=>!c.propertyId||o.propertyId===c.propertyId),c,x=>x.id,x=>objectLabel(x),"Välj objekt"))+

@@ -13,7 +13,7 @@ const importFieldLabels = {
   area: "Area",
   category: "Kategori",
   use: "Verksamhet / användning",
-  businessName: "Namn på verksamheten",
+  businessName: "Tidigare verksamhetsnamn",
   ownerPartyId: "Fastighetsägare",
   businessPartyId: "Äldre partskoppling",
   tenantName: "Hyresgäst",
@@ -80,7 +80,7 @@ function reviewRecordLabel(data, item) {
     return [
       record.number,
       propertyLabel(data, record.propertyId),
-      record.businessName || record.use,
+      record.tenantName || record.businessName || record.use,
     ].filter(Boolean).join(" · ");
   if (collection === "activities") return record.title || record.id;
   return record.name || record.id || "";
@@ -170,7 +170,7 @@ export function reviewCandidateChoices(data,item,searchValue="") {
     const q=matcher.norm(search);
     choices=isContract?(data.contracts||[]).filter(c=>{
       const p=(data.properties||[]).find(p=>p.id===c.propertyId);
-      return matcher.norm([c.number,p?.address,p?.designation,p?.city,c.area,c.businessName].join(" ")).includes(q);
+      return matcher.norm([c.number,p?.address,p?.designation,p?.city,c.area,c.tenantName,c.businessName].join(" ")).includes(q);
     }).slice(0,8).map(c=>({id:c.id,contract:c,property:(data.properties||[]).find(p=>p.id===c.propertyId),reason:"Sökresultat"}))
     :(data.properties||[]).filter(p=>matcher.norm([p.address,p.designation,p.city,p.sourceId,p.name].join(" ")).includes(q))
       .slice(0,8).map(p=>({id:p.id,property:p,reason:"Sökresultat"}));
@@ -182,7 +182,7 @@ export function reviewCandidateChoices(data,item,searchValue="") {
     const title=contract?"Avtal "+(contract.number||"utan nummer"):propertyDesignation(p)||"Fastighetsbeteckning saknas";
     const details=contract?[
       propertyAddress(p),propertyDesignation(p),contract.area?num(contract.area)+" m²":"",
-      [contract.start,contract.end].filter(Boolean).join(" – "),contract.businessName||contract.use
+      [contract.start,contract.end].filter(Boolean).join(" – "),contract.tenantName||contract.businessName||contract.use
     ]:[
       propertyAddress(p),p.city,'Fastighetsnummer '+labels.number('properties',p.id),
       organizationLabel(data,p.ownerPartyId)||p.sourceOwner,p.name

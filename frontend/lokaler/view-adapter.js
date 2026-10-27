@@ -20,7 +20,8 @@ export function projectWorkspace(clean) {
  const objects=new Map(out.objects.map(row=>[row.id,row])),labels=createBusinessLabels(clean);
  for(const property of out.properties){property.sourceId=property.id;property.apartmentCount=clean.objects.filter(o=>o.property_id===property.id&&active(o)).reduce((sum,o)=>sum+(o.apartment_count||0),0);}
  for(const object of out.objects){object.number=labels.number('objects',object.id);object.sourceId=object.id;object.predecessorIds=clean.object_links.filter(link=>link.successor_id===object.id).map(link=>link.predecessor_id);}
- for(const contract of out.contracts){const object=objects.get(contract.objectId);contract.propertyId=object?.propertyId||'';contract.area=object?.area;contract.objectAreaManaged=true;contract.apartmentArea=object?.apartmentArea;contract.tenantName=out.organizations.find(row=>row.id===contract.tenantPartyId)?.name||'';}
+ // The tenant party is the single displayed identity for both hyresgäst and verksamhet.
+ for(const contract of out.contracts){const object=objects.get(contract.objectId);contract.propertyId=object?.propertyId||'';contract.area=object?.area;contract.objectAreaManaged=true;contract.apartmentArea=object?.apartmentArea;contract.tenantName=out.organizations.find(row=>row.id===contract.tenantPartyId)?.name||'';contract.businessName=contract.tenantName;}
  for(const party of out.organizations)party.type ||= clean.properties.some(row=>row.owner_party_id===party.id)?'owner':'tenant';
  for(const issue of out.activities){issue.status=issueStatus[issue.status]||issue.status;issue.priority=priority[issue.priority]||issue.priority;issue.scopeType=issue.objectId?'object':issue.propertyId?'property':'';}
  for(const order of out.orders)order.status=orderStatus[order.status]||order.status;
@@ -47,7 +48,11 @@ export function collectWorkspace(view, baseline=emptyData()) {
  clean.workspace=Object.fromEntries(workspaceKeys.filter(key=>view[key]!==undefined).map(key=>[key,clone(view[key])]));
  for(const [table,collection] of Object.entries(viewCollections)) clean[table]=(view[collection]||[]).map(row=>{
   const old=(baseline[table]||[]).find(item=>item.id===row.id),record={...old,id:row.id};
-  for(const [field,target] of Object.entries(viewFields[table])) record[field]=row[target]??null;
+  for(const [field,target] of Object.entries(viewFields[table])) {
+   // The display alias must not overwrite the old source column in SQLite/Excel.
+   if(table==='agreements'&&field==='business_name'){record[field]=old?.[field]??null;continue;}
+   record[field]=row[target]??null;
+  }
   for(const f of tables[table].fields)if(['text','textarea','email','tel','url','date','select','ref'].includes(f.type)&&record[f.key]!=null&&typeof record[f.key]!=='string')record[f.key]=String(record[f.key]);
   if(table==='properties')record.name ||= row.name||row.id;
   if(table==='issues'){

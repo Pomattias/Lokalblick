@@ -16,7 +16,7 @@ const aliases = {
   'fastbet':'properties.designation', 'fastighetsbeteckning':'properties.designation',
   'adress':'properties.address', 'gatuadress':'properties.address', 'ort':'properties.city', 'postort':'properties.city',
   'forvaltningsobjekt':'properties.sourceId',
-  'verksamhetsnamn':'contracts.businessName','namnpaverksamheten':'contracts.businessName','verksamhetsbeskrivning':'contracts.businessDescription','kommentarverksamhet':'contracts.businessDescription',
+  'verksamhetsnamn':'contracts.tenantName','namnpaverksamheten':'contracts.tenantName','verksamhetsbeskrivning':'contracts.businessDescription','kommentarverksamhet':'contracts.businessDescription',
   'lagenheteryta':'objects.apartmentArea','lagenhetsyta':'objects.apartmentArea',
   'aktivitetsid':'activities.sourceId', 'projektid':'activities.sourceId',
   'objektnr':'objects.number', 'objektnummer':'objects.number', 'objektsnummer':'objects.number',
@@ -24,7 +24,7 @@ const aliases = {
   'bra':'objects.area', 'lokalarea':'objects.area', 'kvm':'objects.area',
   'arshyra':'contracts.baseRent', 'manadshyra':'contracts.baseRent',
   'epost':'people.email', 'email':'people.email', 'telefon':'people.phone',
-  'hyresgast':'contracts.tenantName', 'verksamhet':'contracts.businessName',
+  'hyresgast':'contracts.tenantName', 'verksamhet':'contracts.tenantName',
 };
 export function fieldCatalog(schemas,reviewed=false) {
   if(schemas.every(s=>s.canonical))return schemaFields(schemas);

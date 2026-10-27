@@ -76,7 +76,8 @@ const fieldAliases = {
       "Giltigt t.o.m.",
       "Aktuellt giltigt t.o.m.",
     ],
-    businessName: ["Namn på verksamheten", "Verksamhetsnamn"],
+    tenantPartyId: ["Verksamhet", "Verksamhetsnamn", "Namn på verksamheten"],
+    businessName: ["Tidigare verksamhetsnamn"],
     businessDescription: ["Kommentar verksamhet"],
     category: ["Lokalkategori", "Lokalkategori (LEB)", "Lokalkategori (EB)"],
     notice: ["Säg upp avtal senast", "Sägs upp senast"],
@@ -204,6 +205,8 @@ export const importSchemas = Object.entries(viewCollections).map(
         ];
     }
     if (table === "agreements") {
+      // Retain legacy fieldSpec for old explicit mappings, not new import choices.
+      schema.columns = schema.columns.filter(([key]) => key !== "businessName");
       schema.columns = schema.columns.map((c) =>
         c[0] === "tenantPartyId" ? [c[0], "Hyresgäst"] : c,
       );
