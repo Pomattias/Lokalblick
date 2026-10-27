@@ -202,6 +202,7 @@ CREATE TABLE budgets (
  id TEXT PRIMARY KEY, property_id TEXT NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
  budget_year INTEGER NOT NULL CHECK(budget_year BETWEEN 1900 AND 9999),
  scenario TEXT NOT NULL DEFAULT 'base', version INTEGER NOT NULL CHECK(version>=1),
+ scenario_index REAL CHECK(scenario_index IS NULL OR scenario_index>0),
  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','approved','locked')),
  locked_at TEXT, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, notes TEXT,
  UNIQUE(property_id,budget_year,scenario,version),

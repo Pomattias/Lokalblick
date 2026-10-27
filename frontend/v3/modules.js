@@ -100,9 +100,8 @@ export function moreDetail(view,row,s){
  case 'costEvidence':
   facts=[box('Kostnadspost',one(s,'recurringCosts',row.cost_id)?.name),box('Typ',kind[row.type]||row.type),box('År',row.year),box('Fakturanummer',row.invoice_reference),box('Belopp',money(row.amount)),box('Fakturadatum',row.invoice_date)].join('');break;
  case 'budgets':
-  actions=[action('line','Lägg till budgetpost')];
-  if(row.status!=='locked')actions.push(action('lock','Lås budget'));
-  facts=[box('Fastighet',propertyName(s,row.property_id)),box('Budgetår',row.budget_year),box('Scenario',row.scenario),box('Version',row.version),box('Status',kind[row.status]||row.status),box('Budgetsumma',money(row.total))].join('');
+  actions=row.status==='locked'?[]:[action('line','Lägg till budgetpost'),action('kpi','Ändra scenarioindex'),action('lock','Lås budget')];
+  facts=[box('Fastighet',propertyName(s,row.property_id)),box('Budgetår',row.budget_year),box('Scenario',row.scenario),box('Version',row.version),box('Status',kind[row.status]||row.status),box('Budgetsumma',money(row.total)),box('Scenario-KPI oktober',row.scenario_index||'Ej angivet')].join('');
   sections.push('<h3>Budgetposter</h3>'+timeline(row.lines||[],x=>item(x.name,money(x.budget_amount))));
   break;
  case 'budgetLines':actions=[action('edit','Redigera')];facts=[box('Budget',budgetName(s,row.budget_id)),box('Kategorisering',row.category),box('Typ',row.line_type),box('Belopp',money(row.budget_amount))].join('');break;
@@ -172,6 +171,9 @@ export function moreFormSchema(view,mode,row,ctx){
    label('Giltig till','valid_to',p.valid_to,'date')};
  }
  if(view==='budgets'){
+  if(mode==='kpi')return {title:'Budgetscenario · oktober-KPI',action:'setBudgetScenario',
+   fields:label('Prognos KPI oktober '+(Number(p.budget_year)-1)+' (1980=100)','scenario_index',p.scenario_index,'number','min="0.01" step="any"')+
+   '<p class="hint">Scenarioindex är din manuella prognos. Publicerade SCB-tal påverkas inte och budgeten kan låsas separat.</p>'};
   if(mode==='line'){
    const costOptions=s.recurringCosts.filter(x=>x.property_id===p.property_id).map(x=>({id:x.id,label:x.name}));
    return {title:'Ny budgetpost',action:'addBudgetLine',fixed:{budget_id:p.id},
@@ -183,7 +185,8 @@ export function moreFormSchema(view,mode,row,ctx){
    fields:'<p class="hint">En låst budget och dess poster går inte längre att ändra. Vill du låsa budget '+clean(p.budget_year)+'?</p>'};
   return {title:'Ny budget',action:'createBudget',fields:select('Fastighet','property_id',asOptions('properties'),'',true)+
    label('Budgetår','budget_year',today.slice(0,4),'number','min="1900" required')+label('Scenario','scenario','base')+
-   label('Version','version',1,'number','min="1" required')};
+   label('Version','version',1,'number','min="1" required')+
+   label('Scenario-KPI oktober (valfritt)','scenario_index','','number','min="0.01" step="any"')};
  }
  if(view==='budgetLines')return {title:'Redigera budgetpost',action:'updateBudgetLine',
   fields:label('Benämning','name',p.name,'text','required')+label('Belopp','budget_amount',p.budget_amount,'number','step="any" required')+

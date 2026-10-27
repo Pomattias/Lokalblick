@@ -38,7 +38,9 @@
     "db:v3:create": "node scripts/create-lokalblick-v3.mjs",
     "test:db-v3": "node --test tests/lokalblick-v3-database.test.js",
     "test:v3-browser": "node scripts/v3-browser-check.mjs",
-    "test:v3": "node --test tests/lokalblick-v3-*.test.js"
+    "test:v3": "node --test tests/lokalblick-v3-*.test.js",
+    "lokalblick": "node scripts/start-v3.mjs",
+    "lokaler:v3": "node scripts/start-v3.mjs"
   },
   "engines": {
     "node": ">=20"

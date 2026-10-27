@@ -43,13 +43,17 @@ test('v3 budget lines can be added only before locking, then budget is immutable
  const s=await setup();try{
   await s.post('createProperty',{name:'Budgethuset'});const property=s.state().properties[0].id;
   await s.post('createCost',{property_id:property,category:'water',name:'VA',annual_amount:10000});const cost=s.state().recurringCosts[0].id;
-  await s.post('createBudget',{property_id:property,budget_year:2026,version:1,scenario:'base'});const budget=s.state().budgets[0].id;
+  await s.post('createBudget',{property_id:property,budget_year:2026,version:1,scenario:'base',scenario_index:424.22});const budget=s.state().budgets[0].id;
+  assert.equal(s.state().budgets[0].scenario_index,424.22);
+  await s.post('setBudgetScenario',{scenario_index:425.12},budget);
+  assert.equal(s.state().budgets[0].scenario_index,425.12);
   await s.post('addBudgetLine',{budget_id:budget,cost_id:cost,line_type:'operating',name:'VA-budget',budget_amount:12000});
   assert.equal(s.state().budgets[0].total,12000);
   await s.post('setBudgetStatus',{status:'locked'},budget);
   assert.equal(s.state().budgets[0].status,'locked');assert.equal(s.state().financialSummary.budgetAmount,12000);
   await s.post('addBudgetLine',{budget_id:budget,line_type:'revenue',name:'Nytt',budget_amount:4000},undefined,400);
   await s.post('updateBudgetLine',{name:'Ändra'},s.state().budgetLines[0].id,400);
+  await s.post('setBudgetScenario',{scenario_index:429},budget,400);
   assert.equal(s.state().budgetLines.length,1);
  }finally{await s.close();}
 });

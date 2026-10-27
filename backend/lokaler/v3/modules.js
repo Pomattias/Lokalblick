@@ -76,10 +76,18 @@ export function runModuleCommand(db,command,api){
    valid_from:idDate(r.valid_from,date),valid_to:idDate(r.valid_to,date),document_url:r.document_url||null});break;
  }
  case 'createBudget':{
-  const r=pick(p,['property_id','budget_year','scenario','version','notes'],['property_id','budget_year']);
+  const r=pick(p,['property_id','budget_year','scenario','version','scenario_index','notes'],['property_id','budget_year']);
   ref(lookup,'properties',r.property_id,'fastighet');
   insert(db,'budgets',{id:id(),property_id:r.property_id,budget_year:integral(r.budget_year,'budgetår'),
-   scenario:r.scenario||'base',version:integral(r.version??1,'version'),notes:r.notes||null});break;
+   scenario:r.scenario||'base',version:integral(r.version??1,'version'),
+   scenario_index:r.scenario_index==null?null:money(r.scenario_index,'scenarioindex'),notes:r.notes||null});break;
+ }
+ case 'setBudgetScenario':{
+  const r=pick(p,['scenario_index'],[]);
+  const budget=lookup('budgets',rowId);
+  if(!budget)throw Error('Budgeten saknas.');
+  if(budget.status==='locked')throw Error('Låst budget får inte ändras.');
+  update(db,'budgets',rowId,{scenario_index:r.scenario_index==null?null:money(r.scenario_index,'scenarioindex')});break;
  }
  case 'addBudgetLine':{
   const r=pick(p,['budget_id','cost_id','issue_id','line_type','category','name','budget_amount','notes'],['budget_id','name','budget_amount','line_type']);

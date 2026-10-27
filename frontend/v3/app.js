@@ -1,14 +1,17 @@
 // Native Lokalblick v3. All persisted facts use the private SQLite API.
 import {moreViews,moreItems,moreRecords,moreItemName,moreSecondary,moreDetail,moreFormSchema} from './modules.js';
 import {mountImport} from './import.js';
+import {relatedRecords,assignmentHistory,isVisibleAt} from './relations.js';
+import {mountPropertyMap} from './map.js';
+import {mountBudgetIndex} from './budget-index.js';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const viewNames={properties:'Fastigheter',objects:'Objekt',agreements:'Avtal',parties:'Parter',people:'Personer',...moreViews};
 const itemNames={properties:'fastighet',objects:'objekt',agreements:'avtal',parties:'part',people:'person',...moreItems};
 const dateToday=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
 const roles={owner:'Fastighetsägare',owner_contact:'Fastighetsägarens kontakt',coordinator:'Lokalsamordnare',tenant:'Hyresgäst',tenant_contact:'Hyresgästens kontakt',asset_manager:'Förvaltare',project_manager:'Projektledare'};
-const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:'',rentEditId:null};
-const registerItems=()=>state.snapshot?moreRecords(state.view,state.snapshot):[];
+const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:'',rentEditId:null,showHistory:false};
+const registerItems=()=>state.snapshot?moreRecords(state.view,state.snapshot).filter(r=>isVisibleAt(state.view,r,state.asOf,state.showHistory)):[];
 $('#as-of').value=state.asOf;
 async function api(body=null){
  const url='/api/v3/core'+(body?'':'?date='+encodeURIComponent(state.asOf));
@@ -40,7 +43,12 @@ function renderList(){
  $('#new-record').textContent='+ Lägg till '+itemNames[state.view];
  $('#new-record').hidden=['overview','map','datamodel','sources','costEvidence','budgetLines','inspectionPoints'].includes(state.view);
  const visible=list.filter(r=>!query||matches(r,query));
- $('#record-list').innerHTML=visible.map(row=>'<button type="button" class="record-row" data-id="'+esc(row.id)+'" aria-selected="'+(state.id===row.id)+'"><span><strong>'+esc(itemName(state.view,row))+'</strong><small>'+esc(secondary(state.view,row))+'</small></span><span class="chevron">›</span></button>').join('')||'<div class="empty">Inga poster. Lägg till den första.</div>';
+ $('#record-list').innerHTML=visible.map(row=>'<button type="button" class="record-row" data-id="'+esc(row.id)+'" aria-selected="'+(state.id===row.id)+'"><span><strong>'+esc(itemName(state.view,row))+'</strong><small>'+esc(secondary(state.view,row))+'</small></span><span class="chevron" aria-hidden="true">›</span></button>').join('')||'<div class="empty">Inga poster i valt urval.</div>';
+ $('#list-count').textContent=visible.length===list.length?String(visible.length):visible.length+' av '+list.length;
+ const historyBtn=$('#toggle-history');
+ historyBtn.hidden=!['objects','agreements'].includes(state.view);
+ historyBtn.setAttribute('aria-pressed',String(state.showHistory));
+ historyBtn.textContent=state.showHistory?'Visa aktuella':'Visa historik';
  $('#stats').innerHTML=[
   ['Fastigheter',state.snapshot.properties.length],['Objekt',state.snapshot.objects.length],
   ['Avtal',state.snapshot.agreements.length],['Parter',state.snapshot.parties.length],['Personer',state.snapshot.people.length]
@@ -48,9 +56,15 @@ function renderList(){
 }
 function renderDetail(){
  const row=selected(),panel=$('#detail');
+ if(state.view==='map'){
+  panel.innerHTML='<div id="map-panel" class="map-shell"></div>'+(row?moreDetail('map',row,state.snapshot):'');
+  mountPropertyMap($('#map-panel'),state.snapshot,{navigate,notify});
+  return;
+ }
  if(!row){panel.innerHTML='<div class="empty">Välj en post för att visa dess data, kontaktpersoner och historiska versioner.</div>';return;}
  if(Object.hasOwn(moreViews,state.view)){
-  panel.innerHTML=moreDetail(state.view,row,state.snapshot);
+  panel.innerHTML=moreDetail(state.view,row,state.snapshot)+relatedRecords(state.view,row,state.snapshot);
+  if(state.view==='budgets')mountBudgetIndex(panel,row,state.snapshot);
   if(state.view==='sources')mountImport(panel,{snapshot:state.snapshot,apply:async commands=>{
    const updated=await api({version:state.snapshot.version,asOf:state.asOf,commands});
    state.snapshot=updated;render();notify(commands.length+' nya rader importerade till v3.');
@@ -62,8 +76,8 @@ function renderDetail(){
  if(state.view==='properties'){
   facts=[fact('Förvaltningsobjekt',row.management_object_number),fact('Adress',[row.address,row.city].filter(Boolean).join(', ')),fact('Ägare',row.stakeholders.owner.map(r=>state.snapshot.parties.find(p=>p.id===r.partyId)?.name).join(', ')||'–')].join('');
   actions+='<button class="secondary" type="button" data-mode="role">Koppla part/person</button>';
-  const objs=state.snapshot.objects.filter(o=>o.property_id===row.id);
-  history='<h3>Objekt på fastigheten</h3><div class="timeline">'+(objs.map(o=>'<article><strong>'+esc(o.object_number)+'</strong><span>'+esc(o.currentVersion?.area??'–')+' m²</span></article>').join('')||'<span class="muted">Inga objekt ännu.</span>')+'</div>';
+  if(row.address&&row.city)actions+='<button class="secondary" type="button" data-geocode>Hitta position</button>';
+  history='';
  } else if(state.view==='objects'){
   const v=row.currentVersion;
   facts=[fact('Objektsnummer',row.object_number),fact('Fastighet',state.snapshot.properties.find(p=>p.id===row.property_id)?.name),fact('Gällande area',v?.area==null?'Ingen gällande version':v.area+' m²'),fact('Startdatum version',v?.valid_from),fact('Avslutad',row.ended_on||'Nej')].join('');
@@ -86,9 +100,35 @@ function renderDetail(){
   history='<h3>Parttillhörighet</h3><div class="timeline">'+state.snapshot.partyPeople.filter(x=>x.person_id===row.id).map(x=>'<article><strong>'+esc(state.snapshot.parties.find(p=>p.id===x.party_id)?.name||'Part')+'</strong><span>'+esc(x.valid_from)+' – '+esc(x.valid_to||'')+'</span></article>').join('')+'</div>';
  }
  const heading=itemName(state.view,row);
- panel.innerHTML='<div class="detail-header"><div><h2>'+esc(heading)+'</h2><p class="muted">Registerpost · '+esc(state.view)+'</p></div><div class="actions">'+actions+'</div></div><div class="details">'+facts+'</div>'+history+(row.stakeholders?renderRoles(row.stakeholders):'');
+ panel.innerHTML='<div class="detail-header"><div><h2>'+esc(heading)+'</h2><p class="muted">Registerpost · '+esc(state.view)+'</p></div><div class="actions">'+actions+'</div></div><div class="details">'+facts+'</div>'+history+(row.stakeholders?renderRoles(row.stakeholders):'')+assignmentHistory(state.view,row,state.snapshot)+relatedRecords(state.view,row,state.snapshot);
 }
-function render(){document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-current',b.dataset.view===state.view?'page':'false'));renderList();renderDetail();}
+function render(){
+ document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-current',b.dataset.view===state.view?'page':'false'));
+ renderList();renderDetail();
+}
+function navigate(view,id=null){
+ if(!viewNames[view]||!state.snapshot)return;
+ state.view=view;state.id=id;state.search='';$('#filter').value='';
+ if(id&&!registerItems().some(r=>r.id===id)&&['objects','agreements'].includes(view))state.showHistory=true;
+ if(!id&&['overview','sources','datamodel'].includes(view))state.id=registerItems()[0]?.id||null;
+ render();
+}
+async function geocodeSelectedProperty(){
+ const property=selected();
+ if(state.view!=='properties'||!property?.address||!property.city)throw Error('Fastigheten behöver adress och ort.');
+ if(!window.confirm('Vill du söka position för '+property.name+'? Adress och ort skickas till den konfigurerade geokodningstjänsten.'))return;
+ const response=await fetch('/api/geocode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({properties:[{
+  id:property.id,address:property.address,city:property.city,latitude:null,longitude:null
+ }]})});
+ const payload=await response.json();if(!response.ok)throw Error(payload.error||'Geokodningen misslyckades.');
+ const found=payload.results?.find(r=>r.id===property.id);
+ if(found?.status!=='matched'||!Number.isFinite(found.latitude)||!Number.isFinite(found.longitude))
+  throw Error('Ingen entydig adressmatchning hittades. Ange koordinaterna manuellt.');
+ if(!window.confirm('Föreslagen position: '+found.displayName+' ('+found.latitude.toFixed(5)+', '+found.longitude.toFixed(5)+'). Spara på fastigheten?'))return;
+ state.snapshot=await api({version:state.snapshot.version,asOf:state.asOf,command:{action:'updateProperty',id:property.id,
+  fields:{latitude:found.latitude,longitude:found.longitude}}});
+ render();notify('Position sparad på fastigheten.');
+}
 function formSchema(mode,row){
  const v=state.view,r=row||{},a=state.snapshot;
  if(v==='agreements'&&mode==='editRent'){
@@ -140,7 +180,7 @@ function formSchema(mode,row){
  }
  if(mode==='end')return {title:'Avsluta objekt',action:'endObject',fields:label('Slutdatum','ended_on',state.asOf,'date','required')};
  if(v==='properties')return {title:mode==='create'?'Ny fastighet':'Redigera fastighet',action:mode==='create'?'createProperty':'updateProperty',
-  fields:label('Fastighetsnamn','name',r.name,'text','required')+label('Förvaltningsobjekt','management_object_number',r.management_object_number)+label('Populärnamn','popular_name',r.popular_name)+label('Adress','address',r.address)+label('Ort','city',r.city)};
+  fields:label('Fastighetsnamn','name',r.name,'text','required')+label('Förvaltningsobjekt','management_object_number',r.management_object_number)+label('Populärnamn','popular_name',r.popular_name)+label('Adress','address',r.address)+label('Ort','city',r.city)+label('Latitud','latitude',r.latitude,'number','step="any" min="-90" max="90"')+label('Longitud','longitude',r.longitude,'number','step="any" min="-180" max="180"')};
  if(v==='parties')return {title:mode==='create'?'Ny part':'Redigera part',action:mode==='create'?'createParty':'updateParty',
   fields:label('Partens namn','name',r.name,'text','required')+label('Organisationsnummer','organization_number',r.organization_number)+label('Typ','kind',r.kind)};
  if(v==='people')return {title:mode==='create'?'Ny person':'Redigera person',action:mode==='create'?'createPerson':'updatePerson',
@@ -199,10 +239,21 @@ async function refresh(){
 document.addEventListener('click',e=>{
  const rent=e.target.closest('[data-edit-rent]');
  if(rent){state.rentEditId=rent.dataset.editRent;openForm('editRent');return;}
+ const jump=e.target.closest('[data-jump-view]');
+ if(jump){navigate(jump.dataset.jumpView,jump.dataset.jumpId);return;}
+ const geo=e.target.closest('[data-geocode]');
+ if(geo){geocodeSelectedProperty().catch(error=>notify(error.message,true));return;}
  const nav=e.target.closest('[data-view]');
- if(nav){state.view=nav.dataset.view;state.id=['overview','sources','datamodel'].includes(state.view)?moreRecords(state.view,state.snapshot)[0]?.id||null:null;state.search='';$('#filter').value='';render();return;}
- const row=e.target.closest('[data-id]');if(row?.classList.contains('record-row')){state.id=row.dataset.id;render();return;}
- const action=e.target.closest('[data-mode]');if(action){openForm(action.dataset.mode);return;}
+ if(nav){navigate(nav.dataset.view);return;}
+ const row=e.target.closest('[data-id]');
+ if(row?.classList.contains('record-row')){state.id=row.dataset.id;renderDetail();renderList();return;}
+ const action=e.target.closest('[data-mode]');
+ if(action){openForm(action.dataset.mode);return;}
+});
+$('#toggle-history').addEventListener('click',()=>{
+ state.showHistory=!state.showHistory;
+ if(state.id&&!registerItems().some(r=>r.id===state.id))state.id=null;
+ render();
 });
 document.addEventListener('click',event=>{
  if(!event.target.closest('[data-export]'))return;

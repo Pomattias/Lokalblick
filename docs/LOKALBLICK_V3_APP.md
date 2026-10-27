@@ -6,9 +6,10 @@ SQLite-databas. **Inga befintliga poster överförs**; V3 får en egen tom fil.
 ## Starta
 
 ```powershell
-$env:LOKALER_SCHEMA = "v3"
-npm run lokaler
+npm run lokalblick
 ```
+
+Detta startar alltid v3, oavsett skal. Den äldre utvecklingsstarten `npm run lokaler` finns kvar för jämförelser.
 
 Öppna **http://127.0.0.1:8790/** på samma dator. Databasen skapas i
 `%LOCALAPPDATA%\Lokalblick\lokalblick-v3.sqlite` på Windows, eller i
@@ -57,3 +58,31 @@ npm run test:v3-browser
 
 GitHub Actions kör hela testsuiten och v3-webbläsarflödet med syntetiska
 databasposter. Testerna berör inte några skarpa filer.
+
+## Moderniserat gränssnitt
+
+Navigeringen är grupperad efter överblick, fastigheter, förvaltning, ekonomi
+samt register och data. Mobilen har en enda horisontell navigeringsrad; listan
+använder en kompakt rad med namn och andra uppgifter sida vid sida.
+Fastighet, objekt, avtal, ärenden och ekonomi har klickbara relationer.
+
+Objekt och avtal visar som standard bara den version som gäller för valt
+datum; knappen **Visa historik** låter användaren bläddra till avslutade
+eller framtida poster. Personkopplingar ärvs vid läsning, och egen
+ansvarshistorik kan fällas ut.
+
+Kartvyn kan använda OpenStreetMap först efter att användaren valt att ladda
+kartbakgrunden. Geokodning av adresser kräver ett separat godkännande och
+serverns ORS_API_KEY. Adressdata skickas inte för geokodning automatiskt.
+
+Budgeten skiljer publicerat SCB-KPI från ett manuellt scenarioindex.
+Scenarioindex lagras enbart på den egna budgetversionen, och ändringar stoppas
+när budgeten låsts. Indexberäknaren är indikativ och flaggar hyresposter som
+kräver särskild avtalsberäkning.
+
+### Versionsbyte
+
+I v3 används ett utökat **färskt** schema med `budgets.scenario_index`.
+En tom v3-testdatabas skapad före denna uppdatering kan tas bort och skapas
+på nytt. **Ingen datamigrering erbjuds**, i enlighet med beslutet om en helt
+tom nystart. Gör aldrig detta om databasen hunnit få uppgifter som ska sparas.

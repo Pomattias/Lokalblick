@@ -27,6 +27,11 @@ try{
  await add('issues',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=title]').fill('Kontrollera tak')});
  await add('recurringCosts',async()=>{await page.locator('#edit-form [name=property_id]').selectOption({index:1});await page.locator('#edit-form [name=name]').fill('Värme');await page.locator('#edit-form [name=annual_amount]').fill('50000')});
  await add('budgets',async()=>{await page.locator('#edit-form [name=property_id]').selectOption({index:1});await page.locator('#edit-form [name=budget_year]').fill('2026')});
+ await page.locator('.record-row').first().click();
+ await page.locator('[data-mode=kpi]').click();
+ await page.locator('#edit-form [name=scenario_index]').fill('425.42');
+ await save();
+ assert.match(await page.locator('#detail').innerText(),/425.42|425,42/);
  await add('spaces',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=name]').fill('Entré')});
  await add('inspections',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=inspected_on]').fill('2026-10-27')});
  await go('sources');
@@ -40,6 +45,28 @@ try{
  await page.locator('#feedback').getByText(/nya rader importerade/).waitFor();
  await go('properties');
  assert.match(await page.locator('.record-list').innerText(),/Importfastigheten/);
+
+ await go('properties');
+ await page.locator('.record-row').filter({hasText:'Mobilfastigheten'}).click();
+ await page.locator('#detail [data-jump-view="objects"]').first().click();
+ assert.equal(await page.locator('#heading').innerText(),'Objekt');
+ await page.locator('#toggle-history').click();
+ assert.equal(await page.locator('#toggle-history').getAttribute('aria-pressed'),'true');
+ await page.locator('#toggle-history').click();
+ await go('properties');
+ await page.locator('.record-row').filter({hasText:'Mobilfastigheten'}).click();
+ await page.locator('#detail [data-mode="edit"]').click();
+ await page.locator('#edit-form [name=latitude]').fill('55.607');
+ await page.locator('#edit-form [name=longitude]').fill('13.010');
+ await save();
+ await go('map');
+ await page.locator('#map-panel [data-map-property]').first().click();
+ assert.equal(await page.locator('#heading').innerText(),'Fastigheter');
+ const tight=await page.locator('.record-row').first().evaluate(r=>{
+  const title=r.querySelector('strong')?.getBoundingClientRect(),sub=r.querySelector('small')?.getBoundingClientRect();
+  return title&&sub&&Math.abs(title.top-sub.top)<=5;
+ });
+ assert.equal(tight,true,'Registerraden visar namn och adress på samma rad');
  await go('datamodel');await page.locator('.record-row').first().click();
  assert.match(await page.locator('#detail').innerText(),/Kolumner/);
  await go('overview');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
