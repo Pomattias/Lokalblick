@@ -3,6 +3,13 @@ import {recordContext,isOpenIssue} from './portfolio-context.js';
 import {contextTabs,contextContracts,contextIssueFilters,contextIssues,currentContacts} from './context-ui.js';
 import {esc} from './views.js';
 
+// Object details are task-first: identity, area, affiliation and dates remain
+// visible; technical complements can be expanded without another edit screen.
+const primaryObjectFields = new Set([
+  'id','number','name','area','propertyId','unitId','start','end','responsiblePersonId','predecessorIds'
+]);
+export const isPrimaryObjectField = name => primaryObjectFields.has(name);
+
 export function mountWorkspace(root,{data,collection,id,selection,source,canEdit,showMaintenance=true,saved={}}) {
   if(!id||!['properties','objects','contracts'].includes(collection))return null;
   const form=root.querySelector('#edit-form'),aside=root.querySelector('.editor');
@@ -21,8 +28,30 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
     for(const key of ['number',...(current.cleanModel?['id']:[]),'propertyId',...(collection==='contracts'?['objectId']:['name'])])form.querySelector(`[name="${key}"]`)?.closest('label')?.classList.add('context-header-reference');
   }
   if(collection==='objects'){
+    // Keep one form and one save action: folded fields remain mounted in the DOM,
+    // so their original names, values, validation and FormData are unchanged.
     form.querySelector('nav.tabs')?.remove();
-    for(const section of form.querySelectorAll('[data-editor-section]'))section.hidden=false;
+    const sections=[...form.querySelectorAll('[data-editor-section]')];
+    const secondary=[];
+    for(const section of sections){
+      section.hidden=false;
+      for(const label of section.querySelectorAll('.form-grid > label')){
+        const fields=[...label.querySelectorAll('[name]')].map(node=>node.name).filter(Boolean);
+        if(fields.length && fields.every(name=>!isPrimaryObjectField(name)))secondary.push(label);
+      }
+    }
+    if(secondary.length){
+      const more=document.createElement('details');
+      more.className='object-more';
+      more.dataset.objectMore='';
+      const summary=document.createElement('summary');
+      summary.textContent='Fler objektuppgifter';
+      const grid=document.createElement('div');
+      grid.className='form-grid';
+      for(const label of secondary)grid.append(label);
+      more.append(summary,grid);
+      sections.at(-1)?.after(more);
+    }
   }
   if(showMaintenance&&(current.cleanModel||current.isDemo)&&['properties','objects'].includes(collection)){const maintenance=document.createElement('button');maintenance.type='button';maintenance.className='text-button';maintenance.dataset.maintenanceRecord=collection;maintenance.dataset.id=id;maintenance.textContent='Öppna underhåll';heading.append(maintenance);}
   const state={tab:collection==='contracts'?'info':'contracts',status:'open',person:'',q:'',all:false,...saved};

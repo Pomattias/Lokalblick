@@ -4274,3 +4274,17 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
   }
   #editor-root .property-editor #edit-form>.property-heading .editor-heading-actions {max-width:170px;}
 }
+
+/* Existing objects: primary information first, supplementary fields collapsed.
+   Neither the editor fields nor the underlying object model are duplicated. */
+#editor-root .record-workspace .object-more {
+  border-top:1px solid var(--line);margin:10px 0 2px;
+}
+#editor-root .record-workspace .object-more>summary {
+  cursor:pointer;min-height:36px;padding:8px 0;
+  font-size:12px;font-weight:600;color:var(--ink);
+}
+#editor-root .record-workspace .object-more>.form-grid {
+  display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:3px 0 8px;
+}
+#editor-root .record-workspace .object-more>.form-grid>label {min-width:0;}
