@@ -25,3 +25,4 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:editor-browser
       - run: npm run test:mobile-record-browser
+      - run: npm run test:v3-browser

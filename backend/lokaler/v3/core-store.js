@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createFreshDatabase, openExistingDatabase, objectVersionAt, resolvedStakeholders, agreementVersionsAt } from './database.js';
 import { existsSync } from 'node:fs';
+import {runModuleCommand,operationalSnapshot} from './modules.js';
 
 // V3 operations are explicit and transactional; there is no V2 workspace replacement.
 const date=v=>{const raw=String(v||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(raw)||!Number.isFinite(Date.parse(raw+'T00:00:00Z'))||new Date(raw+'T00:00:00Z').toISOString().slice(0,10)!==raw)throw Error('Ogiltigt datum, ange ÅÅÅÅ-MM-DD.');return raw;};
@@ -47,7 +48,9 @@ function asOfSnapshot(db,asOf) {
  const propertiesWithRoles=properties.map(p=>({...p,stakeholders:resolvedStakeholders(db,{propertyId:p.id},at)}));
  return {schemaVersion:3,version:db.prepare('SELECT version FROM store_meta WHERE id=1').get().version,asOf:at,
   parties,people,partyPeople,properties:propertiesWithRoles,objects,agreements,stakeholderAssignments:all(db,'stakeholder_assignments'),
-  agreementItems:all(db,'agreement_items')};
+  agreementItems:all(db,'agreement_items'),
+  ...operationalSnapshot(db,at,{all}),
+  schema:db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name<>'store_meta' ORDER BY name").all().map(t=>({name:t.name,columns:db.prepare('PRAGMA table_info('+t.name+')').all().map(c=>({name:c.name,type:c.type,required:Boolean(c.notnull),primary:Boolean(c.pk)})),references:db.prepare('PRAGMA foreign_key_list('+t.name+')').all().map(f=>({column:f.from,table:f.table,target:f.to}))}))};
 }
 function perform(db,command) {
  if(!command||typeof command!=='object'||Array.isArray(command))throw Error('Ogiltig åtgärd.');
@@ -149,7 +152,7 @@ function perform(db,command) {
     valid_from:p.valid_from?date(p.valid_from):null,valid_to:p.valid_to?date(p.valid_to):null,
     adjustment_method:optional(p.adjustment_method)||'none'});break;
   }
-  default:throw Error('Åtgärden stöds inte i Lokalblick v3.');
+  default:if(!runModuleCommand(db,command,{id,date,text,optional,nonneg,fields,insert,update,lookup,previousDay}))throw Error('Åtgärden stöds inte i Lokalblick v3.');
  }
 }
 // One SQLite transaction per command, optimistic concurrency, no mass replace.

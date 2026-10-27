@@ -4,9 +4,28 @@
 <meta name="description" content="Lokalblick v3: fastigheter, objektversioner, avtal, parter och personer i en privat databas.">
 <link rel="stylesheet" href="./styles.css"><script type="module" src="./app.js"></script></head>
 <body><aside class="sidebar"><div class="brand"><span class="logo">L</span><span><strong>Lokalblick</strong><small>Fastigheter · Objekt · Avtal</small></span></div>
-<nav aria-label="Register"><button type="button" data-view="properties">Fastigheter</button><button type="button" data-view="objects">Objekt</button><button type="button" data-view="agreements">Avtal</button><button type="button" data-view="parties">Parter</button><button type="button" data-view="people">Personer</button></nav>
+<nav aria-label="Huvudnavigation">
+<button type="button" data-view="overview">Översikt</button>
+<button type="button" data-view="properties">Fastigheter</button>
+<button type="button" data-view="objects">Objekt</button>
+<button type="button" data-view="agreements">Avtal</button>
+<button type="button" data-view="issues">Ärenden</button>
+<button type="button" data-view="orders">Beställningar</button>
+<button type="button" data-view="recurringCosts">Fastighetskostnader</button>
+<button type="button" data-view="costEvidence">Fakturor och utfall</button>
+<button type="button" data-view="budgets">Budget</button>
+<button type="button" data-view="spaces">Utrymmen</button>
+<button type="button" data-view="buildingParts">Byggnadsdelar</button>
+<button type="button" data-view="inspections">Besiktningar</button>
+<button type="button" data-view="inspectionPoints">Besiktningspunkter</button>
+<button type="button" data-view="parties">Parter</button>
+<button type="button" data-view="people">Personer</button>
+<button type="button" data-view="map">Karta</button>
+<button type="button" data-view="sources">Datakällor</button>
+<button type="button" data-view="datamodel">Datamodell</button>
+</nav>
 <div class="sidebar-footer">V3 · Lokal SQLite<br>Inga äldre poster migreras</div></aside>
-<main><header class="masthead"><div><span class="eyebrow">LOKALBLICK / DATABAS V3</span><h1 id="heading">Fastigheter</h1><p id="intro">En källa för varje uppgift. Daterad historik utan dubbellagring.</p></div>
+<main><header class="masthead"><div><span class="eyebrow">LOKALBLICK / DATABAS V3</span><h1 id="heading">Översikt</h1><p id="intro">En källa för varje uppgift. Daterad historik utan dubbellagring.</p></div>
 <div class="date-control"><label for="as-of">Visa uppgifter per datum</label><input id="as-of" type="date"></div></header>
 <div id="feedback" role="status" aria-live="polite"></div>
 <section class="statbar" id="stats"></section>

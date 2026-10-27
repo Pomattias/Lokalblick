@@ -1,0 +1,37 @@
+// Smoke the native v3 frontend against a temporary private in-memory database.
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+import { openMemoryDatabase } from '../backend/lokaler/v3/database.js';
+import { CoreV3Store } from '../backend/lokaler/v3/core-store.js';
+import { createServer } from '../backend/lokaler/server.mjs';
+const db=openMemoryDatabase(),store=new CoreV3Store(db),server=createServer(store,{v3:true});
+let browser;
+try{
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const origin='http://127.0.0.1:'+server.address().port;
+ browser=await chromium.launch({headless:true,executablePath:process.env.LOKALBLICK_CHROMIUM_PATH||undefined,args:['--no-sandbox','--disable-dev-shm-usage']});
+ const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ const go=async view=>{await page.locator('.sidebar [data-view="'+view+'"]').click();await assert.rejects(async()=>{await page.getByText('Anslutningen saknas', {exact:true}).waitFor({timeout:80})})};
+ const save=async()=>{await page.locator('#edit-form button[type=submit]').click();await page.locator('#editor').waitFor({state:'hidden'});};
+ const add=async(view,fill)=>{await go(view);await page.locator('#new-record').click();await fill();await save()};
+ await page.goto(origin+'/frontend/v3/');
+ await page.locator('#heading').getByText('Översikt').waitFor();
+ await add('properties',async()=>{await page.locator('#edit-form [name=name]').fill('Mobilfastigheten');await page.locator('#edit-form [name=address]').fill('Testgatan 1')});
+ await page.getByRole('button',{name:/Mobilfastigheten/}).first().waitFor();
+ await add('objects',async()=>{await page.locator('#edit-form [name=property_id]').selectOption({index:1});await page.locator('#edit-form [name=object_number]').fill('101');await page.locator('#edit-form [name=valid_from]').fill('2020-01-01');await page.locator('#edit-form [name=area]').fill('200')});
+ await page.locator('.record-row').first().click();
+ await page.locator('[data-mode=revise]').click();await page.locator('#edit-form [name=valid_from]').fill('2026-07-01');await page.locator('#edit-form [name=area]').fill('250');await save();
+ assert.match(await page.locator('#detail').innerText(),/250 m²/);
+ await add('agreements',async()=>{await page.locator('#edit-form [name=object_id]').selectOption({index:1});await page.locator('#edit-form [name=agreement_number]').fill('A-101');await page.locator('#edit-form [name=valid_from]').fill('2025-01-01')});
+ await add('issues',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=title]').fill('Kontrollera tak')});
+ await add('recurringCosts',async()=>{await page.locator('#edit-form [name=property_id]').selectOption({index:1});await page.locator('#edit-form [name=name]').fill('Värme');await page.locator('#edit-form [name=annual_amount]').fill('50000')});
+ await add('budgets',async()=>{await page.locator('#edit-form [name=property_id]').selectOption({index:1});await page.locator('#edit-form [name=budget_year]').fill('2026')});
+ await add('spaces',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=name]').fill('Entré')});
+ await add('inspections',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=inspected_on]').fill('2026-10-27')});
+ await go('datamodel');await page.locator('.record-row').first().click();
+ assert.match(await page.locator('#detail').innerText(),/Kolumner/);
+ await go('overview');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ assert.deepEqual(errors,[]);
+ console.log('v3 browser: responsive CRUD, version history, inspection, finance and model view OK');
+}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));db.close();}

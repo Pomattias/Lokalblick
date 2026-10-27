@@ -1,11 +1,13 @@
-// First native Lokalblick v3 screens. All persisted facts use the v3 HTTP API.
+// Native Lokalblick v3. All persisted facts use the private SQLite API.
+import {moreViews,moreItems,moreRecords,moreItemName,moreSecondary,moreDetail,moreFormSchema} from './modules.js';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const viewNames={properties:'Fastigheter',objects:'Objekt',agreements:'Avtal',parties:'Parter',people:'Personer'};
-const itemNames={properties:'fastighet',objects:'objekt',agreements:'avtal',parties:'part',people:'person'};
+const viewNames={properties:'Fastigheter',objects:'Objekt',agreements:'Avtal',parties:'Parter',people:'Personer',...moreViews};
+const itemNames={properties:'fastighet',objects:'objekt',agreements:'avtal',parties:'part',people:'person',...moreItems};
 const dateToday=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
 const roles={owner:'Fastighetsägare',owner_contact:'Fastighetsägarens kontakt',coordinator:'Lokalsamordnare',tenant:'Hyresgäst',tenant_contact:'Hyresgästens kontakt',asset_manager:'Förvaltare',project_manager:'Projektledare'};
-const state={view:'properties',id:null,snapshot:null,asOf:dateToday,mode:null,search:''};
+const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:''};
+const registerItems=()=>state.snapshot?moreRecords(state.view,state.snapshot):[];
 $('#as-of').value=state.asOf;
 async function api(body=null){
  const url='/api/v3/core'+(body?'':'?date='+encodeURIComponent(state.asOf));
@@ -14,9 +16,9 @@ async function api(body=null){
 }
 const notify=(message,error=false)=>{const el=$('#feedback');el.textContent=message;el.classList.toggle('error',error)};
 const matches=(row,query)=>JSON.stringify(row).toLocaleLowerCase('sv').includes(query);
-const itemName=(view,row)=>view==='properties'?row.name:view==='objects'?row.object_number:view==='agreements'?row.agreement_number:row.name;
-const secondary=(view,row)=>view==='properties'?row.address||row.management_object_number||'Ingen adress':view==='objects'?(row.currentVersion?.area??'–')+' m² · '+(state.snapshot.properties.find(p=>p.id===row.property_id)?.name||''):view==='agreements'?'Start '+(row.currentVersion?.valid_from||row.original_start_on||'–'):view==='people'?row.email||'Ingen e-post':row.organization_number||'Ingen organisationsnummer';
-const selected=()=>state.snapshot?.[state.view]?.find(x=>x.id===state.id);
+const itemName=(view,row)=>view==='properties'?row.name:view==='objects'?row.object_number:view==='agreements'?row.agreement_number:view==='parties'||view==='people'?row.name:moreItemName(view,row);
+const secondary=(view,row)=>view==='properties'?row.address||row.management_object_number||'Ingen adress':view==='objects'?(row.currentVersion?.area??'–')+' m² · '+(state.snapshot.properties.find(p=>p.id===row.property_id)?.name||''):view==='agreements'?'Start '+(row.currentVersion?.valid_from||row.original_start_on||'–'):view==='people'?row.email||'Ingen e-post':view==='parties'?row.organization_number||'Ingen organisationsnummer':moreSecondary(view,row,state.snapshot);
+const selected=()=>registerItems().find(x=>x.id===state.id);
 const label=(caption,field,value='',type='text',extra='')=>'<label>'+esc(caption)+'<input name="'+esc(field)+'" type="'+esc(type)+'" value="'+esc(value??'')+'" '+extra+'></label>';
 const select=(caption,field,items,value='',required=false)=>'<label>'+esc(caption)+'<select name="'+esc(field)+'" '+(required?'required':'')+'><option value="">Välj…</option>'+items.map(x=>'<option value="'+esc(x.id)+'" '+(String(x.id)===String(value)?'selected':'')+'>'+esc(x.label)+'</option>').join('')+'</select></label>';
 const asOptions=(type)=>state.snapshot[type].map(x=>({id:x.id,label:itemName(type,x)}));
@@ -32,9 +34,10 @@ function renderRoles(rows){
  }).join('')||'<div class="muted">Inga aktiva rollkopplingar för valt datum.</div>')+'</div>';
 }
 function renderList(){
- const list=(state.snapshot?.[state.view]||[]),query=state.search.toLocaleLowerCase('sv').trim();
+ const list=registerItems(),query=state.search.toLocaleLowerCase('sv').trim();
  $('#heading').textContent=viewNames[state.view];$('#list-heading').textContent=viewNames[state.view];
  $('#new-record').textContent='+ Lägg till '+itemNames[state.view];
+ $('#new-record').hidden=['overview','map','datamodel','sources','costEvidence','budgetLines','inspectionPoints'].includes(state.view);
  const visible=list.filter(r=>!query||matches(r,query));
  $('#record-list').innerHTML=visible.map(row=>'<button type="button" class="record-row" data-id="'+esc(row.id)+'" aria-selected="'+(state.id===row.id)+'"><span><strong>'+esc(itemName(state.view,row))+'</strong><small>'+esc(secondary(state.view,row))+'</small></span><span class="chevron">›</span></button>').join('')||'<div class="empty">Inga poster. Lägg till den första.</div>';
  $('#stats').innerHTML=[
@@ -45,6 +48,7 @@ function renderList(){
 function renderDetail(){
  const row=selected(),panel=$('#detail');
  if(!row){panel.innerHTML='<div class="empty">Välj en post för att visa dess data, kontaktpersoner och historiska versioner.</div>';return;}
+ if(Object.hasOwn(moreViews,state.view)){panel.innerHTML=moreDetail(state.view,row,state.snapshot);return;}
  let actions='<button type="button" class="secondary" data-mode="edit">Redigera</button>';
  let facts='',history='';
  if(state.view==='properties'){
@@ -79,6 +83,11 @@ function renderDetail(){
 function render(){document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-current',b.dataset.view===state.view?'page':'false'));renderList();renderDetail();}
 function formSchema(mode,row){
  const v=state.view,r=row||{},a=state.snapshot;
+ if(Object.hasOwn(moreViews,v)){
+  const spec=moreFormSchema(v,mode,row,{state,select,label,asOptions});
+  if(spec)return spec;
+  throw Error('Den här funktionen öppnas från sin överordnade registerpost.');
+ }
  if(mode==='role'){
   const entity={properties:'property_id',objects:'object_id',agreements:'agreement_id'}[v];
   if(!entity)throw Error('Välj en fastighet, ett objekt eller ett avtal.');
@@ -143,6 +152,7 @@ async function saveForm(e){
  const entries=Object.fromEntries(new FormData(form).entries());
  for(const [k,v]of Object.entries(entries))if(v==='')delete entries[k];
  const fields={...entries,...spec.fixed};
+ if(spec.transform)spec.transform(fields);
  const command={action:spec.action,fields};
  if(spec.id)command.id=spec.id;
  $('#submit-editor').disabled=true;
@@ -152,14 +162,24 @@ async function saveForm(e){
  }catch(error){notify(error.message,true)}finally{$('#submit-editor').disabled=false}
 }
 async function refresh(){
- try{state.snapshot=await api();if(!state.snapshot[state.view].some(r=>r.id===state.id))state.id=null;render();}
+ try{state.snapshot=await api();const rows=registerItems();if(!rows.some(r=>r.id===state.id))state.id=['overview','sources','datamodel'].includes(state.view)?rows[0]?.id||null:null;render();}
  catch(error){notify(error.message,true)}
 }
 document.addEventListener('click',e=>{
  const nav=e.target.closest('[data-view]');
- if(nav){state.view=nav.dataset.view;state.id=null;state.search='';$('#filter').value='';render();return;}
+ if(nav){state.view=nav.dataset.view;state.id=['overview','sources','datamodel'].includes(state.view)?moreRecords(state.view,state.snapshot)[0]?.id||null:null;state.search='';$('#filter').value='';render();return;}
  const row=e.target.closest('[data-id]');if(row?.classList.contains('record-row')){state.id=row.dataset.id;render();return;}
  const action=e.target.closest('[data-mode]');if(action){openForm(action.dataset.mode);return;}
+});
+document.addEventListener('click',event=>{
+ if(!event.target.closest('[data-export]'))return;
+ const rows=state.snapshot;
+ const json=JSON.stringify({schemaVersion:3,exportedAt:new Date().toISOString(),snapshot:rows},null,2);
+ const file=new Blob([json],{type:'application/json;charset=utf-8'});
+ const uri=URL.createObjectURL(file),anchor=document.createElement('a');
+ anchor.href=uri;anchor.download='lokalblick-v3-'+state.asOf+'.json';document.body.append(anchor);anchor.click();anchor.remove();
+ setTimeout(()=>URL.revokeObjectURL(uri),1000);
+ notify('Ett JSON-utdrag har skapats lokalt i webbläsaren.');
 });
 $('#new-record').addEventListener('click',()=>openForm('create'));
 $('#filter').addEventListener('input',e=>{state.search=e.target.value;renderList()});
