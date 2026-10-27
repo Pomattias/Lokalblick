@@ -23,8 +23,8 @@ test("property and address remain distinct in V2 tables",()=>{
  const data=sample();
  for(const perspective of ["Fastigheter","Avtal","Ärenden"]){
    const html=overview(data,selection,{year:2026,perspective,contractId:""});
-   assert.match(html,/Fastighet(?:\s*<span|<\/th>)/);
-   assert.match(html,/Adress(?:\s*<span|<\/th>)/);
+   assert.match(html,/aria-label="Sortera på Fastighet"/);
+   assert.match(html,/aria-label="Sortera på Adress"/);
  }
  const properties=overview(data,selection,{year:2026,perspective:"Fastigheter",contractId:""});
  assert.match(properties,/<td class="primary-cell"><button[^>]*data-edit="properties"[^>]*>HAMNEN 2<\/button><span class="property-inline-address"> · Kajgatan 14<\/span>/);
@@ -34,8 +34,8 @@ test("property and address remain distinct in V2 tables",()=>{
  assert.match(upkeep,/Renovering/);
  assert.match(upkeep,/HAMNEN 2/);
  assert.match(upkeep,/Kajgatan 14/);
- assert.match(upkeep,/Ansvarig(?:\s*<span|<\/th>)/);
- assert.match(upkeep,/Status(?:\s*<span|<\/th>)/);
+ assert.match(upkeep,/aria-label="Sortera på Ansvarig"/);
+ assert.match(upkeep,/aria-label="Sortera på Status"/);
  const plan=planning(data,selection,{year:2026,planningMode:"list"});
  assert.match(plan,/>Fastighet</);
  assert.match(plan,/>Adress</);
@@ -50,14 +50,15 @@ test("property and address remain distinct in V2 tables",()=>{
    imported.properties[1].designation=designation;
    imported.contracts[0].propertyId="p2";
    const agreements=overview(imported,selection,{year:2026,perspective:"Avtal",contractId:""});
-   assert.match(agreements,/<td class="primary-cell">Beteckning saknas<\/td><td><button[^>]*data-property="p2"[^>]*>Hamnvägen 10<\/button>/);
+   assert.match(agreements,/<td class="primary-cell"><span class="contract-desktop-property">Beteckning saknas<\/span>/);
+   assert.match(agreements,/<td><button[^>]*data-property="p2"[^>]*>Hamnvägen 10<\/button>/);
    const properties=overview(imported,selection,{year:2026,perspective:"Fastigheter",contractId:""});
    assert.match(properties,/<button[^>]*data-id="p2"[^>]*>Beteckning saknas<\/button>/);
    assert.equal(propertyReference(imported.properties[1]),"Beteckning saknas · Hamnvägen 10");
    assert.equal(imported.properties[1].designation,designation,"Presentation must not rewrite source data");
  }
  const unlinked=sample();unlinked.contracts[0].propertyId="missing";
- assert.match(overview(unlinked,selection,{year:2026,perspective:"Avtal",contractId:""}),/<td class="primary-cell">Ej kopplad<\/td>/);
+ assert.match(overview(unlinked,selection,{year:2026,perspective:"Avtal",contractId:""}),/<td class="primary-cell"><span class="contract-desktop-property">Ej kopplad<\/span>/);
 });
 test("Excel export holds fastighetsbeteckning and address in separate columns",()=>{
  const svc=excelService(),data=sample(),workbook=svc.dataToWorkbook(data);
