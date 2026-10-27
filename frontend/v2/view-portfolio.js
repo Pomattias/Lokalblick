@@ -62,7 +62,7 @@ function contactNames(data, type, record, role, fallback) {
     : model.history(data, type, record.id, role).length ? [] : [fallback];
   return [...new Set(ids.filter(Boolean).map(id => personLabel(data, id)))].join(", ") || "Ej fördelat";
 }
-function propertyListGroup(data, p, contracts, year, portfolioView) {
+function propertyListGroup(data, p, contracts, objects, year, portfolioView) {
   const title = propertyDesignation(p) || "Beteckning saknas";
   const detailId = "property-relations-" + encodeURIComponent(p.id);
   const totalContracts = data.contracts.filter(c => c.propertyId === p.id&&(!portfolioView||contractPhase(data,c)==='current')).length;
@@ -75,7 +75,23 @@ function propertyListGroup(data, p, contracts, year, portfolioView) {
   const contractContact = c => globalThis.LokalblickResponsibility.history(data,"contract",c.id,"our").length || c.responsiblePersonId
     ? contactNames(data,"contract",c,"our",c.responsiblePersonId) : ourContact;
   const contacts = `<section class="property-list-contacts"><h3>Kontaktpersoner</h3><dl><div><dt>Vår ansvarige</dt><dd>${esc(ourContact)}</dd></div><div><dt>Fastighetsägarens kontaktperson</dt><dd>${esc(ownerContact)}</dd></div></dl></section>`;
-  const agreements = `<section class="property-list-contracts"><h3>Avtal${subset ? ` · ${contracts.length} av ${totalContracts} i aktuellt urval` : ` · ${contracts.length}`}</h3>${contracts.length ? `<ul>${contracts.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || c.id)}</button><small>${esc(tenantName(data,c))}</small></div><dl>${portfolioView?"":`<div><dt>Vår ansvarige för avtalet</dt><dd>${esc(contractContact(c))}</dd></div>`}<div><dt>Hyresgästens kontaktperson</dt><dd>${esc(contactNames(data,"contract",c,"tenant",c.tenantResponsiblePersonId))}</dd></div></dl></li>`).join("")}</ul>` : `<p>${totalContracts ? "Inga avtal i aktuellt urval." : "Inga avtal kopplade till fastigheten."}</p>`}</section>`;
+  // Reuse the existing Fastighet → Objekt → Avtal relationships; no new stored data.
+  // An agreement matched by search also reveals its object even if the object text did not match.
+  const objectById = new Map((data.objects||[]).map(object=>[object.id,object]));
+  const visibleObjects = [...new Map([
+    ...objects.filter(object=>object.propertyId===p.id),
+    ...contracts.map(contract=>objectById.get(contract.objectId)).filter(object=>object?.propertyId===p.id),
+  ].map(object=>[object.id,object])).values()];
+  const contractList = rows => `<ul>${rows.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || c.id)}</button><small>${esc(tenantName(data,c))}</small></div><dl>${portfolioView?"":`<div><dt>Vår ansvarige för avtalet</dt><dd>${esc(contractContact(c))}</dd></div>`}<div><dt>Hyresgästens kontaktperson</dt><dd>${esc(contactNames(data,"contract",c,"tenant",c.tenantResponsiblePersonId))}</dd></div></dl></li>`).join("")}</ul>`;
+  const objectGroups = visibleObjects.map(object=>{
+    const linked = contracts.filter(contract=>contract.objectId===object.id);
+    const label = ['Objekt '+objectLabel(object),object.name].filter(Boolean).join(' · ');
+    return `<div class="property-list-object"><h4><button type="button" class="text-button" data-edit="objects" data-id="${esc(object.id)}">${esc(label)}</button></h4>${linked.length?contractList(linked):'<p>Inget avtal kopplat till objektet.</p>'}</div>`;
+  }).join('');
+  const visibleObjectIds = new Set(visibleObjects.map(object=>object.id));
+  const unlinked = contracts.filter(contract=>!visibleObjectIds.has(contract.objectId));
+  const unlinkedGroup = unlinked.length?`<div class="property-list-object"><h4>Avtal utan objektkoppling</h4>${contractList(unlinked)}</div>`:'';
+  const agreements = `<section class="property-list-contracts"><h3>Objekt och avtal${subset?` · ${contracts.length} av ${totalContracts} avtal i aktuellt urval`:` · ${contracts.length} avtal`}</h3>${objectGroups}${unlinkedGroup}${!objectGroups&&!unlinkedGroup?`<p>${totalContracts?'Inga avtal i aktuellt urval.':'Inga avtal kopplade till fastigheten.'}</p>`:''}</section>`;
   return `<tbody data-row-group="${esc(p.id)}"><tr class="property-list-summary">
     <td class="primary-cell"><button type="button" class="text-button" data-edit="properties" data-id="${esc(p.id)}">${esc(title)}</button><span class="property-inline-address"> · ${esc(propertyAddress(p) || "Adress saknas")}</span><span class="property-mobile-meta"><small class="property-mobile-overview">${num(contracts.length)} avtal · ${esc(ourContact)}</small>${openCount?`<small class="property-open-issues"><button type="button" class="text-button" data-context-record="properties" data-id="${esc(p.id)}" data-context-target-tab="issues">${openCount} öppna ärenden</button></small>`:""}</span></td>
     <td>${esc(propertyAddress(p) || "Adress saknas")}<small class="property-list-owner">${esc(propertyOwnerLabel(data,p))}</small></td>
@@ -101,7 +117,7 @@ export function overview(data, s, ui) {
   if (ui.perspective === "Fastigheter") {
     body = table(
       ["Fastighet", "Adress", "Ansvarig hos oss", "Avtal", "Area", `${ui.portfolioView?"Årshyra":"Årskostnad"} ${ui.year}`, ""],
-      v.properties.map(p => propertyListGroup(data, p, v.contracts.filter(c => c.propertyId === p.id), ui.year, ui.portfolioView)),
+      v.properties.map(p => propertyListGroup(data, p, v.contracts.filter(c => c.propertyId === p.id), v.objects||[], ui.year, ui.portfolioView)),
       true,
       "Fastigheter",
       true,

@@ -49,3 +49,36 @@ test('empty and unlinked properties have useful text and escaped record identifi
   assert.doesNotMatch(html,/<Fastighet>/);
   assert.match(render(data,{...selection,q:'finns inte'}),/data-table-empty><tr>/);
 });
+
+test('expanded fastighet visar objekt före avtal, inklusive objekt utan avtal', () => {
+  const data=normalize({
+    properties:[{id:'p',designation:'Hamnen 2',address:'Kajgatan 14'}],
+    objects:[{id:'o1',propertyId:'p',number:'101',name:'Butik <A>',unitId:'VARDBO'},
+      {id:'o2',propertyId:'p',number:'102',unitId:'ORDBO'}],
+    contracts:[{id:'c1',propertyId:'p',objectId:'o1',number:'AVT-1',unitId:'VARDBO',baseRent:100000,rentIndexPercent:0},
+      {id:'c2',propertyId:'p',number:'AVT-2',unitId:'VARDBO',baseRent:150000,rentIndexPercent:0}],
+  });
+  const before=JSON.stringify(data),html=render(data);
+  assert.match(html,/Objekt och avtal · 2 avtal/);
+  assert.match(html,/data-edit="objects" data-id="o1"/);
+  assert.match(html,/data-edit="objects" data-id="o2"/);
+  assert.match(html,/Butik &lt;A&gt;/);
+  assert.match(html,/Inget avtal kopplat till objektet/);
+  assert.match(html,/Avtal utan objektkoppling/);
+  assert.equal((html.match(/data-edit="contracts" data-id="c1"/g)||[]).length,1);
+  assert.equal((html.match(/data-edit="contracts" data-id="c2"/g)||[]).length,1);
+  assert.ok(html.indexOf('data-edit="objects" data-id="o1"')<html.indexOf('data-edit="contracts" data-id="c1"'));
+  assert.equal(JSON.stringify(data),before);
+});
+
+test('sökning på avtalsnummer visar det befintliga objektet utan ytterligare registerkoppling',()=>{
+  const data=normalize({
+    properties:[{id:'p',designation:'Hamnen 2',address:'Kajgatan 14'}],
+    objects:[{id:'o1',propertyId:'p',number:'101',name:'Butik'}],
+    contracts:[{id:'c1',propertyId:'p',objectId:'o1',number:'SÖK-715',baseRent:100000,rentIndexPercent:0}],
+  });
+  const html=render(data,{...selection,q:'SÖK-715'});
+  assert.match(html,/data-edit="objects" data-id="o1"/);
+  assert.match(html,/data-edit="contracts" data-id="c1"/);
+  assert.doesNotMatch(html,/Avtal utan objektkoppling/);
+});

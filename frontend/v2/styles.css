@@ -3557,6 +3557,10 @@ body[data-view="properties"] .property-list .property-list-contracts li {
 }
 body[data-view="properties"] .property-list .property-list-contracts li:first-child {padding-top:0;border-top:0;}
 body[data-view="properties"] .property-list .property-list-contracts p {margin:0;font-size:12px;color:var(--muted);}
+body[data-view="properties"] .property-list .property-list-object {padding:7px 0;border-top:1px solid var(--line);}
+body[data-view="properties"] .property-list .property-list-object:first-of-type {padding-top:0;border-top:0;}
+body[data-view="properties"] .property-list .property-list-object h4 {margin:0 0 6px;font-size:12px;font-weight:600;}
+body[data-view="properties"] .property-list .property-list-object h4 .text-button {font:inherit;font-weight:600;text-align:left;white-space:normal;overflow-wrap:anywhere;}
 @media(max-width:1000px) {
   body[data-view="properties"] .property-list .property-list-relations {grid-template-columns:minmax(0,1fr);gap:16px;}
 }
