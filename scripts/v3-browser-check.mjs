@@ -69,7 +69,17 @@ try{
  assert.equal(tight,true,'Registerraden visar namn och adress på samma rad');
  await go('datamodel');await page.locator('.record-row').first().click();
  assert.match(await page.locator('#detail').innerText(),/Kolumner/);
- await go('overview');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ await go('overview');
+ const geometry=await page.evaluate(()=>{
+  const sw=document.documentElement.scrollWidth;
+  const nodes=[...document.querySelectorAll('body *')].map(el=>{
+   const r=el.getBoundingClientRect(),st=getComputedStyle(el);
+   return {tag:el.tagName,id:el.id,className:typeof el.className==='string'?el.className.slice(0,70):'',right:Math.round(r.right),left:Math.round(r.left),width:Math.round(r.width),scroll:el.scrollWidth,client:el.clientWidth,overflow:st.overflowX};
+  }).filter(x=>x.right>innerWidth+2||x.width>innerWidth+2).sort((a,b)=>b.right-a.right).slice(0,25);
+  return {viewport:innerWidth,scrollWidth:sw,nodes};
+ });
+ console.log('V3 mobile layout diagnostic:',JSON.stringify(geometry));
+ assert.equal(geometry.scrollWidth<=geometry.viewport,true);
  assert.deepEqual(errors,[]);
  console.log('v3 browser: responsive CRUD, version history, inspection, finance and model view OK');
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));db.close();}
