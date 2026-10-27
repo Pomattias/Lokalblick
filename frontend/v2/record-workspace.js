@@ -10,6 +10,48 @@ const primaryObjectFields = new Set([
 ]);
 export const isPrimaryObjectField = name => primaryObjectFields.has(name);
 
+// A single compact object form for both existing objects and newly created
+// objects. Move (never clone) controls so FormData and source fields stay intact.
+export function compactObjectForm(form) {
+  form.querySelector('nav.tabs')?.remove();
+  const sections=[...form.querySelectorAll('[data-editor-section]')];
+  const secondary=[];
+  for(const section of sections){
+    section.hidden=false;
+    for(const label of section.querySelectorAll('.form-grid > label')){
+      const names=[...label.querySelectorAll('[name]')].map(control=>control.name).filter(Boolean);
+      if(names.length&&names.every(name=>!isPrimaryObjectField(name)))secondary.push(label);
+    }
+  }
+  let more=null;
+  if(secondary.length){
+    more=document.createElement('details');
+    more.className='object-more';
+    more.dataset.objectMore='';
+    const summary=document.createElement('summary');
+    summary.textContent='Fler objektuppgifter';
+    const grid=document.createElement('div');
+    grid.className='form-grid';
+    for(const label of secondary)grid.append(label);
+    more.append(summary,grid);
+    sections.at(-1)?.after(more);
+  }
+  const predecessor=form.querySelector('[name="predecessorIds"]')?.closest('label');
+  if(predecessor){
+    const history=document.createElement('details');
+    history.className='context-periods';
+    history.dataset.objectHistory='';
+    history.innerHTML='<summary>Objektets historik</summary>';
+    history.append(predecessor);
+    const anchor=more||sections.at(-1);
+    if(anchor)anchor.after(history);
+    else form.querySelector('.responsibility-section')?.before(history);
+  }
+  // Empty legacy group wrappers made the mobile form look like several empty
+  // panels. They contain no inputs after the moved labels.
+  for(const section of sections)if(!section.querySelector('.form-grid > label'))section.remove();
+}
+
 export function mountWorkspace(root,{data,collection,id,selection,source,canEdit,showMaintenance=true,saved={}}) {
   if(!id||!['properties','objects','contracts'].includes(collection))return null;
   const form=root.querySelector('#edit-form'),aside=root.querySelector('.editor');
@@ -24,35 +66,12 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
     for(const small of heading.querySelectorAll('small'))small.remove();
     const parent=document.createElement('div');parent.className='context-parent';
     parent.innerHTML=[link('properties',property,[property?.designation,property?.address].filter(Boolean).join(' · ')),link('objects',object,'Objekt '+objectLabel(object))].filter(Boolean).join('<span aria-hidden="true">›</span>');
-    title.before(parent);
+    // Give navigation the full width on narrow screens rather than squeezing
+    // property/object links into the narrow title-and-actions column.
+    if(parent.innerHTML)heading.prepend(parent);
     for(const key of ['number',...(current.cleanModel?['id']:[]),'propertyId',...(collection==='contracts'?['objectId']:['name'])])form.querySelector(`[name="${key}"]`)?.closest('label')?.classList.add('context-header-reference');
   }
-  if(collection==='objects'){
-    // Keep one form and one save action: folded fields remain mounted in the DOM,
-    // so their original names, values, validation and FormData are unchanged.
-    form.querySelector('nav.tabs')?.remove();
-    const sections=[...form.querySelectorAll('[data-editor-section]')];
-    const secondary=[];
-    for(const section of sections){
-      section.hidden=false;
-      for(const label of section.querySelectorAll('.form-grid > label')){
-        const fields=[...label.querySelectorAll('[name]')].map(node=>node.name).filter(Boolean);
-        if(fields.length && fields.every(name=>!isPrimaryObjectField(name)))secondary.push(label);
-      }
-    }
-    if(secondary.length){
-      const more=document.createElement('details');
-      more.className='object-more';
-      more.dataset.objectMore='';
-      const summary=document.createElement('summary');
-      summary.textContent='Fler objektuppgifter';
-      const grid=document.createElement('div');
-      grid.className='form-grid';
-      for(const label of secondary)grid.append(label);
-      more.append(summary,grid);
-      sections.at(-1)?.after(more);
-    }
-  }
+  if(collection==='objects')compactObjectForm(form);
   if(showMaintenance&&(current.cleanModel||current.isDemo)&&['properties','objects'].includes(collection)){const maintenance=document.createElement('button');maintenance.type='button';maintenance.className='text-button';maintenance.dataset.maintenanceRecord=collection;maintenance.dataset.id=id;maintenance.textContent='Öppna underhåll';heading.append(maintenance);}
   const state={tab:collection==='contracts'?'info':'contracts',status:'open',person:'',q:'',all:false,...saved};
   const info=document.createElement('section');info.dataset.contextPanel='info';
@@ -94,12 +113,16 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
     identity?.querySelector('.contract-field:last-child')?.classList.add('context-header-reference');
   }
   if(collection==='objects'){
-    const predecessor=info.querySelector('[name="predecessorIds"]')?.closest('label');
-    const history=document.createElement('details');history.className='context-periods';
-    history.innerHTML='<summary>Objektets historik</summary>';
-    if(predecessor){predecessor.before(history);history.appendChild(predecessor);}
     const successors=(current.objects||[]).filter(row=>(row.predecessorIds||[]).includes(id));
     if(successors.length){
+      let history=info.querySelector('[data-object-history]');
+      if(!history){
+        history=document.createElement('details');history.className='context-periods';
+        history.dataset.objectHistory='';
+        history.innerHTML='<summary>Objektets historik</summary>';
+        const anchor=info.querySelector('.object-more')||[...info.querySelectorAll('[data-editor-section]')].at(-1);
+        if(anchor)anchor.after(history);else info.append(history);
+      }
       const next=document.createElement('div');next.className='context-successors';
       next.innerHTML='<h3>Efterföljande objekt</h3>'+successors.map(row=>link('objects',row,'Objekt '+objectLabel(row))).join(' · ');
       history.appendChild(next);

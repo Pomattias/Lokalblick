@@ -4348,3 +4348,49 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
 @media(max-width:540px){
  .finance-dialog .finance-item-primary {grid-template-columns:minmax(0,1fr);}
 }
+
+/* One stable Fastighet -> Objekt -> Avtal header. Parent links get a full
+   compact row; Redigera / Ångra / Spara / Stäng never squeeze the record title
+   differently between modes. Fastighet retains its already-tested heading. */
+#editor-root .record-workspace:not(.property-editor) #edit-form>.section-title {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 184px;
+  column-gap:8px;row-gap:3px;align-items:center;
+}
+#editor-root .record-workspace:not(.property-editor) #edit-form>.section-title>.context-parent {
+  grid-column:1/-1;grid-row:1;min-width:0;
+  margin:0 0 2px;gap:2px 8px;
+}
+#editor-root .record-workspace:not(.property-editor) #edit-form>.section-title>div:not(.context-parent):not(.editor-heading-actions) {
+  grid-column:1;grid-row:2;min-width:0;
+}
+#editor-root .record-workspace:not(.property-editor) #edit-form>.section-title>.editor-heading-actions {
+  grid-column:2;grid-row:2;min-width:0;max-width:184px;
+}
+#editor-root .record-workspace .context-parent .text-button {
+  padding:3px 0;min-height:30px;max-width:100%;
+  overflow-wrap:anywhere;
+}
+#editor-root .record-workspace .context-tabs button {min-height:38px;}
+#editor-root .record-workspace .context-contacts {gap:4px;}
+#editor-root .record-workspace .context-contacts>div {
+  grid-template-columns:minmax(0,39%) minmax(0,1fr);
+  gap:8px;align-items:center;min-height:30px;
+}
+#editor-root .record-workspace .context-object h3 {margin:9px 0 4px;}
+#editor-root .record-workspace .context-object .context-contract-card {margin:4px 0;}
+#editor-root .record-workspace .object-more {margin:8px 0 2px;}
+#editor-root .record-workspace [data-object-history] {
+  border-top:1px solid var(--line);margin:8px 0 2px;padding:0;
+}
+#editor-root .record-workspace [data-object-history]>summary {min-height:32px;}
+@media(max-width:700px) {
+  #editor-root .record-workspace:not(.property-editor) #edit-form>.section-title {
+    grid-template-columns:minmax(0,1fr) 170px;
+  }
+  #editor-root .record-workspace:not(.property-editor) #edit-form>.section-title>.editor-heading-actions {max-width:170px;}
+  #editor-root .record-workspace .context-contacts>div {
+    grid-template-columns:minmax(0,41%) minmax(0,1fr);gap:6px;
+  }
+  #editor-root .record-workspace .context-tabs button {padding:7px 5px;}
+}

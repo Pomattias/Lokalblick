@@ -15,7 +15,7 @@ import {bindEditActions,decorateEditActions} from './edit-actions.js';
 import {mountCompactIssue,compactIssueJournal,toggleIssueText} from "./compact-issue.js";
 import {portfolioScope} from "./portfolio-context.js";
 import {propertyPopup} from "./context-ui.js";
-import {mountWorkspace,recordBreadcrumb} from "./record-workspace.js";
+import {mountWorkspace,recordBreadcrumb,compactObjectForm} from "./record-workspace.js";
 import {bindSmartTables, readSmartTableState, restoreSmartTableState} from "./smart-table.js";
 import {isoDateTime} from "./date-format.js";
 import {recurringCostPanel,openRecurringCostDialog} from "./recurring-costs-ui.js";
@@ -861,6 +861,9 @@ function openEditor(col, id, defaults = {}, navigation = {}) {
   };
   root.querySelector('#edit-form')?.insertAdjacentHTML('beforeend',fieldHistory(data,col,result.record,ui.view!=='budget'&&col==='activities'?importSchemas:globalThis.LokalblickSourceService.schemas));
   const form=root.querySelector("#edit-form");
+  // New objects use the same one-page editor as existing objects, without
+  // legacy tabs or repeated technical fields.
+  if(form&&!id&&col==="objects"&&ui.view!=="budget")compactObjectForm(form);
   // New property/object/contract forms previously had no edit-state class,
   // so the perimeter disappeared when the observer refreshed the DOM.
   if(form&&!id)form.classList.add("editor-editing");

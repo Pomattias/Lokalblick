@@ -33,7 +33,8 @@
     "test:inline-edit-browser": "node scripts/inline-edit-import-browser-check.mjs",
     "test:property-enrichment-browser": "node scripts/property-enrichment-browser-check.mjs",
     "test:import-date-browser": "node scripts/import-date-display-browser-check.mjs",
-    "test:enrichment-browser": "node scripts/enrichment-flow-browser-check.mjs"
+    "test:enrichment-browser": "node scripts/enrichment-flow-browser-check.mjs",
+    "test:mobile-record-browser": "node scripts/mobile-record-flow-browser-check.mjs"
   },
   "engines": {
     "node": ">=20"
