@@ -28,18 +28,46 @@ function dialogForm(title,content,onSubmit){
  dialog.showModal();return dialog;
 }
 function validateView(data){validateFinance(collectWorkspace(data));}
-export function openItemDialog(data,contractId,itemId,onSave){
- const draft=structuredClone(data);adoptAgreementItems(draft,contractId);
- const old=(draft.agreementItems||[]).find(row=>row.id===itemId),contract=data.contracts.find(row=>row.id===contractId);
- const row=old||{id:crypto.randomUUID(),contractId,type:'',name:'',baseAmount:0,adjustmentMethod:'none',start:contract.start||'',end:contract.end||'',floor:true};
+// Keep the amount immediately editable. The original controls remain in
+// the same form and submit through the same validation, even when folded.
+export function agreementItemTermsExpanded(row,contract,existing=false) {
+  if(!existing)return false;
+  const method=String(row.adjustmentMethod||'none');
+  return method!=='none'||Boolean(row.reconcilable)||
+    String(row.start||'')!==String(contract?.start||'')||
+    String(row.end||'')!==String(contract?.end||'');
+}
+export function agreementItemFormHtml(row,contract,existing=false) {
  const rule=(kind,html)=>`<div class="contract-grid" data-item-rule="${kind}">${html}</div>`;
- const content=`<div class="contract-grid">${select(row,'type','Kostnadsslag',{'':'Välj kostnadsslag',...itemTypes})}${input(row,'name','Benämning','text','required maxlength="160"')}${input(row,'baseAmount','Grundbelopp, kr/år','number','required min="0" step="0.01"')}${input(row,'start','Fr.o.m.','date')}${input(row,'end','T.o.m.','date')}${select(row,'adjustmentMethod','Uppräkningsmetod',adjustmentMethods)}</div>
+ const method=String(row.adjustmentMethod||'none');
+ const preview=adjustmentMethods[method]||method;
+ const open=agreementItemTermsExpanded(row,contract,existing)?' open':'';
+ return `<div class="contract-grid finance-item-primary">
+ ${select(row,'type','Kostnadsslag',{'':'Välj kostnadsslag',...itemTypes})}
+ ${input(row,'name','Benämning','text','required maxlength="160"')}
+ ${input(row,'baseAmount','Grundbelopp, kr/år','number','required min="0" step="0.01"')}
+ </div>
+ <details class="finance-item-terms" data-finance-item-terms${open}><summary>Period och uppräkning <span>${esc(preview)}</span></summary>
+ <div class="contract-grid">
+ ${input(row,'start','Fr.o.m.','date')}
+ ${input(row,'end','T.o.m.','date')}
+ ${select(row,'adjustmentMethod','Uppräkningsmetod',adjustmentMethods)}
+ </div>
  ${rule('year',input(row,'baseYear','Basår','number','min="1900" max="9998" step="1"'))}
  ${rule('kpi',input(row,'baseIndex','Bastal KPI','number','min="0" step="any"')+input({...row,indexPercent:row.indexPercent==null?'':row.indexPercent*100},'indexPercent','Indexandel, %','number','min="0" max="100" step="any"')+input(row,'seriesBase','KPI-seriens bas (tomt = 1980)'))}
  ${rule('fixed',input(row,'annualPercent','Årlig procent','number','min="-99.99" max="1000" step="any"'))}
  ${rule('limits',input(row,'minPercent','Minsta procent','number','min="-99.99" max="1000" step="any"')+input(row,'maxPercent','Högsta procent','number','min="-99.99" max="1000" step="any"')+select({...row,limitBasis:row.limitBasis||'rent'},'limitBasis','Begränsningen avser',{rent:'Hyresökningen',index:'KPI-förändringen'}))}
  <div data-item-rule="kpi"><label><input name="floor" type="checkbox" ${row.floor!==false?'checked':''}> Lägst grundbelopp</label></div>
- <label><input name="reconcilable" type="checkbox" ${row.reconcilable?'checked':''}> Kan avräknas i framtiden</label><small>Basår avser KPI-basåret. Grundbeloppet gäller följande hyresår. Avräkning görs inte i denna version.</small>`;
+ <label><input name="reconcilable" type="checkbox" ${row.reconcilable?'checked':''}> Kan avräknas i framtiden</label>
+ <small>Basår avser KPI-basåret. Grundbeloppet gäller följande hyresår. Avräkning görs inte i denna version.</small>
+ </details>`;
+}
+
+export function openItemDialog(data,contractId,itemId,onSave){
+ const draft=structuredClone(data);adoptAgreementItems(draft,contractId);
+ const old=(draft.agreementItems||[]).find(row=>row.id===itemId),contract=data.contracts.find(row=>row.id===contractId);
+ const row=old||{id:crypto.randomUUID(),contractId,type:'',name:'',baseAmount:0,adjustmentMethod:'none',start:contract.start||'',end:contract.end||'',floor:true};
+ const content=agreementItemFormHtml(row,contract,Boolean(old));
  const dialog=dialogForm(old?'Redigera avtalspost':'Lägg till post',content,async values=>{
   if(!values.type)throw Error('Välj kostnadsslag.');
   const method=values.adjustmentMethod,number=key=>values[key]===''||values[key]==null?null:Number(values[key]);
@@ -50,7 +78,16 @@ export function openItemDialog(data,contractId,itemId,onSave){
   const next={...row,...values,id:row.id,contractId,baseAmount:number('baseAmount'),baseYear:method==='none'?null:number('baseYear'),baseIndex:['kpi','kpi-limited'].includes(method)?number('baseIndex'):null,indexPercent:['kpi','kpi-limited'].includes(method)?number('indexPercent')/100:null,annualPercent:method==='fixed'?number('annualPercent'):null,minPercent:method==='kpi-limited'?number('minPercent'):null,maxPercent:method==='kpi-limited'?number('maxPercent'):null,limitBasis:method==='kpi-limited'?values.limitBasis:null,seriesBase:['kpi','kpi-limited'].includes(method)?values.seriesBase:null,floor:method==='none'?true:values.floor==='on',reconcilable:values.reconcilable==='on'};
   validateAgreementItems({...draft,agreementItems:[...(draft.agreementItems||[]).filter(x=>x.id!==next.id),next]});await onSave(next);
  });
- const update=()=>{const method=dialog.querySelector('[name=adjustmentMethod]').value;dialog.querySelectorAll('[data-item-rule]').forEach(group=>{const k=group.dataset.itemRule;group.hidden=!(k==='year'?method!=='none':k==='kpi'?['kpi','kpi-limited'].includes(method):k==='fixed'?method==='fixed':method==='kpi-limited');group.querySelectorAll('input,select').forEach(field=>field.disabled=group.hidden);});};
+ const update=()=>{
+  const method=dialog.querySelector('[name=adjustmentMethod]').value;
+  const summary=dialog.querySelector('[data-finance-item-terms] summary span');
+  if(summary)summary.textContent=adjustmentMethods[method]||method;
+  dialog.querySelectorAll('[data-item-rule]').forEach(group=>{
+   const k=group.dataset.itemRule;
+   group.hidden=!(k==='year'?method!=='none':k==='kpi'?['kpi','kpi-limited'].includes(method):k==='fixed'?method==='fixed':method==='kpi-limited');
+   group.querySelectorAll('input,select').forEach(field=>field.disabled=group.hidden);
+  });
+ };
  const type=dialog.querySelector('[name=type]'),name=dialog.querySelector('[name=name]');let previousType=row.type;
  type.onchange=()=>{if(!name.value.trim()||name.value===itemTypes[previousType])name.value=itemTypes[type.value]||'';previousType=type.value;};
  dialog.querySelector('[name=adjustmentMethod]').onchange=update;update();

@@ -4326,3 +4326,25 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
 #editor-root .record-workspace.contract-editor [data-contract-notice-terms] .contract-term-preview {
   margin-left:auto;font-size:11px;font-weight:400;color:var(--muted);
 }
+
+/* Compact agreement-item dialog: type, name and amount first. Optional dates,
+   index rules and future reconciliation stay inside one native disclosure. */
+.finance-dialog .finance-item-primary {
+  grid-template-columns:minmax(0,1fr);gap:3px;
+}
+.finance-dialog .finance-item-primary .contract-field {margin:3px 0;}
+.finance-dialog .finance-item-terms {
+  margin:8px 0 0;border-top:1px solid var(--line);padding:2px 0 0;
+}
+.finance-dialog .finance-item-terms>summary {
+  display:flex;align-items:center;gap:10px;cursor:pointer;
+  padding:8px 0;font-size:12px;font-weight:600;
+}
+.finance-dialog .finance-item-terms>summary span {
+  margin-left:auto;color:var(--muted);font-weight:400;font-size:11px;
+}
+.finance-dialog .finance-item-terms>.contract-grid {margin:4px 0;}
+.finance-dialog .finance-item-terms>small {display:block;margin:5px 0;}
+@media(max-width:540px){
+ .finance-dialog .finance-item-primary {grid-template-columns:minmax(0,1fr);}
+}

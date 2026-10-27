@@ -2,7 +2,7 @@ import {sourceServiceScript} from "./helpers/source-service.js";
 import test from 'node:test';import assert from 'node:assert/strict';
 import fs from 'node:fs';import {mkdtemp,rm,readFile} from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import vm from 'node:vm';import XLSX from 'xlsx';
 import {agreementWithItems,adoptAgreementItems,projectStoredAgreementItems,stripStoredAgreementFinance,validateAgreementItems} from '../frontend/lokaler/finance-view.js';
-import {agreementItemsPanel} from '../frontend/v2/finance-ui.js';
+import {agreementItemsPanel,agreementItemTermsExpanded,agreementItemFormHtml} from '../frontend/v2/finance-ui.js';
 import {renderContractEditor} from '../frontend/v2/contract-editor.js';
 import {normalize} from '../frontend/v2/model.js';
 import {LokalblickRepository} from '../backend/company/data-repository.js';
@@ -35,4 +35,33 @@ test('company workspace stores the same item register and projects individual ty
  await repo.saveWorkspace(data);const raw=JSON.parse(await readFile(options.dataPath,'utf8'));assert.equal(raw.entities.agreementItems.length,6);assert.equal(raw.entities.contractOverlays[0].baseAdditions,undefined);assert.equal(raw.entities.contractOverlays[0].items,undefined);
  const restarted=await new LokalblickRepository(options).initialize(),saved=await restarted.bootstrap();assert.equal(saved.contracts[0].items.length,6);assert.equal(saved.contracts[0].items.filter(x=>x.type==='heat').length,2);
  await assert.rejects(restarted.create('agreementItems',{...row('duplicate','base','Bashyra'),baseAmount:1}),/Endast en bashyra/);
+});
+
+test('avtalspost visar beloppet direkt och bevarar samtliga villkor bakom utfällning',()=>{
+ const parent={start:'2026-01-01',end:'2028-12-31'};
+ const row={id:'a',type:'heat',name:'Värme',baseAmount:12000,
+  start:parent.start,end:parent.end,adjustmentMethod:'none',reconcilable:false};
+ const html=agreementItemFormHtml(row,parent,true);
+ const primary=html.split('data-finance-item-terms')[0];
+ for(const field of ['type','name','baseAmount'])assert.match(primary,new RegExp('name="'+field+'"'));
+ for(const field of ['start','end','adjustmentMethod','baseYear','indexPercent','reconcilable','floor'])
+   assert.equal((html.match(new RegExp('name="'+field+'"','g'))||[]).length,1,field);
+ assert.match(html,/<details class="finance-item-terms" data-finance-item-terms>/);
+ assert.equal(agreementItemTermsExpanded(row,parent,true),false);
+ assert.match(html,/Period och uppräkning/);
+});
+
+test('anpassade perioder, KPI, fast ökning och avräkning öppnas direkt vid redigering',()=>{
+ const parent={start:'2026-01-01',end:'2028-12-31'};
+ const standard={start:parent.start,end:parent.end,adjustmentMethod:'none'};
+ assert.equal(agreementItemTermsExpanded({...standard,adjustmentMethod:'kpi'},parent,true),true);
+ assert.equal(agreementItemTermsExpanded({...standard,adjustmentMethod:'fixed'},parent,true),true);
+ assert.equal(agreementItemTermsExpanded({...standard,end:'2027-12-31'},parent,true),true);
+ assert.equal(agreementItemTermsExpanded({...standard,reconcilable:true},parent,true),true);
+ assert.equal(agreementItemTermsExpanded({...standard,adjustmentMethod:'kpi'},parent,false),false);
+ const html=agreementItemFormHtml({...standard,adjustmentMethod:'kpi',baseAmount:10000,indexPercent:0.75},parent,true);
+ assert.match(html,/data-finance-item-terms open/);
+ assert.match(html,/KPI<\/span><\/summary>/);
+ assert.match(html,/name="indexPercent"[^>]+value="75"/);
+ assert.match(html,/name="baseAmount"/);
 });
