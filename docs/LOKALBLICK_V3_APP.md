@@ -27,14 +27,18 @@ en privat plats. Befintliga filer öppnas bara om de är v3. Ingen migration kö
 - Budgetar med år, scenario och version, poster och permanent låsning.
 - Utrymmen, byggnadsdelar, daterade besiktningar och bedömningspunkter.
 - Fastigheters adress/koordinater, datamodell för samtliga tabeller,
-  insyn i databasen och manuell JSON-export på den lokala datorn.
+  insyn i databasen, manuell JSON-export och **Excel-/CSV-import med kolumnmatchning**.
+  Importen visar en förhandsgranskning, kräver uttryckligt godkännande och
+  sparar högst 200 rader per atomisk transaktion. För Objekt/Avtal väljs
+  en fastighet/ett objekt per import, så oklar automatmatchning undviks.
 
 Alla skrivningar är explicita kommandon som valideras och sparas i SQLite-
 transaktioner med versionskontroll. Ingen v2-arbetsyta kan sparas mot v3-API:t.
 
 ## Begränsningar att inte dölja
 
-- Befintliga v2-vyer för Excelimport, budgetworkshop, revisionsplanering,
+- Avancerad berikningsimport med automatiska relationer över flera Excel-flikar,
+  liksom befintliga v2-vyer för budgetworkshop, revisionsplanering,
   extern KPI-indexhämtning och komplett kartinteraktion är ännu inte porterade
   till den nya v3-klienten. Den nya klienten har däremot direktvyer för registren
   och deras samband; den ska vara den enda klient som används med v3-data.

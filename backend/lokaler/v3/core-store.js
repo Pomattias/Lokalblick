@@ -166,12 +166,14 @@ export class CoreV3Store {
  readSnapshot(at=new Date().toISOString().slice(0,10)){return Promise.resolve(asOfSnapshot(this.db,at));}
  mutate(input){
   const job=this.queue.then(()=>{
-   if(!input||!Number.isInteger(input.version)||!input.command)throw Error('Ange version och kommando.');
+   if(!input||!Number.isInteger(input.version)||(!input.command&&!input.commands))throw Error('Ange version och kommando.');
+   const commands=input.commands||[input.command];
+   if(!Array.isArray(commands)||commands.length<1||commands.length>200)throw Error('Ange mellan 1 och 200 ändringar per import.');
    this.db.exec('BEGIN IMMEDIATE');
    try{
     const version=this.db.prepare('SELECT version FROM store_meta WHERE id=1').get().version;
     if(input.version!==version){const e=Error('Uppgifterna har ändrats. Läs in på nytt.');e.status=409;throw e;}
-    perform(this.db,input.command);
+    for(const command of commands)perform(this.db,command);
     this.db.exec('UPDATE store_meta SET version=version+1 WHERE id=1');
     this.db.exec('COMMIT');
     return asOfSnapshot(this.db,input.asOf||new Date().toISOString().slice(0,10));

@@ -29,6 +29,16 @@ try{
  await add('budgets',async()=>{await page.locator('#edit-form [name=property_id]').selectOption({index:1});await page.locator('#edit-form [name=budget_year]').fill('2026')});
  await add('spaces',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=name]').fill('Entré')});
  await add('inspections',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=inspected_on]').fill('2026-10-27')});
+ await go('sources');
+ const csv=Buffer.from('Fastighetsnamn;Adress\nImportfastigheten;Importgatan 4\n','utf8');
+ await page.locator('[data-import-file]').setInputFiles({name:'syntetiskt.csv',mimeType:'text/csv',buffer:csv});
+ await page.locator('[data-import-apply]:not([disabled])').waitFor();
+ assert.equal(await page.locator('[data-import-apply]').isEnabled(),true);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-import-apply]').click();
+ await page.locator('#feedback').getByText(/nya rader importerade/).waitFor();
+ await go('properties');
+ assert.match(await page.locator('.record-list').innerText(),/Importfastigheten/);
  await go('datamodel');await page.locator('.record-row').first().click();
  assert.match(await page.locator('#detail').innerText(),/Kolumner/);
  await go('overview');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

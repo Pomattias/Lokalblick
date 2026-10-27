@@ -73,6 +73,20 @@ test('v3 spatial inspection history checks scope, one point each and locks compl
   assert.equal(s.state().inspections[0].status,'completed');
  }finally{await s.close();}
 });
+test('v3 batch import is atomic and rejects a duplicate object without partial inserts',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Importhuset'});const id=s.state().properties[0].id;
+  const base=s.state().version;
+  // Use the same store with a batch command; the second row violates the unique key.
+  const direct=new CoreV3Store(s.db);
+  await assert.rejects(direct.mutate({version:base,commands:[
+   {action:'createObject',fields:{property_id:id,object_number:'S1',valid_from:'2020-01-01',area:50}},
+   {action:'createObject',fields:{property_id:id,object_number:'S1',valid_from:'2021-01-01',area:60}}
+  ]}),/UNIQUE/);
+  assert.equal(s.db.prepare('SELECT count(*) AS n FROM objects').get().n,0);
+  assert.equal(s.db.prepare('SELECT version FROM store_meta').get().version,base);
+ }finally{await s.close();}
+});
 test('v3 introspection and all 21 business tables are present in API',async()=>{
  const s=await setup();try{
   const snapshot=s.state();

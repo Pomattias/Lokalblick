@@ -1,5 +1,6 @@
 // Native Lokalblick v3. All persisted facts use the private SQLite API.
 import {moreViews,moreItems,moreRecords,moreItemName,moreSecondary,moreDetail,moreFormSchema} from './modules.js';
+import {mountImport} from './import.js';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const viewNames={properties:'Fastigheter',objects:'Objekt',agreements:'Avtal',parties:'Parter',people:'Personer',...moreViews};
@@ -48,7 +49,14 @@ function renderList(){
 function renderDetail(){
  const row=selected(),panel=$('#detail');
  if(!row){panel.innerHTML='<div class="empty">Välj en post för att visa dess data, kontaktpersoner och historiska versioner.</div>';return;}
- if(Object.hasOwn(moreViews,state.view)){panel.innerHTML=moreDetail(state.view,row,state.snapshot);return;}
+ if(Object.hasOwn(moreViews,state.view)){
+  panel.innerHTML=moreDetail(state.view,row,state.snapshot);
+  if(state.view==='sources')mountImport(panel,{snapshot:state.snapshot,apply:async commands=>{
+   const updated=await api({version:state.snapshot.version,asOf:state.asOf,commands});
+   state.snapshot=updated;render();notify(commands.length+' nya rader importerade till v3.');
+  }});
+  return;
+ }
  let actions='<button type="button" class="secondary" data-mode="edit">Redigera</button>';
  let facts='',history='';
  if(state.view==='properties'){
