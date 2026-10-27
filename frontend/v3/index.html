@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lokalblick · Ny datamodell</title>
+<meta name="description" content="Lokalblick v3: fastigheter, objektversioner, avtal, parter och personer i en privat databas.">
+<link rel="stylesheet" href="./styles.css"><script type="module" src="./app.js"></script></head>
+<body><aside class="sidebar"><div class="brand"><span class="logo">L</span><span><strong>Lokalblick</strong><small>Fastigheter · Objekt · Avtal</small></span></div>
+<nav aria-label="Register"><button type="button" data-view="properties">Fastigheter</button><button type="button" data-view="objects">Objekt</button><button type="button" data-view="agreements">Avtal</button><button type="button" data-view="parties">Parter</button><button type="button" data-view="people">Personer</button></nav>
+<div class="sidebar-footer">V3 · Lokal SQLite<br>Inga äldre poster migreras</div></aside>
+<main><header class="masthead"><div><span class="eyebrow">LOKALBLICK / DATABAS V3</span><h1 id="heading">Fastigheter</h1><p id="intro">En källa för varje uppgift. Daterad historik utan dubbellagring.</p></div>
+<div class="date-control"><label for="as-of">Visa uppgifter per datum</label><input id="as-of" type="date"></div></header>
+<div id="feedback" role="status" aria-live="polite"></div>
+<section class="statbar" id="stats"></section>
+<div class="workspace"><section class="register" aria-labelledby="list-heading"><div class="section-head"><h2 id="list-heading">Register</h2><button class="primary" id="new-record" type="button">+ Lägg till</button></div><label class="search"><span class="sr-only">Sök i registret</span><input id="filter" type="search" placeholder="Sök namn eller nummer"></label><div id="record-list" class="record-list"></div></section>
+<section class="detail" id="detail" aria-label="Vald post"><div class="empty">Välj en post till vänster för att visa uppgifter och historik.</div></section></div>
+</main><dialog id="editor"><form id="edit-form" method="dialog"><div class="dialog-header"><div><span class="eyebrow">LOKALBLICK V3</span><h2 id="form-title">Ny post</h2></div><button id="close-editor" type="button" aria-label="Stäng">×</button></div><div id="form-fields" class="form-fields"></div><footer><button type="button" id="cancel-editor">Avbryt</button><button type="submit" class="primary" id="submit-editor">Spara</button></footer></form></dialog>
+</body></html>

@@ -1,14 +1,16 @@
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { LocalStore } from './store.js';
+import { CoreV3Store } from './v3/core-store.js';
 import { writeWorkbook } from './workbook.js';
 import { fetchBudgetIndex } from '../../api/budget-index.js';
 import { loadLocalEnvironment } from '../company/env.js';
 import { geocodeProperties,geocodingProvider,isGeocodingConfigured } from '../src/geocoding-service.js';
 
-export function createServer(store) {
+export function createServer(store, {v3=false}={}) {
  const root = fileURLToPath(new URL('../../frontend/', import.meta.url));
  const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
  return http.createServer(async (req, res) => {
@@ -26,9 +28,17 @@ export function createServer(store) {
   try {
    const url = new URL(req.url, `http://${expectedHost}`);
    if (url.pathname === '/api/health' && req.method==='GET')return json(200,{ok:true,service:'lokalblick-local',geocoding:{provider:geocodingProvider(),configured:isGeocodingConfigured()}});
-   if (url.pathname === '/api/runtime-config') {res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'});return res.end('window.LokalblickRuntime=Object.assign({},window.LokalblickRuntime,{cleanDatabase:true,cartoApiKey:'+JSON.stringify(process.env.VITE_CARTO_API_KEY||process.env.CARTO_API_KEY||'')+'});');}
+   if (url.pathname === '/api/runtime-config') {res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'});return res.end('window.LokalblickRuntime=Object.assign({},window.LokalblickRuntime,{cleanDatabase:'+(!v3)+',databaseVersion:'+(v3?3:2)+',cartoApiKey:'+JSON.stringify(process.env.VITE_CARTO_API_KEY||process.env.CARTO_API_KEY||'')+'});');}
    if (url.pathname === '/api/budget-index' && req.method === 'GET') {try{return json(200,{rows:await fetchBudgetIndex(Number(url.searchParams.get('year')))});}catch(error){return json(503,{error:error.message});}}
    if (url.pathname === '/api/geocode' && req.method === 'POST') {let body='';for await(const chunk of req){body+=chunk;if(body.length>1024*1024)return json(413,{error:'För stort underlag'});}const results=await geocodeProperties(JSON.parse(body).properties);return json(200,{ok:true,provider:geocodingProvider(),results});}
+   if (url.pathname === '/api/v3/core' && v3 && req.method === 'GET') return json(200, await store.readSnapshot(url.searchParams.get('date')||undefined));
+   if (url.pathname === '/api/v3/core' && v3 && req.method === 'POST') {
+    if (!/^application\/json(?:;|$)/i.test(req.headers['content-type']||''))return json(415,{error:'Använd JSON för ändringar.'});
+    let body='';for await(const chunk of req){body+=chunk;if(body.length>1024*1024)return json(413,{error:'För stor ändring.'});}
+    let parsed;try{parsed=JSON.parse(body);}catch{return json(400,{error:'Ogiltig JSON.'});}
+    return json(200,await store.mutate(parsed));
+   }
+   if(v3&&api)return json(404,{error:'Denna API-adress stöds inte i den nya databasen.'});
    if (url.pathname === '/api/lokaler' && req.method === 'GET') return json(200, await store.readSnapshot());
    if (url.pathname === '/api/lokaler/workbook' && req.method === 'GET') {
     const bytes = await writeWorkbook((await store.readSnapshot()).data);
@@ -50,7 +60,7 @@ export function createServer(store) {
    }
    if (api) return json(404, { error: 'Okänd API-adress.' });
    if (!['GET', 'HEAD'].includes(req.method)) return json(405, { error: 'Metoden stöds inte.' });
-   if(url.pathname==='/'){res.writeHead(302,{Location:'/frontend/v2/'});return res.end();}
+   if(url.pathname==='/'){res.writeHead(302,{Location:v3?'/frontend/v3/':'/frontend/v2/'});return res.end();}
    let relative = decodeURIComponent(url.pathname).replace(/^\/frontend\//,'').replace(/^\//,'');
    if(relative.endsWith('/'))relative+='index.html';
    const full = path.resolve(root, relative);
@@ -67,14 +77,17 @@ export function createServer(store) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
  await loadLocalEnvironment(fileURLToPath(new URL('../../.env.local',import.meta.url)));
  const mode = process.env.LOKALER_STORAGE || 'sqlite';
- const file = path.resolve(process.env.LOKALER_FILE || `local-data/lokaler.${mode === 'excel' ? 'xlsx' : 'sqlite'}`);
+ const v3=process.env.LOKALER_SCHEMA==='v3';
+ if(v3&&mode!=='sqlite')throw Error('Lokalblick v3 kräver privat SQLite-lagring.');
+ const userDataRoot=process.env.LOCALAPPDATA||path.join(os.homedir(),'.local','share');
+ const file = path.resolve(process.env.LOKALER_FILE || (v3?path.join(userDataRoot,'Lokalblick','lokalblick-v3.sqlite'):`local-data/lokaler.${mode === 'excel' ? 'xlsx' : 'sqlite'}`));
  const port = Number(process.env.LOKALER_PORT || 8790);
  let store;
  try {
-  store = await LocalStore.open({ mode, file });
-  const server = createServer(store);
+  store = v3 ? CoreV3Store.open(file) : await LocalStore.open({ mode, file });
+  const server = createServer(store,{v3});
   server.on('error', async error => { console.error('Kunde inte starta:', error.message); await store.close(); process.exitCode = 1; });
-  server.listen(port, '127.0.0.1', () => console.log(`Lokalblick Lokaler: http://127.0.0.1:${server.address().port}\nLokal lagring: ${mode} · ${file}`));
+  server.listen(port, '127.0.0.1', () => console.log(`Lokalblick Lokaler: http://127.0.0.1:${server.address().port}\nLokal lagring: ${v3?'v3 SQLite':mode} · ${file}`));
   let closing = false;
   const close = () => { if (closing) return; closing = true; server.close(async () => { await store.close(); }); };
   process.on('SIGINT', close); process.on('SIGTERM', close);
