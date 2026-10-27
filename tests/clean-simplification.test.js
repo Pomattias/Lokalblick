@@ -17,10 +17,10 @@ import {renderContractEditor} from '../frontend/v2/contract-editor.js';
 import {relationshipView} from '../frontend/v2/relationships.js';
 const fixture=()=>normalizeWorkspace({...emptyData(),parties:[{id:'owner',name:'Ägaren'},{id:'tenant',name:'Hyresgästen'},{id:'our',name:'Vi',kind:'our'}],people:[{id:'P1',name:'Kontakt',party_id:'tenant'}],properties:[{id:'F1',name:'Fastighet',owner_party_id:'owner'}],objects:[{id:'O1',property_id:'F1',area:100,apartment_count:3}],agreements:[{id:'9(1)',object_id:'O1',tenant_party_id:'tenant',business_name:'Daglig verksamhet',business_description:'Beskrivning'}],agreement_items:[{id:'base',agreement_id:'9(1)',type:'base',name:'Bashyra',base_amount:123000,adjustment_method:'none'},{id:'addition',agreement_id:'9(1)',type:'addition',name:'Tillägg',base_amount:12000,adjustment_method:'none'},{id:'tax',agreement_id:'9(1)',type:'tax',name:'Skatt',base_amount:6000,adjustment_method:'none'}],contacts:[{id:'C1',role:'tenant',person_id:'P1',agreement_id:'9(1)'}],issues:[{id:'I1',property_id:'F1',title:'Ärende'}],workspace:{budgetPlans:[{year:2027,status:'Låst',rows:[{sourceType:'manual',sourceId:'MANUAL',amount:141000}]}],auditLog:[]}});
 
-test('the current model has one agreement identity, business fields and three contact roles',()=>{
+test('the current model has one agreement and tenant identity, a description and three contact roles',()=>{
  assert.deepEqual(Object.keys(roles),['owner','coordinator','tenant']);
  const schema=importSchemas.find(s=>s.key==='contracts');assert.equal(schema.columns.filter(([k])=>k==='id').length,1);
- assert(schema.columns.some(([k])=>k==='businessName'));assert(schema.columns.some(([k])=>k==='businessDescription'));
+ assert(schema.columns.some(([k])=>k==='tenantPartyId'));assert(!schema.columns.some(([k])=>k==='businessName'));assert(schema.columns.some(([k])=>k==='businessDescription'));
  for(const key of ['number','business','business_comment'])assert.throws(()=>normalize('agreements',{id:'A',object_id:'O1',[key]:'obsolete'}),/finns inte/);
 });
 test('workspace validation is idempotent, clones input and adds no migration history',()=>{
@@ -31,7 +31,7 @@ test('editing current agreement fields leaves a locked budget baseline untouched
  const data=fixture(),snapshot=structuredClone(data.workspace.budgetPlans),view=projectWorkspace(data);
  view.contracts[0].businessName='Ny verksamhet';view.contracts[0].businessDescription='Ny beskrivning';
  const saved=collectWorkspace(view,data);
- assert.equal(saved.agreements[0].business_name,'Ny verksamhet');assert.equal(saved.agreements[0].business_description,'Ny beskrivning');
+ assert.equal(saved.agreements[0].tenant_party_id,'tenant');assert.equal(saved.agreements[0].business_name,'Daglig verksamhet');assert.equal(saved.agreements[0].business_description,'Ny beskrivning');
  assert.deepEqual(saved.workspace.budgetPlans,snapshot);assert.deepEqual(data.workspace.budgetPlans,snapshot);
 });
 test('duplicate agreement IDs and obsolete registers are rejected without changing input',()=>{
@@ -65,14 +65,14 @@ test('dated contacts have one storage owner; order contacts and inheritance surv
  const view=projectWorkspace(data);assert.equal(view.orders[0].responsiblePersonId,'OUR');const saved=collectWorkspace(view,data);assert.equal(saved.contacts.length,data.contacts.length);assert.equal(saved.workspace.assignments,undefined);assert.equal(saved.orders[0].person_id,undefined);
  assert.doesNotMatch(relationshipView(view),/AvtalVerksamhet|Verksamheter/);assert.match(relationshipView(view),/Personkopplingar/);
 });
-test('external agreement captions keep business name, description and agreement comment separate',()=>{
+test('external agreement captions resolve tenant party, keeping description and comment separate',()=>{
  const headers=['FastighetsID','Fastighetsnamn','ObjektID','Avtalsnummer','Verksamhet','Kommentar verksamhet','Kommentar','Antal arbetsplatser','Antal hubbplatser'];
  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([headers,['F1','Fastighet','O1','9(1)','Träffpunkt','Öppen mötesplats','Avtalets notering',12,3]]),'Underlag');
  const prepared={workbook:wb,profiles:[{name:'Underlag',headerRow:1,columns:headers.map((header,index)=>({header,index,target:'@unmapped'}))}]};
  const profiles=profileWorkbook(wb,importSchemas,XLSX,[],{reviewed:true});profiles[0].columns[1].target='properties.designation';const result=prepareCleanImport(wb,profiles,emptyData(),{fileName:'test.xlsx'},XLSX);
  assert.equal(result.clean.agreements[0].business_description,'Öppen mötesplats');assert.equal(result.clean.agreements[0].comment,'Avtalets notering');
- assert.equal(result.report.blocking,0);assert.equal(result.clean.agreements[0].id,'9(1)');assert.equal(result.clean.agreements[0].business_name,'Träffpunkt');assert.equal(result.clean.agreements[0].workplace_count,12);assert.equal(result.clean.agreements[0].hub_count,3);assert.equal(result.clean.parties.length,0);
- const log=result.clean.workspace.auditLog.find(e=>e.collection==='contracts'&&e.recordId==='9(1)');assert.equal(log.fields.find(f=>f.field==='businessName').provenance.row,2);assert.equal(log.fields.find(f=>f.field==='businessName').provenance.source,'test.xlsx');
+ assert.equal(result.report.blocking,0);assert.equal(result.clean.agreements[0].id,'9(1)');assert.equal(result.clean.parties.find(p=>p.id===result.clean.agreements[0].tenant_party_id)?.name,'Träffpunkt');assert.equal(result.clean.agreements[0].business_name,null);assert.equal(result.clean.agreements[0].workplace_count,12);assert.equal(result.clean.agreements[0].hub_count,3);assert.equal(result.clean.parties.length,1);
+ const log=result.clean.workspace.auditLog.find(e=>e.collection==='contracts'&&e.recordId==='9(1)');assert.equal(log.fields.find(f=>f.field==='tenantPartyId').provenance.row,2);assert.equal(log.fields.find(f=>f.field==='tenantPartyId').provenance.source,'test.xlsx');
 });
 test('person register and contact columns reuse the same identity, with party stored once',()=>{
  const base=fixture();base.people=[];base.contacts=[];
