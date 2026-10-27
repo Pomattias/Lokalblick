@@ -80,10 +80,13 @@ export function mountWorkspace(root,{data,collection,id,selection,source,canEdit
     contacts.innerHTML='<h3>Kontaktpersoner</h3>'+currentContacts(current,{properties:'property',objects:'object',contracts:'contract'}[collection],record,roles);
     if(contactSection)contactSection.after(contacts);
     else info.querySelector('.responsibility-section')?.before(contacts);
-    // History remains available as an explicit choice in the read view.
+    // Keep the same dated history and optional change-date field in the form.
+    // Moving its enclosing disclosure preserves the collapsed state in both
+    // Visa and Redigera, without duplicating any input or breaking FormData.
     if(collection==='contracts'){
       const responsibility=contactSection.querySelector('.responsibility-section');
-      if(responsibility)contacts.after(responsibility);
+      const history=responsibility?.closest('[data-contract-contact-history]')||responsibility;
+      if(history)contacts.after(history);
     }
   }
   if(collection==='contracts'){

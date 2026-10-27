@@ -234,3 +234,35 @@ test('årstakten är synlig före kostnadsposter och ändrar inte beräkningar',
   assert.doesNotMatch(renderContractEditor(data,contract,'c1'),/contract-finance-summary/,
     'Budgetavtalets äldre visning är oförändrad');
 });
+
+test('avtalskontakter är två korta rader med valbar daterad historik',()=>{
+  const c={...contract,tenantResponsiblePersonId:'person1',responsiblePersonId:'ourP'};
+  const html=renderContractEditor(data,c,c.id,false,{portfolio:true});
+  const contacts=html.split('data-contract-section="contacts">')[1].split('</section>')[0];
+  assert.match(contacts,/<h3>Kontaktpersoner<\/h3>/);
+  assert.match(contacts,/Hyresgästens kontakt/);
+  assert.match(contacts,/Vår ansvarige/);
+  assert.match(contacts,/<details class="contract-secondary contract-contact-history" data-contract-contact-history><summary>Ändringsdatum och ansvarshistorik<\/summary>/);
+  assert.match(contacts,/name="responsibilityChangeDate"/);
+  assert.match(contacts,/Ansvarshistorik/);
+  assert.equal((html.match(/name="tenantResponsiblePersonId"/g)||[]).length,1);
+  assert.equal((html.match(/name="responsiblePersonId"/g)||[]).length,1);
+  assert.equal((html.match(/name="responsibilityChangeDate"/g)||[]).length,1);
+  assert.doesNotMatch(contacts,/data-contract-contact-history open/,'Historik är stängd från början');
+  const legacy=renderContractEditor(data,c,c.id);
+  assert.doesNotMatch(legacy,/data-contract-contact-history/,'Äldre Budget-vy påverkas inte');
+});
+
+test('uppsägning och förlängning visar månader utan att öppna villkoren',()=>{
+  const c={...contract,noticePeriodMonths:9,renewalPeriodMonths:36};
+  const html=renderContractEditor(data,c,c.id,false,{portfolio:true});
+  const preview=html.split('data-contract-notice-terms')[1].split('</summary>')[0];
+  assert.match(preview,/Uppsägning 9 mån/);
+  assert.match(preview,/Förlängning 36 mån/);
+  assert.match(preview,/contract-term-preview/);
+  assert.equal((html.match(/name="noticePeriodMonths"/g)||[]).length,1);
+  assert.equal((html.match(/name="renewalPeriodMonths"/g)||[]).length,1);
+  const none=renderContractEditor(data,{...c,noticePeriodMonths:'',renewalPeriodMonths:''},c.id,false,{portfolio:true});
+  assert.doesNotMatch(none.split('data-contract-notice-terms')[1].split('</summary>')[0],/contract-term-preview/,'Saknade värden får ingen missvisande sammanfattning');
+  assert.doesNotMatch(renderContractEditor(data,c,c.id),/contract-term-preview/,'Budgetvy oförändrad');
+});

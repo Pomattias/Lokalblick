@@ -87,8 +87,8 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
       (term.nextEnd?' · T.o.m. vid nästa förlängning: '+esc(term.nextEnd):'')
     : 'Ange uppsägningstid för beräkning. Förlängning kräver även förlängningsperiod.';
 
-  const tenantContact = field("Hyresgästens kontaktperson",select("tenantResponsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"));
-  const contractContact = field("Vår ansvarige för avtalet",select("responsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"));
+  const tenantContact = field(presentation.portfolio?"Hyresgästens kontakt":"Hyresgästens kontaktperson",select("tenantResponsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"));
+  const contractContact = field(presentation.portfolio?"Vår ansvarige":"Vår ansvarige för avtalet",select("responsiblePersonId",people,c,x=>x.id,x=>x.name,"Ej kopplad"));
   const identity = '<section class="contract-section" data-contract-section="identity"><h3>Avtal</h3><div class="contract-grid">'+
     (!id&&!c.propertyId ? field("Fastighet",select("propertyId",data.properties||[],c,x=>x.id,propertyReference,"Välj fastighet")) : "")+
     (presentation.portfolio?field("AvtalsID",input({...c,id:c.number||c.id},"id","text",Boolean(id),'required maxlength="100"')):field("Avtalsnummer",input(c,"number","text",masterLocked)))+
@@ -128,9 +128,13 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
       '<span class="contract-term-separator" aria-hidden="true">–</span>'+
       field('T.o.m.',input(c,'end','date',false,'aria-label="Hyrestid t.o.m." data-empty-label="Tills vidare"'))+'</div></div>'
     : field("Giltigt fr.o.m.",input(c,"start","date"))+field("Giltigt t.o.m.",input(c,"end","date"));
+  const termPreview = [
+    c.noticePeriodMonths!=="" && c.noticePeriodMonths!=null?'Uppsägning '+esc(c.noticePeriodMonths)+' mån':'',
+    c.renewalPeriodMonths!=="" && c.renewalPeriodMonths!=null?'Förlängning '+esc(c.renewalPeriodMonths)+' mån':''
+  ].filter(Boolean).join(' · ');
   const dates = '<section class="contract-section" data-contract-section="dates"><h3>Avtalstid</h3><div class="contract-grid">'+period+
     field("Säg upp senast",display(term.noticeBy || "Ej beräknat"))+
-    '</div><details class="contract-secondary" data-contract-notice-terms'+(!id?' open':'')+'><summary>Uppsägning och förlängning</summary><div class="contract-grid">'+
+    '</div><details class="contract-secondary" data-contract-notice-terms'+(!id?' open':'')+'><summary>Uppsägning och förlängning'+(presentation.portfolio&&termPreview?'<span class="contract-term-preview">'+termPreview+'</span>':'')+'</summary><div class="contract-grid">'+
     field("Uppsägningstid, månader",input(c,"noticePeriodMonths","number",false,'min="0" step="1"'))+
     field("Förlängningstid, månader",input(c,"renewalPeriodMonths","number",false,'min="0" step="1"'))+
     (presentation.portfolio?field('Uppsagd den',input(c,'terminatedOn','date',company&&!!id))+field('Uppsägningsorsak',input(c,'terminationReason','text',company&&!!id)):"")+
@@ -165,7 +169,8 @@ export function renderContractEditor(data, c, id, company=false, presentation={}
   const distinctContractContact = c.responsiblePersonId && c.responsiblePersonId !== property.responsiblePersonId;
   const extraContacts = (!distinctTenantContact ? tenantContact : "")+(!distinctContractContact ? contractContact : "");
   const contacts = presentation.portfolio?('<section class="contract-section" data-contract-section="contacts"><h3>Kontaktpersoner</h3><div class="contract-grid">'+
-    tenantContact+contractContact+'</div>'+responsibilityHtml(data,'contract',c.id)+'</section>'):('<section class="contract-section" data-contract-section="contacts"><h3>Kontaktpersoner</h3><div class="contract-grid">'+
+    tenantContact+contractContact+'</div><details class="contract-secondary contract-contact-history" data-contract-contact-history><summary>Ändringsdatum och ansvarshistorik</summary>'+
+    responsibilityHtml(data,'contract',c.id)+'</details></section>'):('<section class="contract-section" data-contract-section="contacts"><h3>Kontaktpersoner</h3><div class="contract-grid">'+
     field("Vår kontaktperson för fastigheten",display(ourContact))+
     field("Verksamhetsansvarig",select("businessResponsiblePersonId",activityPersonOptions,c,x=>x.id,x=>x.name,"Ej kopplad"))+
     field("Fastighetsägarens kontaktperson",display(ownerContact))+
