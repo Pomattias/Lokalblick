@@ -103,7 +103,7 @@ export function planning(data, s, ui) {
         ${eco.rentFinanced?`<label>Hyrespåslag från<input type="date" data-plan-rent-start="${esc(a.id)}" value="${esc(a.rentSurchargeStartDate||"")}" aria-label="Hyrespåslag från för ${esc(x.title)}"></label><small>Hyresfinansierad investering – redovisas inte som direkt budgetkostnad.</small>`:""}
       </div>`;
     }).join("")||"<p>Inga ärenden att budgetstyra i urvalet.</p>"}</div></details>`;
-  return `${planHeader}<div class="plan-filter-toolbar">${types}${mobileActions}</div>${mobileList}${timelineBody||`<div class="plan-desktop-list">`+table(
+  return `${planHeader}<div class="plan-filter-toolbar">${types}${mobileActions}</div>${mobileList}${timelineBody||`<div class="plan-desktop-list"><div class="plan-column-heading"><strong>Ärenden och ansvar</strong><details class="plan-column-config"><summary>Anpassa kolumner</summary><div class="plan-column-options">${["Ärende / ansvar","Fastighet","Adress","Hemvist","Lokalsamordnare","Datum","Kostnad"].map((label,i)=>`<label><input type="checkbox" data-plan-col="${i+1}" checked> ${label}</label>`).join("")}</div></details></div>`+table(
     ["Ärende / ansvar", "Fastighet", "Adress", "Hemvist", "Lokalsamordnare", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
