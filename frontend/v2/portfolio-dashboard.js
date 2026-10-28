@@ -1,7 +1,7 @@
 import { scope, responsible } from "./model.js";
 
 /* Read-only dashboard projections; canonical records and calculations remain the source of truth. */
-export const PORTFOLIO_LENSES = Object.freeze({person:"Medarbetare",unit:"Verksamhet",owner:"Fastighetsägare"});
+export const PORTFOLIO_LENSES = Object.freeze({person:"Ansvarig",unit:"Verksamhet",owner:"Fastighetsägare"});
 const UNIT_NAMES = {VARDBO:"Vårdbo",ORDBO:"Ordbo",MYND_STAB:"Myndighet / Stab",HOF:"Hälsa & Förebyggande"};
 const COLORS = ["var(--ui-chart-1)","var(--ui-chart-2)","var(--ui-chart-3)","var(--ui-chart-4)","var(--ui-chart-5)","var(--ui-chart-6)","var(--ui-chart-7)"];
 const fmt = n => new Intl.NumberFormat("sv-SE",{maximumFractionDigits:0}).format(Number(n)||0);
@@ -139,6 +139,32 @@ function legend(rows,dimension) {
   if(!visible.length)return '<p class="portfolio-empty">Inget att fördela.</p>';
   return '<div class="portfolio-legend">'+base+more+'</div>';
 }
+
+// Shared metric donut: SVG segments and accessible textual legend use the same values.
+function metricDonut(rows,metric,total,unit,emptyMessage){
+  const items=rows.filter(x=>Number(x[metric])>0);
+  if(total<=0||!items.length)return '<p class="portfolio-empty">'+esc(emptyMessage)+'</p>';
+  const circumference=2*Math.PI*54;
+  let offset=0;
+  const slices=items.map((x,i)=>{
+    const amount=Number(x[metric]);
+    const segment=amount/total*circumference;
+    const label=esc(x.name+' · '+fmt(amount)+' '+unit);
+    const circle='<circle cx="80" cy="80" r="54" fill="none" stroke="'+COLORS[i%COLORS.length]+'" stroke-width="21" stroke-dasharray="'+segment+' '+circumference+'" stroke-dashoffset="'+(-offset)+'" transform="rotate(-90 80 80)"><title>'+label+'</title></circle>';
+    offset+=segment;
+    return circle;
+  }).join('');
+  return '<svg class="portfolio-ring" viewBox="0 0 160 160" role="img" aria-label="'+esc('Fördelning av '+fmt(total)+' '+unit)+'">'+slices+
+    '<text x="80" y="76" text-anchor="middle" class="portfolio-ring-total">'+esc(fmt(total))+'</text>'+
+    '<text x="80" y="94" text-anchor="middle" class="portfolio-ring-caption">'+esc(unit)+'</text></svg>';
+}
+function metricLegend(rows,metric,unit,detail){
+  return '<div class="portfolio-legend">'+rows.filter(x=>Number(x[metric])>0).map((x,i)=>
+    '<div class="portfolio-legend-item"><span class="portfolio-legend-dot" style="background:'+COLORS[i%COLORS.length]+'"></span>'+
+    '<span class="portfolio-legend-details"><span class="portfolio-legend-title">'+esc(x.name)+'</span><small>'+esc(detail(x))+'</small></span>'+
+    '<strong class="portfolio-legend-money">'+esc(fmt(x[metric]))+' '+esc(unit)+'</strong></div>').join('')+'</div>';
+}
+
 function bars(rows, dimension, property=false) {
   const shown=rows.filter(x=>Number(x.activities)>0).sort((a,b)=>b.cost-a.cost||b.activities-a.activities).slice(0,8);
   const maximum=Math.max(1,...shown.map(x=>Math.max(0,Number(x.cost)||0)));
@@ -179,9 +205,12 @@ export function portfolioDashboard(data,selection,year,mode=""){
       '<div class="portfolio-rent-layout">'+ring(data,a.breakdown,chartDimension,a.rent)+legend(a.breakdown,chartDimension)+'</div></section>'+
       '<section class="dashboard-panel ui-card"><h3>'+esc(barTitle)+'</h3>'+
       '<p class="portfolio-metric-note">Bedömd totalkostnad · samtliga år</p>'+
-      '<div class="portfolio-bar-list">'+bars(barRows,a.selected||!a.lens?"":a.dimension)+'</div>'+
+      '<div class="portfolio-rent-layout">'+metricDonut(barRows,'cost',barRows.reduce((n,x)=>n+Math.max(0,Number(x.cost)||0),0),'kr','Inga ärendekostnader i urvalet.')+
+      metricLegend(barRows,'cost','kr',x=>fmt(x.activities)+' ärenden')+'</div>'+
       '<button type="button" data-view="activities" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa ärenden ›</button></section>'+
-      '<section class="dashboard-panel ui-card"><h3>'+(a.lens&&!a.selected?'Avtal och yta per '+({person:'medarbetare',unit:'verksamhet',owner:'fastighetsägare'}[a.lens]):'Avtal och ytor')+'</h3><div class="portfolio-cost-list">'+propertyCosts(a.lens&&!a.selected?a.groups:a.properties,a.lens&&!a.selected?a.lens:'property')+'</div>'+
+      '<section class="dashboard-panel ui-card"><h3>'+(a.lens&&!a.selected?'Avtal och yta per '+({person:'ansvarig',unit:'verksamhet',owner:'fastighetsägare'}[a.lens]):'Avtal och ytor')+'</h3>'+
+      '<div class="portfolio-rent-layout">'+metricDonut(a.lens&&!a.selected?a.groups:a.properties,'area',a.area,'m²','Ingen avtalad yta i urvalet.')+
+      metricLegend(a.lens&&!a.selected?a.groups:a.properties,'area','m²',x=>fmt(x.contracts)+' avtal · '+money(x.rent)+'/år')+'</div>'+
       '<button type="button" data-view="contracts" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa avtal ›</button></section>'+
       '<section class="dashboard-panel ui-card"><h3>Att bevaka</h3>'+
       '<div class="dashboard-fact"><span>Ärenden utan ansvarig</span><strong>'+fmt(a.unassigned)+'</strong></div>'+
