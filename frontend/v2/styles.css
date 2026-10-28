@@ -4964,3 +4964,19 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
   .compact-data-table .column-layout-toolbar [data-layout-options] input[type=checkbox]{flex:0 0 auto;opacity:1;position:static;width:15px;height:15px;accent-color:#216c5a}
   .compact-data-table .column-layout-toolbar [data-layout-options] button{flex:0 0 auto;margin-top:7px;padding:7px 9px;border:1px solid var(--line,#d9e2de);border-radius:6px;background:#fff;color:inherit;cursor:pointer}
 }
+
+/* Unified issues filter controls: six equal chips desktop, two mobile. */
+body[data-view="activities"] #filters .filters>.filter-chip{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:42px;height:42px;padding:4px 8px;border-radius:8px;text-align:center;gap:1px}
+body[data-view="activities"] #filters .filters>.filter-chip .filter-caption{display:block;font-size:10px;font-weight:500;line-height:1.1;color:var(--muted)}
+body[data-view="activities"] #filters .filters>.filter-chip .filter-value{font-size:11px;font-weight:600;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body[data-view="activities"] #filters .filters>.filter-chip:not(.is-selected) .filter-caption{display:none}
+@media(min-width:701px){
+ body[data-view="activities"] #filters .filters{grid-template-columns:repeat(6,minmax(0,1fr))}
+ body[data-view="activities"] #filters .filters>.filter-chip{grid-row:1;grid-column:auto;align-self:stretch}
+ body[data-view="activities"] #filters .filters>.ui-search-action-row{grid-row:2;grid-column:1/-1}
+}
+@media(max-width:700px){
+ body[data-view="activities"] #filters .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body[data-view="activities"] #filters .filters>.filter-chip{grid-row:auto;grid-column:auto;min-height:40px;height:40px}
+ body[data-view="activities"] #filters .filters>.ui-search-action-row{grid-row:auto;grid-column:1/-1}
+}
