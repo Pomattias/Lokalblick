@@ -4816,3 +4816,12 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
   #filters .filters .filter-chip .filter-mobile-caption,
   #filters .filters .filter-chip .filter-mobile-selected {font-size:9px;}
 }
+
+/* Overview mode selectors share the same short single-line mobile caption. */
+.dashboard-mode-compact {display:none;}
+@media(max-width:700px){
+  #filters .dashboard-mode-filters .dashboard-mode-button .dashboard-mode-full {display:none;}
+  #filters .dashboard-mode-filters .dashboard-mode-button .dashboard-mode-compact {
+    display:inline;font-size:11px;line-height:1;white-space:nowrap;
+  }
+}
