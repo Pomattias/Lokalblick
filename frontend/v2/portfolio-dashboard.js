@@ -196,6 +196,7 @@ export function portfolioDashboard(data,selection,year,mode=""){
   const chartDimension=a.selected?"property":a.dimension;
   const barTitle=(a.selected?"Ärenden per typ":a.lens?"Ärenden per "+({person:"medarbetare",unit:"verksamhet",owner:"fastighetsägare"}[a.lens]):"Ärenden per typ")+" · kr och antal";
   const barRows=a.selected||!a.lens?a.activityTypes:a.groups;
+  const ownerRows=buildPortfolioInsights(data,selection,year,'owner').groups;
   const shortcuts=[["properties","Fastigheter",a.view.properties.length],["contracts","Avtal totalt",a.view.contracts.length],["activities","Ärenden",a.view.items.length],["plan","Planera","›"]]
     .map(([view,label,value])=>'<button type="button" class="portfolio-shortcut ui-button ui-button--compact" data-view="'+view+'">'+label+' <strong>'+(typeof value==="number"?fmt(value):value)+'</strong></button>').join("");
   return '<div class="dashboard-intro portfolio-heading"><div><h2>Portföljöversikt</h2><p>'+esc(title)+'</p></div><span class="dashboard-year ui-label">År '+esc(year)+'</span></div>'+
@@ -204,13 +205,13 @@ export function portfolioDashboard(data,selection,year,mode=""){
       '<section class="dashboard-panel ui-card portfolio-rent-panel"><h3>'+esc(ringTitle)+'</h3>'+
       '<div class="portfolio-rent-layout">'+ring(data,a.breakdown,chartDimension,a.rent)+legend(a.breakdown,chartDimension)+'</div></section>'+
       '<section class="dashboard-panel ui-card"><h3>'+esc(barTitle)+'</h3>'+
-      '<p class="portfolio-metric-note">Bedömd totalkostnad · samtliga år</p>'+
+      '<p class="portfolio-metric-note">Aktuell prognos för '+esc(year)+'</p>'+
       '<div class="portfolio-rent-layout">'+metricDonut(barRows,'cost',barRows.reduce((n,x)=>n+Math.max(0,Number(x.cost)||0),0),'kr','Inga ärendekostnader i urvalet.')+
       metricLegend(barRows,'cost','kr',x=>fmt(x.activities)+' ärenden')+'</div>'+
       '<button type="button" data-view="activities" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa ärenden ›</button></section>'+
-      '<section class="dashboard-panel ui-card"><h3>'+(a.lens&&!a.selected?'Avtal och yta per '+({person:'ansvarig',unit:'verksamhet',owner:'fastighetsägare'}[a.lens]):'Avtal och ytor')+'</h3>'+
-      '<div class="portfolio-rent-layout">'+metricDonut(a.lens&&!a.selected?a.groups:a.properties,'area',a.area,'m²','Ingen avtalad yta i urvalet.')+
-      metricLegend(a.lens&&!a.selected?a.groups:a.properties,'area','m²',x=>fmt(x.contracts)+' avtal · '+money(x.rent)+'/år')+'</div>'+
+      '<section class="dashboard-panel ui-card"><h3>'+('Avtal och ytor per fastighetsägare')+'</h3>'+
+      '<div class="portfolio-rent-layout">'+metricDonut(ownerRows,'area',a.area,'m²','Ingen avtalad yta i urvalet.')+
+      metricLegend(ownerRows,'area','m²',x=>fmt(x.contracts)+' avtal · '+money(x.rent)+'/år')+'</div>'+
       '<button type="button" data-view="contracts" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa avtal ›</button></section>'+
       '<section class="dashboard-panel ui-card"><h3>Att bevaka</h3>'+
       '<div class="dashboard-fact"><span>Ärenden utan ansvarig</span><strong>'+fmt(a.unassigned)+'</strong></div>'+

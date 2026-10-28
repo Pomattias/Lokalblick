@@ -94,13 +94,13 @@ function propertyListGroup(data, p, contracts, objects, year, portfolioView) {
   const agreements = `<section class="property-list-contracts"><h3>Objekt och avtal${subset?` · ${contracts.length} av ${totalContracts} avtal i aktuellt urval`:` · ${contracts.length} avtal`}</h3>${objectGroups}${unlinkedGroup}${!objectGroups&&!unlinkedGroup?`<p>${totalContracts?'Inga avtal i aktuellt urval.':'Inga avtal kopplade till fastigheten.'}</p>`:''}</section>`;
   return `<tbody data-row-group="${esc(p.id)}"><tr class="property-list-summary">
     <td class="primary-cell"><button type="button" class="text-button" data-edit="properties" data-id="${esc(p.id)}">${esc(title)}</button><span class="property-inline-address"> · ${esc(propertyAddress(p) || "Adress saknas")}</span><span class="property-mobile-meta"><small class="property-mobile-overview">${num(contracts.length)} avtal · ${esc(ourContact)}</small>${openCount?`<small class="property-open-issues"><button type="button" class="text-button" data-context-record="properties" data-id="${esc(p.id)}" data-context-target-tab="issues">${openCount} öppna ärenden</button></small>`:""}</span></td>
-    <td>${esc(propertyAddress(p) || "Adress saknas")}<small class="property-list-owner">${esc(propertyOwnerLabel(data,p))}</small></td>
-    <td><span class="property-list-mobile-label">Vår ansvarige: </span>${esc(ourContact)}</td>
+    <td>${esc(propertyAddress(p) || "Adress saknas")}</td>
+    <td class="property-owner-cell">${esc(propertyOwnerLabel(data,p))}</td><td><span class="property-list-mobile-label">Vår ansvarige: </span>${esc(ourContact)}</td><td class="property-issues-cell" data-sort-value="${openCount}">${openCount?`<button type="button" class="text-button" data-context-record="properties" data-id="${esc(p.id)}" data-context-target-tab="issues">${openCount} öppna</button>`:"0"}</td>
     <td data-sort-value="${contracts.length}">${num(contracts.length)} avtal${subset?`<small>av ${num(totalContracts)} totalt</small>`:""}</td>
     <td data-sort-value="${area}">${num(area)} m²</td>
     <td data-sort-value="${portfolioView?cost.rent:cost.annualCost}"><span title="${portfolioView?"Avtalshyra för avtalen i aktuellt urval":"Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder. Avser hela fastigheten."}">${money(portfolioView?cost.rent:cost.annualCost)}</span>${cost.needsReview?`<small class="rent-needs-review">${cost.needsReview} avtal behöver kontroll</small>`:""}${cost.preliminary?`<small>${cost.preliminary} preliminära index</small>`:""}</td>
     <td class="row-actions">${portfolioView?edit("properties",p.id):""}<button type="button" class="property-list-toggle" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj avtal och ansvariga för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button></td>
-  </tr><tr data-group-detail hidden><td colspan="7"><div id="${esc(detailId)}" class="property-list-relations" role="region" aria-label="Avtal och ansvariga för ${esc(title)}"><p class="property-expanded-address">${esc(title)} · ${esc(propertyAddress(p))}</p>${contacts}${agreements}</div></td></tr></tbody>`;
+  </tr><tr data-group-detail hidden><td colspan="9"><div id="${esc(detailId)}" class="property-list-relations" role="region" aria-label="Avtal och ansvariga för ${esc(title)}"><p class="property-expanded-address">${esc(title)} · ${esc(propertyAddress(p))}</p>${contacts}${agreements}</div></td></tr></tbody>`;
 }
 export function overview(data, s, ui) {
   const v = ui.portfolioView || scope(data, s);
@@ -116,7 +116,7 @@ export function overview(data, s, ui) {
   let body = "";
   if (ui.perspective === "Fastigheter") {
     body = table(
-      ["Fastighet", "Adress", "Ansvarig hos oss", "Avtal", "Area", `${ui.portfolioView?"Årshyra":"Årskostnad"} ${ui.year}`, ""],
+      ["Fastighet", "Adress", "Fastighetsägare", "Ansvarig hos oss", "Ärenden", "Avtal", "Area", `${ui.portfolioView?"Årshyra":"Årskostnad"} ${ui.year}`, ""],
       v.properties.map(p => propertyListGroup(data, p, v.contracts.filter(c => c.propertyId === p.id), v.objects||[], ui.year, ui.portfolioView)),
       true,
       "Fastigheter",
