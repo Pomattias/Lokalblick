@@ -1420,6 +1420,8 @@ document.addEventListener("input",event=>{
   }
 });
 document.addEventListener("click",event=>{
+ const partyLink=event.target.closest("[data-open-people-party]");
+ if(partyLink){ui.peopleMode="parties";ui.peoplePartyFilter=partyLink.dataset.openPeopleParty;ui.peopleAffiliation="";ui.peopleQuery="";render();return;}
  const button=event.target.closest("[data-people-mode],[data-people-affiliation]");
  if(!button)return;
  if(button.hasAttribute("data-people-mode"))ui.peopleMode=button.dataset.peopleMode;
