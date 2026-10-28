@@ -56,9 +56,9 @@ function perform(db,command) {
  if(!command||typeof command!=='object'||Array.isArray(command))throw Error('Ogiltig åtgärd.');
  const id=()=>randomUUID(),p=command.fields||{},now=command.effectiveFrom;
  switch(command.action) {
-  case 'createParty':{const row=fields(p,editable.party,['name']);insert(db,'parties',{id:id(),...row});break;}
+  case 'createParty':{const row=fields(p,editable.party,['name']);insert(db,'parties',{id:command.id?text(command.id,'PartID',64):id(),...row});break;}
   case 'updateParty':update(db,'parties',text(command.id,'PartID'),fields(p,editable.party));break;
-  case 'createPerson':{const row=fields(p,editable.person,['name']);insert(db,'people',{id:id(),...row});break;}
+  case 'createPerson':{const row=fields(p,editable.person,['name']);insert(db,'people',{id:command.id?text(command.id,'PersonID',64):id(),...row});break;}
   case 'updatePerson':update(db,'people',text(command.id,'PersonID'),fields(p,editable.person));break;
   case 'linkPersonParty':{
    const party_id=text(p.party_id,'part'),person_id=text(p.person_id,'person');

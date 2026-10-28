@@ -53,6 +53,10 @@ export function mountImport(root,{snapshot,apply}) {
   '<button type="button" class="primary" data-import-apply disabled>Bekräfta import</button>';
  root.append(shell);
  let book=[],columns=[],rows=[],plan=[],errors=[],fileName='';
+ const affiliations=new Map(),newParties=new Map();
+ const affiliationOptions=()=>[...snapshot.parties,...newParties.values()].sort((a,b)=>a.name.localeCompare(b.name,'sv'));
+ const organizationKey=s=>normalize(s);
+ const uniquePart=(name,number='')=>affiliationOptions().find(p=>number&&p.organization_number===number)||affiliationOptions().find(p=>organizationKey(p.name)===organizationKey(name));
  const register=shell.querySelector('[data-import-register]'),file=shell.querySelector('[data-import-file]'),
   sheet=shell.querySelector('[data-import-sheet]'),map=shell.querySelector('[data-import-map]'),
   preview=shell.querySelector('[data-import-preview]'),confirm=shell.querySelector('[data-import-apply]'),
@@ -66,6 +70,7 @@ export function mountImport(root,{snapshot,apply}) {
   parent.innerHTML='<option value="">Välj…</option>'+option(items);
  }
  function columnsFor(sheetRows){
+  affiliations.clear();newParties.clear();
   columns=(sheetRows[0]||[]).map((v,i)=>({id:String(i),label:String(v||'Kolumn '+(i+1))}));
   rows=sheetRows.slice(1).filter(r=>Array.isArray(r)&&r.some(v=>String(v??'').trim())).slice(0,201);
   const k=chosen(),entries=Object.entries(k.fields);
@@ -107,11 +112,17 @@ export function mountImport(root,{snapshot,apply}) {
    plan.push({action:k.action,fields:data});
   });
   if(rows.length>200)errors.push('Filen har fler än 200 datarader. Dela upp importen i mindre filer.');
+  if(register.value==='people'){
+   const partyCommands=[...newParties.values()].map(p=>({action:'createParty',id:p.id,fields:{name:p.name,...(p.organization_number?{organization_number:p.organization_number}:{})}}));
+   const links=plan.filter((_,i)=>affiliations.get(i)).length;
+   if(plan.length+links+partyCommands.length>200)errors.push('För många åtgärder för en transaktion (högst 200). Dela upp importen.');
+  }
   preview.innerHTML='<h3>Förhandsgranskning · '+plan.length+' rader</h3>'+
     (errors.length?'<p class="error-text">'+errors.map(esc).join(' · ')+'</p>':'<p class="muted">Inga kolumn- eller datakontrollfel i förhandsgranskningen. Databasen kontrollerar dessutom alla relationer vid sparning.</p>')+
     '<div class="import-preview-table"><table><thead><tr><th>Rad</th><th>Data</th></tr></thead><tbody>'+
     plan.slice(0,8).map((c,i)=>'<tr><td>'+(i+2)+'</td><td>'+esc(JSON.stringify(c.fields))+'</td></tr>').join('')+
-    '</tbody></table></div>';
+    '</tbody></table></div>'+
+    (register.value==='people'?'<h4>Bolag / organisation per person</h4><div class="import-preview-table"><table><thead><tr><th>Person</th><th>Bolag / organisation (Part)</th></tr></thead><tbody>'+plan.map((c,i)=>'<tr><td>'+esc(c.fields.name||'Rad '+(i+2))+'</td><td><select data-person-party="'+i+'"><option value="">Ingen koppling</option>'+affiliationOptions().map(p=>'<option value="'+esc(p.id)+'"'+(affiliations.get(i)===p.id?' selected':'')+'>'+esc(p.name)+'</option>').join('')+'<option value="@new">+ Skapa ny part…</option></select></td></tr>').join('')+'</tbody></table></div>':'');
   confirm.disabled=errors.length>0||!plan.length;
  }
  function selectSheet(){
@@ -136,11 +147,29 @@ export function mountImport(root,{snapshot,apply}) {
  sheet.addEventListener('change',selectSheet);
  parent.addEventListener('change',buildPreview);
  map.addEventListener('change',buildPreview);
+ preview.addEventListener('change',event=>{
+  const select=event.target.closest('[data-person-party]');if(!select)return;
+  const index=Number(select.dataset.personParty);
+  if(select.value==='@new'){
+   const name=window.prompt('Namn på ny organisation/part:');if(!name?.trim()){buildPreview();return;}
+   const number=window.prompt('Organisationsnummer (valfritt):')?.trim()||'';
+   const match=uniquePart(name.trim(),number);
+   if(match)affiliations.set(index,match.id);
+   else {const id=crypto.randomUUID();newParties.set(id,{id,name:name.trim(),organization_number:number});affiliations.set(index,id);}
+  }else if(select.value)affiliations.set(index,select.value);
+  else affiliations.delete(index);
+  buildPreview();
+ });
  confirm.addEventListener('click',async()=>{
   if(confirm.disabled)return;
   if(!window.confirm('Importera '+plan.length+' rader till '+chosen().title+'? Alla rader sparas i en enda transaktion.'))return;
   confirm.disabled=true;
-  try{await apply(plan);preview.innerHTML='<p>Importerade '+plan.length+' rader från '+esc(fileName)+'.</p>';map.innerHTML='';plan=[];}
+  try{
+   const commands=register.value==='people'?[
+    ...[...newParties.values()].filter(p=>[...affiliations.values()].includes(p.id)).map(p=>({action:'createParty',id:p.id,fields:{name:p.name,...(p.organization_number?{organization_number:p.organization_number}:{})}})),
+    ...plan.flatMap((c,i)=>{const personId=crypto.randomUUID(),partyId=affiliations.get(i);return [{...c,id:personId},...(partyId?[{action:'linkPersonParty',fields:{party_id:partyId,person_id:personId,valid_from:new Date().toISOString().slice(0,10),is_primary:true}}]:[])];})
+   ]:plan;
+   await apply(commands);preview.innerHTML='<p>Importerade '+plan.length+' rader från '+esc(fileName)+'.</p>';map.innerHTML='';plan=[];}
   catch(error){preview.innerHTML='<p class="error-text">'+esc(error.message)+'</p>';confirm.disabled=false}
  });
  parentFields();
