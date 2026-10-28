@@ -89,7 +89,7 @@ test("Mobile navigation still exposes the new pages through compact scrollable c
 test('object summary shows physical object area independently of the previously selected perspective',()=>{
   const objects={...data,objects:[{id:'o',propertyId:'p',number:'101',area:120}]};
   const html=summary(objects,selection,2026,{view:'objects',perspective:'Ärenden'});
-  assert.match(html,/>Objekt<\/span><strong>1<\/strong>/);
-  assert.match(html,/>Objektarea<\/span><strong>120 m²<\/strong>/);
+  assert.match(html,/class="summary-full-label">Objekt<\/span>[\s\S]*?<strong>1<\/strong>/);
+  assert.match(html,/class="summary-full-label">Objektarea<\/span>[\s\S]*?<strong>120 m²<\/strong>/);
   assert.doesNotMatch(html,/Bedömd kostnad/);
 });

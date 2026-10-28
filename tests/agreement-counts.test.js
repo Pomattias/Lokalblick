@@ -21,9 +21,9 @@ test('154 total agreements and 117 current agreements can describe the same unch
 
 test('overview and lists expose their counting definition and a visible reconciliation',()=>{
  const data=fixture(),view=portfolioScope(data),year=Number(globalThis.LokalblickResponsibility.today().slice(0,4));
- const overview=summary(data,{},year,{view:'overview'});assert.match(overview,/>Avtal totalt<\/span><strong>154 st<\/strong>/);assert.match(overview,/summary-explanation">117 gällande · 20 tidigare · 17 kommande/);
+ const overview=summary(data,{},year,{view:'overview'});assert.match(overview,/class="summary-full-label">Avtal totalt<\/span>[\s\S]*?<strong>154 st<\/strong>/);assert.match(overview,/summary-explanation">117 gällande · 20 tidigare · 17 kommande/);
  for(const page of ['properties','objects','contracts']){
-  const html=summary(data,{},year,{view:page,portfolioView:view});assert.match(html,/>Gällande avtal<\/span><strong>117<\/strong>/);assert.match(html,/summary-explanation">154 totalt · 20 tidigare · 17 kommande/);
+  const html=summary(data,{},year,{view:page,portfolioView:view});assert.match(html,/class="summary-full-label">Gällande avtal<\/span>[\s\S]*?<strong>117<\/strong>/);assert.match(html,/summary-explanation">154 totalt · 20 tidigare · 17 kommande/);
  }
  const html=portfolioDashboard(data,{},year);assert.match(html,/Avtal totalt <strong>154<\/strong>/);assert.match(html,/Fastigheter \/ avtal totalt/);
 });
