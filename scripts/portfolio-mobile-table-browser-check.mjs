@@ -45,6 +45,16 @@ try{
    const size=await carousel.evaluate(el=>({scroll:el.scrollWidth,client:el.clientWidth,overflow:getComputedStyle(el).overflowX}));
    assert.ok(size.scroll>size.client+5,view+': carousel must expose more than one screen of sorting options');
    assert.match(size.overflow,/auto|scroll/);
+   // Inactive sort controls share dimensions and visual tokens with filter choices.
+   const sortStyle=await chips.filter(':not([data-direction="asc"]):not([data-direction="desc"])').first().evaluate(el=>{
+    const s=getComputedStyle(el);
+    return {height:el.getBoundingClientRect().height,background:s.backgroundColor,border:s.borderColor,radius:s.borderRadius};
+   });
+   const filterStyle=await page.locator('#filters .filters>.filter-chip').first().evaluate(el=>{
+    const s=getComputedStyle(el);
+    return {height:el.getBoundingClientRect().height,background:s.backgroundColor,border:s.borderColor,radius:s.borderRadius};
+   });
+   assert.deepEqual(sortStyle,filterStyle,view+': sorting chips should match global filter chips');
    await carousel.evaluate(el=>{el.scrollLeft=el.scrollWidth;});
    const scrolled=await carousel.evaluate(el=>el.scrollLeft);
    assert.ok(scrolled>0,view+': carousel is horizontally swipeable');
@@ -53,12 +63,27 @@ try{
    await chips.first().click();
    const next=await chips.first().getAttribute('data-direction');
    assert.ok(['asc','desc'].includes(next)&&next!==previous,view+': native sorting remains active');
+   const arrow=await chips.first().locator('.sort-direction').evaluate(el=>({
+    size:getComputedStyle(el).fontSize,
+    marker:getComputedStyle(el,'::after').content
+   }));
+   assert.equal(arrow.size,'0px',view+': only the direction indicator is replaced');
+   assert.ok(arrow.marker.includes(next==='asc'?'↑':'↓'),view+': one correct sort arrow');
    const showFilter=page.locator('.portfolio-list [data-toggle-column-filters]').first();
    await showFilter.click();
    await table.locator('.column-filters:not([hidden])').waitFor();
    await showFilter.click();
    const pageWidth=await page.evaluate(()=>document.documentElement.scrollWidth);
    assert.ok(pageWidth<=width+2,view+': no document overflow '+pageWidth+' > '+width);
+   if(view==='properties'){
+    const property=table.locator('tbody[data-row-group] .property-list-summary').first();
+    const name=await bounds(property.locator('td.primary-cell>button'));
+    const address=await bounds(property.locator('.property-inline-address'));
+    const meta=await bounds(property.locator('.property-mobile-meta'));
+    near(name.top,address.top,'property designation and address aligned at '+width+'px');
+    assert.ok(meta.top>=name.bottom-3&&meta.top<=name.bottom+4,'metadata starts on second line');
+    assert.ok(meta.bottom-name.top<=48,'property summary uses two text lines');
+   }
   }
   await go('properties');
   const filters=page.locator('#filters .filters>.filter-chip');
