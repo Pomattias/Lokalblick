@@ -5080,3 +5080,14 @@ body[data-view="plan"] .plan-filter-toolbar .issue-type-filters button,body[data
 body[data-view="plan"] .plan-filter-toolbar .issue-type-filters button.active,body[data-view="plan"] .plan-filter-toolbar .plan-mobile-actions .actions button.active{background:var(--accent,#176655)!important;color:#fff!important;border-color:var(--accent,#176655)!important}
 .plan-column-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--line,#d8e1dc);border-bottom:0;border-radius:8px 8px 0 0;background:var(--paper,#fff);font-size:13px}.plan-column-config{position:relative;margin-left:auto}.plan-column-config>summary{list-style:none;cursor:pointer;border:1px solid var(--line,#d8e1dc);border-radius:7px;padding:7px 10px;font-size:11px;font-weight:500}.plan-column-config>summary::-webkit-details-marker{display:none}.plan-column-options{position:absolute;right:0;top:calc(100% + 4px);z-index:15;min-width:195px;display:grid;gap:8px;padding:12px;background:var(--paper,#fff);border:1px solid var(--line,#d8e1dc);border-radius:8px;box-shadow:0 6px 20px #0002}.plan-column-options label{display:flex;gap:8px;align-items:center;white-space:nowrap;font-size:12px}.plan-column-options input{accent-color:var(--accent,#176655)}
 .plan-desktop-list:has([data-plan-col="1"]:not(:checked)) table tr>:nth-child(1){display:none!important}\n.plan-desktop-list:has([data-plan-col="2"]:not(:checked)) table tr>:nth-child(2){display:none!important}\n.plan-desktop-list:has([data-plan-col="3"]:not(:checked)) table tr>:nth-child(3){display:none!important}\n.plan-desktop-list:has([data-plan-col="4"]:not(:checked)) table tr>:nth-child(4){display:none!important}\n.plan-desktop-list:has([data-plan-col="5"]:not(:checked)) table tr>:nth-child(5){display:none!important}\n.plan-desktop-list:has([data-plan-col="6"]:not(:checked)) table tr>:nth-child(6){display:none!important}\n.plan-desktop-list:has([data-plan-col="7"]:not(:checked)) table tr>:nth-child(7){display:none!important}
+
+/* Mobile property sort chips: match the typography of the main filter controls. */
+@media(max-width:700px){
+  body[data-view="properties"] .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"] > .column-sort{
+    font-family:inherit;font-size:14px;font-weight:400;line-height:1.25;
+    letter-spacing:normal;text-transform:none;
+  }
+  body[data-view="properties"] .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"] > .column-sort .sort-direction{
+    font-size:14px;font-weight:400;
+  }
+}
