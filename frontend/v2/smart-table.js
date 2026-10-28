@@ -149,7 +149,10 @@ function applyColumnLayout(table){
       if(query){content.hidden=!found;heading.setAttribute('aria-expanded',String(found));}
     }
   });
-  const reset=document.createElement('button');reset.type='button';reset.dataset.layoutReset='true';reset.textContent='Återställ standard';options.appendChild(reset);
+  const footer=document.createElement('div');footer.className='column-layout-footer';
+  const reset=document.createElement('button');reset.type='button';reset.dataset.layoutReset='true';reset.textContent='Återställ standard';
+  const done=document.createElement('button');done.type='button';done.dataset.layoutDone='true';done.textContent='Klar';
+  footer.append(reset,done);options.appendChild(footer);
   table.tHead.rows[0].querySelectorAll('th').forEach(th=>{
     th.draggable=true;
     th.classList.add('layout-draggable');
@@ -168,7 +171,25 @@ function saveColumnLayout(table,patch){
   const catalog=COLUMN_CATALOG[table.dataset.listKey];
   if(catalog){next.orderIds=next.order.map(i=>catalog[i]).filter(Boolean);next.visibleIds=next.visible.map(i=>catalog[i]).filter(Boolean);next.widthsById=Object.fromEntries(Object.entries(next.widths).map(([i,w])=>[catalog[Number(i)],w]).filter(([id])=>Boolean(id)));}
   try{localStorage.setItem(key,JSON.stringify(next));}catch{}
+  // Rebuilding the chooser must not unexpectedly close it during selection.
+  const options=container(table)?.querySelector('[data-layout-options]');
+  const wasOpen=options&&!options.hidden;
+  const openGroups=options?[...options.querySelectorAll('.column-layout-group')].filter(group=>!group.querySelector('.column-layout-group-fields').hidden).map(group=>group.querySelector('.column-layout-group-heading')?.textContent?.replace(/ \(\d+\/\d+\)$/,'')):[];
+  const query=options?.querySelector('.column-layout-search')?.value||'';
   applyColumnLayout(table);
+  const next=container(table)?.querySelector('[data-layout-options]');
+  if(next&&wasOpen){
+    next.hidden=false;
+    const search=next.querySelector('.column-layout-search');
+    if(search&&query){search.value=query;search.dispatchEvent(new Event('input',{bubbles:true}));}
+    next.querySelectorAll('.column-layout-group').forEach(group=>{
+      const heading=group.querySelector('.column-layout-group-heading');
+      if(openGroups.includes(heading?.textContent?.replace(/ \(\d+\/\d+\)$/,''))){
+        const fields=group.querySelector('.column-layout-group-fields');
+        fields.hidden=false;heading.setAttribute('aria-expanded','true');
+      }
+    });
+  }
 }
 
 function setExpanded(body, expanded) {
@@ -251,6 +272,15 @@ export function bindSmartTables(root) {
   root.addEventListener('click', event => {
     const toggleLayout=event.target.closest('[data-layout-toggle]');
     if(toggleLayout){const options=toggleLayout.nextElementSibling;options.hidden=!options.hidden;toggleLayout.setAttribute('aria-expanded',String(!options.hidden));return;}
+    const done=event.target.closest('[data-layout-done]');
+    if(done){
+      const options=done.closest('[data-layout-options]');
+      options.hidden=true;
+      const toggle=options.previousElementSibling;
+      toggle?.setAttribute('aria-expanded','false');
+      toggle?.focus();
+      return;
+    }
     const reset=event.target.closest('[data-layout-reset]');
     if(reset){const table=reset.closest('.compact-data-table').querySelector('table[data-list-key]');try{localStorage.removeItem(layoutStorageKey(table));}catch{}applyColumnLayout(table);return;}
 
