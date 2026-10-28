@@ -4954,3 +4954,13 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
   body[data-view="activities"] #filters .ui-search-action-row .search.ui-search{flex:1 1 auto;min-width:0}
   body[data-view="activities"] #filters .ui-filter-actions-slot{flex:0 0 auto;max-width:45%}
 }
+
+/* Column chooser: keep the menu above the table and labels fully readable. */
+@media(min-width:701px){
+  .portfolio-list,.compact-data-table,.compact-table-heading{overflow:visible!important}
+  .compact-data-table .column-layout-toolbar{position:relative;z-index:50;flex-shrink:0}
+  .compact-data-table .column-layout-toolbar [data-layout-options]:not([hidden]){display:flex;flex-direction:column;position:absolute;right:0;left:auto;top:calc(100% + 6px);z-index:100;box-sizing:border-box;width:max-content;min-width:245px;max-width:min(340px,calc(100vw - 32px));max-height:min(460px,65vh);overflow-y:auto;overflow-x:hidden;background:#fff;color:var(--ink,#183e35);padding:10px 12px;box-shadow:0 12px 30px #0003}
+  .compact-data-table .column-layout-toolbar [data-layout-options] label{display:flex;align-items:center;gap:9px;width:100%;box-sizing:border-box;white-space:normal;overflow:visible;font-size:12px;line-height:1.4;text-align:left;cursor:pointer}
+  .compact-data-table .column-layout-toolbar [data-layout-options] input[type=checkbox]{flex:0 0 auto;opacity:1;position:static;width:15px;height:15px;accent-color:#216c5a}
+  .compact-data-table .column-layout-toolbar [data-layout-options] button{flex:0 0 auto;margin-top:7px;padding:7px 9px;border:1px solid var(--line,#d9e2de);border-radius:6px;background:#fff;color:inherit;cursor:pointer}
+}
