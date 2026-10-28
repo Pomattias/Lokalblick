@@ -4923,3 +4923,9 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
     line-height:20px;
   }
 }
+
+/* One metric caption per card on desktop; retain compact labels on phones. */
+@media (min-width:701px){.summary .summary-compact-label{display:none!important;}}
+.portfolio-panel-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+.portfolio-panel-heading h3{margin:0!important;}
+.portfolio-panel-heading .portfolio-metric-note{margin:0;font-size:11px;white-space:nowrap;}

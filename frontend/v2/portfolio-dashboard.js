@@ -204,8 +204,7 @@ export function portfolioDashboard(data,selection,year,mode=""){
     '<div class="portfolio-panels">'+
       '<section class="dashboard-panel ui-card portfolio-rent-panel"><h3>'+esc(ringTitle)+'</h3>'+
       '<div class="portfolio-rent-layout">'+ring(data,a.breakdown,chartDimension,a.rent)+legend(a.breakdown,chartDimension)+'</div></section>'+
-      '<section class="dashboard-panel ui-card"><h3>'+esc(barTitle)+'</h3>'+
-      '<p class="portfolio-metric-note">Aktuell prognos för '+esc(year)+'</p>'+
+      '<section class="dashboard-panel ui-card"><div class="portfolio-panel-heading"><h3>'+esc(barTitle)+'</h3><span class="portfolio-metric-note">Aktuell prognos för '+esc(year)+'</span></div>'+
       '<div class="portfolio-rent-layout">'+metricDonut(barRows,'cost',barRows.reduce((n,x)=>n+Math.max(0,Number(x.cost)||0),0),'kr','Inga ärendekostnader i urvalet.')+
       metricLegend(barRows,'cost','kr',x=>fmt(x.activities)+' ärenden')+'</div>'+
       '<button type="button" data-view="activities" class="dashboard-text-link ui-button ui-button--quiet ui-button--compact">Visa ärenden ›</button></section>'+
