@@ -177,12 +177,12 @@ function saveColumnLayout(table,patch){
   const openGroups=options?[...options.querySelectorAll('.column-layout-group')].filter(group=>!group.querySelector('.column-layout-group-fields').hidden).map(group=>group.querySelector('.column-layout-group-heading')?.textContent?.replace(/ \(\d+\/\d+\)$/,'')):[];
   const query=options?.querySelector('.column-layout-search')?.value||'';
   applyColumnLayout(table);
-  const next=container(table)?.querySelector('[data-layout-options]');
-  if(next&&wasOpen){
-    next.hidden=false;
-    const search=next.querySelector('.column-layout-search');
+  const refreshedOptions=container(table)?.querySelector('[data-layout-options]');
+  if(refreshedOptions&&wasOpen){
+    refreshedOptions.hidden=false;
+    const search=refreshedOptions.querySelector('.column-layout-search');
     if(search&&query){search.value=query;search.dispatchEvent(new Event('input',{bubbles:true}));}
-    next.querySelectorAll('.column-layout-group').forEach(group=>{
+    refreshedOptions.querySelectorAll('.column-layout-group').forEach(group=>{
       const heading=group.querySelector('.column-layout-group-heading');
       if(openGroups.includes(heading?.textContent?.replace(/ \(\d+\/\d+\)$/,''))){
         const fields=group.querySelector('.column-layout-group-fields');
