@@ -5091,3 +5091,11 @@ body[data-view="plan"] .plan-filter-toolbar .issue-type-filters button.active,bo
     font-size:14px;font-weight:400;
   }
 }
+
+/* On mobile, show only the active sort direction, never the neutral double arrow alongside it. */
+@media(max-width:700px){
+  body[data-view="properties"] .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"] > .column-sort[data-direction="asc"] .sort-direction,
+  body[data-view="properties"] .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"] > .column-sort[data-direction="desc"] .sort-direction{font-size:0!important;}
+  body[data-view="properties"] .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"] > .column-sort[data-direction="asc"] .sort-direction::after,
+  body[data-view="properties"] .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"] > .column-sort[data-direction="desc"] .sort-direction::after{font-size:14px;font-weight:400;}
+}
