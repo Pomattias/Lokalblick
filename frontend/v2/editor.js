@@ -101,6 +101,8 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
       ]),
   );
   if(data.cleanModel&&col==='objects')fields.set('id','Objektnummer');
+  // A new or unlinked person must always be able to choose a party.
+  if(col==='people')fields.set('organizationId','Part / företag / organisation');
   Object.keys(relations)
     .filter((k) => record[k] != null && (!data.cleanModel||fields.has(k)))
     .forEach((k) => {

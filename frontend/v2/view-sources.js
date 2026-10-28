@@ -361,18 +361,21 @@ export function sources(data, transport) {
     ),
   )}</details>`;
 }
-export function organization(data,{partyId="",query=""}={}) {
+export function organization(data,{partyId="",query="",mode="people"}={}) {
   const parties=data.organizations||[],people=data.people||[];
   const selected=parties.some(p=>p.id===partyId)?partyId:"";
   const search=String(query||"").trim().toLocaleLowerCase("sv");
   const visible=people.filter(p=>(!selected||p.organizationId===selected)&&
     (!search||[p.name,p.role,p.phone,p.email,parties.find(o=>o.id===p.organizationId)?.name].join(" ").toLocaleLowerCase("sv").includes(search)));
   const partyName=id=>parties.find(p=>p.id===id)?.name||"Ingen part kopplad";
+  const partyMatches=p=>!search||[p.name,p.organizationNumber,p.type].join(" ").toLocaleLowerCase("sv").includes(search);
+  const visibleParties=parties.filter(p=>(!selected||p.id===selected)&&partyMatches(p));
   return `<div class="section-title people-title"><h2>Personer och parter</h2><div class="people-actions">${edit("people","","Lägg till person")}${edit("organizations","","Lägg till part")}${edit("assignments","","Tilldela ansvar")}</div></div>
+  <div class="people-register-modes" role="group" aria-label="Visa register"><button type="button" data-people-mode="people" class="${mode==="people"?"active":""}" aria-pressed="${mode==="people"}">Personer (${people.length})</button><button type="button" data-people-mode="parties" class="${mode==="parties"?"active":""}" aria-pressed="${mode==="parties"}">Parter / företag (${parties.length})</button></div>
   <div class="people-register-tools"><label>Part<select data-people-party-filter><option value="">Alla parter</option>${[...parties].sort((a,b)=>a.name.localeCompare(b.name,"sv")).map(p=>`<option value="${esc(p.id)}"${selected===p.id?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>
   <label>Sök person<input type="search" data-people-query value="${esc(query)}" placeholder="Namn, befattning, telefon…"></label></div>
-  <div class="people-register-count">${visible.length} av ${people.length} personer${selected?` · ${esc(partyName(selected))}`:""}</div>
-  <div class="people-register-list">${visible.map(p=>`<article class="people-register-item">
+  <div class="people-register-count">${mode==="parties"?`${visibleParties.length} av ${parties.length} parter`:`${visible.length} av ${people.length} personer`}${selected?` · ${esc(partyName(selected))}`:""}</div>
+  <div class="people-register-list">${mode==="parties"?visibleParties.map(p=>`<article class="people-register-item"><div class="people-register-primary"><strong>${esc(p.name)}</strong><small>${esc(p.organizationNumber||p.type||"Part / organisation")}</small><small>${people.filter(person=>person.organizationId===p.id).length} kopplade personer</small></div><div class="people-register-secondary"><div class="people-register-edit">${edit("organizations",p.id)}</div></div></article>`).join("")||'<p class="muted">Inga parter matchar urvalet.</p>':visible.map(p=>`<article class="people-register-item">
     <div class="people-register-primary"><strong>${esc(p.name)}</strong><small>${esc(p.role||"Ingen befattning")}</small><small>${esc(partyName(p.organizationId))}</small></div>
     <div class="people-register-secondary"><small>${esc(p.phone||"")}</small><div class="people-register-edit">${edit("people",p.id)}</div></div>
   </article>`).join("")||'<p class="muted">Inga personer matchar urvalet.</p>'}</div>
