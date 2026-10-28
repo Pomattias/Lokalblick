@@ -227,17 +227,20 @@ export function objectList(data,s,ui={}){
   const view=ui.portfolioView||scope(data,s);
   const rows=(objects,key)=>objects.map(o=>{
     const title=[objectLabel(o),o.name].filter(Boolean).join(' · ');
+    const property=(data.properties||[]).find(p=>p.id===o.propertyId)||{};
     const detailId=key+'-detail-'+encodeURIComponent(o.id);
-    const validity=(o.start||'Ej angivet')+' – '+(o.end||'tills vidare');
+    const validity=[o.start,o.end].filter(Boolean).join(' – ')||'–';
     const contracts=view.contracts.filter(c=>c.objectId===o.id).map(c=>`<button type="button" class="text-button" data-object-contract="${esc(c.id)}">${esc(c.number||c.id)}</button>`).join(' ')||'Inget gällande avtal';
     const cells=[
-      `<button type="button" class="text-button object-open" data-edit="objects" data-id="${esc(o.id)}">${esc(title)}</button>`,
-      esc(propertyReference(data.properties.find(p=>p.id===o.propertyId))),num(o.area)+' m²',
+      `<button type="button" class="text-button object-open" data-edit="objects" data-id="${esc(o.id)}" >${esc(objectLabel(o))}</button>`,
+      esc(propertyDesignation(property)),
+      esc(propertyAddress(property)),
+      esc(o.type||o.localType||o.name||'–'),
       esc(validity),contracts,edit('objects',o.id)+`<button type="button" class="property-list-toggle object-expand" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj detaljer för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button>`
     ];
-    return `<tbody data-row-group="${esc(o.id)}">${row(cells,{2:Number(o.area)||0})}<tr data-group-detail id="${esc(detailId)}" hidden><td colspan="6"><div class="object-details"><p>${esc(title)} · ${num(o.area)} m²</p><dl><div><dt>Fastighet</dt><dd>${esc(propertyReference(data.properties.find(p=>p.id===o.propertyId)))}</dd></div><div><dt>Giltighet</dt><dd>${esc(validity)}</dd></div><div><dt>Avtal</dt><dd>${contracts}</dd></div></dl><div class="actions"><button type="button" class="text-button" data-edit="objects" data-id="${esc(o.id)}">Visa objekt</button><button type="button" class="edit-text-action" data-edit-action data-edit="objects" data-id="${esc(o.id)}" data-edit-mode="edit">Redigera</button></div></div></td></tr></tbody>`;
+    return `<tbody data-row-group="${esc(o.id)}">${row(cells,{})}<tr data-group-detail id="${esc(detailId)}" hidden><td colspan="7"><div class="object-details"><p>${esc(title)} · ${num(o.area)} m²</p><dl><div><dt>Fastighet</dt><dd>${esc(propertyReference(data.properties.find(p=>p.id===o.propertyId)))}</dd></div><div><dt>Giltighet</dt><dd>${esc(validity)}</dd></div><div><dt>Avtal</dt><dd>${contracts}</dd></div></dl><div class="actions"><button type="button" class="text-button" data-edit="objects" data-id="${esc(o.id)}">Visa objekt</button><button type="button" class="edit-text-action" data-edit-action data-edit="objects" data-id="${esc(o.id)}" data-edit-mode="edit">Redigera</button></div></div></td></tr></tbody>`;
   });
-  const list=(objects,key,title)=>table(['Objekt','Fastighet','Objektarea','Giltighet','Avtal',''],rows(objects,key),true,title,true,{key,noun:'objekt',groupClass:'object-list'});
+  const list=(objects,key,title)=>table(['Objektnr','Fastighet','Adress','Lokaltyp','Giltighet','Avtal',''],rows(objects,key),true,title,true,{key,noun:'objekt',groupClass:'object-list'});
   const history=ui.portfolioView?(view.allObjects||[]).filter(o=>!view.objects.includes(o)):[];
   return `<div class="section-title"><h2>Objekt</h2><button data-new-object>Nytt objekt</button></div>${list(view.objects||[],'objects','Gällande objekt')}${history.length?`<details class="portfolio-record-history"><summary>Tidigare och kommande objekt · ${history.length}</summary>${list(history,'objects-history','Tidigare och kommande objekt')}</details>`:''}`;
 }
