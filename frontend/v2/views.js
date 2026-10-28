@@ -18,7 +18,15 @@ export function filters(data, s, dashboardMode, presentation = {}) {
   const chip=(key,caption,items,value,label,selected,binding='data-filter')=>{
     const name=items.find(item=>String(value(item))===String(selected));
     const selectedName=name?label(name):selected;
-    return `<label class="filter-chip${selected?' is-selected':''}"><span class="filter-caption">${esc(caption)}</span><span class="filter-value" aria-hidden="true">${esc(selected?selectedName:caption)}</span><select aria-label="${esc(caption)}" ${binding}="${key}">${options(items,value,label,selected,caption)}</select></label>`;
+    // Desktop keeps its established label; mobile uses an inline short label
+    // plus the full selected value. The native select remains the one control.
+    const shortCaption={
+      'Fastighetsansvarig':'F.ansv.','Organisatoriskt område':'Område',
+      'Fastighetsägare':'Ägare','Ärendeansvarig':'Är.ansv.',
+      'Ansvarig':'Ansv.','Typ':'Typ','Status':'Status'
+    }[caption]||caption;
+    const mobileValue=selected?selectedName:'Alla';
+    return `<label class="filter-chip${selected?' is-selected':''}" title="${esc(caption+': '+mobileValue)}"><span class="filter-caption">${esc(caption)}</span><span class="filter-value" aria-hidden="true">${esc(selected?selectedName:caption)}</span><span class="filter-mobile-inline" aria-hidden="true"><span class="filter-mobile-caption">${esc(shortCaption)}:</span><span class="filter-mobile-selected">${esc(mobileValue)}</span></span><select aria-label="${esc(caption)}" ${binding}="${key}">${options(items,value,label,selected,caption)}</select></label>`;
   };
   const contextFilters=(presentation.contextFilters||[]).map(filter=>chip(filter.key,filter.caption,filter.items,x=>x.id,x=>x.label,filter.selected,'data-portfolio-issue')).join('');
   const modeButtons = dashboardMode !== undefined ? [["person","Medarbetare"],["unit","Organisatoriskt område"],["owner","Fastighetsägare"]].map(([key,label]) => `<button type="button" class="filter-chip dashboard-mode-button${dashboardMode===key?" active":""}" data-dashboard-mode="${key}" aria-pressed="${dashboardMode===key}">${label}</button>`).join("") : null;
@@ -66,7 +74,7 @@ function summaryCards(cards) {
   return `<div class="summary">${cards
     .map(
       ([label, value, foot, detail]) =>
-        `<div${foot ? ` title="${esc(foot)}"` : ""}><span>${label}</span><strong>${value}</strong>${detail?`<span class="summary-explanation">${esc(detail)}</span>`:''}${foot ? `<span class="visually-hidden">${esc(foot)}</span>` : ""}</div>`,
+        `<div${foot ? ` title="${esc(foot)}"` : ""}><span class="summary-label"><span class="summary-full-label">${label}</span><span class="summary-compact-label" aria-hidden="true">${esc(({'Bedömd kostnad':'Bedömd','Utan ansvarig':'Utan ansv.','Gällande avtal':'Avtal','Fastigheter':'Fastigheter','Hyra / kvm':'Kr/m²'})[label]||label.replace(/^Planerade\s+\d{4}$/,'Planerade').replace(/^Total hyra\s+\d{4}$/,'Årshyra'))}</span></span><strong>${value}</strong>${detail?`<span class="summary-explanation">${esc(detail)}</span>`:''}${foot ? `<span class="visually-hidden">${esc(foot)}</span>` : ""}</div>`,
     )
     .join("")}</div>`;
 }

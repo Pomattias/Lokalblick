@@ -28,15 +28,9 @@ export const table = (head, rows, interactive = false, heading = "", grouped = f
   const portfolio=Boolean(presentation.key),noun=presentation.noun||'poster';
   // Keep sortable native columns on desktop, but show only the most useful
   // sorting actions as two rows of chips on mobile in every portfolio register.
-  const mobileSortByRegister={
-    properties:[0,1,2,3,4,5],
-    contracts:[0,2,3,4,5,6],
-    activities:[0,1,3,4,5],
-    objects:[0,1,2,3,4],
-    'objects-history':[0,1,2,3,4],
-    'contracts-history':[0,1,2,3,4]
-  };
-  const mobileSortColumns=mobileSortByRegister[presentation.key]||head.map((x,i)=>x?i:-1).filter(i=>i>=0).slice(0,6);
+  // The entire set of sortable columns is reachable in the swipeable
+  // mobile carousel. Action columns remain hidden, not sortable.
+  const mobileSortColumns=head.map((x,i)=>x&&i<head.length-1?i:-1).filter(i=>i>=0);
   const compactSortLabel = name => String(name)
     .replace(/\s+\d{4}$/,'')
     .replace(/^Ansvarig hos oss$/,'Ansvarig')

@@ -4563,3 +4563,256 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
     display:inline;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
 }
+
+
+/* Mobile density v4: six filters = 3 columns x 2 rows, with search/actions
+   on the third row; one-line KPI tiles and a one-row swipeable sort carousel.
+   The same rules cover all shared portfolio registers in Vercel. */
+.filter-mobile-inline,.summary-compact-label {display:none;}
+@media(max-width:700px) {
+  body:not([data-view="budget"]) #filters .filters,
+  #filters .filters {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:4px;
+    align-items:stretch;
+    min-width:0;
+  }
+  /* Cancel the old two-column special third-chip span. */
+  body:not([data-view="budget"]) #filters .filters>.filter-chip:nth-child(3),
+  body[data-view="overview"] #filters .dashboard-mode-filters>.dashboard-mode-button:nth-child(3) {
+    grid-column:auto;
+  }
+  body:not([data-view="budget"]) #filters .filters>.filter-chip,
+  #filters .filters>.filter-chip,
+  body[data-view="overview"] #filters .dashboard-mode-filters>.dashboard-mode-button {
+    box-sizing:border-box;
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    justify-content:center;
+    gap:0;
+    height:34px;
+    min-height:34px;
+    min-width:0;
+    padding:4px 5px;
+    margin:0;
+    border-radius:7px;
+    font-size:10px;
+    line-height:1;
+    white-space:nowrap;
+    overflow:hidden;
+  }
+  #filters .filters .filter-chip .filter-caption,
+  #filters .filters .filter-chip .filter-value {
+    display:none;
+  }
+  #filters .filters .filter-chip .filter-mobile-inline {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:3px;
+    width:100%;
+    min-width:0;
+    white-space:nowrap;
+    line-height:1.1;
+    pointer-events:none;
+  }
+  #filters .filters .filter-chip .filter-mobile-caption {
+    flex:none;
+    color:var(--muted);
+    font-size:10px;
+    font-weight:500;
+  }
+  #filters .filters .filter-chip .filter-mobile-selected {
+    flex:0 1 auto;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:var(--ink);
+    font-weight:650;
+    font-size:10px;
+  }
+  #filters .filters .filter-chip select {font-size:16px;}
+  #filters .filters>.ui-search-action-row {
+    grid-column:1/-1;
+    grid-row:auto;
+    flex-wrap:nowrap;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+    height:36px;
+  }
+  #filters .ui-search-action-row .search.ui-search {
+    flex:1 1 auto;
+    min-width:0;
+  }
+  #filters .search.ui-search input {
+    box-sizing:border-box;
+    height:36px;
+    min-height:36px;
+    padding-block:5px;
+    font-size:14px;
+  }
+  #filters .ui-filter-actions-slot {
+    flex:0 0 auto;
+    max-width:42%;
+    min-width:0;
+  }
+  #filters .ui-global-actions {
+    gap:4px;
+    flex-wrap:nowrap;
+  }
+  #filters .ui-global-actions>button {
+    box-sizing:border-box;
+    min-height:36px;
+    height:36px;
+    padding:5px 8px;
+    font-size:11px;
+    white-space:nowrap;
+  }
+  #filters:not([hidden]) {
+    padding:3px 0 4px;
+    margin:0;
+  }
+
+  /* KPI: keep the caption and its value together on a single baseline.
+     A short mobile caption leaves enough space for the actual number. */
+  #summary .summary,
+  body[data-view="overview"] #summary .summary,
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    margin:5px 0 7px!important;
+    padding:0;
+    gap:0;
+    align-items:stretch;
+  }
+  #summary .summary>div,
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary>div {
+    box-sizing:border-box;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-content:center;
+    align-items:center;
+    column-gap:5px;
+    row-gap:1px;
+    padding:5px 7px!important;
+    min-height:35px!important;
+    min-width:0;
+    overflow:hidden;
+    border-right:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  #summary .summary>div:nth-child(2n) {border-right:0!important;}
+  #summary .summary>div:nth-last-child(-n+2) {border-bottom:0!important;}
+  #summary .summary>div>.summary-label {
+    display:block;
+    min-width:0;
+    font-size:10px!important;
+    font-weight:450;
+    line-height:1.15;
+    color:var(--muted);
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  #summary .summary .summary-full-label {display:none;}
+  #summary .summary .summary-compact-label {display:inline;}
+  #summary .summary>div>strong,
+  body:is([data-view="properties"],[data-view="contracts"],[data-view="objects"],[data-view="activities"]) #summary .summary strong {
+    display:block;
+    min-width:0;
+    max-width:100%;
+    margin:0;
+    font-weight:750;
+    font-size:14px!important;
+    line-height:1.1;
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+    text-align:right;
+    overflow:visible;
+    text-overflow:clip;
+  }
+  #summary .summary>div>.summary-explanation {
+    grid-column:1/-1;
+    margin:0;
+    max-height:12px;
+    font-size:9px!important;
+    line-height:1.2;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    -webkit-line-clamp:unset;
+    display:block;
+  }
+
+  /* Keep a single sortable header row, swipe horizontally to reach all
+     columns rather than adding two extra rows above the first record. */
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child {
+    display:flex;
+    flex-direction:row;
+    flex-wrap:nowrap;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    gap:6px;
+    align-items:center;
+    overflow-x:auto;
+    overflow-y:hidden;
+    overscroll-behavior-inline:contain;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+    scrollbar-width:none;
+    border-top:1px solid var(--line);
+    padding:5px 10px;
+    background:var(--paper);
+  }
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child::-webkit-scrollbar {display:none;}
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"]{
+    display:block;
+    flex:0 0 auto;
+    width:auto;
+    min-width:0;
+    padding:0;
+    scroll-snap-align:start;
+  }
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child > th:not([data-mobile-sort="true"]) {display:none;}
+  .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"]>.column-sort{
+    box-sizing:border-box;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 auto;
+    gap:4px;
+    height:30px;
+    min-height:30px;
+    width:auto;
+    min-width:78px;
+    max-width:none;
+    padding:4px 9px;
+    border-radius:7px;
+    font-size:11px;
+    white-space:nowrap;
+    overflow:visible;
+  }
+  .portfolio-list > table[data-smart-table] .column-sort .sort-short-label {
+    display:inline;
+    overflow:visible;
+    text-overflow:clip;
+    white-space:nowrap;
+    flex:none;
+  }
+  .portfolio-list > table[data-smart-table] .column-sort .sort-full-label {display:none;}
+  .portfolio-list .compact-table-heading {
+    min-height:32px;
+    padding:5px 10px;
+  }
+}
+@media(max-width:355px){
+  #summary .summary>div {column-gap:3px;padding:5px!important;}
+  #summary .summary>div>strong {font-size:12px!important;}
+  #filters .filters .filter-chip .filter-mobile-caption,
+  #filters .filters .filter-chip .filter-mobile-selected {font-size:9px;}
+}
