@@ -55,16 +55,21 @@ function activityRows(data, items, portfolio=false) {
     const property = propertyById(data, x.propertyId);
     const notes=(data.auditLog||[]).filter(h=>h.collection==="activities"&&String(h.recordId)===String(x.record.id)&&h.action==="Journalanteckning").sort((a,b)=>String(b.at||"").localeCompare(String(a.at||"")));
     const latest=notes[0];
-    const date=latest?.at&&!Number.isNaN(Date.parse(latest.at))?isoDate(latest.at):null;
+    const noteText=(latest?.fields||[]).filter(f=>["comment","note","journal"].includes(f.field)).map(f=>String(f.to||"").trim()).filter(Boolean).join(" · ");
+    const noteButton=noteText
+      ? `<button type="button" class="text-button activity-latest-note" data-open-activity-journal="${esc(x.record.id)}" title="${esc(noteText)}" aria-label="Öppna senaste noteringen: ${esc(noteText)}">${esc(noteText)}</button>`
+      : `<button type="button" class="text-button activity-latest-note" data-open-activity-journal="${esc(x.record.id)}">${notes.length?"Visa noteringar":"Lägg till notering"}</button>`;
     return row([
-      `<strong><button type="button" class="text-button" data-edit="activities" data-id="${esc(x.record.id)}">${esc(x.title)}</button></strong><small>${esc(x.label)} · <button type="button" class="activity-note-link" data-open-activity-journal="${esc(x.record.id)}">Noteringar (${notes.length})${date?" · "+date:""}</button></small>`,
+      `<strong><button type="button" class="text-button" data-edit="activities" data-id="${esc(x.record.id)}">${esc(x.title)}</button></strong>`,
+      esc(x.label||x.record.type||"–"),
       portfolio&&issueNeedsLink(x.record)?badge("Att koppla"):esc(propertyDesignation(property) || (property ? "Beteckning saknas" : "Ej kopplad")),
       propertyAddressCell(property),
       esc(personLabel(data, responsible(data, x.collection, x.record))),
       badge(x.record.status),
       money(x.cost),
+      noteButton,
       edit(x.collection, x.record.id),
-    ],portfolio?{5:x.cost}:{});
+    ],portfolio?{6:x.cost}:{});
   });
 }
 function contactNames(data, type, record, role, fallback) {
@@ -155,7 +160,7 @@ export function overview(data, s, ui) {
     }
   } else
     body = table(
-      ["Ärende", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", ""],
+      ["Ärende", "Typ", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", "Noteringar", ""],
       activityRows(
         data,
         v.items.filter((x) => ui.perspective === "Ärenden" &&
