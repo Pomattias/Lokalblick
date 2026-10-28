@@ -1,7 +1,7 @@
 // View entry point. Keep rendering separate from navigation and persistence.
 import {organizationLabel,esc,options,internalPeople,units,calc,num,money} from "./view-format.js";
 import {responsible,scope} from "./model.js";
-import {rentalTotals,contractPeriodCounts} from "./portfolio-context.js";
+import {rentalTotals,contractPeriodCounts,contractPhase} from "./portfolio-context.js";
 import {buildPortfolioInsights} from "./portfolio-dashboard.js";
 import {scopedBudgetRows} from "./view-budget.js";
 export function filters(data, s, dashboardMode, presentation = {}) {
@@ -84,9 +84,12 @@ export function summary(data, s, year, ui = {}) {
   const periodNote=`Gällande enligt registrerad avtals- och objekttid per ${counts.at}. Avtal utan datum räknas som gällande om objektets period tillåter det.`;
   const periodDetail=`${num(counts.past)} tidigare · ${num(counts.future)} kommande`;
   const phase=ui.contractPhase||'current';
+  const isContractPhaseView=ui.view==='contracts'&&Boolean(ui.portfolioView);
+  const phaseContracts=isContractPhaseView?(view.allContracts||view.contracts).filter(contract=>contractPhase(data,contract)===phase):view.contracts;
+  const phaseLabel={current:'Gällande avtal',past:'Tidigare avtal',future:'Kommande avtal'}[phase]||'Gällande avtal';
   const phaseChips=ui.view==='contracts'&&ui.portfolioView?`<span class="contract-phase-chips" role="group" aria-label="Visa avtal efter period">${[['current','Gällande',counts.current],['past','Tidigare',counts.past],['future','Kommande',counts.future]].map(([id,label,count])=>`<button type="button" data-contract-phase-select="${id}" class="contract-phase-chip${phase===id?' active':''}" aria-pressed="${phase===id}">${label} ${num(count)}</button>`).join('')}</span>`:'';
   const agreementCard=ui.portfolioView
-    ? ['Gällande avtal',num(view.contracts.length),periodNote,phaseChips||`${num(counts.total)} totalt · ${periodDetail}`]
+    ? [isContractPhaseView?phaseLabel:'Gällande avtal',num(phaseContracts.length),periodNote,phaseChips||`${num(counts.total)} totalt · ${periodDetail}`]
     : ['Avtal totalt',num(view.contracts.length),periodNote,`${num(counts.current)} gällande · ${periodDetail}`];
   const perspective =
     ui.view === "contracts" ? "Avtal"
@@ -94,7 +97,7 @@ export function summary(data, s, year, ui = {}) {
     : ui.view === "properties" ? "Fastigheter"
     : ui.view === "activities" ? "Ärenden"
     : ui.perspective || "Fastigheter";
-  const rent = ui.portfolioView ? rentalTotals(data,view.contracts,year) : rentMetrics(data, view.contracts, year);
+  const rent = ui.portfolioView ? rentalTotals(data,phaseContracts,year) : rentMetrics(data, view.contracts, year);
   if(ui.view==='objects')return summaryCards([
     ['Objekt',num((view.objects||[]).length)],
     ['Fastigheter',num(view.properties.length)],
