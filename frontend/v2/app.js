@@ -95,6 +95,7 @@ const ui = {
   year: new Date().getFullYear() + 1,
   settingsYear: new Date().getFullYear(),
   contractId: "",
+  contractPhase: "current",
   showScopedFilters: false,
   unassigned: false,
   unassignedHome: false,
@@ -1094,6 +1095,12 @@ document.addEventListener("keydown", event => {
 });
 document.addEventListener("click", (event) =>
   run(async () => {
+    const phaseButton=event.target.closest('[data-contract-phase-select]');
+    if(phaseButton&&ui.view==='contracts'){
+      const phase=phaseButton.dataset.contractPhaseSelect;
+      if(['current','past','future'].includes(phase)){ui.contractPhase=phase;render();}
+      return;
+    }
     const group=event.target.closest("[data-dashboard-group]");
     const property=event.target.closest("[data-dashboard-property]");
     if (ui.view==="overview" && property?.dataset.dashboardProperty) {

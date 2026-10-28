@@ -145,28 +145,16 @@ export function overview(data, s, ui) {
       ui.portfolioView?{key:"properties",noun:"fastigheter"}:{},
     );
   } else if (ui.perspective === "Avtal") {
-    body = table(
+    const phase=ui.contractPhase||'current';
+    const all=ui.portfolioView?(v.allContracts||v.contracts):v.contracts;
+    const selected=ui.portfolioView?all.filter(c=>contractPhase(data,c)===phase):all;
+    const phaseName={current:'Gällande',past:'Tidigare',future:'Kommande'}[phase]||'Gällande';
+    body=table(
       ["Fastighet", "Fastighetsnr", "Adress", "Fastighetsägare", "Ansvarig", "Verksamhet", "Verksamhetsbeskrivning", "Ärenden", "Avtal", `Årshyra ${ui.year}`, "Hyra kr/m²", `Tillägg ${ui.year}`, "Tillägg kr/m²", "Kvm", "Fr.o.m.", "T.o.m.", "Uppsägningstid", "Säg upp senast", "FastID", ""],
-      contractRows(data, v.contracts, ui.year, Boolean(ui.portfolioView)),
-      true,
-      ui.portfolioView?"Gällande avtal":"Avtal",
+      contractRows(data,selected,ui.year,Boolean(ui.portfolioView)),
+      true,ui.portfolioView?phaseName+" avtal":"Avtal",
       false,ui.portfolioView?{key:"contracts",noun:"avtal"}:{},
     );
-    if(ui.portfolioView){
-      // All three phases share the same full contract table and its column layout.
-      // The phase is evaluated by the canonical contractPhase helper.
-      const all=v.allContracts||v.contracts;
-      const phases=[['current','Gällande'],['past','Tidigare'],['future','Kommande']];
-      const phaseRows=phases.map(([phase,label])=>{
-        const contracts=all.filter(contract=>contractPhase(data,contract)===phase);
-        if(phase==='current')return '';
-        return `<details class="portfolio-contract-history" data-contract-phase="${phase}"><summary>${label} avtal · ${contracts.length}</summary>${table(
-          ["Fastighet", "Fastighetsnr", "Adress", "Fastighetsägare", "Ansvarig", "Verksamhet", "Verksamhetsbeskrivning", "Ärenden", "Avtal", `Årshyra ${ui.year}`, "Hyra kr/m²", `Tillägg ${ui.year}`, "Tillägg kr/m²", "Kvm", "Fr.o.m.", "T.o.m.", "Uppsägningstid", "Säg upp senast", "FastID", ""],
-          contractRows(data,contracts,ui.year,true),true,label+" avtal",false,{key:"contracts-"+phase,noun:"avtal"}
-        )}</details>`;
-      }).join('');
-      body+=phaseRows;
-    }
   } else
     body = table(
       ["Ärende", "Typ", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", "Noteringar", "FastNr", "FastID", ""],

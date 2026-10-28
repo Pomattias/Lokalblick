@@ -74,7 +74,7 @@ function summaryCards(cards) {
   return `<div class="summary">${cards
     .map(
       ([label, value, foot, detail]) =>
-        `<div${foot ? ` title="${esc(foot)}"` : ""}><span class="summary-label"><span class="summary-full-label">${label}</span><span class="summary-compact-label" aria-hidden="true">${esc(({'Bedömd kostnad':'Bedömd','Utan ansvarig':'Utan ansv.','Gällande avtal':'Avtal','Fastigheter':'Fastigheter','Hyra / kvm':'Kr/m²'})[label]||label.replace(/^Planerade\s+\d{4}$/,'Planerade').replace(/^Total hyra\s+\d{4}$/,'Årshyra'))}</span></span><strong>${value}</strong>${detail?`<span class="summary-explanation">${esc(detail)}</span>`:''}${foot ? `<span class="visually-hidden">${esc(foot)}</span>` : ""}</div>`,
+        `<div${foot ? ` title="${esc(foot)}"` : ""}><span class="summary-label"><span class="summary-full-label">${label}</span><span class="summary-compact-label" aria-hidden="true">${esc(({'Bedömd kostnad':'Bedömd','Utan ansvarig':'Utan ansv.','Gällande avtal':'Avtal','Fastigheter':'Fastigheter','Hyra / kvm':'Kr/m²'})[label]||label.replace(/^Planerade\s+\d{4}$/,'Planerade').replace(/^Total hyra\s+\d{4}$/,'Årshyra'))}</span></span><strong>${value}</strong>${detail?`<span class="summary-explanation">${detail}</span>`:''}${foot ? `<span class="visually-hidden">${esc(foot)}</span>` : ""}</div>`,
     )
     .join("")}</div>`;
 }
@@ -83,8 +83,10 @@ export function summary(data, s, year, ui = {}) {
   const counts=contractPeriodCounts(data,view.allContracts||view.contracts);
   const periodNote=`Gällande enligt registrerad avtals- och objekttid per ${counts.at}. Avtal utan datum räknas som gällande om objektets period tillåter det.`;
   const periodDetail=`${num(counts.past)} tidigare · ${num(counts.future)} kommande`;
+  const phase=ui.contractPhase||'current';
+  const phaseChips=ui.view==='contracts'&&ui.portfolioView?`<span class="contract-phase-chips" role="group" aria-label="Visa avtal efter period">${[['current','Gällande',counts.current],['past','Tidigare',counts.past],['future','Kommande',counts.future]].map(([id,label,count])=>`<button type="button" data-contract-phase-select="${id}" class="contract-phase-chip${phase===id?' active':''}" aria-pressed="${phase===id}">${label} ${num(count)}</button>`).join('')}</span>`:'';
   const agreementCard=ui.portfolioView
-    ? ['Gällande avtal',num(view.contracts.length),periodNote,`${num(counts.total)} totalt · ${periodDetail}`]
+    ? ['Gällande avtal',num(view.contracts.length),periodNote,phaseChips||`${num(counts.total)} totalt · ${periodDetail}`]
     : ['Avtal totalt',num(view.contracts.length),periodNote,`${num(counts.current)} gällande · ${periodDetail}`];
   const perspective =
     ui.view === "contracts" ? "Avtal"

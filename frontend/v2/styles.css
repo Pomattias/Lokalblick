@@ -4988,3 +4988,6 @@ body[data-view="activities"] #filters .filters>.filter-chip:not(.is-selected) .f
 
 /* Grouped chooser: show only catalog-backed columns for the current register. */
 .column-layout-group{border-bottom:1px solid var(--line,#e2e8e5);margin:2px 0}.column-layout-group-heading{width:100%;text-align:left;display:block;padding:8px 5px;font-weight:650;background:transparent;border:0;cursor:pointer}.column-layout-group-fields[hidden],.column-layout-group[hidden],.column-layout-group-fields label[hidden]{display:none!important}.column-layout-group-fields{padding:2px 4px 8px 12px}.column-layout-group-fields label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:5px 3px}.column-layout-group-fields label input{flex:0 0 auto;margin-left:auto}
+
+/* Contract period selector in the existing KPI card */
+.contract-phase-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}.contract-phase-chip{font:inherit;font-size:11px;border:1px solid #cddbd4;background:#fff;color:#245b4d;border-radius:999px;padding:4px 9px;cursor:pointer}.contract-phase-chip.active{background:#216b58;color:#fff;border-color:#216b58;font-weight:650}.contract-phase-chip:hover{border-color:#216b58}
