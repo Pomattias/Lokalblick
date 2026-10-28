@@ -86,8 +86,8 @@ export function planning(data, s, ui) {
         ${eco.rentFinanced?`<label>Hyrespåslag från<input type="date" data-plan-rent-start="${esc(a.id)}" value="${esc(a.rentSurchargeStartDate||"")}" aria-label="Hyrespåslag från för ${esc(x.title)}"></label><small>Hyresfinansierad investering – redovisas inte som direkt budgetkostnad.</small>`:""}
       </div>`;
     }).join("")||"<p>Inga ärenden att budgetstyra i urvalet.</p>"}</div></details>`;
-  return `${planHeader}${types}${mobileActions}${mobileList}${timelineBody||`<div class="plan-desktop-list">`+table(
-    ["Ärende / ansvar", "Fastighet", "Adress", "Hemvist", "Ansvarig hos oss", "Datum", "Kostnad", ""],
+  return `${planHeader}<div class="plan-filter-toolbar">${types}${mobileActions}</div>${mobileList}${timelineBody||`<div class="plan-desktop-list">`+table(
+    ["Ärende / ansvar", "Fastighet", "Adress", "Hemvist", "Lokalsamordnare", "Datum", "Kostnad", ""],
     items.map((x) =>
       row([
         `<strong>${esc(x.title)}</strong><small>${esc(x.label)}</small>${x.collection==="activities"&&x.record.actionKind ? `<small>${x.record.actionKind==="value_enhancing"?"Värdehöjande":"Utbyte 1:1"}</small>` : ""}`,
@@ -114,13 +114,7 @@ export function planning(data, s, ui) {
             x.record.scopeType==="unit"&&x.record.unitId?"unit:"+x.record.unitId:
             x.record.scopeType==="general"?"general":"","Ej fördelad")}</select>`
           : "<small>Fastighet</small>",
-        `<select aria-label="Ansvarig för ${esc(x.title)}" data-assign="${x.collection}" data-id="${esc(x.record.id)}">${options(
-          internalPeople(data),
-          (p) => p.id,
-          (p) => p.name,
-          responsible(data, x.collection, x.record),
-          "Ej fördelat",
-        )}</select>`,
+        `<span class="plan-coordinator" title="Ändra lokalsamordnare via Redigera">${esc(personLabel(data,responsible(data,x.collection,x.record))||"Ej fördelat")}</span>`,
         x.collection === "activities"
           ? `<span class="plan-date-range">${x.record.startDate || x.record.endDate ? esc(x.record.startDate || "–") + " → " + esc(x.record.endDate || "–") : "Ej tidsatt"}</span>`
           : "<small>Löpande fastighetsansvar</small>",
