@@ -5065,3 +5065,9 @@ body[data-view="plan"] .plan-desktop-list td,body[data-view="plan"] .plan-deskto
 body[data-view="plan"] .plan-desktop-list td:first-child strong{display:block}
 body[data-view="plan"] .plan-coordinator{font-size:12px;white-space:nowrap}
 @media(max-width:700px){body[data-view="plan"] .plan-filter-toolbar{gap:6px;margin:5px 0 8px}body[data-view="plan"] .plan-filter-toolbar .issue-type-filters{gap:5px;margin:0;min-width:0}body[data-view="plan"] .plan-filter-toolbar .issue-type-filters button,body[data-view="plan"] .plan-filter-toolbar .plan-mobile-actions .actions button{min-height:34px;height:34px;border-radius:10px;padding:6px 10px;font-size:12px}body[data-view="plan"] .plan-filter-toolbar .plan-mobile-actions{flex:0 0 auto;margin:0}body[data-view="plan"] .plan-filter-toolbar .plan-mobile-actions>.actions{gap:4px}body[data-view="plan"] .plan-filter-toolbar button[data-new-issue]{display:none}}
+
+/* Unified compact filter-chip appearance throughout Lokalblick. */
+#filters .filters .filter-chip,#filters .filters .dashboard-mode-button{box-sizing:border-box;border:1px solid var(--line,#d8e1dc);border-radius:9px;background:var(--paper,#fff);color:var(--ink);box-shadow:none}
+#filters .filters .dashboard-mode-button[aria-pressed="true"]{background:var(--accent,#176655);border-color:var(--accent,#176655);color:#fff}
+body[data-view="plan"] .plan-filter-toolbar .issue-type-filters button,body[data-view="plan"] .plan-filter-toolbar .plan-mobile-actions .actions button{border-radius:9px}
+@media(max-width:700px){#filters .filters .filter-chip,#filters .filters .dashboard-mode-button{border-radius:9px}#filters .dashboard-mode-filters .dashboard-mode-button .dashboard-mode-compact{font-size:10px;letter-spacing:-.02em}}

@@ -453,7 +453,7 @@ function render() {
   const viewUi=portfolioView?{...ui,portfolioView}:ui;
   const searchLabels={properties:'Sök fastigheter eller avtal',map:'Sök fastigheter eller avtal',contracts:'Sök avtal eller hyresgäst',objects:'Sök objekt, fastighet eller avtal',activities:'Sök ärenden'};
   filterArea.innerHTML = filterState.show ? filters(data, portfolioView?{...selection,q:local.q}:selection, ui.view === "overview" ? ui.dashboardMode : undefined,
-    portfolioView?{personLabel:'Fastighetsansvarig',searchLabel:searchLabels[ui.view],searchView:local.view,placeholder:searchLabels[ui.view],contextFilters:ui.view==="activities"?[
+    portfolioView?{personLabel:'Lokalsamordnare',searchLabel:searchLabels[ui.view],searchView:local.view,placeholder:searchLabels[ui.view],contextFilters:ui.view==="activities"?[
       {key:'type',caption:'Typ',selected:ui.issueType,items:[{id:'Alla',label:'Alla typer'},...[...new Set([...activityChoices(data,'type').map(row=>row.value),...(data.activities||[]).map(row=>row.type).filter(Boolean)])].map(value=>({id:value,label:value}))]},
       {key:'status',caption:'Status',selected:issueFilters.status,items:[{id:'open',label:'Öppna'},{id:'all',label:'Alla statusar'},{id:'closed',label:'Avslutade'},{id:'unlinked',label:'Att koppla'}]},
       {key:'person',caption:'Ärendeansvarig',selected:issueFilters.person,items:data.people.map(row=>({id:row.id,label:row.name}))}
