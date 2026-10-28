@@ -1,3 +1,10 @@
+export const partyAffiliation = type => {
+ const value=String(type||"").trim().toLocaleLowerCase("sv");
+ if(["owner","fastighetsägare","landlord"].includes(value))return "Fastighetsägare";
+ if(["our","vi","lokalsamordnare","manager","management"].includes(value))return "Lokalsamordnare";
+ if(["tenant","hyresgäst","business"].includes(value))return "Hyresgäst";
+ return "Ej klassificerad";
+};
 import {createBusinessLabels} from '../lokaler/business-identities.js';
 // Import review, source priorities and receipts. Saving remains in the transport.
 import {propertyLabel,organizationLabel,personLabel,num,esc,money,propertyDesignation,propertyAddress,table,row,edit} from "./view-format.js";
@@ -361,22 +368,24 @@ export function sources(data, transport) {
     ),
   )}</details>`;
 }
-export function organization(data,{partyId="",query="",mode="people"}={}) {
+export function organization(data,{partyId="",query="",mode="people",affiliation=""}={}) {
   const parties=data.organizations||[],people=data.people||[];
   const selected=parties.some(p=>p.id===partyId)?partyId:"";
   const search=String(query||"").trim().toLocaleLowerCase("sv");
-  const visible=people.filter(p=>(!selected||p.organizationId===selected)&&
+  const matchingParty=p=>!affiliation||partyAffiliation(p?.type)===affiliation;
+  const visible=people.filter(p=>(!selected||p.organizationId===selected)&&matchingParty(parties.find(o=>o.id===p.organizationId))&&
     (!search||[p.name,p.role,p.phone,p.email,parties.find(o=>o.id===p.organizationId)?.name].join(" ").toLocaleLowerCase("sv").includes(search)));
   const partyName=id=>parties.find(p=>p.id===id)?.name||"Ingen part kopplad";
   const partyMatches=p=>!search||[p.name,p.organizationNumber,p.type].join(" ").toLocaleLowerCase("sv").includes(search);
-  const visibleParties=parties.filter(p=>(!selected||p.id===selected)&&partyMatches(p));
+  const visibleParties=parties.filter(p=>(!selected||p.id===selected)&&matchingParty(p)&&partyMatches(p));
   return `<div class="section-title people-title"><h2>Personer och parter</h2><div class="people-actions">${edit("people","","Lägg till person")}${edit("organizations","","Lägg till part")}${edit("assignments","","Tilldela ansvar")}</div></div>
   <div class="people-register-modes" role="group" aria-label="Visa register"><button type="button" data-people-mode="people" class="${mode==="people"?"active":""}" aria-pressed="${mode==="people"}">Personer (${people.length})</button><button type="button" data-people-mode="parties" class="${mode==="parties"?"active":""}" aria-pressed="${mode==="parties"}">Parter / företag (${parties.length})</button></div>
-  <div class="people-register-tools"><label>Part<select data-people-party-filter><option value="">Alla parter</option>${[...parties].sort((a,b)=>a.name.localeCompare(b.name,"sv")).map(p=>`<option value="${esc(p.id)}"${selected===p.id?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>
-  <label>Sök person<input type="search" data-people-query value="${esc(query)}" placeholder="Namn, befattning, telefon…"></label></div>
+  <div class="people-affiliation-filters" role="group" aria-label="Filtrera på tillhörighet">${["Alla","Hyresgäst","Lokalsamordnare","Fastighetsägare"].map(t=>`<button type="button" data-people-affiliation="${t==="Alla"?"":esc(t)}" class="${(affiliation||"")===(t==="Alla"?"":t)?"active":""}" aria-pressed="${(affiliation||"")===(t==="Alla"?"":t)}">${t}</button>`).join("")}</div>
+  <div class="people-register-tools"><label>Part<select data-people-party-filter><option value="">Alla parter</option>${[...parties].filter(matchingParty).sort((a,b)=>a.name.localeCompare(b.name,"sv")).map(p=>`<option value="${esc(p.id)}"${selected===p.id?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>
+  <label>Sök person eller part<input type="search" data-people-query value="${esc(query)}" placeholder="Namn, befattning, telefon…"></label></div>
   <div class="people-register-count">${mode==="parties"?`${visibleParties.length} av ${parties.length} parter`:`${visible.length} av ${people.length} personer`}${selected?` · ${esc(partyName(selected))}`:""}</div>
-  <div class="people-register-list">${mode==="parties"?visibleParties.map(p=>`<article class="people-register-item"><div class="people-register-primary"><strong>${esc(p.name)}</strong><small>${esc(p.organizationNumber||p.type||"Part / organisation")}</small><small>${people.filter(person=>person.organizationId===p.id).length} kopplade personer</small></div><div class="people-register-secondary"><div class="people-register-edit">${edit("organizations",p.id)}</div></div></article>`).join("")||'<p class="muted">Inga parter matchar urvalet.</p>':visible.map(p=>`<article class="people-register-item">
-    <div class="people-register-primary"><strong>${esc(p.name)}</strong><small>${esc(p.role||"Ingen befattning")}</small><small>${esc(partyName(p.organizationId))}</small></div>
+  <div class="people-register-list">${mode==="parties"?visibleParties.map(p=>`<article class="people-register-item"><div class="people-register-primary"><strong>${esc(p.name)}</strong><small>${esc(partyAffiliation(p.type))} · ${esc(p.organizationNumber||"Organisationsnummer saknas")}</small><small>${people.filter(person=>person.organizationId===p.id).length} kopplade personer</small></div><div class="people-register-secondary"><div class="people-register-edit">${edit("organizations",p.id)}</div></div></article>`).join("")||'<p class="muted">Inga parter matchar urvalet.</p>':visible.map(p=>`<article class="people-register-item">
+    <div class="people-register-primary"><strong>${esc(p.name)}</strong><small>${esc(p.role||"Ingen befattning")}</small><small>${esc(partyName(p.organizationId))} · ${esc(partyAffiliation(parties.find(o=>o.id===p.organizationId)?.type))}</small></div>
     <div class="people-register-secondary"><small>${esc(p.phone||"")}</small><div class="people-register-edit">${edit("people",p.id)}</div></div>
   </article>`).join("")||'<p class="muted">Inga personer matchar urvalet.</p>'}</div>
   <details class="people-register-extra"><summary>Ansvar och kontaktpersoner (${(data.assignments||[]).length})</summary>${table(['Person','Roll','Från','Till',''],(data.assignments||[]).map(a=>row([esc(people.find(p=>p.id===a.personId)?.name||a.personId),esc(a.role),esc(a.fromDate||'Okänt'),esc(a.toDate||'Ej angivet'),edit('assignments',a.id)])))}</details>

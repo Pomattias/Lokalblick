@@ -510,7 +510,7 @@ function render() {
   if (ui.view === "sources") content.innerHTML = sources(data, transport);
   if (ui.view === "datamodel") { content.innerHTML = relationshipView(data); bindRelationshipView(data); }
   if (ui.view === "settings") content.innerHTML = activityOptionSettings(data)+economicSettings(data, ui);
-  if (ui.view === "people") content.innerHTML = organization(data,{partyId:ui.peoplePartyFilter||"",query:ui.peopleQuery||"",mode:ui.peopleMode||"people"});
+  if (ui.view === "people") content.innerHTML = organization(data,{partyId:ui.peoplePartyFilter||"",query:ui.peopleQuery||"",mode:ui.peopleMode||"people",affiliation:ui.peopleAffiliation||""});
   if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","activities","maintenance","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
     content.innerHTML =
@@ -1405,7 +1405,7 @@ document.addEventListener("input",event=>{
   if(event.target.matches("[data-people-query]")){
     const input=event.target,position=input.selectionStart;
     ui.peopleQuery=input.value;const list=document.querySelector(".people-register-list");
-    if(list){const temp=document.createElement("div");temp.innerHTML=organization(data,{partyId:ui.peoplePartyFilter||"",query:ui.peopleQuery,mode:ui.peopleMode||"people"});list.innerHTML=temp.querySelector(".people-register-list")?.innerHTML||"";const count=document.querySelector(".people-register-count");if(count)count.innerHTML=temp.querySelector(".people-register-count")?.innerHTML||"";}
+    if(list){const temp=document.createElement("div");temp.innerHTML=organization(data,{partyId:ui.peoplePartyFilter||"",query:ui.peopleQuery,mode:ui.peopleMode||"people",affiliation:ui.peopleAffiliation||""});list.innerHTML=temp.querySelector(".people-register-list")?.innerHTML||"";const count=document.querySelector(".people-register-count");if(count)count.innerHTML=temp.querySelector(".people-register-count")?.innerHTML||"";}
     return;
   }
   if(event.target.matches("[data-review-search]")) {
@@ -1420,14 +1420,16 @@ document.addEventListener("input",event=>{
   }
 });
 document.addEventListener("click",event=>{
- const button=event.target.closest("[data-people-mode]");
+ const button=event.target.closest("[data-people-mode],[data-people-affiliation]");
  if(!button)return;
- ui.peopleMode=button.dataset.peopleMode;
+ if(button.hasAttribute("data-people-mode"))ui.peopleMode=button.dataset.peopleMode;
+ else {ui.peopleAffiliation=button.dataset.peopleAffiliation;ui.peoplePartyFilter="";}
  render();
 });
 document.addEventListener("change", (event) =>
   run(async () => {
     const x = event.target;
+    if(x.matches('[data-party-affiliation]')){const form=x.closest("form")||x.closest("[role=dialog]")||document;form.querySelectorAll("[data-owner-only]").forEach(label=>{label.hidden=x.value!=="owner";});return;}
     if(x.matches('[data-people-party-filter]')){ui.peoplePartyFilter=x.value;render();return;}
     if(x.hasAttribute('data-cost-year')){x.closest('[data-cost-panel]').outerHTML=propertyCostsPanel(data,x.dataset.costYear,Number(x.value));setEditorReadMode(editor.readOnly);return;}
     if(x.dataset.optionScope!==undefined){

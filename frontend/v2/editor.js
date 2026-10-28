@@ -207,7 +207,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
           : [];
     if (!data.isDemo && id && master.includes(key))
       control = control.replace(/<(input|select) /, "<$1 disabled ");
-    groups.get(g).push(`<label><span class="field-name">${esc(label)}</span>${control}</label>`);
+    groups.get(g).push(`<label${col==="organizations"&&["ownerClass","investmentRule","investmentLimit","investmentThreshold","rentSurcharge","rentSurchargePercent","ownerCategory"].includes(key)?' data-owner-only="true"':""}><span class="field-name">${esc(label)}</span>${control}</label>`);
   });
   const result =
     col === "contracts"
