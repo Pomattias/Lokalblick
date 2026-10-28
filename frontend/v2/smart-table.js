@@ -53,6 +53,82 @@ export function sortSmartTable(table, index, direction) {
 
 }
 
+
+const layoutStorageKey=table=>'lokalblick:columns:v1:'+table.dataset.listKey;
+const defaultColumns={contracts:[8,0,5,9,13,14,15,17,10]};
+function applyColumnLayout(table){
+  if(!table.dataset.listKey)return;
+  const heads=[...table.tHead.rows[0].cells];
+  const count=heads.length;
+  const key=layoutStorageKey(table);
+  let saved=null;
+  try{saved=JSON.parse(localStorage.getItem(key)||'null');}catch{}
+  const initial=defaultColumns[table.dataset.listKey];
+  const all=[...Array(count).keys()];
+  const visible=Array.isArray(saved?.visible)?saved.visible:initial||all;
+  const order=Array.isArray(saved?.order)?saved.order:initial?[...initial,...all.filter(i=>!initial.includes(i))]:all;
+  const widths=saved?.widths||{};
+  const safeOrder=[...new Set([...order,...all])].filter(i=>Number.isInteger(i)&&i>=0&&i<count);
+  const visibleSet=new Set(visible.filter(i=>Number.isInteger(i)&&i>=0&&i<count));
+  visibleSet.add(count-1); // Keep the record action accessible.
+  const rowList=[...table.rows];
+  rowList.forEach(row=>{
+    if(row.hasAttribute('data-group-detail')||row.hasAttribute('data-table-empty'))return;
+    const cells=[...row.cells];
+    if(cells.length!==count)return;
+    cells.forEach((cell,i)=>{if(!cell.hasAttribute('data-original-column'))cell.dataset.originalColumn=i;});
+    safeOrder.forEach(i=>row.appendChild(cells.find(cell=>Number(cell.dataset.originalColumn)===i)));
+    [...row.cells].forEach((cell,pos)=>{
+      const id=Number(cell.dataset.originalColumn);
+      cell.hidden=!visibleSet.has(id);
+      if(!cell.closest('thead'))cell.style.display=cell.hidden?'none':'';
+      cell.style.width=widths[id]?widths[id]+'px':'';
+      cell.style.minWidth=widths[id]?widths[id]+'px':'';
+      const sort=cell.querySelector('[data-column-sort]');
+      if(sort)sort.dataset.columnSort=pos;
+      const filter=cell.querySelector('[data-column-filter]');
+      if(filter)filter.dataset.columnFilter=pos;
+    });
+  });
+  table.dataset.columnLayoutApplied='true';
+  let toolbar=container(table).querySelector('[data-layout-toolbar]');
+  if(!toolbar){
+    toolbar=document.createElement('div');
+    toolbar.dataset.layoutToolbar='true';
+    toolbar.className='column-layout-toolbar';
+    toolbar.innerHTML='<button type="button" data-layout-toggle aria-expanded="false">Anpassa kolumner</button><div data-layout-options hidden></div>';
+    container(table).querySelector('.compact-table-heading')?.appendChild(toolbar);
+  }
+  const options=toolbar.querySelector('[data-layout-options]');
+  options.replaceChildren();
+  safeOrder.forEach(i=>{
+    if(i===count-1)return;
+    const label=document.createElement('label');
+    const checkbox=document.createElement('input');
+    checkbox.type='checkbox';checkbox.checked=visibleSet.has(i);checkbox.dataset.layoutColumn=i;
+    label.append(checkbox,document.createTextNode(' '+heads[i]?.textContent?.trim()||''));
+    options.appendChild(label);
+  });
+  const reset=document.createElement('button');reset.type='button';reset.dataset.layoutReset='true';reset.textContent='Återställ standard';options.appendChild(reset);
+  table.tHead.rows[0].querySelectorAll('th').forEach(th=>{
+    th.draggable=true;
+    th.classList.add('layout-draggable');
+    if(!th.querySelector('[data-column-resize]')){
+      const grip=document.createElement('span');grip.dataset.columnResize='true';grip.title='Dra för att ändra kolumnbredd';grip.className='column-resize-grip';th.appendChild(grip);
+    }
+  });
+}
+function saveColumnLayout(table,patch){
+  const key=layoutStorageKey(table);
+  let current={};
+  try{current=JSON.parse(localStorage.getItem(key)||'{}')||{};}catch{}
+  const all=[...table.tHead.rows[0].cells].map(th=>Number(th.dataset.originalColumn));
+  const defaults=defaultColumns[table.dataset.listKey]||all;
+  const next={order:all,visible:current.visible||defaults,widths:current.widths||{},...patch};
+  try{localStorage.setItem(key,JSON.stringify(next));}catch{}
+  applyColumnLayout(table);
+}
+
 function setExpanded(body, expanded) {
   const button = body.querySelector('[data-row-toggle]');
   button.setAttribute('aria-expanded', String(expanded));
@@ -80,6 +156,7 @@ export function restoreSmartTableState(table, state = {}) {
   }
   sortSmartTable(table, state.sortIndex ?? 0, state.sortDirection || 'asc');
   refreshSmartTable(table);
+  applyColumnLayout(table);
 }
 
 export function bindSmartTables(root) {
@@ -89,7 +166,52 @@ export function bindSmartTables(root) {
       if (table) refreshSmartTable(table);
     }
   });
+  root.addEventListener('change',event=>{
+    const input=event.target.closest('[data-layout-column]');
+    if(!input)return;
+    const table=input.closest('.compact-data-table').querySelector('table[data-list-key]');
+    const visible=[...input.closest('[data-layout-options]').querySelectorAll('[data-layout-column]:checked')].map(x=>Number(x.dataset.layoutColumn));
+    saveColumnLayout(table,{visible});
+  });
+  let dragColumn=null;
+  root.addEventListener('dragstart',event=>{
+    const th=event.target.closest('th.layout-draggable');
+    if(!th||event.target.closest('[data-column-resize]'))return;
+    dragColumn={table:th.closest('table'),index:Number(th.dataset.originalColumn)};
+    event.dataTransfer.effectAllowed='move';
+  });
+  root.addEventListener('dragover',event=>{
+    if(dragColumn&&event.target.closest('th.layout-draggable')?.closest('table')===dragColumn.table)event.preventDefault();
+  });
+  root.addEventListener('drop',event=>{
+    const th=event.target.closest('th.layout-draggable');
+    if(!dragColumn||!th||th.closest('table')!==dragColumn.table)return;
+    event.preventDefault();
+    const order=[...th.parentElement.cells].map(x=>Number(x.dataset.originalColumn));
+    const from=order.indexOf(dragColumn.index),to=order.indexOf(Number(th.dataset.originalColumn));
+    if(from>=0&&to>=0){order.splice(from,1);order.splice(to,0,dragColumn.index);saveColumnLayout(dragColumn.table,{order});}
+    dragColumn=null;
+  });
+  root.addEventListener('dragend',()=>{dragColumn=null;});
+  root.addEventListener('pointerdown',event=>{
+    const grip=event.target.closest('[data-column-resize]');
+    if(!grip||event.pointerType==='touch')return;
+    event.preventDefault();
+    const th=grip.closest('th'),table=th.closest('table'),id=Number(th.dataset.originalColumn),start=event.clientX,width=th.getBoundingClientRect().width;
+    const move=e=>{th.style.width=Math.max(64,width+e.clientX-start)+'px';th.style.minWidth=th.style.width;};
+    const end=e=>{
+      window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',end);
+      let current={};try{current=JSON.parse(localStorage.getItem(layoutStorageKey(table))||'{}')||{};}catch{}
+      saveColumnLayout(table,{widths:{...current.widths,[id]:Math.round(Math.max(64,width+e.clientX-start))}});
+    };
+    window.addEventListener('pointermove',move);window.addEventListener('pointerup',end,{once:true});
+  });
   root.addEventListener('click', event => {
+    const toggleLayout=event.target.closest('[data-layout-toggle]');
+    if(toggleLayout){const options=toggleLayout.nextElementSibling;options.hidden=!options.hidden;toggleLayout.setAttribute('aria-expanded',String(!options.hidden));return;}
+    const reset=event.target.closest('[data-layout-reset]');
+    if(reset){const table=reset.closest('.compact-data-table').querySelector('table[data-list-key]');try{localStorage.removeItem(layoutStorageKey(table));}catch{}applyColumnLayout(table);return;}
+
     const toggle = event.target.closest('[data-toggle-column-filters]');
     if (toggle) {
       const row = toggle.closest('.compact-data-table')?.querySelector('.column-filters');

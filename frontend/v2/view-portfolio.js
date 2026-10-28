@@ -39,7 +39,8 @@ function contractRows(data, contracts, year, portfolio = false) {
       money(v.addition.amount),
       area&&v.addition.status!=="Behöver kontroll"?money(v.addition.amount/area):"–",
       num(area)+" m²",
-      esc([c.start,c.end].filter(Boolean).join(" – ")||"–"),
+      esc(c.start||"–"),
+      esc(c.end||"–"),
       esc(c.noticePeriodMonths==null||c.noticePeriodMonths===""?"–":c.noticePeriodMonths+" mån"),
       esc(notice||"–"),
       `<button class="table-pencil" data-edit="contracts" data-id="${esc(c.id)}" aria-label="Redigera avtal ${esc(c.number||c.id)}" title="Redigera">✎</button>`
@@ -137,7 +138,7 @@ export function overview(data, s, ui) {
     );
   } else if (ui.perspective === "Avtal") {
     body = table(
-      ["Fastighet", "Fastighetsnr", "Adress", "Fastighetsägare", "Ansvarig", "Verksamhet", "Verksamhetsbeskrivning", "Ärenden", "Avtal", `Årshyra ${ui.year}`, "Hyra kr/m²", `Tillägg ${ui.year}`, "Tillägg kr/m²", "Kvm", "Fr.o.m. – t.o.m.", "Uppsägningstid", "Säg upp senast", ""],
+      ["Fastighet", "Fastighetsnr", "Adress", "Fastighetsägare", "Ansvarig", "Verksamhet", "Verksamhetsbeskrivning", "Ärenden", "Avtal", `Årshyra ${ui.year}`, "Hyra kr/m²", `Tillägg ${ui.year}`, "Tillägg kr/m²", "Kvm", "Fr.o.m.", "T.o.m.", "Uppsägningstid", "Säg upp senast", ""],
       contractRows(data, v.contracts, ui.year, Boolean(ui.portfolioView)),
       true,
       ui.portfolioView?"Gällande avtal":"Avtal",

@@ -4929,3 +4929,7 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
 .portfolio-panel-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
 .portfolio-panel-heading h3{margin:0!important;}
 .portfolio-panel-heading .portfolio-metric-note{margin:0;font-size:11px;white-space:nowrap;}
+
+/* Desktop column customization. Keep mobile card layout independent. */
+@media(min-width:701px){.column-layout-toolbar{display:inline-flex;position:relative;margin-left:10px;align-items:center}.column-layout-toolbar>button{font-size:11px;background:transparent;border:1px solid var(--line);border-radius:6px;padding:5px 8px;color:var(--ink);cursor:pointer}.column-layout-toolbar [data-layout-options]{position:absolute;right:0;top:100%;z-index:25;background:var(--paper);border:1px solid var(--line);box-shadow:0 8px 25px #0002;border-radius:8px;padding:12px;min-width:220px;max-height:330px;overflow:auto}.column-layout-toolbar [data-layout-options] label{display:block;padding:5px;white-space:nowrap}.layout-draggable{position:relative;cursor:grab}.column-resize-grip{position:absolute;right:0;top:0;height:100%;width:7px;cursor:col-resize;touch-action:none}.compact-data-table table[data-column-layout-applied] th[hidden],.compact-data-table table[data-column-layout-applied] td[hidden]{display:none!important}}
+@media(max-width:700px){.column-layout-toolbar{display:none}.column-resize-grip{display:none}}
