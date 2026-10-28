@@ -4937,3 +4937,20 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
 /* Issues: show the latest journal note in one truncated, clickable cell. */
 @media(min-width:701px){.portfolio-list table[data-list-key="activities"] .activity-latest-note{display:block;max-width:260px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}.portfolio-list table[data-list-key="activities"] td:has(.activity-latest-note){max-width:260px;min-width:130px;overflow:hidden}}
 @media(max-width:700px){.portfolio-list table[data-list-key="activities"] .activity-latest-note{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}}
+
+/* Issues filter layout: four controls on desktop, two columns on mobile;
+   search and create action occupy the full second/third row. */
+@media(min-width:701px){
+  body[data-view="activities"] #filters .filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:stretch}
+  body[data-view="activities"] #filters .filters>.filter-chip{grid-column:auto;grid-row:1;min-width:0}
+  body[data-view="activities"] #filters .filters>.ui-search-action-row{grid-column:1/-1;grid-row:2;display:flex;flex-wrap:nowrap;gap:8px;min-width:0}
+  body[data-view="activities"] #filters .ui-search-action-row .search.ui-search{flex:1 1 auto;min-width:0}
+  body[data-view="activities"] #filters .ui-filter-actions-slot{flex:0 0 auto;max-width:none}
+}
+@media(max-width:700px){
+  body[data-view="activities"] #filters .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  body[data-view="activities"] #filters .filters>.filter-chip{grid-column:auto;grid-row:auto}
+  body[data-view="activities"] #filters .filters>.ui-search-action-row{grid-column:1/-1;grid-row:auto;display:flex;flex-wrap:nowrap;gap:6px}
+  body[data-view="activities"] #filters .ui-search-action-row .search.ui-search{flex:1 1 auto;min-width:0}
+  body[data-view="activities"] #filters .ui-filter-actions-slot{flex:0 0 auto;max-width:45%}
+}
