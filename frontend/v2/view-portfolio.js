@@ -95,7 +95,8 @@ function propertyListGroup(data, p, contracts, objects, year, portfolioView) {
   const ownerContact = contactNames(data, "property", p, "owner", p.ownerResponsiblePersonId);
   const contractContact = c => globalThis.LokalblickResponsibility.history(data,"contract",c.id,"our").length || c.responsiblePersonId
     ? contactNames(data,"contract",c,"our",c.responsiblePersonId) : ourContact;
-  const contacts = `<section class="property-list-contacts"><h3>Kontaktpersoner</h3><dl><div><dt>Vår ansvarige</dt><dd>${esc(ourContact)}</dd></div><div><dt>Fastighetsägarens kontaktperson</dt><dd>${esc(ownerContact)}</dd></div></dl></section>`;
+  const tenantContacts = [...new Map(contracts.map(c=>[`${tenantName(data,c)}|${contactNames(data,"contract",c,"tenant",c.tenantResponsiblePersonId)}`,{tenant:tenantName(data,c),person:contactNames(data,"contract",c,"tenant",c.tenantResponsiblePersonId)}])).values()];
+  const contacts = `<section class="property-list-contacts"><h3>Kontaktpersoner</h3><dl><div><dt>Lokalsamordnare</dt><dd>${esc(ourContact)}</dd></div><div><dt>Fastighetsägare</dt><dd>${esc(ownerContact)}</dd></div>${tenantContacts.map(({tenant,person})=>`<div><dt>Hyresgäst${tenantContacts.length>1?` · ${esc(tenant)}`:""}</dt><dd>${esc(person)}</dd></div>`).join("")}</dl></section>`;
   // Reuse the existing Fastighet → Objekt → Avtal relationships; no new stored data.
   // An agreement matched by search also reveals its object even if the object text did not match.
   const objectById = new Map((data.objects||[]).map(object=>[object.id,object]));
@@ -103,7 +104,7 @@ function propertyListGroup(data, p, contracts, objects, year, portfolioView) {
     ...objects.filter(object=>object.propertyId===p.id),
     ...contracts.map(contract=>objectById.get(contract.objectId)).filter(object=>object?.propertyId===p.id),
   ].map(object=>[object.id,object])).values()];
-  const contractList = rows => `<ul>${rows.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || c.id)}</button><small>${esc(tenantName(data,c))}</small></div><dl>${portfolioView?"":`<div><dt>Vår ansvarige för avtalet</dt><dd>${esc(contractContact(c))}</dd></div>`}<div><dt>Hyresgästens kontaktperson</dt><dd>${esc(contactNames(data,"contract",c,"tenant",c.tenantResponsiblePersonId))}</dd></div></dl></li>`).join("")}</ul>`;
+  const contractList = rows => `<ul>${rows.map(c => `<li><div><button type="button" class="text-button" data-edit="contracts" data-id="${esc(c.id)}">${esc(c.number || c.id)}</button><small>${esc(tenantName(data,c))}</small></div><dl>${portfolioView?"":`<div><dt>Lokalsamordnare för avtalet</dt><dd>${esc(contractContact(c))}</dd></div>`}</dl></li>`).join("")}</ul>`;
   const objectGroups = visibleObjects.map(object=>{
     const linked = contracts.filter(contract=>contract.objectId===object.id);
     const label = ['Objekt '+objectLabel(object),object.name].filter(Boolean).join(' · ');
@@ -121,7 +122,7 @@ function propertyListGroup(data, p, contracts, objects, year, portfolioView) {
     <td data-sort-value="${area}">${num(area)} m²</td>
     <td data-sort-value="${portfolioView?cost.rent:cost.annualCost}"><span title="${portfolioView?"Avtalshyra för avtalen i aktuellt urval":"Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder. Avser hela fastigheten."}">${money(portfolioView?cost.rent:cost.annualCost)}</span>${cost.needsReview?`<small class="rent-needs-review">${cost.needsReview} avtal behöver kontroll</small>`:""}${cost.preliminary?`<small>${cost.preliminary} preliminära index</small>`:""}</td>
     <td class="property-id-cell">${esc(p.id||"–")}</td><td class="row-actions">${portfolioView?edit("properties",p.id):""}<button type="button" class="property-list-toggle" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj avtal och ansvariga för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button></td>
-  </tr><tr data-group-detail hidden><td colspan="11"><div id="${esc(detailId)}" class="property-list-relations" role="region" aria-label="Avtal och ansvariga för ${esc(title)}"><p class="property-expanded-address">${esc(title)} · ${esc(propertyAddress(p))}</p>${contacts}${agreements}</div></td></tr></tbody>`;
+  </tr><tr data-group-detail hidden><td colspan="11"><div id="${esc(detailId)}" class="property-list-relations" role="region" aria-label="Avtal och ansvariga för ${esc(title)}">${contacts}${agreements}</div></td></tr></tbody>`;
 }
 export function overview(data, s, ui) {
   const v = ui.portfolioView || scope(data, s);
