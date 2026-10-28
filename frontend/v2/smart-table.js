@@ -1,4 +1,4 @@
-import {COLUMN_CATALOG,COLUMN_GROUPS} from './column-catalog.js';
+import {COLUMN_CATALOG,COLUMN_GROUPS,COLUMN_GROUP_ORDER} from './column-catalog.js';
 // Shared table interactions. Grouped bodies keep an expandable record together
 // while ordinary tables retain their existing row-based behavior.
 const container = table => table.closest('.compact-data-table');
@@ -103,20 +103,51 @@ function applyColumnLayout(table){
   }
   const options=toolbar.querySelector('[data-layout-options]');
   options.replaceChildren();
-  const search=document.createElement('input');search.type='search';search.placeholder='Sök kolumn…';search.className='column-layout-search';search.setAttribute('aria-label','Sök kolumner');options.appendChild(search);
-  search.addEventListener('input',()=>{for(const label of options.querySelectorAll('label'))label.hidden=!label.textContent.toLocaleLowerCase('sv').includes(search.value.toLocaleLowerCase('sv'));});
+  const search=document.createElement('input');
+  search.type='search';search.placeholder='Sök fält eller grupp…';
+  search.className='column-layout-search';search.setAttribute('aria-label','Sök kolumner');
+  options.appendChild(search);
+  // Only show fields whose values are actually provided by the current table.
+  // Grouping does not create or infer new database relationships.
+  const groups=new Map();
+  for(const group of COLUMN_GROUP_ORDER)groups.set(group,[]);
+  const others=[];
   safeOrder.forEach(i=>{
     if(i===count-1)return;
+    const heading=heads.find(th=>Number(th.dataset.originalColumn)===i);
+    const title=heading?.querySelector('.sort-full-label')?.textContent?.trim()||heading?.getAttribute('data-label')||heading?.textContent?.trim()||'Kolumn';
     const label=document.createElement('label');
     const checkbox=document.createElement('input');
     checkbox.type='checkbox';checkbox.checked=visibleSet.has(i);checkbox.dataset.layoutColumn=i;
-    const heading=heads.find(th=>Number(th.dataset.originalColumn)===i);
-    const title=heading?.querySelector('.sort-full-label')?.textContent?.trim()||heading?.getAttribute('data-label')||heading?.textContent?.trim()||'Kolumn';
-    const text=document.createElement('span');
-    text.textContent=title;
-    label.append(text,checkbox);
-    label.dataset.columnGroup=COLUMN_GROUPS[catalog?.[i]]||'Övriga uppgifter';
-    options.appendChild(label);
+    const span=document.createElement('span');span.textContent=title;
+    label.append(span,checkbox);
+    const group=COLUMN_GROUPS[catalog?.[i]]||'Övriga';
+    if(groups.has(group))groups.get(group).push(label);else others.push(label);
+  });
+  if(others.length)groups.set('Övriga',others);
+  const sections=[];
+  for(const [name,labels] of groups){
+    if(!labels.length)continue;
+    const section=document.createElement('div');section.className='column-layout-group';
+    const heading=document.createElement('button');heading.type='button';heading.className='column-layout-group-heading';
+    heading.textContent=name+' ('+labels.filter(label=>label.querySelector('input').checked).length+'/'+labels.length+')';
+    heading.setAttribute('aria-expanded','false');
+    const content=document.createElement('div');content.className='column-layout-group-fields';content.hidden=true;
+    labels.forEach(label=>content.appendChild(label));
+    heading.addEventListener('click',()=>{content.hidden=!content.hidden;heading.setAttribute('aria-expanded',String(!content.hidden));});
+    content.addEventListener('change',()=>{heading.textContent=name+' ('+labels.filter(label=>label.querySelector('input').checked).length+'/'+labels.length+')';});
+    section.append(heading,content);options.appendChild(section);
+    sections.push({name,section,content,heading,labels});
+  }
+  search.addEventListener('input',()=>{
+    const query=search.value.toLocaleLowerCase('sv').trim();
+    for(const {name,section,content,heading,labels} of sections){
+      const groupMatch=name.toLocaleLowerCase('sv').includes(query);
+      let found=false;
+      for(const label of labels){const match=!query||groupMatch||label.textContent.toLocaleLowerCase('sv').includes(query);label.hidden=!match;found ||= match;}
+      section.hidden=!found;
+      if(query){content.hidden=!found;heading.setAttribute('aria-expanded',String(found));}
+    }
   });
   const reset=document.createElement('button');reset.type='button';reset.dataset.layoutReset='true';reset.textContent='Återställ standard';options.appendChild(reset);
   table.tHead.rows[0].querySelectorAll('th').forEach(th=>{

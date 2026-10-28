@@ -6,4 +6,11 @@ export const COLUMN_CATALOG={
  contracts:['property','propertyNumber','address','owner','responsible','activity','activityDescription','issues','contract','annualRent','rentSqm','addition','additionSqm','area','start','end','noticeMonths','noticeDate','propertyId','action'],
  activities:['issue','type','property','address','responsible','status','cost','notes','propertyNumber','propertyId','action'],
 };
-export const COLUMN_GROUPS={propertyNumber:'Fastighetsuppgifter',propertyId:'Fastighetsuppgifter',property:'Fastighetsuppgifter',address:'Fastighetsuppgifter',owner:'Organisation och ansvar',responsible:'Organisation och ansvar',activity:'Verksamhet',activityDescription:'Verksamhet',annualRent:'Ekonomi',rentSqm:'Ekonomi',addition:'Ekonomi',additionSqm:'Ekonomi',cost:'Ekonomi',area:'Ytor',start:'Datum och avtal',end:'Datum och avtal',noticeMonths:'Datum och avtal',noticeDate:'Datum och avtal',contracts:'Datum och avtal',contract:'Datum och avtal',issues:'Ärenden',notes:'Ärenden'};
+export const COLUMN_GROUP_ORDER=['Fastighet','Objekt','Avtal','Verksamhet / Hyresgäst','Personer','Parter','Budget','Ärenden'];
+export const COLUMN_GROUPS={
+ propertyNumber:'Fastighet',propertyId:'Fastighet',property:'Fastighet',address:'Fastighet',owner:'Parter',
+ objectNumber:'Objekt',localType:'Objekt',validity:'Objekt',area:'Objekt',
+ contract:'Avtal',contracts:'Avtal',start:'Avtal',end:'Avtal',noticeMonths:'Avtal',noticeDate:'Avtal',annualRent:'Avtal',rentSqm:'Avtal',addition:'Avtal',additionSqm:'Avtal',
+ activity:'Verksamhet / Hyresgäst',activityDescription:'Verksamhet / Hyresgäst',responsible:'Personer',
+ issue:'Ärenden',issues:'Ärenden',type:'Ärenden',status:'Ärenden',cost:'Ärenden',notes:'Ärenden',
+};
