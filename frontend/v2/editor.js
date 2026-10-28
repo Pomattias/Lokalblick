@@ -101,7 +101,10 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
       ]),
   );
   if(data.cleanModel&&col==='objects')fields.set('id','Objektnummer');
-  if(col==="organizations")fields.set("type","Tillhörighet");
+  if(col==="organizations"){
+    fields.set("type","Tillhörighet");
+    if(fields.has("name"))fields.set("name","Part / företag / organisation");
+  }
   // A new or unlinked person must always be able to choose a party.
   if(col==='people')fields.set('organizationId','Part / företag / organisation');
   Object.keys(relations)
@@ -216,7 +219,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
           : [];
     if (!data.isDemo && id && master.includes(key))
       control = control.replace(/<(input|select) /, "<$1 disabled ");
-    groups.get(g).push(`<label${col==="organizations"&&["ownerClass","investmentRule","investmentLimit","investmentThreshold","rentSurcharge","rentSurchargePercent","ownerCategory"].includes(key)?` data-owner-only="true"${record.type==="owner"?"":" hidden"}`:""}><span class="field-name">${esc(label)}</span>${control}</label>`);
+    groups.get(g).push(`<label${col==="organizations"&&["ownerClass","investmentRule","investmentLimit","investmentThreshold","rentSurcharge","rentSurchargePercent","rentSurchargeRate","ownerCategory"].includes(key)?` data-owner-only="true"${record.type==="owner"?"":" hidden"}`:""}><span class="field-name">${esc(label)}</span>${control}</label>`);
   });
   const result =
     col === "contracts"
