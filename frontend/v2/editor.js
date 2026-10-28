@@ -101,6 +101,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
       ]),
   );
   if(data.cleanModel&&col==='objects')fields.set('id','Objektnummer');
+  if(col==="organizations")fields.set("type","Tillhörighet");
   // A new or unlinked person must always be able to choose a party.
   if(col==='people')fields.set('organizationId','Part / företag / organisation');
   Object.keys(relations)
@@ -143,6 +144,14 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
         {id:"",name:"Ej bedömd"},{id:"value_enhancing",name:"Värdehöjande"},
         {id:"like_for_like",name:"Utbyte 1:1"}
       ], x=>x.id,x=>x.name,record.actionKind || (record.standardEnhancing===true?"value_enhancing":record.standardEnhancing===false?"like_for_like":""), "Ej bedömd")}</select>`;
+    else if (key === "type" && col === "organizations") {
+      const values=[["tenant","Hyresgäst"],["our","Lokalsamordnare"],["owner","Fastighetsägare"]];
+      const current=String(record.type||"").trim();
+      const aliases={hyresgäst:"tenant",lokalsamordnare:"our",fastighetsägare:"owner",manager:"our",landlord:"owner"};
+      const selected=aliases[current.toLocaleLowerCase("sv")]||current;
+      if(selected&&!values.some(([value])=>value===selected))values.push([selected,"Tidigare värde: "+selected]);
+      control=`<select name="type" data-party-affiliation required><option value="" ${selected?"":"selected"}>Välj tillhörighet</option>${values.map(([value,name])=>`<option value="${esc(value)}" ${selected===value?"selected":""}>${esc(name)}</option>`).join("")}</select>`;
+    }
     else if (key === "investmentRule" && col === "organizations")
       control = `<select name="investmentRule">${options([
         {id:"",name:"Normalregel (½ prisbasbelopp)"},
@@ -207,7 +216,7 @@ export function editorHtml(data, col, id, company = false, defaults = {}, presen
           : [];
     if (!data.isDemo && id && master.includes(key))
       control = control.replace(/<(input|select) /, "<$1 disabled ");
-    groups.get(g).push(`<label${col==="organizations"&&["ownerClass","investmentRule","investmentLimit","investmentThreshold","rentSurcharge","rentSurchargePercent","ownerCategory"].includes(key)?' data-owner-only="true"':""}><span class="field-name">${esc(label)}</span>${control}</label>`);
+    groups.get(g).push(`<label${col==="organizations"&&["ownerClass","investmentRule","investmentLimit","investmentThreshold","rentSurcharge","rentSurchargePercent","ownerCategory"].includes(key)?` data-owner-only="true"${record.type==="owner"?"":" hidden"}`:""}><span class="field-name">${esc(label)}</span>${control}</label>`);
   });
   const result =
     col === "contracts"
