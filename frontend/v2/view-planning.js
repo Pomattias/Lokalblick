@@ -3,6 +3,23 @@ import {planningMonthHeader,planningMonthButtons} from "./planning-visual.js";
 import {money,esc,propertyById,personLabel,propertyDesignation,calc,table,row,propertyAddressCell,options,propertyReference,units,internalPeople,edit} from "./view-format.js";
 import {scope,responsible} from "./model.js";
 import {activityChoices} from "./activity-options.js";
+function activityHomeLabel(data,activity) {
+  const property=(data.properties||[]).find(p=>p.id===activity.propertyId);
+  if(activity.contractId){
+    const contract=(data.contracts||[]).find(c=>c.id===activity.contractId);
+    if(!contract)return "Avtal · Saknas";
+    const contractProperty=(data.properties||[]).find(p=>p.id===contract.propertyId);
+    return "Avtal "+(contract.number||contract.id)+" · "+(contract.businessName||contract.use||"Verksamhet saknas")+" · "+propertyReference(contractProperty);
+  }
+  if(activity.objectId){
+    const object=(data.objects||[]).find(o=>o.id===activity.objectId);
+    return object?"Objekt · "+(object.number||object.name||object.id):"Objekt · Saknas";
+  }
+  if(activity.propertyId)return "Fastighet · "+propertyReference(property);
+  if(activity.scopeType==="unit"&&activity.unitId)return "Område · "+(units[activity.unitId]||activity.unitId);
+  if(activity.scopeType==="general")return "Generell";
+  return "Ej fördelad";
+}
 function timelineView(data, items, ui) {
   const year=Number(ui.year)||new Date().getFullYear();
   const span=ui.timelineSpan===3?3:1;
@@ -94,25 +111,7 @@ export function planning(data, s, ui) {
         esc(propertyDesignation(propertyById(data, x.propertyId)) || "–"),
         propertyAddressCell(propertyById(data, x.propertyId)),
         x.collection === "activities"
-          ? `<select data-activity-home="${esc(x.record.id)}" aria-label="Hemvist för ${esc(x.title)}">${options([
-              ...(data.contracts || []).map(c => {
-                const property = (data.properties || []).find(p => p.id === c.propertyId);
-                return {
-                  id: "contract:" + c.id,
-                  label: "Avtal " + (c.number || c.id) + " · " +
-                    (c.businessName || c.use || "Verksamhet saknas") + " · " +
-                    propertyReference(property)
-                };
-              }),
-              ...(data.objects||[]).map(o=>({id:"object:"+o.id,label:"Objekt · "+(o.number||o.name||o.id)})),
-              ...(data.properties || []).map(p => ({id:"property:"+p.id,label:"Fastighet · "+propertyReference(p)})),
-              ...Object.entries(units).map(([id,label])=>({id:"unit:"+id,label:"Område · "+label})),
-              {id:"general",label:"Generell"}
-            ],x=>x.id,x=>x.label,x.record.contractId?"contract:"+x.record.contractId:
-            x.record.objectId?"object:"+x.record.objectId:
-            x.record.propertyId?"property:"+x.record.propertyId:
-            x.record.scopeType==="unit"&&x.record.unitId?"unit:"+x.record.unitId:
-            x.record.scopeType==="general"?"general":"","Ej fördelad")}</select>`
+          ? `<span class="plan-home-readonly" title="${esc(activityHomeLabel(data,x.record))}">${esc(activityHomeLabel(data,x.record))}</span>`
           : "<small>Fastighet</small>",
         `<span class="plan-coordinator" title="Ändra lokalsamordnare via Redigera">${esc(personLabel(data,responsible(data,x.collection,x.record))||"Ej fördelat")}</span>`,
         x.collection === "activities"
