@@ -4997,3 +4997,19 @@ body[data-view="activities"] #filters .filters>.filter-chip:not(.is-selected) .f
 .import-source-scroll{max-height:clamp(280px,58vh,720px);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;}
 .import-source-scroll .import-source-table thead th{position:sticky;top:0;z-index:2;}
 .import-source-scroll .import-source-table thead th:first-child{z-index:3;}
+
+/* Import: keep the source-row heading fully readable when scrolling sideways.
+   The first column is sticky in both header and body, above the scrolled cells. */
+body:not([data-view=budget]) .import-source-scroll .import-source-table>thead>tr>th:first-child,
+body:not([data-view=budget]) .import-source-scroll .import-source-table>tbody>tr>th:first-child{
+  position:sticky;left:0;min-width:154px;width:154px;max-width:154px;
+  box-sizing:border-box;background:var(--paper,#fff);
+  border-right:1px solid var(--line,#dde5df);
+  white-space:normal;overflow-wrap:normal;
+}
+body:not([data-view=budget]) .import-source-scroll .import-source-table>thead>tr>th:first-child{
+  top:0;z-index:6;background:var(--soft,#e8f0eb);
+}
+body:not([data-view=budget]) .import-source-scroll .import-source-table>tbody>tr>th:first-child{z-index:4;}
+.import-source-scroll .import-header-labels{min-width:0;}
+.import-source-scroll .import-header-labels>span{white-space:normal;}
