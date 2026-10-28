@@ -63,8 +63,8 @@ export function planning(data, s, ui) {
     const who=personLabel(data,responsible(data,x.collection,x.record));
     const home=isActivity?(x.record.contractId?"Avtal":x.record.objectId?"Objekt":x.record.propertyId?"Fastighet":x.record.scopeType==="unit"?"Område":"Generellt"):"Fastighet";
     return `<article class="plan-mobile-card">
-      <div class="plan-mobile-card-head"><div><span class="plan-mobile-kind">${esc(isActivity?x.record.type||"Ärende":"Fastighet")}</span><strong>${esc(isActivity?x.title:propertyDesignation(p)||x.title)}</strong><small>${esc(p?.address||"Ingen fastighetsadress")}</small></div>
-      <button type="button" data-edit="${esc(x.collection)}" data-id="${esc(x.record.id)}" aria-label="Öppna ${esc(x.title)}">${isActivity?"Öppna":"Visa"}</button></div>
+      <div class="plan-mobile-card-head"><div class="plan-mobile-card-main"><span class="plan-mobile-kind">${esc(isActivity?x.record.type||"Ärende":"Fastighet")}</span><strong>${esc(isActivity?x.title:propertyDesignation(p)||x.title)}</strong><small>${esc(p?.address||"Ingen fastighetsadress")}</small></div>
+      <button type="button" class="plan-mobile-open" data-edit="${esc(x.collection)}" data-id="${esc(x.record.id)}" aria-label="Öppna ${esc(x.title)}">Redigera</button></div>
       <div class="plan-mobile-card-foot"><span>${esc(who||"Ej fördelat")} · ${esc(home)}</span>${isActivity?`<b>${money(x.cost)}</b>`:""}</div>
       ${isActivity&&x.record.startDate?`<small class="plan-mobile-date">${esc(x.record.startDate)} → ${esc(x.record.endDate||"–")}</small>`:""}
       </article>`;
