@@ -361,10 +361,21 @@ export function sources(data, transport) {
     ),
   )}</details>`;
 }
-export function organization(data) {
-  return `<div class="section-title"><h2>Personer och parter</h2><div>${edit("people","","Lägg till person")}${edit("organizations","","Lägg till part")}${edit("assignments","","Tilldela ansvar")}</div></div>
-  ${table(["Person","Befattning","Telefonnummer","Part",""],data.people.map((x)=>row([esc(x.name),esc(x.role),esc(x.phone||"–"),esc(data.organizations.find((o)=>o.id===x.organizationId)?.name||""),edit("people",x.id)])))}
-  <details><summary>Ansvar och kontaktpersoner (${(data.assignments||[]).length})</summary>${table(['Person','Roll','Från','Till',''],(data.assignments||[]).map(a=>row([esc(data.people.find(p=>p.id===a.personId)?.name||a.personId),esc(a.role),esc(a.fromDate||'Okänt'),esc(a.toDate||'Ej angivet'),edit('assignments',a.id)])))}</details>
-  <h3>Parter</h3>
-  ${table(["Part",...(data.cleanModel?['Organisationsnummer']:[]),"Typ",""],data.organizations.map((x)=>row([esc(x.name),...(data.cleanModel?[esc(x.organizationNumber||'–')]:[]),esc(x.type),edit("organizations",x.id)])))}`;
+export function organization(data,{partyId="",query=""}={}) {
+  const parties=data.organizations||[],people=data.people||[];
+  const selected=parties.some(p=>p.id===partyId)?partyId:"";
+  const search=String(query||"").trim().toLocaleLowerCase("sv");
+  const visible=people.filter(p=>(!selected||p.organizationId===selected)&&
+    (!search||[p.name,p.role,p.phone,p.email,parties.find(o=>o.id===p.organizationId)?.name].join(" ").toLocaleLowerCase("sv").includes(search)));
+  const partyName=id=>parties.find(p=>p.id===id)?.name||"Ingen part kopplad";
+  return `<div class="section-title people-title"><h2>Personer och parter</h2><div class="people-actions">${edit("people","","Lägg till person")}${edit("organizations","","Lägg till part")}${edit("assignments","","Tilldela ansvar")}</div></div>
+  <div class="people-register-tools"><label>Part<select data-people-party-filter><option value="">Alla parter</option>${[...parties].sort((a,b)=>a.name.localeCompare(b.name,"sv")).map(p=>`<option value="${esc(p.id)}"${selected===p.id?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>
+  <label>Sök person<input type="search" data-people-query value="${esc(query)}" placeholder="Namn, befattning, telefon…"></label></div>
+  <div class="people-register-count">${visible.length} av ${people.length} personer${selected?` · ${esc(partyName(selected))}`:""}</div>
+  <div class="people-register-list">${visible.map(p=>`<article class="people-register-item">
+    <div class="people-register-primary"><strong>${esc(p.name)}</strong><small>${esc(p.role||"Ingen befattning")}</small><small>${esc(partyName(p.organizationId))}</small></div>
+    <div class="people-register-secondary"><small>${esc(p.phone||"")}</small><div class="people-register-edit">${edit("people",p.id)}</div></div>
+  </article>`).join("")||'<p class="muted">Inga personer matchar urvalet.</p>'}</div>
+  <details class="people-register-extra"><summary>Ansvar och kontaktpersoner (${(data.assignments||[]).length})</summary>${table(['Person','Roll','Från','Till',''],(data.assignments||[]).map(a=>row([esc(people.find(p=>p.id===a.personId)?.name||a.personId),esc(a.role),esc(a.fromDate||'Okänt'),esc(a.toDate||'Ej angivet'),edit('assignments',a.id)])))}</details>
+  <details class="people-register-extra"><summary>Visa parter (${parties.length})</summary>${table(["Part",...(data.cleanModel?['Organisationsnummer']:[]),"Typ",""],parties.map(p=>row([esc(p.name),...(data.cleanModel?[esc(p.organizationNumber||'–')]:[]),esc(p.type),edit("organizations",p.id)])))}</details>`;
 }
