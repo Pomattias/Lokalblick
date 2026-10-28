@@ -109,7 +109,7 @@ export function mountImport(root,{snapshot,apply}) {
    if(k.required.some(field=>data[field]==null||data[field]===''))errors.push('Rad '+(i+2)+': obligatoriskt värde saknas.');
    if(data.area!=null&&!Number.isFinite(data.area))errors.push('Rad '+(i+2)+': ogiltig yta.');
    if(data.annual_amount!=null&&!Number.isFinite(data.annual_amount))errors.push('Rad '+(i+2)+': ogiltigt årsbelopp.');
-   plan.push({action:k.action,fields:data});
+   plan.push({action:k.action,fields:data,sourceRow:i+2});
   });
   if(rows.length>200)errors.push('Filen har fler än 200 datarader. Dela upp importen i mindre filer.');
   if(register.value==='people'){
@@ -167,10 +167,17 @@ export function mountImport(root,{snapshot,apply}) {
   try{
    const commands=register.value==='people'?[
     ...[...newParties.values()].filter(p=>[...affiliations.values()].includes(p.id)).map(p=>({action:'createParty',id:p.id,fields:{name:p.name,...(p.organization_number?{organization_number:p.organization_number}:{})}})),
-    ...plan.flatMap((c,i)=>{const personId=crypto.randomUUID(),partyId=affiliations.get(i);return [{...c,id:personId},...(partyId?[{action:'linkPersonParty',fields:{party_id:partyId,person_id:personId,valid_from:new Date().toISOString().slice(0,10),is_primary:true}}]:[])];})
+    ...plan.flatMap((c,i)=>{const personId=crypto.randomUUID(),partyId=affiliations.get(i);return [{...c,id:personId},...(partyId?[{action:'linkPersonParty',sourceRow:c.sourceRow,fields:{party_id:partyId,person_id:personId,valid_from:new Date().toISOString().slice(0,10),is_primary:true}}]:[])];})
    ]:plan;
    await apply(commands);preview.innerHTML='<p>Importerade '+plan.length+' rader från '+esc(fileName)+'.</p>';map.innerHTML='';plan=[];}
-  catch(error){preview.innerHTML='<p class="error-text">'+esc(error.message)+'</p>';confirm.disabled=false}
+  catch(error){
+   const detail=error.importError||error.details?.importError;
+   const match=String(error.message||'').match(/Importfel på rad (\d+)/);
+   const row=detail?.sourceRow??(match?Number(match[1]):null);
+   const reason=detail?.reason||error.message||'Okänt fel';
+   preview.insertAdjacentHTML('afterbegin','<div role="alert" class="error-text"><strong>Importen avbröts – inga uppgifter sparades.</strong><p>'+esc(row!=null?'Fel på Excelrad '+row+': '+reason:reason)+'</p>'+(row!=null?'<p>Kontrollera rad '+row+' i källfilen och försök igen.</p>':'')+'</div>');
+   confirm.disabled=false;
+  }
  });
  parentFields();
 }

@@ -208,7 +208,17 @@ export class CoreV3Store {
    try{
     const version=this.db.prepare('SELECT version FROM store_meta WHERE id=1').get().version;
     if(input.version!==version){const e=Error('Uppgifterna har ändrats. Läs in på nytt.');e.status=409;throw e;}
-    for(const command of commands)perform(this.db,command);
+    for(let index=0;index<commands.length;index++){
+     const command=commands[index];
+     try{perform(this.db,command);}
+     catch(error){
+      const cause=Error(error.message||'Okänt databasfel.');
+      cause.status=error.status;
+      cause.importError={commandIndex:index,action:command.action,sourceRow:command.sourceRow??null,recordName:command.fields?.name||null,reason:error.message||'Okänt databasfel.'};
+      cause.message='Importfel'+(command.sourceRow!=null?' på rad '+command.sourceRow:' vid åtgärd '+(index+1))+': '+cause.importError.reason;
+      throw cause;
+     }
+    }
     this.db.exec('UPDATE store_meta SET version=version+1 WHERE id=1');
     this.db.exec('COMMIT');
     return asOfSnapshot(this.db,input.asOf||new Date().toISOString().slice(0,10));
