@@ -4991,3 +4991,9 @@ body[data-view="activities"] #filters .filters>.filter-chip:not(.is-selected) .f
 
 /* Contract period selector in the existing KPI card */
 .contract-phase-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}.contract-phase-chip{font:inherit;font-size:11px;border:1px solid #cddbd4;background:#fff;color:#245b4d;border-radius:999px;padding:4px 9px;cursor:pointer}.contract-phase-chip.active{background:#216b58;color:#fff;border-color:#216b58;font-weight:650}.contract-phase-chip:hover{border-color:#216b58}
+
+/* Import review: keep the horizontal scrollbar reachable without scrolling
+   through every source row. The source table scrolls in its own viewport. */
+.import-source-scroll{max-height:clamp(280px,58vh,720px);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;}
+.import-source-scroll .import-source-table thead th{position:sticky;top:0;z-index:2;}
+.import-source-scroll .import-source-table thead th:first-child{z-index:3;}
