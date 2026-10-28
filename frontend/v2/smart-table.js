@@ -106,7 +106,11 @@ function applyColumnLayout(table){
     const label=document.createElement('label');
     const checkbox=document.createElement('input');
     checkbox.type='checkbox';checkbox.checked=visibleSet.has(i);checkbox.dataset.layoutColumn=i;
-    label.append(checkbox,document.createTextNode(' '+heads[i]?.textContent?.trim()||''));
+    const heading=heads.find(th=>Number(th.dataset.originalColumn)===i);
+    const title=heading?.querySelector('.sort-full-label')?.textContent?.trim()||heading?.getAttribute('data-label')||heading?.textContent?.trim()||'Kolumn';
+    const text=document.createElement('span');
+    text.textContent=title;
+    label.append(text,checkbox);
     options.appendChild(label);
   });
   const reset=document.createElement('button');reset.type='button';reset.dataset.layoutReset='true';reset.textContent='Återställ standard';options.appendChild(reset);

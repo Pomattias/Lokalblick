@@ -4980,3 +4980,6 @@ body[data-view="activities"] #filters .filters>.filter-chip:not(.is-selected) .f
  body[data-view="activities"] #filters .filters>.filter-chip{grid-row:auto;grid-column:auto;min-height:40px;height:40px}
  body[data-view="activities"] #filters .filters>.ui-search-action-row{grid-row:auto;grid-column:1/-1}
 }
+
+/* Column picker: single header label on left, checkbox on right. */
+@media(min-width:701px){.compact-data-table .column-layout-toolbar [data-layout-options] label{display:flex!important;flex-direction:row!important;justify-content:space-between;align-items:center;gap:12px;text-align:left}.compact-data-table .column-layout-toolbar [data-layout-options] label>span{flex:1;min-width:0;overflow-wrap:anywhere}.compact-data-table .column-layout-toolbar [data-layout-options] label>input[type=checkbox]{order:2;margin:0 0 0 auto;flex-shrink:0}}
