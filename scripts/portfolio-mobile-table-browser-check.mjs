@@ -79,8 +79,8 @@ try{
   near(t0.top,t1.top,'first two KPI tiles share a row');
   assert.ok(t2.top>t0.top,'KPI tiles form two rows');
   const label=await bounds(tiles.nth(0).locator('.summary-label'));
-  const value=await bounds(tiles.nth(0).locator('strong'));
-  near(label.top,value.top,'KPI caption and value on the same baseline');
+  const kpiValue=await bounds(tiles.nth(0).locator('strong'));
+  near(label.top,kpiValue.top,'KPI caption and value on the same baseline');
   assert.ok(t0.height<58,'KPI is compact');
   assert.ok(await tiles.nth(1).locator('.summary-explanation').isVisible(),'secondary agreement counts are displayed');
   await go('activities');
