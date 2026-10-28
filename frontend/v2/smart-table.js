@@ -1,3 +1,4 @@
+import {COLUMN_CATALOG,COLUMN_GROUPS} from './column-catalog.js';
 // Shared table interactions. Grouped bodies keep an expandable record together
 // while ordinary tables retain their existing row-based behavior.
 const container = table => table.closest('.compact-data-table');
@@ -55,19 +56,20 @@ export function sortSmartTable(table, index, direction) {
 
 
 const layoutStorageKey=table=>'lokalblick:columns:v1:'+table.dataset.listKey;
-const defaultColumns={contracts:[8,0,5,9,13,14,15,17,10]};
+const defaultColumns={contracts:[8,0,5,9,13,14,15,17,10],properties:[0,1,2,3,4,5,6,7,8],objects:[0,1,2,3,4,5,6],activities:[0,1,2,3,4,5,6,7]};
 function applyColumnLayout(table){
   if(!table.dataset.listKey)return;
   const heads=[...table.tHead.rows[0].cells];
   const count=heads.length;
   const key=layoutStorageKey(table);
+  const catalog=COLUMN_CATALOG[table.dataset.listKey];
   let saved=null;
   try{saved=JSON.parse(localStorage.getItem(key)||'null');}catch{}
   const initial=defaultColumns[table.dataset.listKey];
   const all=[...Array(count).keys()];
-  const visible=Array.isArray(saved?.visible)?saved.visible:initial||all;
-  const order=Array.isArray(saved?.order)?saved.order:initial?[...initial,...all.filter(i=>!initial.includes(i))]:all;
-  const widths=saved?.widths||{};
+  const visible=Array.isArray(saved?.visibleIds)&&catalog? saved.visibleIds.map(id=>catalog.indexOf(id)).filter(i=>i>=0) :Array.isArray(saved?.visible)?saved.visible:initial||all;
+  const order=Array.isArray(saved?.orderIds)&&catalog?saved.orderIds.map(id=>catalog.indexOf(id)).filter(i=>i>=0):Array.isArray(saved?.order)?saved.order:initial?[...initial,...all.filter(i=>!initial.includes(i))]:all;
+  const widths=saved?.widthsById&&catalog?Object.fromEntries(Object.entries(saved.widthsById).map(([id,width])=>[catalog.indexOf(id),width]).filter(([i])=>i>=0)):saved?.widths||{};
   const safeOrder=[...new Set([...order,...all])].filter(i=>Number.isInteger(i)&&i>=0&&i<count);
   const visibleSet=new Set(visible.filter(i=>Number.isInteger(i)&&i>=0&&i<count));
   visibleSet.add(count-1); // Keep the record action accessible.
@@ -101,6 +103,8 @@ function applyColumnLayout(table){
   }
   const options=toolbar.querySelector('[data-layout-options]');
   options.replaceChildren();
+  const search=document.createElement('input');search.type='search';search.placeholder='Sök kolumn…';search.className='column-layout-search';search.setAttribute('aria-label','Sök kolumner');options.appendChild(search);
+  search.addEventListener('input',()=>{for(const label of options.querySelectorAll('label'))label.hidden=!label.textContent.toLocaleLowerCase('sv').includes(search.value.toLocaleLowerCase('sv'));});
   safeOrder.forEach(i=>{
     if(i===count-1)return;
     const label=document.createElement('label');
@@ -111,6 +115,7 @@ function applyColumnLayout(table){
     const text=document.createElement('span');
     text.textContent=title;
     label.append(text,checkbox);
+    label.dataset.columnGroup=COLUMN_GROUPS[catalog?.[i]]||'Övriga uppgifter';
     options.appendChild(label);
   });
   const reset=document.createElement('button');reset.type='button';reset.dataset.layoutReset='true';reset.textContent='Återställ standard';options.appendChild(reset);
@@ -129,6 +134,8 @@ function saveColumnLayout(table,patch){
   const all=[...table.tHead.rows[0].cells].map(th=>Number(th.dataset.originalColumn));
   const defaults=defaultColumns[table.dataset.listKey]||all;
   const next={order:all,visible:current.visible||defaults,widths:current.widths||{},...patch};
+  const catalog=COLUMN_CATALOG[table.dataset.listKey];
+  if(catalog){next.orderIds=next.order.map(i=>catalog[i]).filter(Boolean);next.visibleIds=next.visible.map(i=>catalog[i]).filter(Boolean);next.widthsById=Object.fromEntries(Object.entries(next.widths).map(([i,w])=>[catalog[Number(i)],w]).filter(([id])=>Boolean(id)));}
   try{localStorage.setItem(key,JSON.stringify(next));}catch{}
   applyColumnLayout(table);
 }

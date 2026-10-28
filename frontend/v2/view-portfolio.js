@@ -43,6 +43,7 @@ function contractRows(data, contracts, year, portfolio = false) {
       esc(c.end||"–"),
       esc(c.noticePeriodMonths==null||c.noticePeriodMonths===""?"–":c.noticePeriodMonths+" mån"),
       esc(notice||"–"),
+      esc(p.id||"–"),
       `<button class="table-pencil" data-edit="contracts" data-id="${esc(c.id)}" aria-label="Redigera avtal ${esc(c.number||c.id)}" title="Redigera">✎</button>`
     ],{});
   });
@@ -68,6 +69,8 @@ function activityRows(data, items, portfolio=false) {
       badge(x.record.status),
       money(x.cost),
       noteButton,
+      esc(property?.number||property?.propertyNumber||"–"),
+      esc(property?.id||"–"),
       edit(x.collection, x.record.id),
     ],portfolio?{6:x.cost}:{});
   });
@@ -117,8 +120,8 @@ function propertyListGroup(data, p, contracts, objects, year, portfolioView) {
     <td data-sort-value="${contracts.length}"><button type="button" class="text-button" data-context-record="properties" data-id="${esc(p.id)}" data-context-target-tab="contracts">${num(contracts.length)} avtal</button>${subset?`<small>av ${num(totalContracts)} totalt</small>`:""}</td>
     <td data-sort-value="${area}">${num(area)} m²</td>
     <td data-sort-value="${portfolioView?cost.rent:cost.annualCost}"><span title="${portfolioView?"Avtalshyra för avtalen i aktuellt urval":"Beräknat från avtalets hyra, tillägg, fastighetsskatt och aktuella avtalsperioder. Avser hela fastigheten."}">${money(portfolioView?cost.rent:cost.annualCost)}</span>${cost.needsReview?`<small class="rent-needs-review">${cost.needsReview} avtal behöver kontroll</small>`:""}${cost.preliminary?`<small>${cost.preliminary} preliminära index</small>`:""}</td>
-    <td class="row-actions">${portfolioView?edit("properties",p.id):""}<button type="button" class="property-list-toggle" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj avtal och ansvariga för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button></td>
-  </tr><tr data-group-detail hidden><td colspan="10"><div id="${esc(detailId)}" class="property-list-relations" role="region" aria-label="Avtal och ansvariga för ${esc(title)}"><p class="property-expanded-address">${esc(title)} · ${esc(propertyAddress(p))}</p>${contacts}${agreements}</div></td></tr></tbody>`;
+    <td class="property-id-cell">${esc(p.id||"–")}</td><td class="row-actions">${portfolioView?edit("properties",p.id):""}<button type="button" class="property-list-toggle" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj avtal och ansvariga för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button></td>
+  </tr><tr data-group-detail hidden><td colspan="11"><div id="${esc(detailId)}" class="property-list-relations" role="region" aria-label="Avtal och ansvariga för ${esc(title)}"><p class="property-expanded-address">${esc(title)} · ${esc(propertyAddress(p))}</p>${contacts}${agreements}</div></td></tr></tbody>`;
 }
 export function overview(data, s, ui) {
   const v = ui.portfolioView || scope(data, s);
@@ -134,7 +137,7 @@ export function overview(data, s, ui) {
   let body = "";
   if (ui.perspective === "Fastigheter") {
     body = table(
-      ["Fastighetsnr", "Fastighet", "Adress", "Fastighetsägare", "Ansvarig hos oss", "Ärenden", "Avtal", "Area", `${ui.portfolioView?"Årshyra":"Årskostnad"} ${ui.year}`, ""],
+      ["Fastighetsnr", "Fastighet", "Adress", "Fastighetsägare", "Ansvarig hos oss", "Ärenden", "Avtal", "Area", `${ui.portfolioView?"Årshyra":"Årskostnad"} ${ui.year}`, "FastID", ""],
       v.properties.map(p => propertyListGroup(data, p, v.contracts.filter(c => c.propertyId === p.id), v.objects||[], ui.year, ui.portfolioView)),
       true,
       "Fastigheter",
@@ -143,7 +146,7 @@ export function overview(data, s, ui) {
     );
   } else if (ui.perspective === "Avtal") {
     body = table(
-      ["Fastighet", "Fastighetsnr", "Adress", "Fastighetsägare", "Ansvarig", "Verksamhet", "Verksamhetsbeskrivning", "Ärenden", "Avtal", `Årshyra ${ui.year}`, "Hyra kr/m²", `Tillägg ${ui.year}`, "Tillägg kr/m²", "Kvm", "Fr.o.m.", "T.o.m.", "Uppsägningstid", "Säg upp senast", ""],
+      ["Fastighet", "Fastighetsnr", "Adress", "Fastighetsägare", "Ansvarig", "Verksamhet", "Verksamhetsbeskrivning", "Ärenden", "Avtal", `Årshyra ${ui.year}`, "Hyra kr/m²", `Tillägg ${ui.year}`, "Tillägg kr/m²", "Kvm", "Fr.o.m.", "T.o.m.", "Uppsägningstid", "Säg upp senast", "FastID", ""],
       contractRows(data, v.contracts, ui.year, Boolean(ui.portfolioView)),
       true,
       ui.portfolioView?"Gällande avtal":"Avtal",
@@ -160,7 +163,7 @@ export function overview(data, s, ui) {
     }
   } else
     body = table(
-      ["Ärende", "Typ", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", "Noteringar", ""],
+      ["Ärende", "Typ", "Fastighet", "Adress", "Ansvarig", "Status", "Kostnad", "Noteringar", "FastNr", "FastID", ""],
       activityRows(
         data,
         v.items.filter((x) => ui.perspective === "Ärenden" &&
@@ -246,11 +249,11 @@ export function objectList(data,s,ui={}){
       esc(propertyDesignation(property)),
       esc(propertyAddress(property)),
       esc(o.type||o.localType||o.name||'–'),
-      esc(validity),contracts,edit('objects',o.id)+`<button type="button" class="property-list-toggle object-expand" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj detaljer för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button>`
+      esc(validity),contracts,esc(property.id||'–'),edit('objects',o.id)+`<button type="button" class="property-list-toggle object-expand" data-row-toggle aria-expanded="false" aria-controls="${esc(detailId)}" aria-label="Visa eller dölj detaljer för ${esc(title)}"><svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 8 4 4 4-4"/></svg></button>`
     ];
-    return `<tbody data-row-group="${esc(o.id)}">${row(cells,{})}<tr data-group-detail id="${esc(detailId)}" hidden><td colspan="8"><div class="object-details"><p>${esc(title)} · ${num(o.area)} m²</p><dl><div><dt>Fastighet</dt><dd>${esc(propertyReference(data.properties.find(p=>p.id===o.propertyId)))}</dd></div><div><dt>Giltighet</dt><dd>${esc(validity)}</dd></div><div><dt>Avtal</dt><dd>${contracts}</dd></div></dl><div class="actions"><button type="button" class="text-button" data-edit="objects" data-id="${esc(o.id)}">Visa objekt</button><button type="button" class="edit-text-action" data-edit-action data-edit="objects" data-id="${esc(o.id)}" data-edit-mode="edit">Redigera</button></div></div></td></tr></tbody>`;
+    return `<tbody data-row-group="${esc(o.id)}">${row(cells,{})}<tr data-group-detail id="${esc(detailId)}" hidden><td colspan="9"><div class="object-details"><p>${esc(title)} · ${num(o.area)} m²</p><dl><div><dt>Fastighet</dt><dd>${esc(propertyReference(data.properties.find(p=>p.id===o.propertyId)))}</dd></div><div><dt>Giltighet</dt><dd>${esc(validity)}</dd></div><div><dt>Avtal</dt><dd>${contracts}</dd></div></dl><div class="actions"><button type="button" class="text-button" data-edit="objects" data-id="${esc(o.id)}">Visa objekt</button><button type="button" class="edit-text-action" data-edit-action data-edit="objects" data-id="${esc(o.id)}" data-edit-mode="edit">Redigera</button></div></div></td></tr></tbody>`;
   });
-  const list=(objects,key,title)=>table(['Objektnr','Fastighetsnr','Fastighet','Adress','Lokaltyp','Giltighet','Avtal',''],rows(objects,key),true,title,true,{key,noun:'objekt',groupClass:'object-list'});
+  const list=(objects,key,title)=>table(['Objektnr','Fastighetsnr','Fastighet','Adress','Lokaltyp','Giltighet','Avtal','FastID',''],rows(objects,key),true,title,true,{key,noun:'objekt',groupClass:'object-list'});
   const history=ui.portfolioView?(view.allObjects||[]).filter(o=>!view.objects.includes(o)):[];
   return `<div class="section-title"><h2>Objekt</h2><button data-new-object>Nytt objekt</button></div>${list(view.objects||[],'objects','Gällande objekt')}${history.length?`<details class="portfolio-record-history"><summary>Tidigare och kommande objekt · ${history.length}</summary>${list(history,'objects-history','Tidigare och kommande objekt')}</details>`:''}`;
 }
