@@ -5099,3 +5099,23 @@ body[data-view="plan"] .plan-filter-toolbar .issue-type-filters button.active,bo
   body[data-view="properties"] .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"] > .column-sort[data-direction="asc"] .sort-direction::after,
   body[data-view="properties"] .portfolio-list > table[data-smart-table] > thead > tr:first-child > th[data-mobile-sort="true"] > .column-sort[data-direction="desc"] .sort-direction::after{font-size:14px;font-weight:400;}
 }
+
+
+/* Geokodning och manuell placering – samma kompakta knappar som övriga Lokalblick. */
+.property-editor .property-map-actions { display:flex; gap:7px; flex-wrap:wrap; margin:7px 0 9px; }
+.property-editor .property-map-actions button { font-size:12px; padding:7px 10px; }
+.map-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.map-heading button { white-space:nowrap; }
+.map-geo-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+.map-geo-actions button { font-size:11px; padding:6px 9px; }
+.geo-missing-list { padding:3px 0; }
+.geo-missing-row > .actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+@media (max-width:700px) {
+  body[data-view="map"] .map-heading { display:flex; flex:0 0 auto; justify-content:flex-end; margin:0 0 5px; }
+  body[data-view="map"] .map-heading h2 { display:none; }
+  body[data-view="map"] .map-heading button { font-size:12px; padding:6px 10px; }
+  body[data-view="map"] .geo-quality { flex:0 0 auto; margin:5px 0; }
+  .geo-missing-row { flex-direction:column; align-items:stretch; gap:6px; }
+  .geo-missing-row > .actions { justify-content:stretch; }
+  .geo-missing-row > .actions button { flex:1; }
+}
