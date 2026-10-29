@@ -184,6 +184,10 @@
           map.setView([Number(selected.latitude),Number(selected.longitude)],17);
         }
         map.on("click",function(event){ setPoint(event.latlng,true); });
+        handle.setSelectedPosition = function(position) {
+          setPoint({lat:position.latitude,lng:position.longitude},false);
+          map.setView([Number(position.latitude),Number(position.longitude)],17);
+        };
       }
       handle.resizeTimer = setTimeout(function() { map.invalidateSize(); }, 0);
       return handle;
@@ -200,6 +204,10 @@
 
     invalidateSize(handle) {
       handle.map.invalidateSize();
+    },
+
+    setSelectedPosition(handle, position) {
+      handle.setSelectedPosition?.(position);
     },
 
     destroy(handle) {
