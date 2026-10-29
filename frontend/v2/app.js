@@ -194,7 +194,7 @@ function validGeoPosition(p) {
   return p.latitude !== "" && p.longitude !== "" && p.latitude != null && p.longitude != null &&
     Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude));
 }
-function openGeoPlacement(id) {
+function openGeoPlacement(id, {geocode = false} = {}) {
   const property = data.properties.find(p => String(p.id) === String(id));
   if (!property) return;
   if (!globalThis.L) throw Error("Kartan kunde inte laddas.");
@@ -206,21 +206,24 @@ function openGeoPlacement(id) {
     '</p></div><button type="button" data-geo-close aria-label="Stäng">Stäng</button></div>' +
     '<p>Klicka på rätt byggnad eller dra markören. Positionen blir inte sparad förrän du bekräftar.</p>' +
     '<div class="geo-placement-map" id="geo-placement-map"></div>' +
-    '<div class="geo-placement-footer"><span data-geo-coordinates>Välj en position på kartan</span>' +
+    '<div class="geo-placement-footer"><button type="button" data-geo-run-geocode>Geokoda från adress</button><span data-geo-coordinates>Välj en position på kartan</span>' +
     '<div class="actions"><button type="button" data-geo-close>Avbryt</button><button type="button" data-geo-confirm disabled>Bekräfta position</button></div></div>';
   document.body.append(dialog);
   manualGeoDialog = dialog;
   dialog.showModal();
-  const center = validGeoPosition(property) ? [Number(property.latitude), Number(property.longitude)] :
-    [55.605, 13.0038];
-  const map = L.map(dialog.querySelector("#geo-placement-map")).setView(center, validGeoPosition(property) ? 17 : 10);
+  const nearby=(data.properties||[]).filter(p=>validGeoPosition(p)&&property.city&&p.city&&p.city.trim().toLocaleLowerCase("sv")===property.city.trim().toLocaleLowerCase("sv"));
+  const center=validGeoPosition(property)?[Number(property.latitude),Number(property.longitude)]:
+    nearby.length?[nearby.reduce((s,p)=>s+Number(p.latitude),0)/nearby.length,nearby.reduce((s,p)=>s+Number(p.longitude),0)/nearby.length]:[62,15];
+  const map = L.map(dialog.querySelector("#geo-placement-map")).setView(center, validGeoPosition(property)?17:nearby.length?13:4);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
     maxZoom: 20, subdomains: "abcd", attribution: "&copy; OpenStreetMap &copy; CARTO"
   }).addTo(map);
   let selected = validGeoPosition(property) ? center : null;
   let marker = selected ? L.marker(selected,{draggable:true}).addTo(map) : null;
-  function setPoint(latlng) {
-    selected = [latlng.lat, latlng.lng];
+  let selectedSource="manual";
+  function setPoint(latlng, source="manual") {
+    selectedSource=source;
+    selected = [Number(latlng.lat), Number(latlng.lng)];
     if (!marker) {
       marker = L.marker(selected,{draggable:true}).addTo(map);
       marker.on("dragend", () => setPoint(marker.getLatLng()));
@@ -229,6 +232,25 @@ function openGeoPlacement(id) {
       selected[0].toFixed(6) + ", " + selected[1].toFixed(6);
     dialog.querySelector("[data-geo-confirm]").disabled = false;
   }
+  async function lookupPosition(){
+    const button=dialog.querySelector("[data-geo-run-geocode]");
+    const info=dialog.querySelector("[data-geo-coordinates]");
+    if(!property.address?.trim()||!property.city?.trim()) {info.textContent="Adress och ort krävs för geokodning.";return;}
+    if(!globalThis.LokalblickGeocodingService?.lookupProperty){info.textContent="Geokodning är inte tillgänglig.";return;}
+    button.disabled=true;
+    info.textContent="Geokodar adress och ort…";
+    try{
+      const result=await globalThis.LokalblickGeocodingService.lookupProperty(property);
+      if(!dialog.open)return;
+      const pos={lat:Number(result.latitude),lng:Number(result.longitude)};
+      setPoint(pos,"geocoded");
+      map.setView([pos.lat,pos.lng],17);
+      if(result.status==="review")info.textContent="Kontrollera förslaget på kartan. Dra nålen vid behov.";
+    }catch(error){if(dialog.open)info.textContent=error.message||"Geokodningen misslyckades.";}
+    finally{button.disabled=false;}
+  }
+  dialog.querySelector("[data-geo-run-geocode]").onclick=()=>{void lookupPosition();};
+  if(geocode)void lookupPosition();
   if (marker) marker.on("dragend", () => setPoint(marker.getLatLng()));
   map.on("click", e => setPoint(e.latlng));
   const close = () => dialog.close();
@@ -240,7 +262,7 @@ function openGeoPlacement(id) {
       if (!p) throw Error("Fastigheten finns inte längre.");
       p.latitude = selected[0];
       p.longitude = selected[1];
-      if(!d.cleanModel){p.geoSource = "manual";p.geoConfirmedAt = new Date().toISOString();p.geoConfirmedBy = actor();}
+      if(!d.cleanModel){p.geoSource = selectedSource==="manual"?"manual":"openrouteservice";p.geoConfirmedAt = new Date().toISOString();p.geoConfirmedBy = actor();}
     });
     close();
     notice("Positionen är bekräftad. Välj Spara till Excel för att behålla den i Lokalblick-data.");
@@ -266,7 +288,7 @@ function startGeoEnrichment() {
   if (!eligible.length) return;
   geoRunning = true;
   const snapshot = { isDemo: false, properties: eligible.map(p => ({...p})) };
-  notice("Importen är klar. Geokodning pågår – du kan arbeta vidare i Lokalblick medan " +
+  notice("Geokodning pågår – du kan arbeta vidare i Lokalblick medan " +
     eligible.length + " adresser behandlas. Låt fliken vara öppen.");
   Promise.resolve().then(async () => {
     try {
@@ -513,8 +535,18 @@ function render() {
   if (ui.view === "people") content.innerHTML = organization(data,{partyId:ui.peoplePartyFilter||"",query:ui.peopleQuery||"",mode:ui.peopleMode||"people",affiliation:ui.peopleAffiliation||""});
   if (ui.view === "more") content.innerHTML = `<div class="more-menu"><h2>Vyer och verktyg</h2>${["properties","objects","contracts","activities","maintenance","sources","datamodel","people","settings"].map(view=>`<button data-view="${view}">${labels[view]}</button>`).join('')}<button data-tool="history">Historik</button>${!transport.company()?`<button data-tool="demo">${esc(demoButton.textContent)}</button>`:''}<small>${esc(document.querySelector('#source-label').textContent)}</small></div>`;
   if (ui.view === "map") {
+    const missing=(portfolioView.properties||[]).filter(p=>!validGeoPosition(p));
+    const missingAll=(data.properties||[]).filter(p=>!validGeoPosition(p)&&p.address&&p.city&&p.geoSource!=="manual");
     content.innerHTML =
-      '<div class="section-title map-heading"><h2>Fastigheter i aktuellt urval</h2></div><div id="property-map" aria-label="Fastigheter på karta"></div><p class="map-help">Välj en markör för avtal, nyckeltal och öppna ärenden. Välj sedan en länk för detaljer.</p>';
+      '<div class="section-title map-heading"><h2>Fastigheter i aktuellt urval</h2><button type="button" data-geo-retry'+(missingAll.length?'':' disabled')+'>Geokoda alla saknade ('+missingAll.length+')</button></div>'+
+      '<div id="property-map" aria-label="Fastigheter på karta"></div>'+
+      '<p class="map-help">Välj en markör för att se fastigheten och justera dess position. Geokodning ger ett förslag som du kan granska före sparning.</p>'+
+      '<details class="geo-quality"><summary>Fastigheter utan koordinater i urvalet ('+missing.length+')</summary>'+
+      '<div class="geo-missing-list">'+(missing.length?missing.map(p=>
+        '<div class="row geo-missing-row"><span>'+esc([p.designation,p.address,p.city].filter(Boolean).join(' · ')||p.id)+'</span>'+
+        '<div class="actions"><button type="button" data-geo-lookup="'+esc(p.id)+'"'+(p.address&&p.city?'':' disabled')+'>Geokoda från adress</button>'+
+        '<button type="button" data-geo-place="'+esc(p.id)+'">Placera på karta</button></div></div>'
+      ).join(''):'<p>Alla fastigheter i urvalet har koordinater.</p>')+'</div></details>';
     const points = portfolioView.properties.filter(
         (p) =>
           p.latitude !== "" &&
@@ -1354,7 +1386,8 @@ document.addEventListener("click", (event) =>
         throw Error("Välj först en relevant post. Du kan också söka på adress eller avtalsnummer.");
       await mutation(d=>resolveReview(d,b.dataset.review,b.dataset.decision,target,actor()));
     }
-    if (b.dataset.geoPlace) openGeoPlacement(b.dataset.geoPlace);
+    if (b.dataset.geoPlace) {openGeoPlacement(b.dataset.geoPlace);return;}
+    if (b.dataset.geoLookup) {openGeoPlacement(b.dataset.geoLookup,{geocode:true});return;}
     if (b.hasAttribute("data-geo-retry")) startGeoEnrichment();
     if (b.hasAttribute("data-export-reviews")) exportPendingReviews();
     if (b.dataset.source) await sourceAction(b.dataset.source);
@@ -1625,7 +1658,8 @@ document.addEventListener("submit", (event) => {
         ? [...event.target.querySelectorAll("[data-property-contract-contact]")].map(select=>({
           contractId:select.dataset.propertyContractContact,personId:select.value
         })) : [],
-      manualPositionSelected = col === "properties" && event.target.dataset.manualGeoSelected === "1";
+      manualPositionSelected = col === "properties" && event.target.dataset.manualGeoSelected === "1",
+      geocodedPositionSelected = col === "properties" && event.target.dataset.geocodedSelected === "1";
     if (col==="activities" && (event.target.dataset.planChanged==="true" ||
         String(next.startDate||"")!==String(editor.record.startDate||"") ||
         String(next.endDate||"")!==String(editor.record.endDate||""))) {
@@ -1633,8 +1667,8 @@ document.addEventListener("submit", (event) => {
       next.planningMonth=null;
       next.planningQuarter=null;
     }
-    if (manualPositionSelected && !data.cleanModel) {
-      next.geoSource="manual";
+    if ((manualPositionSelected || geocodedPositionSelected) && !data.cleanModel) {
+      next.geoSource=manualPositionSelected?"manual":(event.target.dataset.geocodedProvider||"openrouteservice");
       next.geoConfirmedAt=new Date().toISOString();
       next.geoConfirmedBy=actor();
     }
@@ -1685,7 +1719,7 @@ document.addEventListener("submit", (event) => {
       if(noteDraft)appendActivityNote(d,next.id,noteDraft,{
         name:actor(),id:d.currentUser?.id||d.currentUser?.userId||"",verified:false
       });
-    }, { responsibilityDate:event.target.elements.namedItem('responsibilityChangeDate')?.value,manualPositionIds:manualPositionSelected && id ? [String(id)] : [] });
+    }, { responsibilityDate:event.target.elements.namedItem('responsibilityChangeDate')?.value,manualPositionIds:(manualPositionSelected||geocodedPositionSelected) && id ? [String(id)] : [] });
     closeEditor({force:true});
   });
 });
