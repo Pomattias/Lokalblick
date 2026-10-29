@@ -255,7 +255,11 @@ function cacheCanBeReused(entry) {
   return false;
 }
 
-export async function geocodeProperties(input) {
+export async function geocodeProperties(input, options = {}) {
+  // A manual lookup is always fresh and must never change the coordinate store
+  // until the user explicitly accepts the suggested position.
+  const preview = options.preview === true;
+  const force = options.force === true;
   const key = orsApiKey();
   if (!key) throw configError();
 
@@ -272,7 +276,7 @@ export async function geocodeProperties(input) {
       stored.geocodedAddressKey !== normalizeLocation(property.address, property.city)
     );
 
-    if (cached && cacheCanBeReused(cached)) {
+    if (!force && cached && cacheCanBeReused(cached)) {
       results.push({
         ...cached,
         id: property.id,
@@ -286,6 +290,7 @@ export async function geocodeProperties(input) {
     }
 
     if (
+      !force &&
       validCoordinate(property.latitude) &&
       validCoordinate(property.longitude) &&
       !cached &&
@@ -304,7 +309,7 @@ export async function geocodeProperties(input) {
         provider: "source",
         geocodedAt: new Date().toISOString()
       };
-      upsertCoordinate(store, property, seeded);
+      if (!preview) upsertCoordinate(store, property, seeded);
       results.push({ ...seeded, cached: true, addressChanged: false });
       continue;
     }
@@ -322,12 +327,12 @@ export async function geocodeProperties(input) {
     chunkResults.forEach((result, index) => {
       const property = chunk[index];
       result.addressChanged = Boolean(property.addressChanged);
-      upsertCoordinate(store, property, result);
+      if (!preview) upsertCoordinate(store, property, result);
       results.push(result);
     });
   }
 
-  await saveCoordinateStore(store);
+  if (!preview) await saveCoordinateStore(store);
 
   const byId = new Map(results.map((result) => [String(result.id), result]));
   return properties.map((property) =>
