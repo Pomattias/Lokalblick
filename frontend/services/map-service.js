@@ -38,6 +38,7 @@
       const mapHandle=provider.create(options || {});
       const controller={
         invalidateSize: () => provider.invalidateSize?.(mapHandle),
+        setSelectedPosition: position => provider.setSelectedPosition?.(mapHandle, position),
         destroy: () => {
           if (!auxiliary.has(controller)) return;
           auxiliary.delete(controller);
