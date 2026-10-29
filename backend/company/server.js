@@ -175,10 +175,13 @@ export function createLokalblickServer(repository, { host = DEFAULT_HOST, port =
           }
         });
       }
+      if (pathname === "/api/geocode" && request.method === "GET") {
+        return sendJson(response, 200, { ok: true, configured: isGeocodingConfigured(), provider: geocodingProvider() });
+      }
       if (pathname === "/api/geocode" && request.method === "POST") {
         const body = await readJson(request);
         try {
-          const results = await geocodeProperties(body.properties || []);
+          const results = await geocodeProperties(body.properties || [], { preview: body.preview === true, force: body.force === true });
           return sendJson(response, 200, { results });
         } catch (error) {
           return sendJson(response, error.statusCode || 500, {
