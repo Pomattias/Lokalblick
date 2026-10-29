@@ -98,6 +98,8 @@ export function renderPropertyEditor(data, p, id, company=false, presentation={p
       '</div><details class="property-help"><summary>Om kontaktkopplingar</summary><p>Kontakter sparas på respektive avtal. Välj Ej kopplad för att koppla bort utan att radera personen.</p></details></section>'+
       responsibilityHtml(data,'property',p.id)+
       (data.cleanModel&&id&&presentation.portfolio?propertyCostsPanel(data,p.id):'')+
+      '<div class="actions property-map-actions"><button type="button" data-property-open-map>Placera på karta</button>'+
+      '<button type="button" data-property-geocode'+(data.isDemo?' disabled':'')+'>Geokoda från adress</button></div>'+
       '<details class="property-map-details" data-property-map-details><summary>Placering på kartan <span class="property-map-summary">'+(geo?'Position finns':'Position saknas')+'</span></summary><section class="property-section property-map-section">'+
       '<p class="property-map-hint">'+(geo
         ? 'Klicka eller dra nålen för att ändra position.'
@@ -147,7 +149,9 @@ export function attachPropertyMap(root, data, p, mapService) {
       points:[],
       selectedPosition:hasGeo(p)?{latitude:Number(p.latitude),longitude:Number(p.longitude)}:null,
       onSelectPosition:pos=>{
-        root.querySelector("#edit-form").dataset.manualGeoSelected="1";
+        const form=root.querySelector("#edit-form");
+        form.dataset.manualGeoSelected="1";
+        delete form.dataset.geocodedSelected;
         latitude.name="latitude"; latitude.value=String(pos.latitude);
         longitude.name="longitude";longitude.value=String(pos.longitude);
         text.textContent=pos.latitude.toFixed(6)+", "+pos.longitude.toFixed(6);
@@ -156,6 +160,7 @@ export function attachPropertyMap(root, data, p, mapService) {
     });
     const release=()=>controller.destroy();
     release.invalidate=()=>controller.invalidateSize?.();
+    release.setPosition=pos=>controller.setSelectedPosition?.(pos);
     return release;
   } catch (_) {
     element.textContent="Kartan kunde inte laddas. Kontrollera kartanslutningen.";
@@ -169,15 +174,50 @@ export function attachPropertyMap(root, data, p, mapService) {
 export function bindPropertyMap(root,data,p,mapService) {
   const details=root.querySelector("[data-property-map-details]");
   if(!details)return attachPropertyMap(root,data,p,mapService);
-  let release=null;
+  let release=null,active=true;
   const activate=()=>{
     if(!details.open)return;
     if(release)release.invalidate?.();
     else release=attachPropertyMap(root,data,p,mapService);
   };
+  const onClick=async event=>{
+    const place=event.target.closest("[data-property-open-map]");
+    const geocode=event.target.closest("[data-property-geocode]");
+    if(!place&&!geocode)return;
+    details.open=true;
+    activate();
+    if(place){root.querySelector("#property-editor-map")?.scrollIntoView?.({block:"nearest"});return;}
+    const form=root.querySelector("#edit-form");
+    const address=form?.querySelector('[name="address"]')?.value || p.address;
+    const city=form?.querySelector('[name="city"]')?.value || p.city;
+    const status=root.querySelector("[data-property-coordinate-status]");
+    const button=geocode;
+    if(!address?.trim()||!city?.trim()){status.textContent="Ange både adress och ort.";return;}
+    if(!globalThis.LokalblickGeocodingService?.lookupProperty){status.textContent="Geokodning är inte tillgänglig.";return;}
+    button.disabled=true;
+    status.textContent="Söker position från adress och ort…";
+    try{
+      const result=await globalThis.LokalblickGeocodingService.lookupProperty({...p,address,city});
+      if(!active||!root.querySelector("#edit-form"))return;
+      const pos={latitude:Number(result.latitude),longitude:Number(result.longitude)};
+      release?.setPosition?.(pos);
+      const lat=root.querySelector("[data-property-lat]"),lng=root.querySelector("[data-property-lng]");
+      lat.name="latitude";lat.value=String(pos.latitude);
+      lng.name="longitude";lng.value=String(pos.longitude);
+      form.dataset.geocodedSelected="1";
+      form.dataset.geocodedProvider=result.provider||"openrouteservice";
+      delete form.dataset.manualGeoSelected;
+      root.querySelector("[data-property-coordinates]").textContent=pos.latitude.toFixed(6)+", "+pos.longitude.toFixed(6);
+      status.textContent=(result.status==="review"?"Kontrollera träffen noggrant. ":"Adressförslag hittat. ")+"Dra nålen vid behov och välj Spara ändring.";
+    }catch(error){if(active)status.textContent=error.message||"Geokodningen misslyckades.";}
+    finally{button.disabled=false;}
+  };
   details.addEventListener("toggle",activate);
+  root.addEventListener("click",onClick);
   activate();
   return ()=>{
+    active=false;
+    root.removeEventListener("click",onClick);
     details.removeEventListener("toggle",activate);
     release?.();
   };
