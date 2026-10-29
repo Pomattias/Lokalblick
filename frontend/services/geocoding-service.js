@@ -41,6 +41,28 @@
     };
   }
 
+  // Single-property lookup is a preview: no existing coordinate is overwritten,
+  // including manually confirmed positions, before the user saves the suggestion.
+  async function lookupProperty(property) {
+    if (!property?.id || !String(property.address || "").trim() || !String(property.city || "").trim())
+      throw new Error("Både adress och ort måste vara angivna.");
+    const response = await fetchWithTimeout(apiBaseUrl() + "/api/geocode", {
+      method: "POST",
+      headers: {"content-type": "application/json"},
+      body: JSON.stringify({
+        preview: true, force: true,
+        properties: [{id: property.id, sourceId: property.sourceId || "", address: property.address, city: property.city, latitude: null, longitude: null}]
+      })
+    }, GEOCODE_TIMEOUT_MS);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Geokodningen kunde inte utföras.");
+    const result = payload.results?.[0];
+    if (!result || !["matched", "review"].includes(result.status) ||
+        !validCoordinate(result.latitude) || !validCoordinate(result.longitude))
+      throw new Error("Ingen tillräckligt säker adressmatchning hittades. Placera nålen manuellt.");
+    return result;
+  }
+
   async function enrichData(data, onProgress) {
     if (!data || data.isDemo || !Array.isArray(data.properties) || !data.properties.length) return data;
 
@@ -196,6 +218,7 @@
   window.LokalblickGeocodingService = {
     health: health,
     enrichData: enrichData,
+    lookupProperty: lookupProperty,
     getApiBaseUrl: apiBaseUrl
   };
 })();
