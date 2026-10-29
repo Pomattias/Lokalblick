@@ -114,10 +114,14 @@ async function handle(req, res) {
     }, headers);
   }
 
+  if (url.pathname === "/api/geocode" && req.method === "GET") {
+    return sendJson(res, 200, { ok: true, configured: isGeocodingConfigured(), provider: geocodingProvider() }, headers);
+  }
+
   if (url.pathname === "/api/geocode" && req.method === "POST") {
     try {
       const body = await readJson(req);
-      const results = await geocodeProperties(body.properties);
+      const results = await geocodeProperties(body.properties, { preview: body.preview === true, force: body.force === true });
       return sendJson(res, 200, {
         ok: true,
         provider: geocodingProvider(),
