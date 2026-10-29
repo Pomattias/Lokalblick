@@ -58,6 +58,8 @@ test("Fastighet is a single editor, no tabs or geocode administration fields",()
   assert.match(html,/data-property-contract-contact="a1"/);
   assert.match(html,/data-contract-id="a1"/);
   assert.match(html,/id="property-editor-map"/);
+  assert.match(html,/data-property-open-map/);
+  assert.match(html,/data-property-geocode/);
   assert.doesNotMatch(html,/data-editor-tab|data-editor-section|>Tidplan<|>Relationer</);
   assert.doesNotMatch(html,/name="(?:type|geoSource|geoConfirmedAt|geoConfirmedBy)"/);
   assert.doesNotMatch(html,/name="latitude"/);
