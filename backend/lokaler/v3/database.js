@@ -82,6 +82,20 @@ export function agreementVersionsAt(db, asOf, { includeEnded=true }={}) {
 }
 
 const parentScope=(db,where)=>{
+ // Issue and order scopes may inherit property roles without persisting copies.
+ // Supplier and invoice roles remain attached only to the specific order.
+ if (where.orderId) {
+  const row=db.prepare('SELECT issue_id,object_id,property_id FROM orders WHERE id=?').get(where.orderId);
+  if(!row)throw Error('Beställningen saknas.');
+  const parent=row.issue_id?{issueId:row.issue_id}:row.object_id?{objectId:row.object_id}:{propertyId:row.property_id};
+  return [{field:'order_id',id:where.orderId},...parentScope(db,parent)];
+ }
+ if (where.issueId) {
+  const row=db.prepare('SELECT agreement_id,object_id,property_id FROM issues WHERE id=?').get(where.issueId);
+  if(!row)throw Error('Ärendet saknas.');
+  const parent=row.agreement_id?{agreementId:row.agreement_id}:row.object_id?{objectId:row.object_id}:{propertyId:row.property_id};
+  return [{field:'issue_id',id:where.issueId},...parentScope(db,parent)];
+ }
  if (where.agreementId) {
   const row=db.prepare('SELECT a.id AS agreement_id,o.id AS object_id,o.property_id FROM agreements a JOIN objects o ON o.id=a.object_id WHERE a.id=?').get(where.agreementId);
   if (!row) throw Error('Avtalet saknas.');
@@ -107,7 +121,7 @@ function direct(db,field,id,role,at){
 // Resolves closest assignment per role. No inherited rows are written.
 export function resolvedStakeholders(db, where, asOf) {
  const at=date(asOf),scope=parentScope(db,where),
- roles=['owner','owner_contact','coordinator','tenant','tenant_contact','asset_manager','project_manager'];
+ roles=['owner','owner_contact','coordinator','tenant','tenant_contact','asset_manager','project_manager','contractor','consultant','supplier','invoice_recipient'];
  const tenantAssignment=where.agreementId
   ? direct(db,'agreement_id',where.agreementId,'tenant',at).find(r=>r.assignment_mode==='assign')
   : null;
@@ -118,6 +132,8 @@ export function resolvedStakeholders(db, where, asOf) {
   let selected=[];
   for(const s of scope) {
    if(role==='tenant'&&s.field!=='agreement_id')continue;
+   if(['supplier','invoice_recipient'].includes(role)&&s.field!=='order_id')continue;
+   if(['contractor','consultant'].includes(role)&&!['issue_id','order_id'].includes(s.field))continue;
    const rows=direct(db,s.field,s.id,role,at).filter(r=>
     role!=='tenant_contact'||!where.agreementId||r.assignment_mode==='block'||r.party_id===tenantAssignment?.party_id);
    if(!rows.length)continue;
