@@ -37,10 +37,13 @@ export function runModuleCommand(db,command,api){
   update(db,'issues',rowId,r);break;
  }
  case 'createOrder':{
-  const r=pick(p,['issue_id','title','amount','status','supplier','reference','delivery','ordered_by','ordered_at','owner_pays'],['issue_id','title']);
-  ref(lookup,'issues',r.issue_id,'ärende');
+  const r=pick(p,['issue_id','object_id','property_id','title','amount','status','supplier','reference','delivery','ordered_by','ordered_at','owner_pays'],['title']);
+  const homes=['issue_id','object_id','property_id'].filter(key=>r[key]);
+  if(homes.length!==1)throw Error('Ange exakt en hemvist för beställningen: ärende, objekt eller fastighet.');
+  const home=homes[0],lookupTable={issue_id:'issues',object_id:'objects',property_id:'properties'}[home];
+  ref(lookup,lookupTable,r[home],'beställningens hemvist');
   if(r.ordered_by)ref(lookup,'people',r.ordered_by,'beställare');
-  insert(db,'orders',{id:id(),issue_id:r.issue_id,title:r.title,amount:r.amount==null?null:nonneg(r.amount,'beställningsbelopp'),
+  insert(db,'orders',{id:id(),[home]:r[home],title:r.title,amount:r.amount==null?null:nonneg(r.amount,'beställningsbelopp'),
    status:r.status||'draft',supplier:r.supplier||null,reference:r.reference||null,delivery:r.delivery||null,
    ordered_by:r.ordered_by||null,ordered_at:idDate(r.ordered_at,date),owner_pays:r.owner_pays==null?null:(Number(r.owner_pays)?1:0)});break;
  }
@@ -196,7 +199,9 @@ export function operationalSnapshot(db,at,{all}){
   return {...b,lines,total:lines.reduce((s,l)=>s+l.budget_amount,0)};
  });
  const issues=map.issues.map(r=>({...r,resolved_property_id:propertyFor(db,r)}));
- const orders=map.orders.map(r=>({...r,property_id:issues.find(i=>i.id===r.issue_id)?.resolved_property_id}));
+ const orders=map.orders.map(r=>({...r,
+  resolved_property_id:r.issue_id?issues.find(i=>i.id===r.issue_id)?.resolved_property_id:propertyFor(db,r)
+ }));
  const inspections=map.inspections.map(r=>({...r,points:map.inspection_points.filter(p=>p.inspection_id===r.id),resolved_property_id:propertyFor(db,r)}));
  const rentByAgreement=db.prepare('SELECT agreement_id,base_amount,type,valid_from,valid_to FROM agreement_items').all()
   .filter(r=>active(r,at)).reduce((map,r)=>{map[r.agreement_id]=(map[r.agreement_id]||0)+r.base_amount;return map;},{});
