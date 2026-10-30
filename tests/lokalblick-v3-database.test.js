@@ -117,3 +117,54 @@ test('creator never overwrites or migrates an existing database',()=>{
   reopened.close();
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+// A party's industry/category is not its relationship. The same party can
+// hold different roles on different records without duplicating its identity.
+test('issue/order roles stay scoped; property owner and coordinator are inherited',()=>{
+ const db=openMemoryDatabase();try{
+  fixture(db);
+  exec(db,"INSERT INTO parties(id,name) VALUES ('contractor','Entreprenören AB')");
+  exec(db,"INSERT INTO parties(id,name) VALUES ('supplier','Leverantören AB')");
+  exec(db,"INSERT INTO issues(id,property_id,title) VALUES ('issue','p','Takåtgärd')");
+  exec(db,"INSERT INTO orders(id,issue_id,title) VALUES ('order','issue','Takpannor')");
+  exec(db,"INSERT INTO stakeholder_assignments(id,issue_id,role_code,party_id,valid_from) VALUES ('contractor-issue','issue','contractor','contractor','2026-01-01')");
+  exec(db,"INSERT INTO stakeholder_assignments(id,order_id,role_code,party_id,valid_from) VALUES ('supplier-order','order','supplier','supplier','2026-01-01')");
+  const issue=resolvedStakeholders(db,{issueId:'issue'},'2026-10-30');
+  assert.equal(issue.owner[0].partyId,'owner');
+  assert.equal(issue.owner[0].inherited,true);
+  assert.equal(issue.contractor[0].partyId,'contractor');
+  assert.equal(issue.supplier.length,0);
+  const order=resolvedStakeholders(db,{orderId:'order'},'2026-10-30');
+  assert.equal(order.supplier[0].partyId,'supplier');
+  assert.equal(order.supplier[0].inherited,false);
+  assert.equal(order.contractor[0].partyId,'contractor');
+  assert.equal(order.contractor[0].inherited,true);
+  assert.equal(order.coordinator[0].personId,'a');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM stakeholder_assignments').get().n,8);
+  assert.throws(()=>exec(db,"INSERT INTO stakeholder_assignments(id,property_id,role_code,party_id,valid_from) VALUES ('supplier-wrong','p','supplier','supplier','2026-01-01')"),/CHECK/);
+ }finally{db.close();}
+});
+test('orders may belong directly to a property or an object without a fabricated issue',()=>{
+ const db=openMemoryDatabase();try{
+  fixture(db);
+  exec(db,"INSERT INTO orders(id,property_id,title) VALUES ('property-order','p','Driftmaterial')");
+  exec(db,"INSERT INTO orders(id,object_id,title) VALUES ('object-order','o','Reparation')");
+  assert.equal(resolvedStakeholders(db,{orderId:'property-order'},'2026-10-30').owner[0].partyId,'owner');
+  assert.equal(resolvedStakeholders(db,{orderId:'object-order'},'2026-10-30').coordinator[0].personId,'a');
+  assert.throws(()=>exec(db,"INSERT INTO orders(id,title) VALUES ('orphan','Saknar hemvist')"),/CHECK/);
+  assert.throws(()=>exec(db,"INSERT INTO orders(id,object_id,property_id,title) VALUES ('duplicate-home','o','p','Fel')"),/CHECK/);
+ }finally{db.close();}
+});
+test('several parties may share a contractor role without overwriting one another',()=>{
+ const db=openMemoryDatabase();try{
+  fixture(db);
+  exec(db,"INSERT INTO parties(id,name) VALUES ('contractor','Entreprenören AB')");
+  exec(db,"INSERT INTO issues(id,object_id,title) VALUES ('issue','o','Utredning')");
+  exec(db,"INSERT INTO stakeholder_assignments(id,issue_id,role_code,party_id,valid_from,shared) VALUES ('a1','issue','consultant','owner','2026-01-01',1)");
+  exec(db,"INSERT INTO stakeholder_assignments(id,issue_id,role_code,party_id,valid_from,shared) VALUES ('a2','issue','consultant','contractor','2026-01-01',1)");
+  const roles=resolvedStakeholders(db,{issueId:'issue'},'2026-10-30').consultant;
+  assert.equal(roles.length,2);
+  assert.deepEqual(roles.map(x=>x.partyId).sort(),['contractor','owner']);
+  assert.throws(()=>exec(db,"INSERT INTO stakeholder_assignments(id,issue_id,role_code,party_id,valid_from,shared) VALUES ('alone','issue','consultant','tenant','2026-01-01',0)"),/Överlappande/);
+ }finally{db.close();}
+});
