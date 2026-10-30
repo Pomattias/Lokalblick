@@ -136,14 +136,18 @@ export function mountImport(root,{snapshot,apply}) {
    else {
     if(!globalThis.XLSX)throw Error('Excelbiblioteket kunde inte läsas.');
     const wb=globalThis.XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
-    book=wb.SheetNames.map(name=>({name,rows:globalThis.XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false,defval:''})}));
+    // Lokallista is the agreement master. SF and EXT are source/working
+    // sheets and must never be offered as importable registers.
+    const hasLokallista=wb.SheetNames.some(name=>normalize(name)==='lokallista');
+    book=wb.SheetNames.filter(name=>!(hasLokallista&&['sf','ext'].includes(normalize(name))))
+      .map(name=>({name,rows:globalThis.XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false,defval:''})}));
    }
    sheet.disabled=false;sheet.innerHTML=option(book.map(x=>({id:x.name,label:x.name})));
-   sheet.value=book.find(b=>normalize(b.name)===normalize(chosen().title))?.name||book[0]?.name||'';
+   sheet.value=book.find(b=>register.value==='agreements'&&normalize(b.name)==='lokallista')?.name||book.find(b=>normalize(b.name)===normalize(chosen().title))?.name||book[0]?.name||'';
    selectSheet();
   }catch(error){preview.innerHTML='<p class="error-text">'+esc(error.message)+'</p>';confirm.disabled=true}
  });
- register.addEventListener('change',()=>{parentFields();if(book.length){sheet.value=book.find(b=>normalize(b.name)===normalize(chosen().title))?.name||book[0].name;selectSheet();}});
+ register.addEventListener('change',()=>{parentFields();if(book.length){sheet.value=book.find(b=>register.value==='agreements'&&normalize(b.name)==='lokallista')?.name||book.find(b=>normalize(b.name)===normalize(chosen().title))?.name||book[0].name;selectSheet();}});
  sheet.addEventListener('change',selectSheet);
  parent.addEventListener('change',buildPreview);
  map.addEventListener('change',buildPreview);
