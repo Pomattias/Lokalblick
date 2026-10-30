@@ -9,7 +9,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const viewNames={properties:'Fastigheter',objects:'Objekt',agreements:'Avtal',parties:'Parter',people:'Personer',...moreViews};
 const itemNames={properties:'fastighet',objects:'objekt',agreements:'avtal',parties:'part',people:'person',...moreItems};
 const dateToday=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
-const roles={owner:'Fastighetsägare',owner_contact:'Fastighetsägarens kontakt',coordinator:'Lokalsamordnare',tenant:'Hyresgäst',tenant_contact:'Hyresgästens kontakt',asset_manager:'Förvaltare',project_manager:'Projektledare'};
+const roles={owner:'Fastighetsägare',owner_contact:'Fastighetsägarens kontakt',coordinator:'Lokalsamordnare',tenant:'Hyresgäst',tenant_contact:'Hyresgästens kontakt',asset_manager:'Förvaltare',project_manager:'Projektledare',contractor:'Entreprenör',consultant:'Konsult',supplier:'Leverantör',invoice_recipient:'Fakturamottagare'};
 const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:'',rentEditId:null,showHistory:false};
 const registerItems=()=>state.snapshot?moreRecords(state.view,state.snapshot).filter(r=>isVisibleAt(state.view,r,state.asOf,state.showHistory)):[];
 $('#as-of').value=state.asOf;
@@ -94,6 +94,9 @@ function renderDetail(){
   facts=[fact('Namn',row.name),fact('Organisationsnummer',row.organization_number),fact('Typ',row.kind)].join('');
   actions+='<button class="secondary" type="button" data-mode="link">Koppla person</button>';
   history='<h3>Personer som företräder parten</h3><div class="timeline">'+state.snapshot.partyPeople.filter(x=>x.party_id===row.id).map(x=>'<article><strong>'+esc(state.snapshot.people.find(p=>p.id===x.person_id)?.name||'Person')+'</strong><span>'+esc(x.valid_from)+' – '+esc(x.valid_to||'')+'</span></article>').join('')+'</div>';
+  const partLinks=(state.snapshot.stakeholderAssignments||[]).filter(x=>x.party_id===row.id);
+  const targetName=x=>x.property_id?state.snapshot.properties.find(p=>p.id===x.property_id)?.name:x.object_id?state.snapshot.objects.find(o=>o.id===x.object_id)?.object_number:x.agreement_id?state.snapshot.agreements.find(a=>a.id===x.agreement_id)?.agreement_number:x.issue_id?state.snapshot.issues.find(a=>a.id===x.issue_id)?.title:x.order_id?state.snapshot.orders.find(o=>o.id===x.order_id)?.title:'';
+  history+='<h3>Partens kopplingar ('+partLinks.length+')</h3><div class="timeline">'+(partLinks.map(x=>'<article><strong>'+esc(roles[x.role_code]||x.role_code)+'</strong><span>'+esc(targetName(x)||'Okänd hemvist')+' · '+esc(x.valid_from)+' – '+esc(x.valid_to||'Tills vidare')+'</span></article>').join('')||'<p class="muted">Inga direkta kopplingar ännu.</p>')+'</div>';
  } else {
   facts=[fact('Namn',row.name),fact('E-post',row.email),fact('Telefon',row.phone)].join('');
   actions+='<button class="secondary" type="button" data-mode="link">Koppla part</button>';
