@@ -43,6 +43,12 @@ export function openExistingDatabase(file) {
   const meta = db.prepare('SELECT model_version FROM store_meta WHERE id=1').get();
   if (meta?.model_version !== MODEL_VERSION)
    throw Error('Databasen är inte Lokalblick v3. Migrering stöds inte.');
+  // Do not open an older v3 layout in write mode and then fail halfway through
+  // a party/order operation. This branch intentionally never migrates data.
+  const orderFields=new Set(db.prepare('PRAGMA table_info(orders)').all().map(x=>x.name));
+  const rolesSql=db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='stakeholder_assignments'").get()?.sql||'';
+  if(!orderFields.has('property_id')||!orderFields.has('object_id')||!rolesSql.includes("'supplier'"))
+   throw Error('Den här Lokalblick v3-versionen kräver ny databasstruktur för partroller och beställningar. Den befintliga databasen har inte ändrats.');
   return db;
  } catch (error) { db.close(); throw error; }
 }
