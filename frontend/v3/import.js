@@ -41,6 +41,11 @@ function readCsv(value) {
  return output;
 }
 const option=(items)=>items.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.label)+'</option>').join('');
+// Keep reference sheets available to Excel formulas, but never offer them as import sources.
+export function importableSheetNames(names){
+ const hasMaster=names.some(name=>normalize(name)==='lokallista');
+ return names.filter(name=>normalize(name)!=='fastighetsregister'&&!(hasMaster&&['sf','ext'].includes(normalize(name))));
+}
 export function mountImport(root,{snapshot,apply}) {
  const shell=document.createElement('section');shell.className='v3-import';
  shell.innerHTML='<h3>Importera nya Excel- eller CSV-uppgifter</h3>'+
@@ -136,10 +141,9 @@ export function mountImport(root,{snapshot,apply}) {
    else {
     if(!globalThis.XLSX)throw Error('Excelbiblioteket kunde inte läsas.');
     const wb=globalThis.XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
-    // Lokallista is the agreement master. SF and EXT are source/working
-    // sheets and must never be offered as importable registers.
-    const hasLokallista=wb.SheetNames.some(name=>normalize(name)==='lokallista');
-    book=wb.SheetNames.filter(name=>!(hasLokallista&&['sf','ext'].includes(normalize(name))))
+    // Preserve Fastighetsregister and other reference sheets in the source workbook.
+    // Only their appearance in the import selector is excluded.
+    book=importableSheetNames(wb.SheetNames)
       .map(name=>({name,rows:globalThis.XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false,defval:''})}));
    }
    sheet.disabled=false;sheet.innerHTML=option(book.map(x=>({id:x.name,label:x.name})));
