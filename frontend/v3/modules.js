@@ -51,7 +51,7 @@ export function moreItemName(view,r){
 export function moreSecondary(view,r,s){
  switch(view){
  case 'issues':return (kind[r.status]||r.status)+' · '+propertyName(s,r.resolved_property_id);
- case 'orders':return issueName(s,r.issue_id)+' · '+money(r.amount);
+ case 'orders':return (r.issue_id?issueName(s,r.issue_id):r.object_id?objectName(s,r.object_id):propertyName(s,r.property_id))+' · '+money(r.amount);
  case 'recurringCosts':return propertyName(s,r.property_id)+' · '+money(r.annual_amount)+'/år';
  case 'costEvidence':return (r.invoice_reference||r.year||'')+' · '+money(r.amount);
  case 'budgets':return propertyName(s,r.property_id)+' · '+(kind[r.status]||r.status);
@@ -71,6 +71,15 @@ const box=(name,value)=>'<div class="fact"><small>'+clean(name)+'</small><strong
 const action=(mode,label,critical=false)=>'<button type="button" class="'+(critical?'primary':'secondary')+'" data-mode="'+clean(mode)+'">'+clean(label)+'</button>';
 const timeline=(rows,render)=>'<div class="timeline">'+(rows.length?rows.map(render).join(''):'<span class="muted">Inga poster.</span>')+'</div>';
 const item=(label,value)=>'<article><strong>'+clean(label)+'</strong><span>'+clean(value??'')+'</span></article>';
+const stakeholderLabels={owner:'Fastighetsägare',owner_contact:'Fastighetsägarens kontakt',coordinator:'Lokalsamordnare',tenant:'Hyresgäst',tenant_contact:'Hyresgästens kontakt',asset_manager:'Förvaltare',project_manager:'Projektledare',contractor:'Entreprenör',consultant:'Konsult',supplier:'Leverantör',invoice_recipient:'Fakturamottagare'};
+function stakeholderSection(record,s){
+ const rows=Object.entries(record.stakeholders||{}).flatMap(([role,items])=>items.map(x=>({
+  label:stakeholderLabels[role]||role,
+  name:[one(s,'parties',x.partyId)?.name,one(s,'people',x.personId)?.name].filter(Boolean).join(' · '),
+  origin:x.inherited?'Ärvt från '+x.sourceLevel:'Egen koppling'
+ })));
+ return '<h3>Parter och ansvar</h3>'+timeline(rows,x=>item(x.label+' · '+x.origin,x.name));
+}
 export function moreDetail(view,row,s){
  const sections=[];let actions=[],facts=[];
  switch(view){
@@ -85,13 +94,17 @@ export function moreDetail(view,row,s){
   break;
  }
  case 'issues':
-  actions=[action('edit','Redigera'),action('order','Ny beställning')];
+  actions=[action('edit','Redigera'),action('order','Ny beställning'),action('role','Koppla part/person')];
   facts=[box('Status',kind[row.status]||row.status),box('Prioritet',row.priority),box('Fastighet',propertyName(s,row.resolved_property_id)),box('Objekt',row.object_id?objectName(s,row.object_id):'–'),box('Avtal',row.agreement_id?agreementName(s,row.agreement_id):'–'),box('Beräknad kostnad',money(row.estimated_cost)),box('Slutkostnad',money(row.final_cost)),box('Tidplan',[(row.planned_from||'–'),(row.planned_to||'–')].join(' – '))].join('');
   sections.push('<h3>Beskrivning</h3><p class="muted">'+clean(row.description||row.notes||'Ingen beskrivning')+'</p>');
   sections.push('<h3>Beställningar</h3>'+timeline(s.orders.filter(o=>o.issue_id===row.id),o=>item(o.title,money(o.amount))));
+  sections.push(stakeholderSection(row,s));
   break;
  case 'orders':
-  actions=[action('edit','Redigera')];facts=[box('Ärende',issueName(s,row.issue_id)),box('Belopp',money(row.amount)),box('Slutkostnad',money(row.final_cost)),box('Leverantör',row.supplier),box('Status',kind[row.status]||row.status),box('Beställningsdatum',row.ordered_at),box('Betalstatus',row.payment_status)].join('');break;
+  actions=[action('edit','Redigera'),action('role','Koppla part/person')];
+  facts=[box('Ärende',row.issue_id?issueName(s,row.issue_id):'–'),box('Objekt',row.object_id?objectName(s,row.object_id):'–'),box('Fastighet',propertyName(s,row.resolved_property_id)),box('Belopp',money(row.amount)),box('Slutkostnad',money(row.final_cost)),box('Leverantör',row.supplier),box('Status',kind[row.status]||row.status),box('Beställningsdatum',row.ordered_at),box('Betalstatus',row.payment_status)].join('');
+  sections.push(stakeholderSection(row,s));
+  break;
  case 'recurringCosts':
   actions=[action('edit','Redigera'),action('evidence','Registrera utfall/faktura')];
   facts=[box('Fastighet',propertyName(s,row.property_id)),box('Kategori',kind[row.category]||row.category),box('Planerad årskostnad',money(row.annual_amount)),box('Utfall '+s.asOf.slice(0,4),money(row.actual?.amount)),box('Utfallskälla',row.actual?.kind),box('Giltighet',[(row.valid_from||'–'),(row.valid_to||'Tills vidare')].join(' – '))].join('');
@@ -148,13 +161,28 @@ export function moreFormSchema(view,mode,row,ctx){
  const categoryItems=optionList(['heat','water','electricity','cooling','waste','other'].map(id=>({id,label:kind[id]})));
  const statuses=optionList(['open','ongoing','done'].map(id=>({id,label:kind[id]})));
  const today=state.asOf;
+ if(mode==='role'&&['issues','orders'].includes(view)){
+  const partyRoles=view==='issues'?['contractor','consultant','project_manager','coordinator']:['supplier','invoice_recipient','contractor','consultant','coordinator'];
+  return {title:'Koppla part/person',action:'setRole',fixed:{[view==='issues'?'issue_id':'order_id']:p.id},fields:
+    select('Roll','role_code',partyRoles.map(id=>({id,label:stakeholderLabels[id]})),partyRoles[0],true)+
+    select('Part','party_id',asOptions('parties'),'',true)+
+    select('Person (om rollen avser en person)','person_id',asOptions('people'))+
+    label('Giltig från','valid_from',today,'date','required')+
+    '<label class="checkbox"><input type="checkbox" name="shared" value="1"> Flera parter får ha samma roll</label>'+
+    '<p class="hint">Entreprenör, konsult och leverantör kan kopplas direkt till parten. Kontakter och ansvariga personer måste tillhöra vald part. Andra nivåer ärvs utan att kopior sparas.</p>'};
+ }
  if(view==='issues'){
   if(mode==='order')return {title:'Ny beställning',action:'createOrder',fixed:{issue_id:p.id},fields:label('Namn','title','','text','required')+label('Belopp, kr','amount','','number','min="0" step="any"')+label('Leverantör','supplier')+label('Beställningsdatum','ordered_at',today,'date')};
   if(mode==='create')return {title:'Nytt ärende',action:'createIssue',transform:convert,fields:select('Hemvist','home',home(),'',true)+label('Rubrik','title','','text','required')+label('Beskrivning','description')+select('Prioritet','priority',[{id:'low',label:'Låg'},{id:'normal',label:'Normal'},{id:'high',label:'Hög'}],'normal')+label('Uppskattad kostnad','estimated_cost','','number','min="0" step="any"')+label('Planerad start','planned_from','','date')};
   return {title:'Redigera ärende',action:'updateIssue',fields:label('Rubrik','title',p.title,'text','required')+label('Beskrivning','description',p.description)+select('Status','status',statuses,p.status,true)+label('Slutkostnad','final_cost',p.final_cost,'number','min="0" step="any"')+label('Planerad start','planned_from',p.planned_from,'date')+label('Planerat slut','planned_to',p.planned_to,'date')};
  }
  if(view==='orders')return {title:mode==='create'?'Ny beställning':'Redigera beställning',action:mode==='create'?'createOrder':'updateOrder',
-  fields:(mode==='create'?select('Ärende','issue_id',s.issues.map(x=>({id:x.id,label:x.title})),'',true):'')+
+  ...(mode==='create'?{transform:fields=>{const [target,id]=String(fields.orderHome||'').split(':');delete fields.orderHome;if(!['issue_id','object_id','property_id'].includes(target)||!id)throw Error('Välj giltig hemvist.');fields[target]=id;}}:{}),
+  fields:(mode==='create'?select('Hemvist','orderHome',[
+   ...s.issues.map(x=>({id:'issue_id:'+x.id,label:'Ärende · '+x.title})),
+   ...s.objects.map(x=>({id:'object_id:'+x.id,label:'Objekt · '+x.object_number})),
+   ...s.properties.map(x=>({id:'property_id:'+x.id,label:'Fastighet · '+x.name}))
+  ],'',true):'')+
   label('Benämning','title',p.title,'text','required')+label('Belopp','amount',p.amount,'number','min="0" step="any"')+
   select('Status','status',[{id:'draft',label:'Utkast'},{id:'ordered',label:'Beställd'},{id:'done',label:'Klart'}],p.status||'draft')+label('Leverantör','supplier',p.supplier)+label('Slutkostnad','final_cost',p.final_cost,'number','min="0" step="any"')};
  if(view==='recurringCosts'){
