@@ -4,6 +4,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {openMemoryDatabase,createFreshDatabase,openExistingDatabase,objectVersionAt,agreementVersionsAt,resolvedStakeholders} from '../backend/lokaler/v3/database.js';
+import {CoreV3Store} from '../backend/lokaler/v3/core-store.js';
 const exec=(db,q,...params)=>db.prepare(q).run(...params);
 function fixture(db){
  exec(db,'INSERT INTO parties(id,name) VALUES (?,?)','owner','Fastighetsägare AB');
@@ -166,5 +167,23 @@ test('several parties may share a contractor role without overwriting one anothe
   assert.equal(roles.length,2);
   assert.deepEqual(roles.map(x=>x.partyId).sort(),['contractor','owner']);
   assert.throws(()=>exec(db,"INSERT INTO stakeholder_assignments(id,issue_id,role_code,party_id,valid_from,shared) VALUES ('alone','issue','consultant','tenant','2026-01-01',0)"),/Överlappande/);
+ }finally{db.close();}
+});
+
+test('v3 API stores an order on a property and adds a supplier without inventing an issue',async()=>{
+ const db=openMemoryDatabase();try{
+  fixture(db);
+  const store=new CoreV3Store(db);
+  const first=await store.mutate({version:0,asOf:'2026-10-30',
+   command:{action:'createOrder',fields:{property_id:'p',title:'Driftmaterial',amount:1000}}});
+  assert.equal(first.orders.length,1);
+  const order=first.orders[0];
+  assert.equal(order.issue_id,null);
+  assert.equal(order.resolved_property_id,'p');
+  const second=await store.mutate({version:1,asOf:'2026-10-30',
+   command:{action:'setRole',fields:{order_id:order.id,role_code:'supplier',party_id:'owner',valid_from:'2026-10-30'}}});
+  assert.equal(second.orders[0].stakeholders.supplier[0].partyId,'owner');
+  assert.equal(second.orders[0].stakeholders.owner[0].inherited,true);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM issues').get().n,0);
  }finally{db.close();}
 });
