@@ -46,10 +46,17 @@ function asOfSnapshot(db,asOf) {
   stakeholders:resolvedStakeholders(db,{agreementId:a.id},at)
  }));
  const propertiesWithRoles=properties.map(p=>({...p,stakeholders:resolvedStakeholders(db,{propertyId:p.id},at)}));
+ const operational=operationalSnapshot(db,at,{all});
+ operational.issues=operational.issues.map(issue=>({
+  ...issue,stakeholders:resolvedStakeholders(db,{issueId:issue.id},at)
+ }));
+ operational.orders=operational.orders.map(order=>({
+  ...order,stakeholders:resolvedStakeholders(db,{orderId:order.id},at)
+ }));
  return {schemaVersion:3,version:db.prepare('SELECT version FROM store_meta WHERE id=1').get().version,asOf:at,
   parties,people,partyPeople,properties:propertiesWithRoles,objects,agreements,stakeholderAssignments:all(db,'stakeholder_assignments'),
   agreementItems:all(db,'agreement_items'),
-  ...operationalSnapshot(db,at,{all}),
+  ...operational,
   schema:db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name<>'store_meta' ORDER BY name").all().map(t=>({name:t.name,columns:db.prepare('PRAGMA table_info('+t.name+')').all().map(c=>({name:c.name,type:c.type,required:Boolean(c.notnull),primary:Boolean(c.pk)})),references:db.prepare('PRAGMA foreign_key_list('+t.name+')').all().map(f=>({column:f.from,table:f.table,target:f.to}))}))};
 }
 function perform(db,command) {
@@ -138,13 +145,21 @@ function perform(db,command) {
    if(scope.length!==1)throw Error('Ange exakt en hemvist.');
    const valid_from=date(p.valid_from),key=scope[0],keyId=text(p[key],'hemvist');
    const current=db.prepare(`SELECT * FROM stakeholder_assignments WHERE ${key}=? AND role_code=? AND valid_from<=? AND (valid_to IS NULL OR valid_to>=?)`).all(keyId,role_code,valid_from,valid_from);
-   if(current.some(r=>r.valid_from===valid_from))throw Error('Ansvar ändras från en ny dag, inte inom samma giltighetsstart.');
-   const future=db.prepare(`SELECT COUNT(*) AS n FROM stakeholder_assignments WHERE ${key}=? AND role_code=? AND valid_from>?`).get(keyId,role_code,valid_from).n;
-   if(future)throw Error('Det finns framtida rolländringar. Välj den senaste perioden.');
-   for(const row of current)update(db,'stakeholder_assignments',row.id,{valid_to:previousDay(valid_from)});
+   const shared=Boolean(p.shared),partyId=optional(p.party_id),personId=optional(p.person_id),
+    mode=p.assignment_mode==='block'?'block':'assign';
+   if(shared){
+    if(current.some(r=>!r.shared||r.assignment_mode==='block'||mode==='block'))
+     throw Error('Delat ansvar kan inte överlappa en ensam koppling eller spärr.');
+    if(current.some(r=>r.party_id===partyId&&r.person_id===personId))
+     throw Error('Parten har redan samma roll här under perioden.');
+   }else{
+    if(current.some(r=>r.valid_from===valid_from))throw Error('Ansvar ändras från en ny dag, inte inom samma giltighetsstart.');
+    const future=db.prepare(`SELECT COUNT(*) AS n FROM stakeholder_assignments WHERE ${key}=? AND role_code=? AND valid_from>?`).get(keyId,role_code,valid_from).n;
+    if(future)throw Error('Det finns framtida rolländringar. Välj den senaste perioden.');
+    for(const row of current)update(db,'stakeholder_assignments',row.id,{valid_to:previousDay(valid_from)});
+   }
    insert(db,'stakeholder_assignments',{id:id(),[key]:keyId,role_code,valid_from,
-    party_id:optional(p.party_id),person_id:optional(p.person_id),
-    assignment_mode:p.assignment_mode==='block'?'block':'assign',shared:p.shared?1:0});break;
+    party_id:partyId,person_id:personId,assignment_mode:mode,shared:shared?1:0});break;
   }
   case 'addAgreementItem':
   case 'updateAgreementItem':{
