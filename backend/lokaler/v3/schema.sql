@@ -114,12 +114,16 @@ CREATE TABLE issues (
  CHECK(planned_from IS NULL OR planned_to IS NULL OR planned_from<=planned_to)
 ) STRICT;
 CREATE TABLE orders (
- id TEXT PRIMARY KEY, issue_id TEXT NOT NULL REFERENCES issues(id) ON DELETE RESTRICT,
+ id TEXT PRIMARY KEY,
+ issue_id TEXT REFERENCES issues(id) ON DELETE RESTRICT,
+ property_id TEXT REFERENCES properties(id) ON DELETE RESTRICT,
+ object_id TEXT REFERENCES objects(id) ON DELETE RESTRICT,
  title TEXT NOT NULL, amount REAL, status TEXT NOT NULL DEFAULT 'draft'
  CHECK(status IN ('draft','ordered','done')),
  ordered_by TEXT REFERENCES people(id) ON DELETE RESTRICT, ordered_at TEXT,
  final_cost REAL, supplier TEXT, reference TEXT, delivery TEXT, completed_at TEXT,
- payment_status TEXT, paid_at TEXT, invoice_comment TEXT, owner_pays INTEGER
+ payment_status TEXT, paid_at TEXT, invoice_comment TEXT, owner_pays INTEGER,
+ CHECK((issue_id IS NOT NULL)+(property_id IS NOT NULL)+(object_id IS NOT NULL)=1)
 ) STRICT;
 CREATE TABLE stakeholder_assignments (
  id TEXT PRIMARY KEY,
@@ -128,7 +132,7 @@ CREATE TABLE stakeholder_assignments (
  agreement_id TEXT REFERENCES agreements(id) ON DELETE RESTRICT,
  issue_id TEXT REFERENCES issues(id) ON DELETE RESTRICT,
  order_id TEXT REFERENCES orders(id) ON DELETE RESTRICT,
- role_code TEXT NOT NULL CHECK(role_code IN ('owner','owner_contact','coordinator','tenant','tenant_contact','asset_manager','project_manager')),
+ role_code TEXT NOT NULL CHECK(role_code IN ('owner','owner_contact','coordinator','tenant','tenant_contact','asset_manager','project_manager','contractor','consultant','supplier','invoice_recipient')),
  party_id TEXT REFERENCES parties(id) ON DELETE RESTRICT,
  person_id TEXT REFERENCES people(id) ON DELETE RESTRICT,
  valid_from TEXT NOT NULL, valid_to TEXT,
@@ -141,12 +145,17 @@ CREATE TABLE stakeholder_assignments (
  CHECK((assignment_mode='block' AND party_id IS NULL AND person_id IS NULL)
  OR (assignment_mode='assign' AND party_id IS NOT NULL AND
  ((role_code IN ('owner','tenant') AND person_id IS NULL)
- OR (role_code NOT IN ('owner','tenant') AND person_id IS NOT NULL)))),
- CHECK(role_code<>'tenant' OR agreement_id IS NOT NULL)
+ OR (role_code IN ('contractor','consultant','supplier','invoice_recipient'))
+ OR (role_code NOT IN ('owner','tenant','contractor','consultant','supplier','invoice_recipient') AND person_id IS NOT NULL)))),
+ CHECK(role_code<>'tenant' OR agreement_id IS NOT NULL),
+ CHECK(role_code NOT IN ('contractor','consultant') OR issue_id IS NOT NULL OR order_id IS NOT NULL),
+ CHECK(role_code NOT IN ('supplier','invoice_recipient') OR order_id IS NOT NULL)
 ) STRICT;
 CREATE INDEX stakeholder_by_property ON stakeholder_assignments(property_id,role_code,valid_from,valid_to);
 CREATE INDEX stakeholder_by_object ON stakeholder_assignments(object_id,role_code,valid_from,valid_to);
 CREATE INDEX stakeholder_by_agreement ON stakeholder_assignments(agreement_id,role_code,valid_from,valid_to);
+CREATE INDEX stakeholder_by_issue ON stakeholder_assignments(issue_id,role_code,valid_from,valid_to);
+CREATE INDEX stakeholder_by_order ON stakeholder_assignments(order_id,role_code,valid_from,valid_to);
 CREATE TRIGGER stakeholder_prevent_overlap BEFORE INSERT ON stakeholder_assignments
  WHEN EXISTS (
  SELECT 1 FROM stakeholder_assignments s
