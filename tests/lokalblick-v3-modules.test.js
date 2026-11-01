@@ -243,3 +243,19 @@ test('v3 API separates nominal rent from calculated fixed rent and missing CPI i
   assert.match(kpi.reason,/KPI/);
  }finally{await s.close();}
 });
+
+test('v3 floor flag from rental form remains dated and affects fixed annual adjustment',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Golvkontroll'});const property=s.state().properties[0].id;
+  await s.post('createObject',{property_id:property,object_number:'101',valid_from:'2020-01-01'});
+  await s.post('createAgreement',{object_id:s.state().objects[0].id,agreement_number:'FLOOR-1',valid_from:'2020-01-01'});
+  const agreement=s.state().agreements[0].id;
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'base',name:'Bashyra',base_amount:120000,valid_from:'2020-01-01',adjustment_method:'fixed',base_year:2024,annual_percent:-5,floor:'1'});
+  const old=s.state().agreementItems[0];
+  await s.post('reviseAgreementItem',{valid_from:'2025-01-01',floor:'0'},old.id);
+  const current=s.state().agreementItems.find(x=>x.id!==old.id);
+  assert.equal(current.floor,0);
+  assert.equal(s.state().rentCalculations[0].amount,108300);
+  assert.equal(s.state().agreementItems.find(x=>x.id===old.id).floor,1);
+ }finally{await s.close();}
+});

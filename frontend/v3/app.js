@@ -163,6 +163,7 @@ function formSchema(mode,row,view=state.view,parentId=null){
    label('KPI-bastal','base_index',item.base_index,'number','min="0" step="any"')+
    label('Indexandel (0–1)','index_share',item.index_share,'number','min="0" max="1" step="any"')+
    label('Årlig uppräkning, %','annual_percent',item.annual_percent,'number','step="any"')+
+   select('Grundbelopp som golv','floor',[{id:'1',label:'Ja – minst grundbeloppet'},{id:'0',label:'Nej – sänkning tillåts'}],String(item.floor??1))+
    '<p class="hint">Föregående hyresperiod avslutas dagen före den nya. Beloppen skrivs inte över.</p>'};
  }
  if(Object.hasOwn(moreViews,v)){
@@ -196,7 +197,8 @@ function formSchema(mode,row,view=state.view,parentId=null){
      label('Basår','base_year',state.asOf.slice(0,4),'number','min="1900"')+
      label('KPI-bastal','base_index','','number','min="0" step="any"')+
      label('Indexandel (0–1)','index_share','','number','min="0" max="1" step="any"')+
-     label('Årlig procent','annual_percent','','number','step="any"')};
+     label('Årlig procent','annual_percent','','number','step="any"')+
+     select('Grundbelopp som golv','floor',[{id:'1',label:'Ja – minst grundbeloppet'},{id:'0',label:'Nej – sänkning tillåts'}],'1')};
  }
  if(mode==='end')return {title:'Avsluta objekt',action:'endObject',fields:label('Slutdatum','ended_on',state.asOf,'date','required')};
  if(v==='properties')return {title:mode==='create'?'Ny fastighet':'Redigera fastighet',action:mode==='create'?'createProperty':'updateProperty',

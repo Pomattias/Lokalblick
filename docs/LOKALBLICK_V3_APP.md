@@ -86,3 +86,13 @@ I v3 används ett utökat **färskt** schema med `budgets.scenario_index`.
 En tom v3-testdatabas skapad före denna uppdatering kan tas bort och skapas
 på nytt. **Ingen datamigrering erbjuds**, i enlighet med beslutet om en helt
 tom nystart. Gör aldrig detta om databasen hunnit få uppgifter som ska sparas.
+
+## Hyresberäkning och avstämning (v3)
+
+- Hyresposters grundbelopp och avtalsvillkor sparas daterat. `reviseAgreementItem` avslutar föregående period atomiskt och skapar en ny. `updateAgreementItem` får endast stänga en period.
+- **Nominell årshyresnivå** är summan av aktiva grundbelopp för valt datum utan index. Det är en årsrate, inte summan av fakturor eller periodiserade intäkter.
+- **Uppräknad årshyresnivå** använder den gemensamma funktionen i `frontend/v3/rent-calculation.js`: nominell, fast årligt sammansatt procent från angivet basår, KPI med uttryckligt bastal/indexandel/indextal samt markerat hyresgolv.
+- Saknat indextal, otillräcklig avtalsinformation och oklara `kpi-limited`-villkor ger **ej beräkningsbar** post, aldrig ett påhittat belopp. API:t exponerar `annualRent` (nominell), `annualRentCalculated` (null om en post är oklar), `annualRentUnresolved` och `rentCalculations`.
+- Budgetens KPI-förhandsgranskning visar årsnivå per **31 december** för budgetåret. Den summerar inte flera historiska hyresperioder under samma år. SCB:s oktoberindextal eller eget scenario används bara som explicit indata och lagras inte som nya hyresgrundbelopp.
+- Avtalsvyn visar nominell årshyresnivå samt kr/m² med objektets gällande area på valt datum. Saknad eller noll area ger inget kr/m²-tal.
+- Kvar: dokumentera olika avtalsbundna min/max-klausuler, avtalsperiodiserade kassaflöden och full avstämning mot originalavtal före ekonomisk prognos används som beslutsunderlag.

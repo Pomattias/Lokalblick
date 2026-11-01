@@ -198,7 +198,7 @@ function perform(db,command) {
     next[key]=value;
    }
    for(const key of ['floor','reconcilable']){
-    if(![0,1,true,false].includes(next[key]))throw Error('Ogiltig markering: '+key);
+    if(![0,1,true,false,'0','1'].includes(next[key]))throw Error('Ogiltig markering: '+key);
     next[key]=Number(next[key]);
    }
    update(db,'agreement_items',old.id,{valid_to:previousDay(start)});
