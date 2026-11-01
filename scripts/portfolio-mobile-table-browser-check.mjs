@@ -127,7 +127,14 @@ try{
   const rent=await bounds(contract.locator('td:nth-child(10)'));
   const area=await bounds(contract.locator('td:nth-child(14)'));
   assert.ok(property.top>first.top,'property follows agreement');
-  assert.ok(rent.top>property.top,'rent follows property');
+  if(!(rent.top>property.top)){
+   const cells=await contract.locator('td').evaluateAll(all=>all.map((el,i)=>({
+    col:i+1,display:getComputedStyle(el).display,top:Math.round(el.getBoundingClientRect().top),
+    row:getComputedStyle(el).gridRow,gridColumn:getComputedStyle(el).gridColumn,
+    text:(el.textContent||'').trim().slice(0,45)
+   })).filter(c=>[1,3,9,10,14].includes(c.col)));
+   assert.ok(false,'rent follows property: '+JSON.stringify(cells));
+  }
   near(rent.top,area.top,'area and rent appear on the same row');
   assert.ok(await contract.locator('td:nth-child(1) .contract-mobile-property').isVisible(),'property and address share a compact row');
   assert.ok(await contract.locator('td:nth-child(9) .contract-tenant-name').isVisible(),'agreement number and tenant share the top row');
