@@ -1,4 +1,4 @@
-import {annualRateSummary} from '../../../shared/v3/rent-calculation.js';
+import {annualRateSummary} from '../../../frontend/v3/rent-calculation.js';
 // Lokalblick v3 operational modules. Explicit allowlisted commands and read models.
 const expenses=['heat','water','electricity','cooling','waste','other'];
 const idDate=(v,date)=>v?date(v):null;

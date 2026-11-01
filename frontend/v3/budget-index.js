@@ -1,4 +1,4 @@
-import {calculateAnnualRate,snapshotAnnualRate} from '../../shared/v3/rent-calculation.js';
+import {calculateAnnualRate,snapshotAnnualRate} from './rent-calculation.js';
 // October index: SCB observation and private budget scenario are separate values.
 // The calculated amounts are illustrative and never overwrite contractual base rent.
 const money=n=>new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',maximumFractionDigits:0}).format(n);

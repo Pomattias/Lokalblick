@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {calculateAnnualRate,annualRateSummary,snapshotAnnualRate} from '../shared/v3/rent-calculation.js';
+import {calculateAnnualRate,annualRateSummary,snapshotAnnualRate} from '../frontend/v3/rent-calculation.js';
 
 const item=(fields={})=>({id:'x',agreement_id:'a',base_amount:120000,adjustment_method:'none',...fields});
 test('unadjusted and fixed compounded rent use the same explicit year',()=>{
