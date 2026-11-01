@@ -1,4 +1,4 @@
-import {calculateAnnualRate,snapshotAnnualRate} from './rent-calculation.js';
+import {calculateAnnualRate,annualRateSummary,snapshotAnnualRate} from './rent-calculation.js';
 // October index: SCB observation and private budget scenario are separate values.
 // The calculated amounts are illustrative and never overwrite contractual base rent.
 const money=n=>new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',maximumFractionDigits:0}).format(n);
@@ -9,7 +9,13 @@ export function indexedBaseAmount(item,index){
 }
 // One rate at 31 December; old and new periods within the year are not added.
 export function indexPreview(snapshot,index,year,propertyId){
- return snapshotAnnualRate(snapshot,year+'-12-31',{index,propertyId});
+ const at=year+'-12-31';
+ if(Array.isArray(snapshot)){
+  // Original helper signature, now delegated to the same calculation rules.
+  const result=annualRateSummary(snapshot,at,{index});
+  return {...result,total:result.known,selected:result.count-result.unresolved,unable:result.unresolved};
+ }
+ return snapshotAnnualRate(snapshot,at,{index,propertyId});
 }
 export function mountBudgetIndex(panel,budget,s){
  const year=Number(budget.budget_year)-1,yearOk=year>=2025&&year<=2200;
