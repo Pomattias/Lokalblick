@@ -159,8 +159,8 @@ function formSchema(mode,row,view=state.view,parentId=null){
    label('Benämning','name',item.name,'text','required')+
    label('Grundbelopp per år, kr','base_amount',item.base_amount,'number','required min="0" step="any"')+
    select('Uppräkning','adjustment_method',[{id:'none',label:'Ingen'},{id:'kpi',label:'KPI'},{id:'fixed',label:'Fast årlig procent'},{id:'kpi-limited',label:'KPI min/max'}],item.adjustment_method||'none')+
-   label('Basår','base_year',item.base_year,'number','min="1900"')+
-   label('KPI-bastal','base_index',item.base_index,'number','min="0" step="any"')+
+   label('Basår · första hyresår','base_year',item.base_year,'number','min="1900"')+
+   label('KPI-bastal · oktober före basåret','base_index',item.base_index,'number','min="0" step="any"')+
    label('Indexandel (0–1)','index_share',item.index_share,'number','min="0" max="1" step="any"')+
    label('Årlig uppräkning, %','annual_percent',item.annual_percent,'number','step="any"')+
    label('Minsta höjning, %','min_percent',item.min_percent,'number','min="0" step="any"')+
@@ -196,8 +196,8 @@ function formSchema(mode,row,view=state.view,parentId=null){
      label('Benämning','name','Bashyra','text','required')+label('Grundbelopp, kr per år','base_amount','','number','required min="0" step="any"')+
      label('Giltig från','valid_from',state.asOf,'date')+label('Giltig till','valid_to','','date')+
      select('Uppräkning','adjustment_method',[{id:'none',label:'Ingen'},{id:'kpi',label:'KPI'},{id:'fixed',label:'Fast årlig procent'},{id:'kpi-limited',label:'KPI min/max'}],'none')+
-     label('Basår','base_year',state.asOf.slice(0,4),'number','min="1900"')+
-     label('KPI-bastal','base_index','','number','min="0" step="any"')+
+     label('Basår · första hyresår','base_year',state.asOf.slice(0,4),'number','min="1900"')+
+     label('KPI-bastal · oktober före basåret','base_index','','number','min="0" step="any"')+
      label('Indexandel (0–1)','index_share','','number','min="0" max="1" step="any"')+
      label('Årlig procent','annual_percent','','number','step="any"')+
      label('Minsta höjning, %','min_percent','','number','min="0" step="any"')+

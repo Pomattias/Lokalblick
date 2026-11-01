@@ -8,14 +8,14 @@ export function indexedBaseAmount(item,index){
  return calculateAnnualRate({...item,adjustment_method:'kpi'},{year:Number(item.base_year)||2026,index}).amount;
 }
 // One rate at 31 December; old and new periods within the year are not added.
-export function indexPreview(snapshot,index,year,propertyId){
+export function indexPreview(snapshot,index,year,propertyId,indexHistory=null){
  const at=year+'-12-31';
  if(Array.isArray(snapshot)){
   // Original helper signature, now delegated to the same calculation rules.
-  const result=annualRateSummary(snapshot,at,{index});
+  const result=annualRateSummary(snapshot,at,{index,indexHistory});
   return {...result,total:result.known,selected:result.count-result.unresolved,unable:result.unresolved};
  }
- return snapshotAnnualRate(snapshot,at,{index,propertyId});
+ return snapshotAnnualRate(snapshot,at,{index,indexHistory,propertyId});
 }
 export function mountBudgetIndex(panel,budget,s){
  const year=Number(budget.budget_year)-1,yearOk=year>=2025&&year<=2200;
@@ -29,15 +29,18 @@ export function mountBudgetIndex(panel,budget,s){
   '<button type="button" class="secondary" data-fetch-kpi '+(!yearOk?'disabled':'')+'>Hämta publicerat KPI från SCB</button>'+
   '<p class="muted" data-scb-info></p><div data-kpi-preview></div>';
  panel.append(node);
+ // Only explicit published October observations qualify for historic annual steps.
+ // The private budget scenario remains the value for the target year's index.
+ let indexHistory={};
  const renderPreview=(value,label)=>{
   if(!Number.isFinite(Number(value))||Number(value)<=0)return;
-  const result=indexPreview(s,Number(value),Number(budget.budget_year),budget.property_id);
+  const result=indexPreview(s,Number(value),Number(budget.budget_year),budget.property_id,indexHistory);
   node.querySelector('[data-kpi-preview]').innerHTML='<h3>Indikativ årshyresnivå 31 december '+text(budget.budget_year)+' · '+text(label)+'</h3>'+
    '<div class="details"><div class="fact"><small>Fullständig beräknad årsnivå</small><strong>'+(result.calculated===null?'Kräver komplettering':money(result.calculated))+'</strong></div>'+
    '<div class="fact"><small>Beräknad del, kr/år</small><strong>'+money(result.known)+'</strong></div>'+
    '<div class="fact"><small>Aktiva poster</small><strong>'+result.count+'</strong></div>'+
    '<div class="fact"><small>Kräver kontroll</small><strong>'+result.unresolved+'</strong></div></div>'+
-   '<p class="muted">Nivån är annualiserad per årets sista dag, inte årets fakturerade hyra. KPI bygger på valt oktoberindex eller scenario. Fasta årsjusteringar beräknas med basår. Min/max begränsar höjningen för varje hyrespost. Ogiltiga gränser och saknade indexvärden redovisas som ej beräkningsbara.</p>';
+   '<p class="muted">Nivån är annualiserad per årets sista dag, inte årets fakturerade hyra. KPI bygger på valt oktoberindex eller scenario. Fasta årsjusteringar beräknas med basår. Min/max begränsar varje års höjning, separat per hyrespost och tillägg. Flerårig KPI-reglering kräver offentliggjorda oktoberindex för samtliga mellanliggande år, annars visas kräver kontroll.</p>';
  };
  if(budget.scenario_index!=null)renderPreview(budget.scenario_index,'manuellt scenario');
  node.querySelector('[data-fetch-kpi]').addEventListener('click',async event=>{
@@ -48,9 +51,32 @@ export function mountBudgetIndex(panel,budget,s){
    const october=(data.rows||[]).find(r=>r.month===10&&Number(r.year)===year);
    const value=node.querySelector('[data-scb-value]'),info=node.querySelector('[data-scb-info]');
    if(october){
+    // Historical rent-rate years y require October CPI from y-1.
+    // The endpoint only supports observations from 2025 onward.
+    const needed=new Set();
+    for(const item of s.agreementItems||[]){
+     if(!['kpi','kpi-limited'].includes(item.adjustment_method))continue;
+     if(item.min_percent==null&&item.max_percent==null)continue;
+     const start=Number(item.base_year);
+     if(!Number.isInteger(start)||start<1900)continue;
+     for(let y=Math.max(2026,start+1);y<Number(budget.budget_year);y++)
+      needed.add(y);
+    }
+    const history=await Promise.all([...needed].map(async targetYear=>{
+     try{
+      const res=await fetch('/api/budget-index?year='+(targetYear-1),{cache:'no-store'});
+      if(!res.ok)return null;
+      const payload=await res.json();
+      const record=(payload.rows||[]).find(r=>r.month===10&&Number(r.year)===targetYear-1);
+      return record&&Number(record.value)>0?[targetYear,Number(record.value)]:null;
+     }catch{return null;}
+    }));
+    indexHistory=Object.fromEntries(history.filter(Boolean));
     value.textContent=String(october.value).replace('.',',');
-    info.textContent='SCB fastställda KPI · Oktober '+year+' · serie 1980=100. Hämtat '+new Date().toLocaleString('sv-SE');
+    info.textContent='SCB fastställda KPI · Oktober '+year+' · serie 1980=100. Hämtat '+new Date().toLocaleString('sv-SE')+
+     ' · '+Object.keys(indexHistory).length+' historiska år tillgängliga för årlig reglering.';
     if(budget.scenario_index==null)renderPreview(october.value,'SCB oktober');
+    else renderPreview(budget.scenario_index,'manuellt scenario');
    }else{
     value.textContent='Ej publicerat';
     info.textContent='Oktoberindex '+year+' finns ännu inte publicerat i hämtat underlag. Senaste tillgängliga månad: '+(data.rows?.at(-1)?.month||'–')+'. Scenarioindex ändras inte.';

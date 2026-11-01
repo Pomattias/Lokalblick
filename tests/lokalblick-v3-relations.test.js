@@ -52,3 +52,18 @@ test('KPI budget preview requires contractual base index and preserves non-index
   {base_amount:999,adjustment_method:'kpi-limited',valid_from:'2020-01-01'}],440,2027);
  assert.equal(p.total,127000);assert.equal(p.selected,2);assert.equal(p.unable,1);
 });
+
+test('annual KPI preview accepts October history keyed by rent year, and remains incomplete without it',()=>{
+ const cap={id:'rent',agreement_id:'a',type:'base',base_amount:100000,adjustment_method:'kpi-limited',
+  min_percent:2,max_percent:5,base_year:2025,base_index:400,index_share:1};
+ const supplement={...cap,id:'extra',type:'addition',base_amount:20000,min_percent:0,max_percent:8};
+ const snapshot={objects:[{id:'o',property_id:'p',versions:[{valid_from:'2020-01-01'}]}],
+  agreements:[{id:'a',object_id:'o',versions:[{valid_from:'2020-01-01',legal_end_on:null}]}],
+  agreementItems:[cap,supplement]};
+ const missing=indexPreview(snapshot,484,2027,'p');
+ assert.equal(missing.calculated,null);assert.equal(missing.unresolved,2);
+ const full=indexPreview(snapshot,484,2027,'p',{2026:440});
+ assert.equal(full.calculated,131488);
+ assert.equal(full.unresolved,0);
+ assert.equal(indexPreview(snapshot,484,2027,'else',{2026:440}).count,0);
+});
