@@ -63,7 +63,7 @@ test('annual KPI preview accepts October history keyed by rent year, and remains
  const missing=indexPreview(snapshot,484,2027,'p');
  assert.equal(missing.calculated,null);assert.equal(missing.unresolved,2);
  const full=indexPreview(snapshot,484,2027,'p',{2026:440});
- assert.equal(full.calculated,131488);
+ assert.equal(full.calculated,133578); // 100000*1.05² + 20000*1.08²
  assert.equal(full.unresolved,0);
  assert.equal(indexPreview(snapshot,484,2027,'else',{2026:440}).count,0);
 });
