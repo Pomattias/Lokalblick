@@ -324,3 +324,30 @@ test('v3 API exposes annual cost settlements only for matching lease supplements
   assert.equal(historical.costReconciliations.find(x=>x.agreementId===agreement).status,'review');
  }finally{await s.close();}
 });
+
+test('v3 API prorates certified VA expense across two consecutive tenants of one object',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Vattenår'});const property=s.state().properties[0].id;
+  await s.post('createObject',{property_id:property,object_number:'A',valid_from:'2020-01-01',area:100});
+  await s.post('createObject',{property_id:property,object_number:'B',valid_from:'2020-01-01',area:900});
+  const object=s.state().objects.find(x=>x.object_number==='A').id;
+  await s.post('createAgreement',{object_id:object,agreement_number:'VÅR',valid_from:'2026-01-01',legal_end_on:'2026-06-30'});
+  await s.post('createAgreement',{object_id:object,agreement_number:'HÖST',valid_from:'2026-07-01'});
+  for(const [agreement_number,amount] of [['VÅR',3000],['HÖST',3000]]){
+   const agreement_id=s.state().agreements.find(x=>x.agreement_number===agreement_number).id;
+   await s.post('addAgreementItem',{agreement_id,type:'water',name:'VA-tillägg',base_amount:amount,valid_from:'2026-01-01'});
+  }
+  await s.post('createCost',{property_id:property,category:'water',name:'VA',annual_amount:50000,valid_from:'2020-01-01'});
+  await s.post('addCostEvidence',{cost_id:s.state().recurringCosts[0].id,type:'annual',year:2026,amount:50000});
+  const a=s.state().costReconciliations.find(r=>r.agreementNumber==='VÅR');
+  const b=s.state().costReconciliations.find(r=>r.agreementNumber==='HÖST');
+  assert.equal(a.status,'ready');assert.equal(b.status,'ready');
+  assert.equal(a.tenancyFrom,'2026-01-01');assert.equal(a.tenancyTo,'2026-06-30');
+  assert.equal(b.tenancyFrom,'2026-07-01');assert.equal(b.tenancyTo,'2026-12-31');
+  assert.equal(a.tenancyDays,181);assert.equal(b.tenancyDays,184);
+  assert.equal(a.allocatedCost+b.allocatedCost,5000);
+  assert.equal(a.annualSupplement+b.annualSupplement,3000);
+  assert.equal(a.difference+b.difference,2000);
+  assert.equal(s.state().agreementItems.length,2);
+ }finally{await s.close();}
+});
