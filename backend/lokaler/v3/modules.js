@@ -161,7 +161,8 @@ export function runModuleCommand(db,command,api){
  case 'updateInspectionPoint':{
   const r=pick(p,['assessment','comment','last_action','photo_reference','issue_id']);
   if(r.issue_id){
-   const point=ref(lookup,'inspection_points',rowId,'besiktningspunkt');
+   const point=lookup('inspection_points',rowId);
+   if(!point)throw Error('Besiktningspunkten saknas.');
    const inspection=lookup('inspections',point.inspection_id);
    const issue=lookup('issues',r.issue_id);
    if(!issue||propertyFor(db,issue)!==propertyFor(db,inspection))
