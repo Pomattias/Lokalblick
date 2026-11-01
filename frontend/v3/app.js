@@ -163,10 +163,10 @@ function formSchema(mode,row,view=state.view,parentId=null){
    label('KPI-bastal · oktober före basåret','base_index',item.base_index,'number','min="0" step="any"')+
    label('Indexandel (0–1)','index_share',item.index_share,'number','min="0" max="1" step="any"')+
    label('Årlig uppräkning, %','annual_percent',item.annual_percent,'number','step="any"')+
-   label('Minsta höjning, %','min_percent',item.min_percent,'number','min="0" step="any"')+
-   label('Högsta höjning, %','max_percent',item.max_percent,'number','min="0" step="any"')+
+   label('Garanterad minsta årlig höjning, %','min_percent',item.min_percent,'number','min="0" step="any"')+
+   label('Högsta årlig höjning, %','max_percent',item.max_percent,'number','min="0" step="any"')+
    select('Grundbelopp som golv','floor',[{id:'1',label:'Ja – minst grundbeloppet'},{id:'0',label:'Nej – sänkning tillåts'}],String(item.floor??1))+
-   '<p class="hint">Min/max begränsar höjningen i procent av hyrespostens grundbelopp. Föregående period bevaras.</p>'};
+   '<p class="hint">Garanterad minsta höjning gäller varje år även vid oförändrat eller fallande KPI. Max begränsar varje års höjning. Båda utgår från föregående års hyra. Föregående period bevaras.</p>'};
  }
  if(Object.hasOwn(moreViews,v)){
   const spec=moreFormSchema(v,mode,row,{state,select,label,asOptions});
@@ -200,10 +200,10 @@ function formSchema(mode,row,view=state.view,parentId=null){
      label('KPI-bastal · oktober före basåret','base_index','','number','min="0" step="any"')+
      label('Indexandel (0–1)','index_share','','number','min="0" max="1" step="any"')+
      label('Årlig procent','annual_percent','','number','step="any"')+
-     label('Minsta höjning, %','min_percent','','number','min="0" step="any"')+
-     label('Högsta höjning, %','max_percent','','number','min="0" step="any"')+
+     label('Garanterad minsta årlig höjning, %','min_percent','','number','min="0" step="any"')+
+     label('Högsta årlig höjning, %','max_percent','','number','min="0" step="any"')+
      select('Grundbelopp som golv','floor',[{id:'1',label:'Ja – minst grundbeloppet'},{id:'0',label:'Nej – sänkning tillåts'}],'1')+
-     '<p class="hint">Min/max anges separat för varje bashyra och tillägg och begränsar hyreshöjningen, inte KPI-talet.</p>'};
+     '<p class="hint">Min är en garanterad årlig höjning även om KPI är lägre eller negativt. Max är årets tak. Båda beräknas på föregående års hyra och anges separat för bashyra och tillägg.</p>'};
  }
  if(mode==='end')return {title:'Avsluta objekt',action:'endObject',fields:label('Slutdatum','ended_on',state.asOf,'date','required')};
  if(v==='properties')return {title:mode==='create'?'Ny fastighet':'Redigera fastighet',action:mode==='create'?'createProperty':'updateProperty',

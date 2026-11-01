@@ -34,6 +34,24 @@ test('annual min and max apply to PREVIOUS year rental rate, not once to base re
  assert.equal(calculateAnnualRate({...row,min_percent:null},{year:2026,index:398}).amount,120000);
  assert.equal(calculateAnnualRate({...row,max_percent:null},{year:2026,index:440}).amount,132000);
 });
+test('guaranteed 2 percent minimum raises rent even when CPI is negative or unchanged',()=>{
+ const rent=item({adjustment_method:'kpi-limited',base_amount:100000,
+  base_year:2025,base_index:400,index_share:1,min_percent:2,max_percent:5});
+ for(const [index,expected] of [[380,102000],[400,102000],[404,102000],[412,103000],[440,105000]]){
+  assert.equal(calculateAnnualRate(rent,{year:2026,index}).amount,expected,
+   'annual rent must honor 2% minimum for October CPI '+index);
+ }
+ // Two successive years of deflation still produce two guaranteed increases.
+ const second=calculateAnnualRate(rent,{year:2027,index:360,indexHistory:{2026:380}});
+ assert.equal(second.amount,104040);
+ // Minimum is contractual, not merely the optional no-reduction floor.
+ assert.equal(calculateAnnualRate({...rent,floor:0},{year:2026,index:380}).amount,102000);
+ // A supplement may have its own independent guaranteed increase.
+ const supplement={...rent,id:'extra',type:'addition',base_amount:20000,min_percent:3,max_percent:7};
+ const total=annualRateSummary([rent,supplement],'2026-12-31',{index:380});
+ assert.equal(total.calculated,122600);
+ assert.equal(total.lines.find(x=>x.id==='extra').amount,20600);
+});
 test('different annual rent limits per base and addition also compound independently',()=>{
  const rent=item({id:'rent',type:'base',base_amount:100000,adjustment_method:'kpi-limited',base_year:2025,base_index:400,index_share:1,min_percent:2,max_percent:4});
  const extra=item({id:'extra',type:'addition',base_amount:20000,adjustment_method:'kpi-limited',base_year:2025,base_index:400,index_share:1,min_percent:0,max_percent:8});
