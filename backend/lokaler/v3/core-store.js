@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createFreshDatabase, openExistingDatabase, objectVersionAt, resolvedStakeholders, agreementVersionsAt } from './database.js';
 import { existsSync } from 'node:fs';
 import {runModuleCommand,operationalSnapshot} from './modules.js';
+import {reconcileAnnualCosts} from '../../../frontend/v3/cost-reconciliation.js';
 
 // V3 operations are explicit and transactional; there is no V2 workspace replacement.
 const date=v=>{const raw=String(v||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(raw)||!Number.isFinite(Date.parse(raw+'T00:00:00Z'))||new Date(raw+'T00:00:00Z').toISOString().slice(0,10)!==raw)throw Error('Ogiltigt datum, ange ÅÅÅÅ-MM-DD.');return raw;};
@@ -47,6 +48,11 @@ function asOfSnapshot(db,asOf) {
  }));
  const propertiesWithRoles=properties.map(p=>({...p,stakeholders:resolvedStakeholders(db,{propertyId:p.id},at)}));
  const operational=operationalSnapshot(db,at,{all});
+ const agreementItems=all(db,'agreement_items');
+ const costReconciliations=reconcileAnnualCosts({
+  year:Number(at.slice(0,4)),properties,objects,agreements,agreementItems,
+  recurringCosts:operational.recurringCosts
+ });
  operational.issues=operational.issues.map(issue=>({
   ...issue,stakeholders:resolvedStakeholders(db,{issueId:issue.id},at)
  }));
@@ -55,8 +61,8 @@ function asOfSnapshot(db,asOf) {
  }));
  return {schemaVersion:3,version:db.prepare('SELECT version FROM store_meta WHERE id=1').get().version,asOf:at,
   parties,people,partyPeople,properties:propertiesWithRoles,objects,agreements,stakeholderAssignments:all(db,'stakeholder_assignments'),
-  agreementItems:all(db,'agreement_items'),
-  ...operational,
+  agreementItems,
+  ...operational,costReconciliations,
   schema:db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name<>'store_meta' ORDER BY name").all().map(t=>({name:t.name,columns:db.prepare('PRAGMA table_info('+t.name+')').all().map(c=>({name:c.name,type:c.type,required:Boolean(c.notnull),primary:Boolean(c.pk)})),references:db.prepare('PRAGMA foreign_key_list('+t.name+')').all().map(f=>({column:f.from,table:f.table,target:f.to}))}))};
 }
 function perform(db,command) {

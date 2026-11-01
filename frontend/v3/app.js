@@ -54,6 +54,22 @@ function renderList(){
   ['Avtal',state.snapshot.agreements.length],['Parter',state.snapshot.parties.length],['Personer',state.snapshot.people.length]
  ].map(([k,n])=>'<div class="stat"><strong>'+n+'</strong><span>'+k+'</span></div>').join('');
 }
+function annualSettlementHtml(rows,asOf){
+ if(!rows.length)return '';
+ const category={heat:'Värme',water:'VA',electricity:'El',cooling:'Kyla',waste:'Avfall'};
+ return '<h3>Avräkning av tillägg · '+esc(asOf.slice(0,4))+'</h3>'+
+  '<p class="muted">Underlag för årsavräkning, ingen automatisk faktura. Avtalat årstillägg används som jämförelse; kontrollera faktiskt debiterat belopp.</p>'+
+  '<div class="timeline">'+rows.map(r=>{
+   const name=category[r.category]||r.category;
+   if(r.status==='included')return '<article><strong>'+esc(name)+'</strong><span>Ingår i hyran · inget separat tillägg, ingen avräkning</span></article>';
+   if(r.status!=='ready')return '<article><strong>'+esc(name)+'</strong><span>Kräver kontroll · '+esc(r.reason||'Ofullständiga uppgifter')+'</span></article>';
+   const status=r.difference>0?'Efterdebitering '+formatMoney(r.difference):
+    r.difference<0?'Tillgodo '+formatMoney(-r.difference):'Ingen differens';
+   return '<article><strong>'+esc(name)+' · '+esc(status)+'</strong><span>'+
+    esc(r.area+' / '+r.totalArea+' m² ('+r.share+' %)')+' · Andel '+esc(formatMoney(r.allocatedCost))+
+    ' · Avtalat tillägg '+esc(formatMoney(r.annualSupplement))+'</span></article>';
+  }).join('')+'</div>';
+}
 function renderDetail(){
  const row=selected(),panel=$('#detail');
  if(state.view==='map'){
@@ -78,7 +94,7 @@ function renderDetail(){
   actions+='<button class="primary" type="button" data-create-child="objects" data-parent-id="'+esc(row.id)+'">+ Nytt objekt</button>';
   actions+='<button class="secondary" type="button" data-mode="role">Koppla part/person</button>';
   if(row.address&&row.city)actions+='<button class="secondary" type="button" data-geocode>Hitta position</button>';
-  history='';
+  history=annualSettlementHtml((state.snapshot.costReconciliations||[]).filter(x=>x.propertyId===row.id),state.asOf);
  } else if(state.view==='objects'){
   const v=row.currentVersion;
   facts=[fact('Objektsnummer',row.object_number),fact('Fastighet',state.snapshot.properties.find(p=>p.id===row.property_id)?.name),fact('Gällande area',v?.area==null?'Ingen gällande version':v.area+' m²'),fact('Startdatum version',v?.valid_from),fact('Avslutad',row.ended_on||'Nej')].join('');
@@ -102,6 +118,7 @@ function renderDetail(){
   actions='<button class="secondary" type="button" data-mode="revise">Ny avtalsversion</button><button class="secondary" type="button" data-mode="role">Koppla part/person</button><button class="secondary" type="button" data-mode="rent">Hyra / tillägg</button>';
   history='<h3>Avtalsversioner</h3><div class="timeline">'+row.versions.map(v=>'<article><strong>'+esc(v.valid_from)+'</strong><span>'+esc(v.legal_end_on||'Tills vidare')+'</span></article>').join('')+'</div>';
   const rents=state.snapshot.agreementItems.filter(i=>i.agreement_id===row.id);
+  history+=annualSettlementHtml((state.snapshot.costReconciliations||[]).filter(x=>x.agreementId===row.id),state.asOf);
   history+='<h3>Hyra och tillägg · grundbelopp före uppräkning</h3><div class="timeline">'+(rents.map(i=>'<article><strong>'+esc(i.name)+' · '+esc(formatMoney(i.base_amount))+'</strong><span>'+esc(i.valid_from||'Utan start')+' – '+esc(i.valid_to||'Tills vidare')+(i.valid_to?' · Avslutad':' <button type="button" class="secondary" data-edit-rent="'+esc(i.id)+'">Ny hyresperiod</button> <button type="button" class="secondary" data-close-rent="'+esc(i.id)+'">Avsluta post</button>')+'</span></article>').join('')||'<span class="muted">Inga hyresposter.</span>')+'</div>';
  } else if(state.view==='parties'){
   facts=[fact('Namn',row.name),fact('Organisationsnummer',row.organization_number),fact('Typ',row.kind)].join('');
@@ -192,7 +209,7 @@ function formSchema(mode,row,view=state.view,parentId=null){
  }
  if(mode==='rent'){
   return {title:'Hyra eller tillägg',action:'addAgreementItem',fixed:{agreement_id:r.id},
-    fields:select('Typ','type',[{id:'base',label:'Bashyra'},{id:'addition',label:'Tilläggshyra'},...['heat','water','electricity','cooling','waste','tax','other'].map(id=>({id,label:id}))],'base',true)+
+    fields:select('Typ','type',[{id:'base',label:'Bashyra'},{id:'addition',label:'Tilläggshyra'},...['heat','water','electricity','cooling','waste','tax','other'].map(id=>({id,label:({heat:'Värme',water:'VA',electricity:'El',cooling:'Kyla',waste:'Avfall',tax:'Fastighetsskatt',other:'Övrigt'})[id]}))],'base',true)+
      label('Benämning','name','Bashyra','text','required')+label('Grundbelopp, kr per år','base_amount','','number','required min="0" step="any"')+
      label('Giltig från','valid_from',state.asOf,'date')+label('Giltig till','valid_to','','date')+
      select('Uppräkning','adjustment_method',[{id:'none',label:'Ingen'},{id:'kpi',label:'KPI'},{id:'fixed',label:'Fast årlig procent'},{id:'kpi-limited',label:'KPI min/max'}],'none')+

@@ -80,6 +80,25 @@ function stakeholderSection(record,s){
  })));
  return '<h3>Parter och ansvar</h3>'+timeline(rows,x=>item(x.label+' · '+x.origin,x.name));
 }
+function settlementRows(s,rows){
+ const format=r=>{
+  const name=({heat:'Värme',water:'VA',electricity:'El',cooling:'Kyla',waste:'Avfall'})[r.category]||r.category;
+  const head=name+' · Avtal '+r.agreementNumber;
+  if(r.status==='included')
+   return item(head,'Ingår i hyran · inget separat tillägg och ingen efterdebitering');
+  if(r.status!=='ready')
+   return item(head,'Kräver kontroll · '+(r.reason||'Otillräckligt underlag'));
+  const diff=r.difference>0?'Efterdebitering '+money(r.difference)
+   :r.difference<0?'Tillgodo '+money(-r.difference):'Avstämt utan differens';
+  return item(head,
+   r.area+' / '+r.totalArea+' m² ('+r.share+' %) · Fastighetskostnad '+money(r.totalCost)+
+   ' · Andel '+money(r.allocatedCost)+' · Avtalat tillägg '+money(r.annualSupplement)+
+   ' · '+diff);
+ };
+ return '<h3>Årlig tilläggsavräkning · '+s.asOf.slice(0,4)+'</h3>'+
+  '<p class="muted">Beräknat avräkningsunderlag, inte faktura. Avser hela år med fastställda kostnader, oförändrade areor och årsbelopp. Kontrollera debiterat belopp före slutavräkning.</p>'+
+  timeline(rows,format);
+}
 export function moreDetail(view,row,s){
  const sections=[];let actions=[],facts=[];
  switch(view){
@@ -109,6 +128,8 @@ export function moreDetail(view,row,s){
   actions=[action('edit','Redigera'),action('evidence','Registrera utfall/faktura')];
   facts=[box('Fastighet',propertyName(s,row.property_id)),box('Kategori',kind[row.category]||row.category),box('Planerad årskostnad',money(row.annual_amount)),box('Utfall '+s.asOf.slice(0,4),money(row.actual?.amount)),box('Utfallskälla',row.actual?.kind),box('Giltighet',[(row.valid_from||'–'),(row.valid_to||'Tills vidare')].join(' – '))].join('');
   sections.push('<h3>Fakturor och årsutfall</h3>'+timeline(s.costEvidence.filter(x=>x.cost_id===row.id),x=>item((kind[x.type]||x.type)+' '+(x.invoice_reference||x.year||''),money(x.amount))));
+  const settlements=(s.costReconciliations||[]).filter(x=>x.propertyId===row.property_id&&x.category===row.category);
+  sections.push(settlementRows(s,settlements));
   break;
  case 'costEvidence':
   facts=[box('Kostnadspost',one(s,'recurringCosts',row.cost_id)?.name),box('Typ',kind[row.type]||row.type),box('År',row.year),box('Fakturanummer',row.invoice_reference),box('Belopp',money(row.amount)),box('Fakturadatum',row.invoice_date)].join('');break;
