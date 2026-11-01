@@ -90,7 +90,7 @@ function renderDetail(){
   actions='<button class="secondary" type="button" data-mode="revise">Ny avtalsversion</button><button class="secondary" type="button" data-mode="role">Koppla part/person</button><button class="secondary" type="button" data-mode="rent">Hyra / tillägg</button>';
   history='<h3>Avtalsversioner</h3><div class="timeline">'+row.versions.map(v=>'<article><strong>'+esc(v.valid_from)+'</strong><span>'+esc(v.legal_end_on||'Tills vidare')+'</span></article>').join('')+'</div>';
   const rents=state.snapshot.agreementItems.filter(i=>i.agreement_id===row.id);
-  history+='<h3>Hyra och tillägg</h3><div class="timeline">'+(rents.map(i=>'<article><strong>'+esc(i.name)+' · '+esc(formatMoney(i.base_amount))+'</strong><span>'+esc(i.valid_from||'Utan start')+' – '+esc(i.valid_to||'Tills vidare')+' <button type="button" class="secondary" data-edit-rent="'+esc(i.id)+'">Ändra</button></span></article>').join('')||'<span class="muted">Inga hyresposter.</span>')+'</div>';
+  history+='<h3>Hyra och tillägg · grundbelopp före uppräkning</h3><div class="timeline">'+(rents.map(i=>'<article><strong>'+esc(i.name)+' · '+esc(formatMoney(i.base_amount))+'</strong><span>'+esc(i.valid_from||'Utan start')+' – '+esc(i.valid_to||'Tills vidare')+(i.valid_to?' · Avslutad':' <button type="button" class="secondary" data-edit-rent="'+esc(i.id)+'">Ny hyresperiod</button> <button type="button" class="secondary" data-close-rent="'+esc(i.id)+'">Avsluta post</button>')+'</span></article>').join('')||'<span class="muted">Inga hyresposter.</span>')+'</div>';
  } else if(state.view==='parties'){
   facts=[fact('Namn',row.name),fact('Organisationsnummer',row.organization_number),fact('Typ',row.kind)].join('');
   actions+='<button class="secondary" type="button" data-mode="link">Koppla person</button>';
@@ -135,19 +135,23 @@ async function geocodeSelectedProperty(){
 }
 function formSchema(mode,row,view=state.view,parentId=null){
  const v=view,r=row||{},a=state.snapshot;
- if(v==='agreements'&&mode==='editRent'){
+ if(v==='agreements'&&(mode==='editRent'||mode==='endRent')){
   const item=a.agreementItems.find(i=>i.id===state.rentEditId);
   if(!item)throw Error('Hyresposten saknas.');
-  return {title:'Redigera hyra eller tillägg',action:'updateAgreementItem',id:item.id,
-   fields:label('Benämning','name',item.name,'text','required')+
+  if(item.valid_to)throw Error('Hyresperioden är redan avslutad.');
+  if(mode==='endRent')return {title:'Avsluta hyrespost',action:'updateAgreementItem',id:item.id,
+   fields:label('Giltig till','valid_to',state.asOf,'date','required')+
+    '<p class="hint">Endast slutdatum ändras. Historiska villkor bevaras.</p>'};
+  return {title:'Ny hyresperiod',action:'reviseAgreementItem',id:item.id,
+   fields:label('Ny period från','valid_from',state.asOf,'date','required')+
+   label('Benämning','name',item.name,'text','required')+
    label('Grundbelopp per år, kr','base_amount',item.base_amount,'number','required min="0" step="any"')+
-   label('Giltig från','valid_from',item.valid_from,'date')+
-   label('Giltig till','valid_to',item.valid_to,'date')+
    select('Uppräkning','adjustment_method',[{id:'none',label:'Ingen'},{id:'kpi',label:'KPI'},{id:'fixed',label:'Fast årlig procent'},{id:'kpi-limited',label:'KPI min/max'}],item.adjustment_method||'none')+
    label('Basår','base_year',item.base_year,'number','min="1900"')+
    label('KPI-bastal','base_index',item.base_index,'number','min="0" step="any"')+
    label('Indexandel (0–1)','index_share',item.index_share,'number','min="0" max="1" step="any"')+
-   label('Årlig uppräkning, %','annual_percent',item.annual_percent,'number','step="any"')};
+   label('Årlig uppräkning, %','annual_percent',item.annual_percent,'number','step="any"')+
+   '<p class="hint">Föregående hyresperiod avslutas dagen före den nya. Beloppen skrivs inte över.</p>'};
  }
  if(Object.hasOwn(moreViews,v)){
   const spec=moreFormSchema(v,mode,row,{state,select,label,asOptions});
@@ -223,8 +227,8 @@ async function saveForm(e){
  const entries=Object.fromEntries(new FormData(form).entries());
  for(const [k,v]of Object.entries(entries))if(v==='')delete entries[k];
  const fields={...entries,...spec.fixed};
- if(spec.action==='updateAgreementItem')
-  for(const key of ['valid_from','valid_to','base_year','base_index','index_share','annual_percent']){
+ if(spec.action==='reviseAgreementItem')
+  for(const key of ['base_year','base_index','index_share','annual_percent']){
    const input=form.elements.namedItem(key);if(input)fields[key]=input.value||null;
   }
  if(spec.transform)spec.transform(fields);
@@ -248,6 +252,8 @@ async function refresh(){
 document.addEventListener('click',e=>{
  const rent=e.target.closest('[data-edit-rent]');
  if(rent){state.rentEditId=rent.dataset.editRent;openForm('editRent');return;}
+ const closeRent=e.target.closest('[data-close-rent]');
+ if(closeRent){state.rentEditId=closeRent.dataset.closeRent;openForm('endRent');return;}
  const jump=e.target.closest('[data-jump-view]');
  if(jump){navigate(jump.dataset.jumpView,jump.dataset.jumpId);return;}
  const child=e.target.closest('[data-create-child]');

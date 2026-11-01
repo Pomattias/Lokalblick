@@ -39,6 +39,20 @@ try{
  const childAgreement=parentSnapshot.agreements.find(x=>x.agreement_number==='A-102');
  assert.equal(childObject.property_id,parentProperty.id);
  assert.equal(childAgreement.object_id,childObject.id);
+ // Browser contract: revised terms are a dated successor, not an overwrite.
+ await page.locator('#detail [data-mode=rent]').click();
+ await page.locator('#edit-form [name=base_amount]').fill('120000');
+ await page.locator('#edit-form [name=valid_from]').fill('2025-01-01');
+ await save();
+ await page.locator('#detail [data-edit-rent]').click();
+ await page.locator('#edit-form [name=base_amount]').fill('135000');
+ await page.locator('#edit-form [name=valid_from]').fill('2026-01-01');
+ await save();
+ const rentalSnapshot=await (await fetch(origin+'/api/v3/core')).json();
+ const rentalPeriods=rentalSnapshot.agreementItems.filter(i=>i.agreement_id===childAgreement.id);
+ assert.equal(rentalPeriods.length,2);
+ assert.equal(rentalPeriods.find(i=>i.base_amount===120000).valid_to,'2025-12-31');
+ assert.equal(rentalPeriods.find(i=>i.base_amount===135000).valid_from,'2026-01-01');
  await add('objects',async()=>{await page.locator('#edit-form [name=property_id]').selectOption({index:1});await page.locator('#edit-form [name=object_number]').fill('101');await page.locator('#edit-form [name=valid_from]').fill('2020-01-01');await page.locator('#edit-form [name=area]').fill('200')});
  await page.locator('.record-row').first().click();
  await page.locator('[data-mode=revise]').click();await page.locator('#edit-form [name=valid_from]').fill('2026-07-01');await page.locator('#edit-form [name=area]').fill('250');await save();
