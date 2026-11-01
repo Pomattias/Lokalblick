@@ -26,4 +26,18 @@ jobs:
       - run: npm run test:editor-browser
       - run: npm run test:mobile-record-browser
       - run: npm run test:portfolio-mobile-table-browser
+
+  v3-native:
+    name: V3 database and browser smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:v3
+      - run: npx playwright install --with-deps chromium
       - run: npm run test:v3-browser
