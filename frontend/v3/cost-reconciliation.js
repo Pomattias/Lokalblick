@@ -3,7 +3,7 @@
 // silently treated as heat, water or electricity. Values are SEK/year.
 const categories=new Set(['heat','water','electricity','cooling','waste']);
 const round=n=>Math.round((n+Number.EPSILON)*100)/100;
-const activeAt=(r,date)=>(!r.valid_from||r.valid_from<=date)&&(!r.valid_to||r.valid_to>=date);
+const overlaps=(r,begin,end)=>(!r.valid_from||r.valid_from<=end)&&(!r.valid_to||r.valid_to>=begin);
 const validNumber=n=>n!==null&&n!==undefined&&n!==''&&Number.isFinite(Number(n));
 const periodCovers=(r,begin,end)=>(!r.valid_from||r.valid_from<=begin)&&(!r.valid_to||r.valid_to>=end);
 function yearArea(object,begin,end){
@@ -35,7 +35,7 @@ function costGroups(costs,year,begin,end){
   if(!categories.has(cost.category))continue;
   // An annual cost row only covers a full settlement year. Incomplete
   // invoices are retained as evidence but cannot be used for billing.
-  if(!activeAt(cost,end))continue;
+  if(!overlaps(cost,begin,end))continue;
   const key=cost.property_id+'|'+cost.category;
   if(!byKey.has(key))byKey.set(key,{propertyId:cost.property_id,category:cost.category,costIds:[],totalCost:0,complete:true});
   const row=byKey.get(key);
@@ -60,9 +60,9 @@ export function reconcileAnnualCosts({
   for(const agreement of agreements){
    const object=objectById.get(agreement.object_id);
    if(!object||object.property_id!==group.propertyId)continue;
-   if(!contractCovers(agreement,begin,end))continue;
+   if(!(agreement.versions||[]).some(v=>v.valid_from<=end&&(!v.legal_end_on||v.legal_end_on>=begin)))continue;
    const rentItems=agreementItems.filter(item=>item.agreement_id===agreement.id&&item.type===group.category
-    &&activeAt(item,end));
+    &&overlaps(item,begin,end));
    const base={
     year,propertyId:group.propertyId,propertyName:property?.name||null,
     category:group.category,costIds:group.costIds,
@@ -79,13 +79,17 @@ export function reconcileAnnualCosts({
     results.push({...base,status:'included',reason:'Inget separat avtalat tillägg – kostnaden ingår i hyran.'});
     continue;
    }
+   if(!contractCovers(agreement,begin,end)){
+    results.push({...base,reason:'Avtalet gäller inte hela året – periodisering krävs.'});continue;
+   }
    if(!group.complete){results.push({...base,reason:'Fastställd, fullständig årskostnad saknas.'});continue;}
    if(areas.total===null||base.area===null){
     results.push({...base,reason:'Komplett årsarea för samtliga objekt saknas eller har ändrats.'});continue;
    }
    // Do not charge overlapping agreements against the same object without
    // checking occupancy periods. One physical area must not be settled twice.
-   const overlapping=agreements.filter(a=>a.object_id===object.id&&contractCovers(a,begin,end));
+   const overlapping=agreements.filter(a=>a.object_id===object.id
+    &&(a.versions||[]).some(v=>v.valid_from<=end&&(!v.legal_end_on||v.legal_end_on>=begin)));
    if(overlapping.length!==1){
     results.push({...base,reason:'Flera avtal omfattar samma objekt under året.'});continue;
    }

@@ -81,10 +81,17 @@ test('dated or indexed supplement is not mistaken for a fully paid annual advanc
  data.agreementItems[0].adjustment_method='kpi';
  assert.equal(reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1').status,'review');
 });
-test('no complete yearly lease or matching property cost creates no fabricated debit',()=>{
+test('partial-year leases and partial property costs are flagged, not ignored or billed',()=>{
  const data=base();
  data.agreements[0].versions[0].valid_from='2026-06-01';
- assert.equal(reconcileAnnualCosts(data).some(x=>x.agreementId==='A-1'),false);
+ let result=reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1');
+ assert.equal(result.status,'review');assert.match(result.reason,/periodisering/i);
+ data.agreements[0].versions[0].valid_from='2020-01-01';
+ data.recurringCosts[0].valid_to='2026-06-30';
+ result=reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1');
+ assert.equal(result.status,'review');assert.match(result.reason,/årskostnad/i);
+});
+test('no matching property cost creates no fabricated debit',()=>{
  const other={...base(),recurringCosts:[{...costs()[0],property_id:'other'}]};
  assert.deepEqual(reconcileAnnualCosts(other),[]);
 });
