@@ -100,7 +100,7 @@ tom nystart. Gör aldrig detta om databasen hunnit få uppgifter som ska sparas.
 ## Minsta och högsta uppräkning per hyrespost
 
 - Bashyra och varje tillägg har separata frivilliga procentgränser `min_percent` och `max_percent`.
-- Begränsningen avser **förändringen i hyresbeloppet**, inte själva KPI-talet. Den normala uppräkningen beräknas först, och höjningen begränsas sedan till intervallet i procent av hyrespostens daterade `base_amount`.
+- Begränsningen avser **varje års förändring av hyresbeloppet**, inte själva KPI-talet. Den normala procentuella förändringen beräknas mot föregående års KPI, och årets tillåtna höjning tillämpas på **föregående års hyra**. Varje år räknas vidare på föregående års uppräknade belopp.
 - Exempel: 100 000 kr, beräknad höjning 1 %, min 2 %, max 5 % ger 102 000 kr; beräknad höjning 8 % ger 105 000 kr.
 - Båda gränserna är frivilliga, och 0 % är ett giltigt värde. Negativa gränser och min över max avvisas av API:t. Metoden `kpi-limited` kräver minst en gräns. Saknat nödvändigt KPI-underlag förblir `Kräver kontroll`.
-- **Beslut återstår om tidsperiod:** om gränsen ska gälla varje årlig indexreglering eller den sammanlagda förändringen från hyrespostens ursprungliga basbelopp. Nuvarande indikativa beräkning tillämpar från hyrespostens basbelopp och skapar inte saknade historiska KPI-värden.
+- **Beslut:** min/max gäller varje årlig reglering, var för sig för bashyra och respektive tillägg. `base_year` är det första år som har `base_amount` och `base_index` avser oktober-KPI före det året. Indexhistorik är nycklad på det hyresår som oktoberobservationen används för: exempelvis 2026 års hyresnivå använder KPI för oktober 2025. För flerårig begränsad KPI-prognos krävs föregående års KPI-observationer; saknas någon markeras posten för kontroll. Systemet hittar inte på historiska tal.
