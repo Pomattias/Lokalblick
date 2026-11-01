@@ -96,3 +96,11 @@ tom nystart. Gör aldrig detta om databasen hunnit få uppgifter som ska sparas.
 - Budgetens KPI-förhandsgranskning visar årsnivå per **31 december** för budgetåret. Den summerar inte flera historiska hyresperioder under samma år. SCB:s oktoberindextal eller eget scenario används bara som explicit indata och lagras inte som nya hyresgrundbelopp.
 - Avtalsvyn visar nominell årshyresnivå samt kr/m² med objektets gällande area på valt datum. Saknad eller noll area ger inget kr/m²-tal.
 - Kvar: dokumentera olika avtalsbundna min/max-klausuler, avtalsperiodiserade kassaflöden och full avstämning mot originalavtal före ekonomisk prognos används som beslutsunderlag.
+
+## Minsta och högsta uppräkning per hyrespost
+
+- Bashyra och varje tillägg har separata frivilliga procentgränser `min_percent` och `max_percent`.
+- Begränsningen avser **förändringen i hyresbeloppet**, inte själva KPI-talet. Den normala uppräkningen beräknas först, och höjningen begränsas sedan till intervallet i procent av hyrespostens daterade `base_amount`.
+- Exempel: 100 000 kr, beräknad höjning 1 %, min 2 %, max 5 % ger 102 000 kr; beräknad höjning 8 % ger 105 000 kr.
+- Båda gränserna är frivilliga, och 0 % är ett giltigt värde. Negativa gränser och min över max avvisas av API:t. Metoden `kpi-limited` kräver minst en gräns. Saknat nödvändigt KPI-underlag förblir `Kräver kontroll`.
+- **Beslut återstår om tidsperiod:** om gränsen ska gälla varje årlig indexreglering eller den sammanlagda förändringen från hyrespostens ursprungliga basbelopp. Nuvarande indikativa beräkning tillämpar från hyrespostens basbelopp och skapar inte saknade historiska KPI-värden.

@@ -37,7 +37,7 @@ export function mountBudgetIndex(panel,budget,s){
    '<div class="fact"><small>Beräknad del, kr/år</small><strong>'+money(result.known)+'</strong></div>'+
    '<div class="fact"><small>Aktiva poster</small><strong>'+result.count+'</strong></div>'+
    '<div class="fact"><small>Kräver kontroll</small><strong>'+result.unresolved+'</strong></div></div>'+
-   '<p class="muted">Nivån är annualiserad per årets sista dag, inte årets fakturerade hyra. KPI bygger på valt oktoberindex eller scenario. Fasta årsjusteringar beräknas med basår. Saknade villkor och oklara min/max-klausuler redovisas som ej beräkningsbara.</p>';
+   '<p class="muted">Nivån är annualiserad per årets sista dag, inte årets fakturerade hyra. KPI bygger på valt oktoberindex eller scenario. Fasta årsjusteringar beräknas med basår. Min/max begränsar höjningen för varje hyrespost. Ogiltiga gränser och saknade indexvärden redovisas som ej beräkningsbara.</p>';
  };
  if(budget.scenario_index!=null)renderPreview(budget.scenario_index,'manuellt scenario');
  node.querySelector('[data-fetch-kpi]').addEventListener('click',async event=>{

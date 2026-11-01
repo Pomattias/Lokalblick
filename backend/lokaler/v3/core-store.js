@@ -201,6 +201,7 @@ function perform(db,command) {
     if(![0,1,true,false,'0','1'].includes(next[key]))throw Error('Ogiltig markering: '+key);
     next[key]=Number(next[key]);
    }
+   validateUpliftLimits(next);
    update(db,'agreement_items',old.id,{valid_to:previousDay(start)});
    insert(db,'agreement_items',{id:id(),agreement_id:old.agreement_id,...next,valid_from:start,valid_to:null});
    break;
@@ -238,6 +239,7 @@ function perform(db,command) {
    for(const key of ['floor','reconcilable']){
     if(data[key]!==undefined)values[key]=Number(data[key])?1:0;
    }
+   validateUpliftLimits(values);
    insert(db,'agreement_items',{id:id(),...values});
    break;
   }
@@ -245,6 +247,18 @@ function perform(db,command) {
  }
 }
 // One SQLite transaction per command, optimistic concurrency, no mass replace.
+// Each rental line is validated independently. Inverted or negative limits
+// must be rejected before a historic rent period is closed.
+function validateUpliftLimits(row){
+ const min=row.min_percent,max=row.max_percent;
+ if(min!=null&&(!Number.isFinite(Number(min))||Number(min)<0)
+  ||max!=null&&(!Number.isFinite(Number(max))||Number(max)<0))
+  throw Error('Minsta och högsta höjning måste vara 0 procent eller högre.');
+ if(min!=null&&max!=null&&Number(min)>Number(max))
+  throw Error('Minsta höjning får inte överstiga högsta höjning.');
+ if(row.adjustment_method==='kpi-limited'&&min==null&&max==null)
+  throw Error('Ange minsta eller högsta höjning för KPI med min/max.');
+}
 export class CoreV3Store {
  constructor(db,{ownsDatabase=false,fileName='minne'}={}){this.db=db;this.ownsDatabase=ownsDatabase;this.fileName=fileName;this.queue=Promise.resolve();}
  static open(file) {
