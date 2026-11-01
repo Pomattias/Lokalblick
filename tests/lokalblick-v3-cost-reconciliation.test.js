@@ -73,23 +73,97 @@ test('missing certified annual evidence, missing area and changing area require 
  data.objects[1].versions.unshift({valid_from:'2026-06-01',area:120});
  assert.equal(reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1').status,'review');
 });
-test('dated or indexed supplement is not mistaken for a fully paid annual advance',()=>{
- const data=base();
- data.agreementItems[0].valid_from='2026-07-01';
- assert.equal(reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1').status,'review');
- data.agreementItems[0].valid_from='2020-01-01';
- data.agreementItems[0].adjustment_method='kpi';
+test('indexed supplement cannot be assumed paid at a fixed annual rate',()=>{
+ const data=base();data.agreementItems[0].adjustment_method='kpi';
  assert.equal(reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1').status,'review');
 });
-test('partial-year leases and partial property costs are flagged, not ignored or billed',()=>{
+test('partial-year tenancy prorates both allocated cost and fixed annual VA supplement by exact days',()=>{
  const data=base();
  data.agreements[0].versions[0].valid_from='2026-06-01';
- let result=reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1');
- assert.equal(result.status,'review');assert.match(result.reason,/periodisering/i);
- data.agreements[0].versions[0].valid_from='2020-01-01';
- data.recurringCosts[0].valid_to='2026-06-30';
- result=reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1');
- assert.equal(result.status,'review');assert.match(result.reason,/årskostnad/i);
+ const r=reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1');
+ assert.equal(r.status,'ready');
+ assert.equal(r.tenancyFrom,'2026-06-01');
+ assert.equal(r.tenancyTo,'2026-12-31');
+ assert.equal(r.tenancyDays,214);
+ assert.equal(r.reconciliationDays,214);
+ assert.equal(r.yearDays,365);
+ assert.equal(r.allocatedCost,Math.round(5000*214/365*100)/100);
+ assert.equal(r.annualSupplement,Math.round(3000*214/365*100)/100);
+ assert.equal(r.difference,Math.round((r.allocatedCost-r.annualSupplement)*100)/100);
+});
+test('consecutive tenant replacements are separately prorated without double charging',()=>{
+ const data=base();
+ data.agreements=[agreement('A-1','tenant'),agreement('A-3','tenant')];
+ data.agreements[0].versions[0].legal_end_on='2026-06-30';
+ data.agreements[1].versions[0].valid_from='2026-07-01';
+ data.agreementItems=[line('A-1','water',3000,'a1'),line('A-3','water',3000,'a3')];
+ const rows=reconcileAnnualCosts(data);
+ const a=rows.find(x=>x.agreementId==='A-1'),b=rows.find(x=>x.agreementId==='A-3');
+ assert.equal(rows.length,2);
+ assert.equal(a.status,'ready');assert.equal(b.status,'ready');
+ assert.equal(a.tenancyDays,181);assert.equal(b.tenancyDays,184);
+ assert.equal(a.reconciliationDays+b.reconciliationDays,365);
+ assert.equal(a.allocatedCost+b.allocatedCost,5000);
+ assert.equal(a.annualSupplement+b.annualSupplement,3000);
+ assert.equal(a.difference+b.difference,2000);
+ assert.equal(a.tenancyTo,'2026-06-30');assert.equal(b.tenancyFrom,'2026-07-01');
+});
+test('a revised lease version does not restart the original tenancy period',()=>{
+ const data=base();
+ data.agreements[0].versions.push({valid_from:'2026-07-01',legal_end_on:null});
+ assert.equal(reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1').tenancyDays,365);
+});
+test('supplement begins midyear: only matching supplement days are reconciled',()=>{
+ const data=base();data.agreementItems[0].valid_from='2026-07-01';
+ const r=reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1');
+ assert.equal(r.status,'ready');
+ assert.equal(r.tenancyDays,365);assert.equal(r.reconciliationDays,184);
+ assert.equal(r.periods[0].from,'2026-07-01');
+ assert.equal(r.allocatedCost,Math.round(5000*184/365*100)/100);
+ assert.equal(r.annualSupplement,Math.round(3000*184/365*100)/100);
+});
+test('supplement rate revision midyear sums separate prorated advances',()=>{
+ const data=base();
+ data.agreementItems[0].valid_to='2026-06-30';
+ data.agreementItems.push({...line('A-1','water',6000,'revised'),valid_from:'2026-07-01'});
+ const r=reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1');
+ assert.equal(r.status,'ready');assert.equal(r.reconciliationDays,365);
+ assert.equal(r.annualSupplement,Math.round((3000*181+6000*184)/365*100)/100);
+ assert.equal(r.allocatedCost,5000);
+});
+test('overlapping same-object tenancies require review instead of double billing',()=>{
+ const data=base();
+ data.agreements.push(agreement('A-3','tenant'));
+ data.agreements[2].versions[0].valid_from='2026-06-01';
+ data.agreementItems.push(line('A-3','water',3000,'a3'));
+ const r=reconcileAnnualCosts(data);
+ assert.equal(r.find(x=>x.agreementId==='A-1').status,'review');
+ assert.equal(r.find(x=>x.agreementId==='A-3').status,'review');
+});
+test('overlapping supplement lines require review instead of counting tenant area twice',()=>{
+ const data=base();data.agreementItems.push({...line('A-1','water',1000,'extra')});
+ assert.equal(reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1').status,'review');
+});
+test('lease ended prior to year is not allocated; vacant area remains in property total',()=>{
+ const data=base();data.agreements[0].versions[0].legal_end_on='2025-12-31';
+ const r=reconcileAnnualCosts(data);
+ assert.equal(r.some(x=>x.agreementId==='A-1'),false);
+ assert.equal(r.find(x=>x.agreementId==='A-2').status,'included');
+});
+test('leap day is included in partial-year annual settlement',()=>{
+ const data=base();data.year=2024;
+ data.agreements[0].versions[0].valid_from='2024-02-01';
+ data.agreements[0].versions[0].legal_end_on='2024-02-29';
+ const r=reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1');
+ assert.equal(r.status,'ready');
+ assert.equal(r.yearDays,366);assert.equal(r.tenancyDays,29);
+ assert.equal(r.allocatedCost,Math.round(5000*29/366*100)/100);
+ assert.equal(r.annualSupplement,Math.round(3000*29/366*100)/100);
+});
+test('partial property cost evidence still requires review',()=>{
+ const data=base();data.recurringCosts[0].valid_to='2026-06-30';
+ const r=reconcileAnnualCosts(data).find(x=>x.agreementId==='A-1');
+ assert.equal(r.status,'review');assert.match(r.reason,/årskostnad/i);
 });
 test('no matching property cost creates no fabricated debit',()=>{
  const other={...base(),recurringCosts:[{...costs()[0],property_id:'other'}]};
