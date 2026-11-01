@@ -46,7 +46,7 @@ try{
    assert.ok(size.scroll>size.client+5,view+': carousel must expose more than one screen of sorting options');
    assert.match(size.overflow,/auto|scroll/);
    // Inactive sort controls share dimensions and visual tokens with filter choices.
-   const sortStyle=await chips.filter(':not([data-direction="asc"]):not([data-direction="desc"])').first().evaluate(el=>{
+   const sortStyle=await table.locator('thead>tr:first-child>th[data-mobile-sort="true"]:not([aria-sort]) > .column-sort:visible').first().evaluate(el=>{
     const s=getComputedStyle(el);
     return {height:el.getBoundingClientRect().height,background:s.backgroundColor,border:s.borderColor,radius:s.borderRadius};
    });
