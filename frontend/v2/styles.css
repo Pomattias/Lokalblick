@@ -4495,30 +4495,30 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
   .portfolio-list:not(.property-list) tbody>tr:not([data-table-empty]){position:relative;}
   .portfolio-list:not(.property-list) tbody>tr>td:last-child :is(button,.table-pencil){min-width:32px;min-height:32px;}
 
-  /* Agreement card. Indices follow contractRows: 1 property, 9 number,
-     10 rent, 14 area, final cell edit. Never style stale column positions. */
+  /* Agreement card: semantic cell targets survive column customization and sorting.
+     Number/tenant, property/address, then area/rent. */
   .portfolio-list table[data-list-key="contracts"] tbody>tr:not([data-table-empty]){
     display:grid;grid-template-columns:minmax(0,1fr) auto;
     grid-template-rows:auto auto auto;
     gap:4px 8px;padding:8px 56px 9px 10px;
   }
-  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:not(:nth-child(1)):not(:nth-child(9)):not(:nth-child(10)):not(:nth-child(14)):not(:last-child){
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:not(:has([data-open-contract])):not(:has(.contract-mobile-property)):not(:has([data-contract-rent])):not(:has([data-contract-area])):not(:last-child){
     display:none;
   }
-  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(9){
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:has([data-open-contract]){
     display:flex;align-items:baseline;gap:8px;
     min-width:0;grid-column:1/3;grid-row:1;
     padding-right:0;white-space:nowrap;overflow:hidden;
   }
-  .portfolio-list table[data-list-key="contracts"] td:nth-child(9) .text-button{
+  .portfolio-list table[data-list-key="contracts"] td:has([data-open-contract]) .text-button{
     flex:0 0 auto;white-space:nowrap;font-size:13px;
   }
-  .portfolio-list table[data-list-key="contracts"] td:nth-child(9) .contract-tenant-name{
+  .portfolio-list table[data-list-key="contracts"] td:has([data-open-contract]) .contract-tenant-name{
     display:inline;flex:1 1 auto;min-width:0;
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
     font-size:11px;line-height:1.3;
   }
-  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(1){
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:has(.contract-mobile-property){
     display:block;grid-column:1/3;grid-row:2;min-width:0;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     font-size:12px;line-height:1.35;
@@ -4527,11 +4527,11 @@ body:not([data-view="budget"]) #filters .filters .filter-chip {
   .portfolio-list table[data-list-key="contracts"] .contract-mobile-property{display:inline;white-space:nowrap;}
   .portfolio-list table[data-list-key="contracts"] .contract-mobile-property strong{font-weight:600;}
   .portfolio-list table[data-list-key="contracts"] .contract-mobile-address{font-weight:400;color:var(--muted);}
-  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(14){
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:has([data-contract-area]){
     display:block;grid-column:1;grid-row:3;align-self:center;
     font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;
   }
-  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:nth-child(10){
+  .portfolio-list table[data-list-key="contracts"] tbody>tr>td:has([data-contract-rent]){
     display:block;grid-column:2;grid-row:3;align-self:center;text-align:right;
     font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;
   }

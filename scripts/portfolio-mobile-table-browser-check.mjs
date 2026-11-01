@@ -122,10 +122,10 @@ try{
   await go('contracts');
   const contract=page.locator('.portfolio-list table[data-list-key="contracts"] tbody>tr:not([data-table-empty])').first();
   await contract.waitFor();
-  const first=await bounds(contract.locator('td:nth-child(9)'));
-  const property=await bounds(contract.locator('td:nth-child(1)'));
-  const rent=await bounds(contract.locator('td:nth-child(10)'));
-  const area=await bounds(contract.locator('td:nth-child(14)'));
+  const first=await bounds(contract.locator('td:has([data-open-contract])'));
+  const property=await bounds(contract.locator('td:has(.contract-mobile-property)'));
+  const rent=await bounds(contract.locator('td:has([data-contract-rent])'));
+  const area=await bounds(contract.locator('td:has([data-contract-area])'));
   assert.ok(property.top>first.top,'property follows agreement');
   if(!(rent.top>property.top)){
    const cells=await contract.locator('td').evaluateAll(all=>all.map((el,i)=>({
@@ -136,8 +136,8 @@ try{
    assert.ok(false,'rent follows property: '+JSON.stringify(cells));
   }
   near(rent.top,area.top,'area and rent appear on the same row');
-  assert.ok(await contract.locator('td:nth-child(1) .contract-mobile-property').isVisible(),'property and address share a compact row');
-  assert.ok(await contract.locator('td:nth-child(9) .contract-tenant-name').isVisible(),'agreement number and tenant share the top row');
+  assert.ok(await contract.locator('td:has(.contract-mobile-property) .contract-mobile-property').isVisible(),'property and address share a compact row');
+  assert.ok(await contract.locator('td:has([data-open-contract]) .contract-tenant-name').isVisible(),'agreement number and tenant share the top row');
  }
  await page.setViewportSize({width:1280,height:850});
  await go('contracts');
