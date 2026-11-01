@@ -286,3 +286,41 @@ test('v3 enforces separate min/max limits for base rent and additions without ch
   assert.equal(s.state().agreementItems.find(x=>x.id===latest.id).valid_to,null);
  }finally{await s.close();}
 });
+
+test('v3 API exposes annual cost settlements only for matching lease supplements',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'VA-fastigheten'});
+  const property=s.state().properties[0].id;
+  for(const [number,area] of [['101',100],['102',100],['103',800]])
+   await s.post('createObject',{property_id:property,object_number:number,valid_from:'2020-01-01',area});
+  const first=s.state().objects.find(x=>x.object_number==='101');
+  const second=s.state().objects.find(x=>x.object_number==='102');
+  await s.post('createAgreement',{object_id:first.id,agreement_number:'VA-101',valid_from:'2020-01-01'});
+  await s.post('createAgreement',{object_id:second.id,agreement_number:'VA-102',valid_from:'2020-01-01'});
+  const agreement=s.state().agreements.find(x=>x.agreement_number==='VA-101').id;
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'water',name:'VA-tillägg',base_amount:3000,valid_from:'2020-01-01'});
+  await s.post('createCost',{property_id:property,category:'water',name:'VA',annual_amount:50000,valid_from:'2020-01-01'});
+  const cost=s.state().recurringCosts[0].id;
+  // Planned costs alone cannot become tenant settlements.
+  let rows=s.state().costReconciliations;
+  assert.equal(rows.find(x=>x.agreementId===agreement).status,'review');
+  await s.post('addCostEvidence',{cost_id:cost,type:'annual',year:2026,amount:50000});
+  rows=s.state().costReconciliations;
+  const bill=rows.find(x=>x.agreementId===agreement);
+  assert.equal(bill.area,100);
+  assert.equal(bill.totalArea,1000);
+  assert.equal(bill.share,10);
+  assert.equal(bill.allocatedCost,5000);
+  assert.equal(bill.annualSupplement,3000);
+  assert.equal(bill.difference,2000);
+  assert.equal(bill.status,'ready');
+  const included=rows.find(x=>x.agreementNumber==='VA-102');
+  assert.equal(included.status,'included');
+  assert.equal(included.difference,null);
+  // No persisted invoice or change to contractual rent is made by the preview.
+  assert.equal(s.state().agreementItems.length,1);
+  assert.equal(s.state().costEvidence.length,1);
+  const historical=(await new CoreV3Store(s.db).readSnapshot('2025-10-27'));
+  assert.equal(historical.costReconciliations.find(x=>x.agreementId===agreement).status,'review');
+ }finally{await s.close();}
+});
