@@ -1,3 +1,4 @@
+import {annualRateSummary} from '../../../shared/v3/rent-calculation.js';
 // Lokalblick v3 operational modules. Explicit allowlisted commands and read models.
 const expenses=['heat','water','electricity','cooling','waste','other'];
 const idDate=(v,date)=>v?date(v):null;
@@ -227,9 +228,9 @@ export function operationalSnapshot(db,at,{all}){
   AND (o.ended_on IS NULL OR o.ended_on>=?)
   AND EXISTS (SELECT 1 FROM object_versions ov WHERE ov.object_id=o.id AND ov.valid_from<=?)`)
   .all(at,at,at,at).map(r=>r.id));
- const rentByAgreement=db.prepare('SELECT agreement_id,base_amount,type,valid_from,valid_to FROM agreement_items').all()
-  .filter(r=>active(r,at)&&activeAgreementIds.has(r.agreement_id))
-  .reduce((map,r)=>{map[r.agreement_id]=(map[r.agreement_id]||0)+r.base_amount;return map;},{});
+ const activeRentItems=db.prepare('SELECT * FROM agreement_items').all()
+  .filter(r=>activeAgreementIds.has(r.agreement_id));
+ const rentSummary=annualRateSummary(activeRentItems,at);
  // For each property use the latest locked base-budget version, never sum revisions.
  const latestLockedBaseBudgets=new Map();
  for(const budget of budgets){
@@ -241,12 +242,14 @@ export function operationalSnapshot(db,at,{all}){
   budgetAmount:[...latestLockedBaseBudgets.values()].reduce((s,b)=>s+b.total,0),
   annualPlannedCost:costs.filter(r=>r.current).reduce((s,r)=>s+r.annual_amount,0),
   annualActualCost:costs.reduce((s,r)=>s+r.actual.amount,0),
-  annualRent:Object.values(rentByAgreement).reduce((s,v)=>s+v,0),
+  annualRent:rentSummary.nominal,
+  annualRentCalculated:rentSummary.calculated,
+  annualRentUnresolved:rentSummary.unresolved,
   openIssues:issues.filter(i=>i.status!=='done').length,
  };
  return {
   issues,orders,recurringCosts:costs,costEvidence:map.cost_evidence,budgets,budgetLines:map.budget_lines,
   spaces:map.spaces,buildingParts:map.building_parts,inspections,inspectionPoints:map.inspection_points,
-  objectLinks:map.object_links,financialSummary:stats
+  objectLinks:map.object_links,rentCalculations:rentSummary.lines,financialSummary:stats
  };
 }
