@@ -223,10 +223,10 @@ export function operationalSnapshot(db,at,{all}){
   WHERE v.valid_from=(SELECT MAX(x.valid_from) FROM agreement_versions x
     WHERE x.agreement_id=a.id AND x.valid_from<=?)
   AND (v.legal_end_on IS NULL OR v.legal_end_on>=?)
-  AND (v.terminated_on IS NULL OR v.terminated_on>=?)
+  -- Termination notice is not the same as the contractual last rental day.
   AND (o.ended_on IS NULL OR o.ended_on>=?)
   AND EXISTS (SELECT 1 FROM object_versions ov WHERE ov.object_id=o.id AND ov.valid_from<=?)`)
-  .all(at,at,at,at,at).map(r=>r.id));
+  .all(at,at,at,at).map(r=>r.id));
  const rentByAgreement=db.prepare('SELECT agreement_id,base_amount,type,valid_from,valid_to FROM agreement_items').all()
   .filter(r=>active(r,at)&&activeAgreementIds.has(r.agreement_id))
   .reduce((map,r)=>{map[r.agreement_id]=(map[r.agreement_id]||0)+r.base_amount;return map;},{});

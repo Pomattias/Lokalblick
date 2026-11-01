@@ -209,3 +209,16 @@ test('v3 nominal rent excludes contracts and objects outside their valid period'
   assert.equal(s.state().financialSummary.annualRent,0);
  }finally{await s.close();}
 });
+
+test('v3 rent remains nominally active after notice if the legal agreement end has not passed',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Uppsägning'});const property=s.state().properties[0].id;
+  await s.post('createObject',{property_id:property,object_number:'1',valid_from:'2020-01-01'});
+  await s.post('createAgreement',{object_id:s.state().objects[0].id,agreement_number:'NOTICE-1',valid_from:'2020-01-01',legal_end_on:'2026-12-31'});
+  const agreement=s.state().agreements[0].id;
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'base',name:'Bashyra',base_amount:120000,valid_from:'2020-01-01'});
+  s.db.prepare('UPDATE agreement_versions SET terminated_on=? WHERE agreement_id=?').run('2026-02-01',agreement);
+  assert.equal((await new CoreV3Store(s.db).readSnapshot('2026-10-27')).financialSummary.annualRent,120000);
+  assert.equal((await new CoreV3Store(s.db).readSnapshot('2027-01-01')).financialSummary.annualRent,0);
+ }finally{await s.close();}
+});
