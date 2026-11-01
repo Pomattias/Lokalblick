@@ -26,7 +26,8 @@ test('v3 issues, orders and cost evidence share a single validated property mode
   await s.post('createIssue',{object_id:s.state().objects[0].id,title:'Värmeanläggning',priority:'high',estimated_cost:30000});
   const issue=s.state().issues[0].id;
   await s.post('createOrder',{issue_id:issue,title:'Byt pump',amount:15000,ordered_at:'2026-09-01'});
-  assert.equal(s.state().orders[0].property_id,property);
+  assert.equal(s.state().orders[0].property_id,null);
+  assert.equal(s.state().orders[0].resolved_property_id,property);
   await s.post('updateIssue',{status:'ongoing',final_cost:19000},issue);
   assert.equal(s.state().issues[0].status,'ongoing');
   await s.post('createCost',{property_id:property,category:'heat',name:'Värme',annual_amount:200000,valid_from:'2026-01-01'});
@@ -115,5 +116,56 @@ test('v3 introspection and all 21 business tables are present in API',async()=>{
   for(const table of ['stakeholder_assignments','object_versions','agreement_versions','budget_lines','inspection_points'])assert(named.has(table));
   assert(snapshot.schema.find(x=>x.name==='inspection_points').references.some(r=>r.table==='inspections'));
   for(const list of ['issues','orders','recurringCosts','costEvidence','budgets','budgetLines','spaces','buildingParts','inspections','inspectionPoints'])assert(Array.isArray(snapshot[list]),list);
+ }finally{await s.close();}
+});
+
+
+test('v3 financial summary excludes deselected invoices but retains them as evidence',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Fakturahuset'});const property=s.state().properties[0].id;
+  await s.post('createCost',{property_id:property,category:'heat',name:'Värme',annual_amount:12000});
+  const cost=s.state().recurringCosts[0].id;
+  await s.post('addCostEvidence',{cost_id:cost,type:'invoice',invoice_reference:'EXCLUDED',valid_from:'2026-01-01',valid_to:'2026-12-31',amount:10000,selected:0});
+  await s.post('addCostEvidence',{cost_id:cost,type:'invoice',invoice_reference:'INCLUDED',valid_from:'2026-01-01',valid_to:'2026-12-31',amount:900,selected:1});
+  assert.equal(s.state().costEvidence.length,2);
+  assert.equal(s.state().recurringCosts[0].actual.amount,900);
+  assert.equal(s.state().financialSummary.annualActualCost,900);
+ }finally{await s.close();}
+});
+
+test('v3 financial summary counts only latest locked base budget version per property',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Budget A'});const a=s.state().properties[0].id;
+  await s.post('createProperty',{name:'Budget B'});const b=s.state().properties[1].id;
+  for(const [property,version,amount] of [[a,1,100],[a,2,150],[b,1,75]]){
+   await s.post('createBudget',{property_id:property,budget_year:2026,version,scenario:'base'});
+   const budget=s.state().budgets.find(x=>x.property_id===property&&x.version===version);
+   await s.post('addBudgetLine',{budget_id:budget.id,line_type:'operating',name:'Drift',budget_amount:amount});
+   await s.post('setBudgetStatus',{status:'locked'},budget.id);
+  }
+  assert.equal(s.state().budgets.length,3);
+  assert.equal(s.state().financialSummary.budgetAmount,225);
+ }finally{await s.close();}
+});
+
+test('v3 inspection points cannot link to an issue on another property',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Besiktningshus'});const a=s.state().properties[0].id;
+  await s.post('createProperty',{name:'Annat hus'});const b=s.state().properties[1].id;
+  await s.post('createSpace',{property_id:a,name:'Entré'});
+  const space=s.state().spaces[0].id;
+  await s.post('createInspection',{property_id:a,inspected_on:'2026-10-27'});
+  const inspection=s.state().inspections[0].id;
+  await s.post('createIssue',{property_id:b,title:'Annan fastighets ärende'});
+  const wrongIssue=s.state().issues[0].id;
+  await s.post('addInspectionPoint',{inspection_id:inspection,space_id:space,assessment:'defect',issue_id:wrongIssue},undefined,400);
+  assert.equal(s.state().inspectionPoints.length,0);
+  await s.post('addInspectionPoint',{inspection_id:inspection,space_id:space,assessment:'defect'});
+  const point=s.state().inspectionPoints[0].id;
+  await s.post('updateInspectionPoint',{issue_id:wrongIssue},point,400);
+  assert.equal(s.state().inspectionPoints[0].issue_id,null);
+  await s.post('createIssue',{property_id:a,title:'Rätt fastighet'});
+  await s.post('updateInspectionPoint',{issue_id:s.state().issues[1].id},point);
+  assert.equal(s.state().inspectionPoints[0].issue_id,s.state().issues[1].id);
  }finally{await s.close();}
 });

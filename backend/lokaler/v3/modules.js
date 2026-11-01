@@ -149,14 +149,24 @@ export function runModuleCommand(db,command,api){
   const spaceProperty=space.property_id||propertyOf(space.object_id);
   if(inspProperty!==spaceProperty||insp.object_id&&space.object_id!==insp.object_id)
    throw Error('Besiktningspunkten hör till en annan fastighet eller ett annat objekt.');
-  if(r.issue_id)ref(lookup,'issues',r.issue_id,'ärende');
+  if(r.issue_id){
+   const issue=lookup('issues',r.issue_id);
+   if(!issue||propertyFor(db,issue)!==inspProperty)
+    throw Error('Ärendet tillhör inte besiktningens fastighet.');
+  }
   insert(db,'inspection_points',{id:id(),inspection_id:insp.id,part_id:r.part_id||null,space_id:r.space_id||null,
    assessment:r.assessment||'unchecked',comment:r.comment||null,
    last_action:r.last_action||null,photo_reference:r.photo_reference||null,issue_id:r.issue_id||null});break;
  }
  case 'updateInspectionPoint':{
   const r=pick(p,['assessment','comment','last_action','photo_reference','issue_id']);
-  if(r.issue_id)ref(lookup,'issues',r.issue_id,'ärende');
+  if(r.issue_id){
+   const point=ref(lookup,'inspection_points',rowId,'besiktningspunkt');
+   const inspection=lookup('inspections',point.inspection_id);
+   const issue=lookup('issues',r.issue_id);
+   if(!issue||propertyFor(db,issue)!==propertyFor(db,inspection))
+    throw Error('Ärendet tillhör inte besiktningens fastighet.');
+  }
   update(db,'inspection_points',rowId,r);break;
  }
  case 'completeInspection':{
@@ -179,7 +189,8 @@ function annualCost(db,cost,year){
  const annual=rows.find(r=>r.type==='annual'&&r.year===year&&r.selected===1);
  if(annual)return {amount:annual.amount,kind:'annual',complete:true};
  const yFrom=Date.UTC(year,0,1),yTo=Date.UTC(year+1,0,1),day=86400000;
- const invoices=rows.filter(r=>r.type==='invoice');
+ // An excluded invoice is retained as evidence, but must never enter actual cost.
+ const invoices=rows.filter(r=>r.type==='invoice'&&r.selected===1);
  const amount=invoices.reduce((sum,r)=>{
   const start=Date.parse(r.valid_from+'T00:00:00Z'),end=Date.parse(r.valid_to+'T00:00:00Z')+day;
   return sum+Math.max(0,Math.min(yTo,end)-Math.max(yFrom,start))/(end-start)*r.amount;
@@ -205,8 +216,15 @@ export function operationalSnapshot(db,at,{all}){
  const inspections=map.inspections.map(r=>({...r,points:map.inspection_points.filter(p=>p.inspection_id===r.id),resolved_property_id:propertyFor(db,r)}));
  const rentByAgreement=db.prepare('SELECT agreement_id,base_amount,type,valid_from,valid_to FROM agreement_items').all()
   .filter(r=>active(r,at)).reduce((map,r)=>{map[r.agreement_id]=(map[r.agreement_id]||0)+r.base_amount;return map;},{});
+ // For each property use the latest locked base-budget version, never sum revisions.
+ const latestLockedBaseBudgets=new Map();
+ for(const budget of budgets){
+  if(budget.budget_year!==year||budget.scenario!=='base'||budget.status!=='locked')continue;
+  const previous=latestLockedBaseBudgets.get(budget.property_id);
+  if(!previous||budget.version>previous.version)latestLockedBaseBudgets.set(budget.property_id,budget);
+ }
  const stats={
-  budgetAmount:budgets.filter(b=>b.budget_year===year&&b.scenario==='base'&&b.status==='locked').reduce((s,b)=>s+b.total,0),
+  budgetAmount:[...latestLockedBaseBudgets.values()].reduce((s,b)=>s+b.total,0),
   annualPlannedCost:costs.filter(r=>r.current).reduce((s,r)=>s+r.annual_amount,0),
   annualActualCost:costs.reduce((s,r)=>s+r.actual.amount,0),
   annualRent:Object.values(rentByAgreement).reduce((s,v)=>s+v,0),
