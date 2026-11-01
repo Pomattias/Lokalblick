@@ -259,3 +259,30 @@ test('v3 floor flag from rental form remains dated and affects fixed annual adju
   assert.equal(s.state().agreementItems.find(x=>x.id===old.id).floor,1);
  }finally{await s.close();}
 });
+
+test('v3 enforces separate min/max limits for base rent and additions without changing history',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Spannfastighet'});const property=s.state().properties[0].id;
+  await s.post('createObject',{property_id:property,object_number:'CAP',valid_from:'2020-01-01'});
+  await s.post('createAgreement',{object_id:s.state().objects[0].id,agreement_number:'CAP-2026',valid_from:'2020-01-01'});
+  const agreement=s.state().agreements[0].id;
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'base',name:'Bashyra',base_amount:100000,adjustment_method:'kpi-limited',index_share:1,base_index:400,min_percent:2,max_percent:5,valid_from:'2025-01-01'});
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'addition',name:'Tillägg',base_amount:20000,adjustment_method:'kpi-limited',index_share:1,base_index:400,min_percent:0,max_percent:8,valid_from:'2025-01-01'});
+  const items=s.state().agreementItems;
+  assert.equal(items.length,2);
+  const old=items.find(x=>x.type==='base');
+  assert.equal(old.max_percent,5);
+  assert.equal(items.find(x=>x.type==='addition').max_percent,8);
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'addition',name:'Fel ordning',base_amount:1000,adjustment_method:'kpi-limited',index_share:1,base_index:400,min_percent:6,max_percent:3},undefined,400);
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'addition',name:'Negativ',base_amount:1000,adjustment_method:'kpi-limited',index_share:1,base_index:400,min_percent:-1,max_percent:3},undefined,400);
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'addition',name:'Ingen gräns',base_amount:1000,adjustment_method:'kpi-limited',index_share:1,base_index:400},undefined,400);
+  await s.post('reviseAgreementItem',{valid_from:'2026-01-01',min_percent:1,max_percent:4},old.id);
+  const latest=s.state().agreementItems.find(x=>x.type==='base'&&x.id!==old.id);
+  assert.equal(latest.min_percent,1);assert.equal(latest.max_percent,4);
+  assert.equal(s.state().agreementItems.find(x=>x.id===old.id).max_percent,5);
+  assert.equal(s.state().agreementItems.find(x=>x.id===old.id).valid_to,'2025-12-31');
+  await s.post('reviseAgreementItem',{valid_from:'2027-01-01',min_percent:9,max_percent:2},latest.id,400);
+  assert.equal(s.state().agreementItems.length,3);
+  assert.equal(s.state().agreementItems.find(x=>x.id===latest.id).valid_to,null);
+ }finally{await s.close();}
+});
