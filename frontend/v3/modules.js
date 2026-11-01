@@ -91,12 +91,12 @@ function settlementRows(s,rows){
   const diff=r.difference>0?'Efterdebitering '+money(r.difference)
    :r.difference<0?'Tillgodo '+money(-r.difference):'Avstämt utan differens';
   return item(head,
-   r.area+' / '+r.totalArea+' m² ('+r.share+' %) · Fastighetskostnad '+money(r.totalCost)+
-   ' · Andel '+money(r.allocatedCost)+' · Avtalat tillägg '+money(r.annualSupplement)+
+   r.tenancyFrom+' – '+r.tenancyTo+' · '+r.reconciliationDays+' av '+r.yearDays+' avräkningsdagar · '+r.area+' / '+r.totalArea+' m² ('+r.share+' %) · Fastighetskostnad '+money(r.totalCost)+
+   ' · Andel '+money(r.allocatedCost)+' · Periodiserat tillägg '+money(r.annualSupplement)+
    ' · '+diff);
  };
  return '<h3>Årlig tilläggsavräkning · '+s.asOf.slice(0,4)+'</h3>'+
-  '<p class="muted">Beräknat avräkningsunderlag, inte faktura. Avser hela år med fastställda kostnader, oförändrade areor och årsbelopp. Kontrollera debiterat belopp före slutavräkning.</p>'+
+  '<p class="muted">Beräknat avräkningsunderlag för de dagar avtal och tillägg gällt, inte faktura. Fastställd helårskostnad och årsarea krävs. Kontrollera faktiskt debiterat belopp.</p>'+
   timeline(rows,format);
 }
 export function moreDetail(view,row,s){

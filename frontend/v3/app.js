@@ -58,7 +58,7 @@ function annualSettlementHtml(rows,asOf){
  if(!rows.length)return '';
  const category={heat:'Värme',water:'VA',electricity:'El',cooling:'Kyla',waste:'Avfall'};
  return '<h3>Avräkning av tillägg · '+esc(asOf.slice(0,4))+'</h3>'+
-  '<p class="muted">Underlag för årsavräkning, ingen automatisk faktura. Avtalat årstillägg används som jämförelse; kontrollera faktiskt debiterat belopp.</p>'+
+  '<p class="muted">Periodiseras till hyresavtalets och tilläggets gemensamma dagar. Underlag, inte automatisk faktura. Kontrollera faktiskt debiterat belopp.</p>'+
   '<div class="timeline">'+rows.map(r=>{
    const name=category[r.category]||r.category;
    if(r.status==='included')return '<article><strong>'+esc(name)+'</strong><span>Ingår i hyran · inget separat tillägg, ingen avräkning</span></article>';
@@ -66,8 +66,8 @@ function annualSettlementHtml(rows,asOf){
    const status=r.difference>0?'Efterdebitering '+formatMoney(r.difference):
     r.difference<0?'Tillgodo '+formatMoney(-r.difference):'Ingen differens';
    return '<article><strong>'+esc(name)+' · '+esc(status)+'</strong><span>'+
-    esc(r.area+' / '+r.totalArea+' m² ('+r.share+' %)')+' · Andel '+esc(formatMoney(r.allocatedCost))+
-    ' · Avtalat tillägg '+esc(formatMoney(r.annualSupplement))+'</span></article>';
+    esc(r.tenancyFrom+' – '+r.tenancyTo+' · '+r.reconciliationDays+' av '+r.yearDays+' avräkningsdagar')+' · '+esc(r.area+' / '+r.totalArea+' m² ('+r.share+' %)')+' · Andel '+esc(formatMoney(r.allocatedCost))+
+    ' · Periodiserat tillägg '+esc(formatMoney(r.annualSupplement))+'</span></article>';
   }).join('')+'</div>';
 }
 function renderDetail(){
