@@ -86,7 +86,19 @@ function renderDetail(){
   history='<h3>Objekthistorik · '+row.versions.length+' versioner</h3><div class="timeline">'+row.versions.map(v=>'<article><strong>'+esc(v.valid_from)+'</strong><span>'+esc(v.area??'–')+' m² · '+esc(v.category||'Objekt')+'</span></article>').join('')+'</div>';
  } else if(state.view==='agreements'){
   const v=row.currentVersion,tenant=row.stakeholders.tenant[0];
-  facts=[fact('Avtalsnummer',row.agreement_number),fact('Objekt',state.snapshot.objects.find(o=>o.id===row.object_id)?.object_number),fact('Hyresgäst',state.snapshot.parties.find(p=>p.id===tenant?.partyId)?.name),fact('Avtalsstart',v?.valid_from),fact('Avtalsslut',v?.legal_end_on||'Tills vidare'),fact('Användning',v?.usage)].join('');
+  const object=state.snapshot.objects.find(o=>o.id===row.object_id);
+  const rentLines=(state.snapshot.rentCalculations||[]).filter(i=>i.agreement_id===row.id);
+  const nominal=rentLines.reduce((sum,i)=>sum+(i.nominal||0),0);
+  const unresolved=rentLines.filter(i=>i.amount===null).length;
+  const adjusted=rentLines.reduce((sum,i)=>sum+(i.amount||0),0);
+  const area=object?.currentVersion?.area;
+  facts=[fact('Avtalsnummer',row.agreement_number),fact('Objekt',object?.object_number),
+   fact('Hyresgäst',state.snapshot.parties.find(p=>p.id===tenant?.partyId)?.name),
+   fact('Avtalsstart',v?.valid_from),fact('Avtalsslut',v?.legal_end_on||'Tills vidare'),
+   fact('Användning',v?.usage),
+   fact('Nominell årshyresnivå',rentLines.length?formatMoney(nominal):'Ej aktiv hyrespost'),
+   fact('Nominell hyra kr/m²',rentLines.length&&area>0?new Intl.NumberFormat('sv-SE',{maximumFractionDigits:0}).format(nominal/area)+' kr/m²':'–'),
+   fact('Uppräknad årsnivå',unresolved?'Kräver kontroll av '+unresolved+' post(er)':rentLines.length?formatMoney(adjusted):'–')].join('');
   actions='<button class="secondary" type="button" data-mode="revise">Ny avtalsversion</button><button class="secondary" type="button" data-mode="role">Koppla part/person</button><button class="secondary" type="button" data-mode="rent">Hyra / tillägg</button>';
   history='<h3>Avtalsversioner</h3><div class="timeline">'+row.versions.map(v=>'<article><strong>'+esc(v.valid_from)+'</strong><span>'+esc(v.legal_end_on||'Tills vidare')+'</span></article>').join('')+'</div>';
   const rents=state.snapshot.agreementItems.filter(i=>i.agreement_id===row.id);

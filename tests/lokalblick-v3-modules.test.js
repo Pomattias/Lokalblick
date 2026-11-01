@@ -222,3 +222,24 @@ test('v3 rent remains nominally active after notice if the legal agreement end h
   assert.equal((await new CoreV3Store(s.db).readSnapshot('2027-01-01')).financialSummary.annualRent,0);
  }finally{await s.close();}
 });
+
+test('v3 API separates nominal rent from calculated fixed rent and missing CPI inputs',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Indexhuset'});const property=s.state().properties[0].id;
+  await s.post('createObject',{property_id:property,object_number:'100',valid_from:'2020-01-01',area:100});
+  await s.post('createAgreement',{object_id:s.state().objects[0].id,agreement_number:'IDX-2026',valid_from:'2020-01-01'});
+  const agreement=s.state().agreements[0].id;
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'base',name:'Bashyra',base_amount:100000,adjustment_method:'fixed',base_year:2024,annual_percent:5,valid_from:'2020-01-01'});
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'addition',name:'KPI-tillägg',base_amount:20000,adjustment_method:'kpi',base_index:400,index_share:0.75,valid_from:'2020-01-01'});
+  const summary=s.state().financialSummary;
+  assert.equal(summary.annualRent,120000);
+  assert.equal(summary.annualRentCalculated,null);
+  assert.equal(summary.annualRentUnresolved,1);
+  assert.equal(s.state().rentCalculations.length,2);
+  const fixed=s.state().rentCalculations.find(r=>r.method==='fixed');
+  assert.equal(fixed.amount,110250);
+  const kpi=s.state().rentCalculations.find(r=>r.method==='kpi');
+  assert.equal(kpi.amount,null);
+  assert.match(kpi.reason,/KPI/);
+ }finally{await s.close();}
+});

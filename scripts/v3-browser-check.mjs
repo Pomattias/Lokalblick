@@ -39,6 +39,7 @@ try{
  const childAgreement=parentSnapshot.agreements.find(x=>x.agreement_number==='A-102');
  assert.equal(childObject.property_id,parentProperty.id);
  assert.equal(childAgreement.object_id,childObject.id);
+ assert.match(await page.locator('#detail').innerText(),/Nominell årshyresnivå/);
  // Browser contract: revised terms are a dated successor, not an overwrite.
  await page.locator('#detail [data-mode=rent]').click();
  await page.locator('#edit-form [name=base_amount]').fill('120000');
