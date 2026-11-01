@@ -22,16 +22,41 @@ test('KPI adjustment uses explicit index, base index, partial share and floor',(
  assert.equal(calculateAnnualRate({...kpi,index_share:0},{year:2026,index:440}).amount,120000);
  assert.equal(calculateAnnualRate({...kpi,base_index:0},{year:2026,index:440}).amount,null);
 });
-test('contract-specific limits remain unresolved rather than invent a financial amount',()=>{
- const capped=item({adjustment_method:'kpi-limited',base_index:400,index_share:1,min_percent:1,max_percent:5,limit_basis:'custom'});
- const result=calculateAnnualRate(capped,{year:2026,index:450});
- assert.equal(result.amount,null);
- assert.match(result.reason,/avtalstolkning/);
- const summary=annualRateSummary([capped,item({id:'ordinary',base_amount:1000})],'2026-12-31',{index:450});
- assert.equal(summary.nominal,121000);
- assert.equal(summary.known,1000);
- assert.equal(summary.calculated,null);
- assert.equal(summary.unresolved,1);
+test('min/max cap the rental increase (not the CPI index)',()=>{
+ const row=item({adjustment_method:'kpi-limited',base_index:400,index_share:1,min_percent:2,max_percent:5});
+ assert.equal(calculateAnnualRate(row,{year:2026,index:404}).amount,122400);
+ assert.equal(calculateAnnualRate(row,{year:2026,index:412}).amount,123600);
+ assert.equal(calculateAnnualRate(row,{year:2026,index:440}).amount,126000);
+ assert.equal(calculateAnnualRate({...row,min_percent:null},{year:2026,index:398}).amount,120000);
+ assert.equal(calculateAnnualRate({...row,max_percent:null},{year:2026,index:440}).amount,132000);
+});
+test('base rent and supplement have independently constrained increases',()=>{
+ const rent=item({id:'rent',type:'base',base_amount:100000,adjustment_method:'kpi-limited',base_index:400,index_share:1,min_percent:2,max_percent:4});
+ const extra=item({id:'extra',type:'addition',base_amount:20000,adjustment_method:'kpi-limited',base_index:400,index_share:1,min_percent:0,max_percent:8});
+ const summary=annualRateSummary([rent,extra],'2026-12-31',{index:440});
+ assert.equal(summary.nominal,120000);
+ assert.equal(summary.calculated,125600);
+ assert.equal(summary.lines.find(x=>x.id==='rent').amount,104000);
+ assert.equal(summary.lines.find(x=>x.id==='extra').amount,21600);
+});
+test('bad min/max or missing CPI remains unresolved',()=>{
+ const row=item({adjustment_method:'kpi-limited',base_index:400,index_share:1,min_percent:1,max_percent:5});
+ assert.equal(calculateAnnualRate(row,{year:2026}).amount,null);
+ assert.equal(calculateAnnualRate({...row,min_percent:6},{year:2026,index:440}).amount,null);
+ assert.equal(calculateAnnualRate({...row,min_percent:-1},{year:2026,index:440}).amount,null);
+ assert.equal(calculateAnnualRate({...row,min_percent:null,max_percent:null},{year:2026,index:440}).amount,null);
+ const s=annualRateSummary([row,item({id:'other',base_amount:1000})],'2026-12-31');
+ assert.equal(s.nominal,121000);assert.equal(s.known,1000);
+ assert.equal(s.calculated,null);assert.equal(s.unresolved,1);
+});
+test('optional caps apply to regular KPI and fixed adjustments',()=>{
+ const indexed=item({adjustment_method:'kpi',base_index:400,index_share:0.7,min_percent:2,max_percent:4});
+ assert.equal(calculateAnnualRate(indexed,{year:2026,index:440}).amount,124800);
+ const fixed=item({adjustment_method:'fixed',base_year:2025,annual_percent:8,max_percent:5});
+ assert.equal(calculateAnnualRate(fixed,{year:2026}).amount,126000);
+ const zero=item({adjustment_method:'kpi',index_share:0,base_index:null});
+ assert.equal(calculateAnnualRate(zero,{year:2026}).amount,120000);
+ assert.equal(calculateAnnualRate({...zero,min_percent:2},{year:2026}).amount,122400);
 });
 test('date-effective annualized rent never adds multiple periods from a single agreement',()=>{
  const old=item({id:'old',base_amount:120000,valid_from:'2025-01-01',valid_to:'2026-06-30'});

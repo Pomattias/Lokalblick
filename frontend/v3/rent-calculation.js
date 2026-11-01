@@ -9,36 +9,48 @@ const nonnegative = value => finite(value)&&Number(value)>=0;
 export function activeOn(row,date){
  return (!row.valid_from||row.valid_from<=date)&&(!row.valid_to||row.valid_to>=date);
 }
+// Min and max always bound the change in the RENT ITEM, never the CPI itself.
+// A dated new rent item represents a new baseline without rewriting history.
+function cappedAmount(item,amount,method,base){
+ const hasMin=item.min_percent!==null&&item.min_percent!==undefined&&item.min_percent!=='';
+ const hasMax=item.max_percent!==null&&item.max_percent!==undefined&&item.max_percent!=='';
+ if(method==='kpi-limited'&&!hasMin&&!hasMax)
+  return unavailable(method,base,'Minsta eller högsta höjning saknas');
+ const min=hasMin?Number(item.min_percent):null,max=hasMax?Number(item.max_percent):null;
+ if(hasMin&&(!finite(item.min_percent)||min<0)||hasMax&&(!finite(item.max_percent)||max<0))
+  return unavailable(method,base,'Min/max måste vara giltiga icke-negativa procenttal');
+ if(hasMin&&hasMax&&min>max)return unavailable(method,base,'Minsta höjning överstiger högsta höjning');
+ if(!Number.isFinite(amount)||amount<0)return unavailable(method,base,'Ogiltigt beräknat hyresbelopp');
+ let adjusted=amount;
+ if(hasMin)adjusted=Math.max(adjusted,base*(1+min/100));
+ if(hasMax)adjusted=Math.min(adjusted,base*(1+max/100));
+ if(item.floor!==0)adjusted=Math.max(base,adjusted);
+ return available(adjusted,method,base);
+}
 export function calculateAnnualRate(item,{year,index=null}={}){
- const nominal=Number(item?.base_amount),method=item?.adjustment_method||'none';
- if(!finite(item?.base_amount)||!Number.isFinite(nominal)||nominal<0)return unavailable(method,null,'Ogiltigt grundbelopp');
- if(!Number.isInteger(year)||year<1900||year>9999)return unavailable(method,nominal,'Ogiltigt beräkningsår');
- if(method==='none')return available(nominal,method,nominal);
+ const base=Number(item?.base_amount),method=item?.adjustment_method||'none';
+ if(!finite(item?.base_amount)||!Number.isFinite(base)||base<0)return unavailable(method,null,'Ogiltigt grundbelopp');
+ if(!Number.isInteger(year)||year<1900||year>9999)return unavailable(method,base,'Ogiltigt beräkningsår');
+ if(method==='none')return available(base,method,base);
  if(method==='fixed'){
-  // A documented 0% adjustment does not depend on a base year.
-  if(finite(item.annual_percent)&&Number(item.annual_percent)===0)return available(nominal,method,nominal);
-  if(!Number.isInteger(Number(item.base_year))||!finite(item.base_year)||Number(item.base_year)<1900)
-   return unavailable(method,nominal,'Basår saknas');
+  if(!finite(item.annual_percent)||Number(item.annual_percent)<=-100)return unavailable(method,base,'Giltig årlig procentsats saknas');
+  if(Number(item.annual_percent)===0&&item.min_percent==null&&item.max_percent==null)return available(base,method,base);
+  if(!finite(item.base_year)||!Number.isInteger(Number(item.base_year))||Number(item.base_year)<1900)return unavailable(method,base,'Basår saknas');
   const elapsed=year-Number(item.base_year);
-  if(elapsed<0)return unavailable(method,nominal,'Beräkningsår före basåret');
-  if(!finite(item.annual_percent)||Number(item.annual_percent)<=-100)
-   return unavailable(method,nominal,'Giltig årlig procentsats saknas');
-  const proposed=nominal*Math.pow(1+Number(item.annual_percent)/100,elapsed);
-  if(!Number.isFinite(proposed))return unavailable(method,nominal,'Uppräkningen är utanför tillåtet talområde');
-  return available(item.floor===0?proposed:Math.max(nominal,proposed),method,nominal);
+  if(elapsed<0)return unavailable(method,base,'Beräkningsår före basåret');
+  return cappedAmount(item,base*Math.pow(1+Number(item.annual_percent)/100,elapsed),method,base);
  }
- if(method==='kpi'){
-  // Zero index share is contractually unchanged, even without an SCB observation.
-  if(finite(item.index_share)&&Number(item.index_share)===0)return available(nominal,method,nominal);
-  if(!finite(item.base_index)||Number(item.base_index)<=0||!nonnegative(item.index_share)||Number(item.index_share)>1)
-   return unavailable(method,nominal,'KPI-bastal eller indexandel saknas');
-  if(!finite(index)||Number(index)<=0)return unavailable(method,nominal,'KPI-tal för beräkningsåret saknas');
-  const proposed=nominal*(1+Number(item.index_share)*(Number(index)/Number(item.base_index)-1));
-  if(!Number.isFinite(proposed)||proposed<0)return unavailable(method,nominal,'Ogiltigt beräknat KPI-belopp');
-  return available(item.floor===0?proposed:Math.max(nominal,proposed),method,nominal);
+ if(method==='kpi'||method==='kpi-limited'){
+  if(!nonnegative(item.index_share)||Number(item.index_share)>1)return unavailable(method,base,'Indexandel saknas eller är ogiltig');
+  let amount=base;
+  if(Number(item.index_share)>0){
+   if(!finite(item.base_index)||Number(item.base_index)<=0)return unavailable(method,base,'KPI-bastal saknas');
+   if(!finite(index)||Number(index)<=0)return unavailable(method,base,'KPI-tal för beräkningsåret saknas');
+   amount=base*(1+Number(item.index_share)*(Number(index)/Number(item.base_index)-1));
+  }
+  return cappedAmount(item,amount,method,base);
  }
- if(method==='kpi-limited')return unavailable(method,nominal,'Min/max och begränsningsbas kräver avtalstolkning');
- return unavailable(method,nominal,'Okänd uppräkningsmetod');
+ return unavailable(method,base,'Okänd uppräkningsmetod');
 }
 // Expected callers supply items that belong to active objects and agreements.
 // Do not add unresolved index amounts as though their nominal rate were calculated.
