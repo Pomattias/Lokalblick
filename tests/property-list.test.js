@@ -27,7 +27,7 @@ test('expanded property uses current shared responsibility without old assignmen
   assert.match(html,/data-edit="contracts" data-id="c1"/);
   assert.match(html,/data-edit="contracts" data-id="c2"/);
   assert.match(html,/data-sort-value="600"/);
-  assert.match(html,/Vår ansvarige för avtalet<\/dt><dd>Anna, Johan<\/dd>/);
+  assert.match(html,/Lokalsamordnare för avtalet<\/dt><dd>Anna, Johan<\/dd>/);
   assert.equal(JSON.stringify(data),before);
 });
 

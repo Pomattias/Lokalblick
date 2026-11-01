@@ -102,7 +102,7 @@ test('large address proposal sets keep bulk approval and paginated choices in th
  const {profiles,result}=prepare(w,base);
  assert.equal(result.report.linkProposals.length,81);
  const html=columnPreviewHtml({fileName:'syntetisk-lokaldata.xlsx'},{profiles},result,importSchemas);
- assert.match(html,/Godkänn 80 entydiga kopplingsförslag i urvalet/);assert.match(html,/Behöver kopplas \(81\)/);assert.equal((html.match(/data-link-proposal=/g)||[]).length,30);assert.doesNotMatch(html,/data-import-link-exceptions|data-import-link-suggestions/);
+ assert.match(html,/Godkänn 80 entydiga kopplingsförslag i urvalet/);assert.match(html,/Behöver kopplas \(81\)/);assert.equal((html.match(/data-link-proposal=/g)||[]).length,81);assert.doesNotMatch(html,/data-import-link-exceptions|data-import-link-suggestions/);
  const rowMatches=Object.fromEntries(result.report.linkProposals.filter(p=>p.matches.length===1).map(p=>[p.matchingKey,{signature:p.signature,propertyId:p.matches[0].id}]));
  const selected=prepareCleanImport(w,profiles,base,{fileName:'syntetisk-lokaldata.xlsx',actor:'Test',rowMatches},XLSX);
  assert.equal(selected.clean.agreements.length,0);assert.equal(selected.clean.properties.filter(p=>p.popular_name).length,80);assert.equal(selected.report.blocking,1);assert.equal(selected.report.linkProposals.filter(p=>!p.approved).length,1);

@@ -62,7 +62,7 @@ test("contract detail and listing show current year and calculation inputs",()=>
   assert.match(html,/Indexandel/);
   assert.match(html,/419,35/);
   const summary=overview(data,{unit:"",owner:"",person:"",q:"",propertyId:""},{perspective:"Avtal",year:2026});
-  assert.match(summary,/Hyra 2026/);
+  assert.match(summary,/Årshyra 2026/);
   assert.match(summary,/Tillägg 2026/);
  }finally{globalThis.LokalblickDocuments=old;}
 });

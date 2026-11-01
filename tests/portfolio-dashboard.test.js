@@ -25,7 +25,7 @@ test("overall dashboard has no active lens but splits rent by business and activ
  assert.match(html,/Ärenden per typ/);
  assert.match(html,/data-dashboard-group="VARDBO"/);
  assert.match(html,/data-view="properties"/);
- assert.match(html,/dashboard-bar-row/);
+ assert.match(html,/portfolio-ring/);
  const controls=filters(data,selection,"");
  assert.match(controls,/data-dashboard-mode="person"/);
  assert.match(controls,/aria-pressed="false"/);

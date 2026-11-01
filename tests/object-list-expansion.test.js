@@ -11,7 +11,7 @@ test('Object expansion retains validity and selected agreements without leaking 
   assert.match(html,/data-row-groups/);
   assert.match(html,/aria-expanded="false" aria-controls="objects-detail-o%22%3C"/);
   assert.match(html,/id="objects-detail-o%22%3C" hidden/);
-  assert.match(html,/2024-01-01 – tills vidare/);
+  assert.match(html,/<dt>Giltighet<\/dt><dd>2024-01-01<\/dd>/);
   assert.match(html,/101-2024/);
   assert.doesNotMatch(html,/ANNAT|<Namn>/);
   assert.match(html,/&lt;Namn&gt;/);

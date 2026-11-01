@@ -212,7 +212,9 @@ test("Fastighetskartan startas först när kartavsnittet öppnas",()=>{
     created++;choose=options.onSelectPosition;
     return {invalidateSize(){resized++;},destroy(){destroyed++;}};
   }};
-  const dispose=bindPropertyMap({querySelector:s=>fields[s]},data,data.properties[0],service);
+  const dispose=bindPropertyMap({querySelector:s=>fields[s],
+     addEventListener:(name,handler)=>handlers.set('root:'+name,handler),
+     removeEventListener:name=>handlers.delete('root:'+name)},data,data.properties[0],service);
   assert.equal(created,0,"Stängd karta ska inte laddas i bakgrunden");
   details.open=true;handlers.get("toggle")();
   assert.equal(created,1);

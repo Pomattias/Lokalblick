@@ -46,7 +46,7 @@ test("Desktop sidebar includes objects between property and agreements",()=>{
 test("Overview becomes a visual dashboard, Fastighet retains the old table",()=>{
   const html=dashboard(data,selection,2026);
   assert.match(html,/Portföljöversikt/);
-  assert.match(html,/dashboard-bar-row/);
+  assert.match(html,/portfolio-ring/);
   assert.match(html,/data-view="properties"/);
   assert.match(html,/data-view="activities"/);
   assert.doesNotMatch(html,/data-edit="properties"/);
