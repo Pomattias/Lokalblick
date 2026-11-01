@@ -75,13 +75,14 @@ function renderDetail(){
  let facts='',history='';
  if(state.view==='properties'){
   facts=[fact('Förvaltningsobjekt',row.management_object_number),fact('Adress',[row.address,row.city].filter(Boolean).join(', ')),fact('Ägare',row.stakeholders.owner.map(r=>state.snapshot.parties.find(p=>p.id===r.partyId)?.name).join(', ')||'–')].join('');
+  actions+='<button class="primary" type="button" data-create-child="objects" data-parent-id="'+esc(row.id)+'">+ Nytt objekt</button>';
   actions+='<button class="secondary" type="button" data-mode="role">Koppla part/person</button>';
   if(row.address&&row.city)actions+='<button class="secondary" type="button" data-geocode>Hitta position</button>';
   history='';
  } else if(state.view==='objects'){
   const v=row.currentVersion;
   facts=[fact('Objektsnummer',row.object_number),fact('Fastighet',state.snapshot.properties.find(p=>p.id===row.property_id)?.name),fact('Gällande area',v?.area==null?'Ingen gällande version':v.area+' m²'),fact('Startdatum version',v?.valid_from),fact('Avslutad',row.ended_on||'Nej')].join('');
-  actions='<button class="secondary" type="button" data-mode="revise">Ny objektversion</button><button class="secondary" type="button" data-mode="role">Koppla part/person</button><button class="secondary" type="button" data-mode="end">Avsluta objekt</button>';
+  actions='<button class="primary" type="button" data-create-child="agreements" data-parent-id="'+esc(row.id)+'">+ Nytt avtal</button><button class="secondary" type="button" data-mode="revise">Ny objektversion</button><button class="secondary" type="button" data-mode="role">Koppla part/person</button><button class="secondary" type="button" data-mode="end">Avsluta objekt</button>';
   history='<h3>Objekthistorik · '+row.versions.length+' versioner</h3><div class="timeline">'+row.versions.map(v=>'<article><strong>'+esc(v.valid_from)+'</strong><span>'+esc(v.area??'–')+' m² · '+esc(v.category||'Objekt')+'</span></article>').join('')+'</div>';
  } else if(state.view==='agreements'){
   const v=row.currentVersion,tenant=row.stakeholders.tenant[0];
@@ -132,8 +133,8 @@ async function geocodeSelectedProperty(){
   fields:{latitude:found.latitude,longitude:found.longitude}}});
  render();notify('Position sparad på fastigheten.');
 }
-function formSchema(mode,row){
- const v=state.view,r=row||{},a=state.snapshot;
+function formSchema(mode,row,view=state.view,parentId=null){
+ const v=view,r=row||{},a=state.snapshot;
  if(v==='agreements'&&mode==='editRent'){
   const item=a.agreementItems.find(i=>i.id===state.rentEditId);
   if(!item)throw Error('Hyresposten saknas.');
@@ -189,7 +190,7 @@ function formSchema(mode,row){
  if(v==='people')return {title:mode==='create'?'Ny person':'Redigera person',action:mode==='create'?'createPerson':'updatePerson',
   fields:label('Namn','name',r.name,'text','required')+label('E-post','email',r.email,'email')+label('Telefon','phone',r.phone)};
  if(v==='objects'){
-  if(mode==='create')return {title:'Nytt objekt',action:'createObject',fields:select('Fastighet','property_id',asOptions('properties'),'',true)+
+  if(mode==='create')return {title:'Nytt objekt',action:'createObject',...(parentId?{fixed:{property_id:parentId}}:{}),fields:(parentId?'<p class="hint">Fastighet: '+esc(a.properties.find(p=>p.id===parentId)?.name||'Okänd')+'</p>':select('Fastighet','property_id',asOptions('properties'),'',true))+
    label('Objektsnummer','object_number','','text','required')+label('Startdatum','valid_from',state.asOf,'date','required')+
    label('Yta m²','area','','number','min="0" step="any"')+label('Kategori','category')};
   const last=r.versions[0],suggest=state.asOf>last.valid_from?state.asOf:'';
@@ -198,7 +199,7 @@ function formSchema(mode,row){
    '<p class="hint">Samma objektsnummer behålls. Datumet måste vara senare än den senaste versionens startdatum.</p>'};
  }
  if(v==='agreements'){
-  if(mode==='create')return {title:'Nytt avtal',action:'createAgreement',fields:select('Objekt','object_id',asOptions('objects'),'',true)+
+  if(mode==='create')return {title:'Nytt avtal',action:'createAgreement',...(parentId?{fixed:{object_id:parentId}}:{}),fields:(parentId?'<p class="hint">Objekt: '+esc(a.objects.find(o=>o.id===parentId)?.object_number||'Okänt')+'</p>':select('Objekt','object_id',asOptions('objects'),'',true))+
    label('Avtalsnummer','agreement_number','','text','required')+label('Startdatum','valid_from',state.asOf,'date','required')+
    label('Avtalsslut','legal_end_on','','date')+label('Användning','usage')};
   const last=r.versions[0],suggest=state.asOf>last.valid_from?state.asOf:'';
@@ -208,11 +209,11 @@ function formSchema(mode,row){
  }
  throw Error('Det valda formuläret saknas.');
 }
-function openForm(mode){
+function openForm(mode,{view=state.view,parentId=null}={}){
  try{
   const row=mode==='create'?null:selected();
-  const spec=formSchema(mode,row);
-  state.mode={...spec,id:spec.id||row?.id||null};
+  const spec=formSchema(mode,row,view,parentId);
+  state.mode={...spec,id:spec.id||row?.id||null,navigateTo:mode==='create'&&view!==state.view?view:null};
   $('#form-title').textContent=spec.title;$('#form-fields').innerHTML=spec.fields;
   $('#editor').showModal();$('#edit-form').querySelector('input,select')?.focus();
  }catch(error){notify(error.message,true)}
@@ -231,8 +232,13 @@ async function saveForm(e){
  if(spec.id)command.id=spec.id;
  $('#submit-editor').disabled=true;
  try{
+  const previousIds=spec.navigateTo?new Set(state.snapshot[spec.navigateTo].map(row=>row.id)):null;
   const data=await api({version:state.snapshot.version,asOf:state.asOf,command});
-  state.snapshot=data;$('#editor').close();notify('Sparat i den privata v3-databasen.');render();
+  state.snapshot=data;$('#editor').close();notify('Sparat i den privata v3-databasen.');
+  if(spec.navigateTo){
+   const created=data[spec.navigateTo].find(row=>!previousIds.has(row.id));
+   navigate(spec.navigateTo,created?.id||null);
+  }else render();
  }catch(error){notify(error.message,true)}finally{$('#submit-editor').disabled=false}
 }
 async function refresh(){
@@ -244,6 +250,8 @@ document.addEventListener('click',e=>{
  if(rent){state.rentEditId=rent.dataset.editRent;openForm('editRent');return;}
  const jump=e.target.closest('[data-jump-view]');
  if(jump){navigate(jump.dataset.jumpView,jump.dataset.jumpId);return;}
+ const child=e.target.closest('[data-create-child]');
+ if(child){openForm('create',{view:child.dataset.createChild,parentId:child.dataset.parentId});return;}
  const geo=e.target.closest('[data-geocode]');
  if(geo){geocodeSelectedProperty().catch(error=>notify(error.message,true));return;}
  const nav=e.target.closest('[data-view]');

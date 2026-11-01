@@ -19,6 +19,26 @@ try{
  await page.locator('#heading').getByText('Översikt').waitFor();
  await add('properties',async()=>{await page.locator('#edit-form [name=name]').fill('Mobilfastigheten');await page.locator('#edit-form [name=address]').fill('Testgatan 1')});
  await page.getByRole('button',{name:/Mobilfastigheten/}).first().waitFor();
+ // A child created from its parent's detail inherits that parent without manual selection.
+ await page.locator('.record-row').filter({hasText:'Mobilfastigheten'}).click();
+ await page.locator('#detail [data-create-child="objects"]').click();
+ assert.equal(await page.locator('#edit-form [name=property_id]').count(),0);
+ await page.locator('#edit-form [name=object_number]').fill('102');
+ await page.locator('#edit-form [name=valid_from]').fill('2020-01-01');
+ await save();
+ assert.equal(await page.locator('#heading').innerText(),'Objekt');
+ await page.locator('#detail [data-create-child="agreements"]').click();
+ assert.equal(await page.locator('#edit-form [name=object_id]').count(),0);
+ await page.locator('#edit-form [name=agreement_number]').fill('A-102');
+ await page.locator('#edit-form [name=valid_from]').fill('2025-01-01');
+ await save();
+ assert.equal(await page.locator('#heading').innerText(),'Avtal');
+ const parentSnapshot=await (await fetch(origin+'/api/v3/core')).json();
+ const parentProperty=parentSnapshot.properties.find(x=>x.name==='Mobilfastigheten');
+ const childObject=parentSnapshot.objects.find(x=>x.object_number==='102');
+ const childAgreement=parentSnapshot.agreements.find(x=>x.agreement_number==='A-102');
+ assert.equal(childObject.property_id,parentProperty.id);
+ assert.equal(childAgreement.object_id,childObject.id);
  await add('objects',async()=>{await page.locator('#edit-form [name=property_id]').selectOption({index:1});await page.locator('#edit-form [name=object_number]').fill('101');await page.locator('#edit-form [name=valid_from]').fill('2020-01-01');await page.locator('#edit-form [name=area]').fill('200')});
  await page.locator('.record-row').first().click();
  await page.locator('[data-mode=revise]').click();await page.locator('#edit-form [name=valid_from]').fill('2026-07-01');await page.locator('#edit-form [name=area]').fill('250');await save();
