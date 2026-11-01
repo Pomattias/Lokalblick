@@ -161,13 +161,55 @@ function perform(db,command) {
    insert(db,'stakeholder_assignments',{id:id(),[key]:keyId,role_code,valid_from,
     party_id:partyId,person_id:personId,assignment_mode:mode,shared:shared?1:0});break;
   }
-  case 'addAgreementItem':
+  // Financial corrections create dated rows. Only closing a period updates the old row.
   case 'updateAgreementItem':{
+   const old=lookup(db,'agreement_items',text(command.id,'AvtalspostID'));
+   if(!old)throw Error('Hyresposten saknas.');
+   const data=fields(p,['valid_to'],['valid_to']);
+   if(old.valid_to)throw Error('Hyresposten är redan avslutad.');
+   const end=date(data.valid_to);
+   if(old.valid_from&&end<old.valid_from)throw Error('Slutdatum före hyrespostens start.');
+   update(db,'agreement_items',old.id,{valid_to:end});break;
+  }
+  case 'reviseAgreementItem':{
+   const old=lookup(db,'agreement_items',text(command.id,'AvtalspostID'));
+   if(!old)throw Error('Hyresposten saknas.');
+   if(old.valid_to)throw Error('Hyresposten är avslutad. Välj den öppna perioden.');
+   const data=fields(p,['valid_from','name','base_amount','adjustment_method',
+    'base_year','base_index','index_share','annual_percent','min_percent','max_percent',
+    'limit_basis','floor','reconcilable'],['valid_from']);
+   const start=date(data.valid_from);
+   if(old.valid_from&&start<=old.valid_from)throw Error('Ny hyresperiod måste börja efter den föregående.');
+   const stored=['type','name','base_amount','adjustment_method','base_year','base_index',
+    'index_share','annual_percent','min_percent','max_percent','limit_basis',
+    'series_base','floor','reconcilable','reported_amount','sources'];
+   const next=Object.fromEntries(stored.map(key=>[key,old[key]]));
+   for(const [key,value] of Object.entries(data))if(key!=='valid_from')next[key]=value;
+   next.base_amount=nonneg(next.base_amount,'belopp');
+   next.name=text(next.name,'benämning');
+   if(!['none','kpi','fixed','kpi-limited'].includes(next.adjustment_method))
+    throw Error('Ogiltig uppräkningsmetod.');
+   for(const key of ['base_year','base_index','index_share','annual_percent','min_percent','max_percent']){
+    if(next[key]===null)continue;
+    const value=Number(next[key]);
+    if(!Number.isFinite(value)||key==='base_year'&&(!Number.isInteger(value)||value<1900))
+     throw Error('Ogiltigt värde för '+key+'.');
+    if(key==='index_share'&&(value<0||value>1))throw Error('Indexandel ska vara mellan 0 och 1.');
+    next[key]=value;
+   }
+   for(const key of ['floor','reconcilable']){
+    if(![0,1,true,false].includes(next[key]))throw Error('Ogiltig markering: '+key);
+    next[key]=Number(next[key]);
+   }
+   update(db,'agreement_items',old.id,{valid_to:previousDay(start)});
+   insert(db,'agreement_items',{id:id(),agreement_id:old.agreement_id,...next,valid_from:start,valid_to:null});
+   break;
+  }
+  case 'addAgreementItem':{
    const allowed=['agreement_id','type','name','base_amount','valid_from','valid_to','adjustment_method',
     'base_year','base_index','index_share','annual_percent','min_percent','max_percent','limit_basis','floor','reconcilable'];
    const data=fields(p,allowed);
-   const existing=command.action==='updateAgreementItem'?lookup(db,'agreement_items',text(command.id,'AvtalspostID')):null;
-   if(command.action==='updateAgreementItem'&&!existing)throw Error('Hyresposten saknas.');
+   const existing=null;
    const agreement_id=existing?.agreement_id||text(data.agreement_id,'avtal');
    if(data.agreement_id&&data.agreement_id!==agreement_id)throw Error('En hyrespost kan inte flyttas mellan avtal.');
    if(!lookup(db,'agreements',agreement_id))throw Error('Avtalet saknas.');
@@ -196,10 +238,7 @@ function perform(db,command) {
    for(const key of ['floor','reconcilable']){
     if(data[key]!==undefined)values[key]=Number(data[key])?1:0;
    }
-   if(existing){
-    delete values.agreement_id;
-    update(db,'agreement_items',existing.id,values);
-   }else insert(db,'agreement_items',{id:id(),...values});
+   insert(db,'agreement_items',{id:id(),...values});
    break;
   }
   default:if(!runModuleCommand(db,command,{id,date,text,optional,nonneg,fields,insert,update,lookup,previousDay}))throw Error('Åtgärden stöds inte i Lokalblick v3.');

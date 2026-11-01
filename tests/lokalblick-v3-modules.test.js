@@ -169,3 +169,43 @@ test('v3 inspection points cannot link to an issue on another property',async()=
   assert.equal(s.state().inspectionPoints[0].issue_id,s.state().issues[1].id);
  }finally{await s.close();}
 });
+
+test('v3 rent revisions preserve history, reject in-place amount edits and roll back invalid changes',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Historikfastighet'});const property=s.state().properties[0].id;
+  await s.post('createObject',{property_id:property,object_number:'1',valid_from:'2020-01-01',area:200});
+  await s.post('createAgreement',{object_id:s.state().objects[0].id,agreement_number:'R-1',valid_from:'2020-01-01'});
+  const agreement=s.state().agreements[0].id;
+  await s.post('addAgreementItem',{agreement_id:agreement,type:'base',name:'Bashyra',base_amount:120000,valid_from:'2020-01-01'});
+  const old=s.state().agreementItems[0];
+  await s.post('updateAgreementItem',{base_amount:1},old.id,400);
+  await s.post('reviseAgreementItem',{valid_from:'2026-01-01',base_amount:150000,name:'Bashyra ny period'},old.id);
+  assert.equal(s.state().agreementItems.length,2);
+  assert.equal(s.state().agreementItems.find(x=>x.id===old.id).base_amount,120000);
+  assert.equal(s.state().agreementItems.find(x=>x.id===old.id).valid_to,'2025-12-31');
+  assert.equal(s.state().agreementItems.find(x=>x.base_amount===150000).valid_from,'2026-01-01');
+  assert.equal(s.state().financialSummary.annualRent,150000);
+  assert.equal((await new CoreV3Store(s.db).readSnapshot('2025-10-27')).financialSummary.annualRent,120000);
+  const version=s.state().version;
+  await s.post('reviseAgreementItem',{valid_from:'2026-09-01',base_amount:2},old.id,400);
+  assert.equal(s.state().version,version);
+  assert.equal(s.state().agreementItems.length,2);
+  await s.post('updateAgreementItem',{valid_to:'2027-12-31'},old.id,400);
+ }finally{await s.close();}
+});
+test('v3 nominal rent excludes contracts and objects outside their valid period',async()=>{
+ const s=await setup();try{
+  await s.post('createProperty',{name:'Avtalshuset'});const property=s.state().properties[0].id;
+  await s.post('createObject',{property_id:property,object_number:'A',valid_from:'2020-01-01',area:100});
+  await s.post('createAgreement',{object_id:s.state().objects[0].id,agreement_number:'A-1',valid_from:'2020-01-01',legal_end_on:'2025-12-31'});
+  await s.post('addAgreementItem',{agreement_id:s.state().agreements[0].id,type:'base',name:'Bashyra',base_amount:120000,valid_from:'2020-01-01'});
+  assert.equal((await new CoreV3Store(s.db).readSnapshot('2025-10-27')).financialSummary.annualRent,120000);
+  assert.equal(s.state().financialSummary.annualRent,0);
+  await s.post('createObject',{property_id:property,object_number:'B',valid_from:'2020-01-01',area:80});
+  await s.post('createAgreement',{object_id:s.state().objects[1].id,agreement_number:'A-2',valid_from:'2020-01-01'});
+  await s.post('addAgreementItem',{agreement_id:s.state().agreements[1].id,type:'base',name:'Bashyra',base_amount:50000,valid_from:'2020-01-01'});
+  assert.equal(s.state().financialSummary.annualRent,50000);
+  await s.post('endObject',{ended_on:'2026-01-01'},s.state().objects[1].id);
+  assert.equal(s.state().financialSummary.annualRent,0);
+ }finally{await s.close();}
+});

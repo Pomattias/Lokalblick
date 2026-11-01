@@ -215,8 +215,21 @@ export function operationalSnapshot(db,at,{all}){
   resolved_property_id:r.issue_id?issues.find(i=>i.id===r.issue_id)?.resolved_property_id:propertyFor(db,r)
  }));
  const inspections=map.inspections.map(r=>({...r,points:map.inspection_points.filter(p=>p.inspection_id===r.id),resolved_property_id:propertyFor(db,r)}));
+ // The nominal annual total excludes agreements and objects no longer in force.
+ // Index and fixed annual uplifts require a separate contract-specific calculation.
+ const activeAgreementIds=new Set(db.prepare(`SELECT a.id FROM agreements a
+  JOIN objects o ON o.id=a.object_id
+  JOIN agreement_versions v ON v.agreement_id=a.id
+  WHERE v.valid_from=(SELECT MAX(x.valid_from) FROM agreement_versions x
+    WHERE x.agreement_id=a.id AND x.valid_from<=?)
+  AND (v.legal_end_on IS NULL OR v.legal_end_on>=?)
+  AND (v.terminated_on IS NULL OR v.terminated_on>=?)
+  AND (o.ended_on IS NULL OR o.ended_on>=?)
+  AND EXISTS (SELECT 1 FROM object_versions ov WHERE ov.object_id=o.id AND ov.valid_from<=?)`)
+  .all(at,at,at,at,at).map(r=>r.id));
  const rentByAgreement=db.prepare('SELECT agreement_id,base_amount,type,valid_from,valid_to FROM agreement_items').all()
-  .filter(r=>active(r,at)).reduce((map,r)=>{map[r.agreement_id]=(map[r.agreement_id]||0)+r.base_amount;return map;},{});
+  .filter(r=>active(r,at)&&activeAgreementIds.has(r.agreement_id))
+  .reduce((map,r)=>{map[r.agreement_id]=(map[r.agreement_id]||0)+r.base_amount;return map;},{});
  // For each property use the latest locked base-budget version, never sum revisions.
  const latestLockedBaseBudgets=new Map();
  for(const budget of budgets){
