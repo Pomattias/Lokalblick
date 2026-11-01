@@ -122,14 +122,15 @@ try{
   await go('contracts');
   const contract=page.locator('.portfolio-list table[data-list-key="contracts"] tbody>tr:not([data-table-empty])').first();
   await contract.waitFor();
-  const first=await bounds(contract.locator('td:nth-child(3)'));
+  const first=await bounds(contract.locator('td:nth-child(9)'));
   const property=await bounds(contract.locator('td:nth-child(1)'));
-  const rent=await bounds(contract.locator('td:nth-child(5)'));
-  const area=await bounds(contract.locator('td:nth-child(4)'));
+  const rent=await bounds(contract.locator('td:nth-child(10)'));
+  const area=await bounds(contract.locator('td:nth-child(14)'));
   assert.ok(property.top>first.top,'property follows agreement');
   assert.ok(rent.top>property.top,'rent follows property');
   near(rent.top,area.top,'area and rent appear on the same row');
-  assert.ok(await contract.locator('.contract-mobile-property').isVisible(),'property and address share a compact row');
+  assert.ok(await contract.locator('td:nth-child(1) .contract-mobile-property').isVisible(),'property and address share a compact row');
+  assert.ok(await contract.locator('td:nth-child(9) .contract-tenant-name').isVisible(),'agreement number and tenant share the top row');
  }
  await page.setViewportSize({width:1280,height:850});
  await go('contracts');

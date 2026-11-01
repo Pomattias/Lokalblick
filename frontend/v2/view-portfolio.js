@@ -33,7 +33,7 @@ function contractRows(data, contracts, year, portfolio = false) {
       esc(units[c.unitId]||c.use||"–"),
       esc(c.useDescription||c.businessDescription||c.activityDescription||"–"),
       linkedIssues.length?num(linkedIssues.length):"0",
-      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||c.id)}</strong></button>`,
+      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||c.id)}</strong></button><span class="contract-tenant-name">${esc(tenantName(data,c))}</span>`,
       money(v.rent.amount),
       area&&v.rent.status!=="Behöver kontroll"?money(v.rent.amount/area):"–",
       money(v.addition.amount),
