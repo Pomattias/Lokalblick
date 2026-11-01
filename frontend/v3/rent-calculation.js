@@ -11,10 +11,12 @@ export function activeOn(row,date){
 }
 export function calculateAnnualRate(item,{year,index=null}={}){
  const nominal=Number(item?.base_amount),method=item?.adjustment_method||'none';
- if(!Number.isFinite(nominal)||nominal<0)return unavailable(method,null,'Ogiltigt grundbelopp');
+ if(!finite(item?.base_amount)||!Number.isFinite(nominal)||nominal<0)return unavailable(method,null,'Ogiltigt grundbelopp');
  if(!Number.isInteger(year)||year<1900||year>9999)return unavailable(method,nominal,'Ogiltigt beräkningsår');
  if(method==='none')return available(nominal,method,nominal);
  if(method==='fixed'){
+  // A documented 0% adjustment does not depend on a base year.
+  if(finite(item.annual_percent)&&Number(item.annual_percent)===0)return available(nominal,method,nominal);
   if(!Number.isInteger(Number(item.base_year))||!finite(item.base_year)||Number(item.base_year)<1900)
    return unavailable(method,nominal,'Basår saknas');
   const elapsed=year-Number(item.base_year);
@@ -26,6 +28,8 @@ export function calculateAnnualRate(item,{year,index=null}={}){
   return available(item.floor===0?proposed:Math.max(nominal,proposed),method,nominal);
  }
  if(method==='kpi'){
+  // Zero index share is contractually unchanged, even without an SCB observation.
+  if(finite(item.index_share)&&Number(item.index_share)===0)return available(nominal,method,nominal);
   if(!finite(item.base_index)||Number(item.base_index)<=0||!nonnegative(item.index_share)||Number(item.index_share)>1)
    return unavailable(method,nominal,'KPI-bastal eller indexandel saknas');
   if(!finite(index)||Number(index)<=0)return unavailable(method,nominal,'KPI-tal för beräkningsåret saknas');

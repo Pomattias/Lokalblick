@@ -50,3 +50,13 @@ test('snapshot rate excludes noncurrent agreements and objects, with optional pr
  assert.equal(snapshotAnnualRate(snapshot,'2026-10-27').nominal,120000);
  assert.equal(snapshotAnnualRate(snapshot,'2026-10-27',{propertyId:'unknown'}).count,0);
 });
+
+test('zero uplift needs no index observation or base year, but missing base rent never becomes zero',()=>{
+ const kpi=item({adjustment_method:'kpi',index_share:0,base_index:null});
+ const fixed=item({adjustment_method:'fixed',annual_percent:0,base_year:null});
+ assert.equal(calculateAnnualRate(kpi,{year:2026}).amount,120000);
+ assert.equal(calculateAnnualRate(fixed,{year:2026}).amount,120000);
+ assert.equal(calculateAnnualRate(item({base_amount:null}),{year:2026}).amount,null);
+ assert.equal(calculateAnnualRate(item({base_amount:''}),{year:2026}).amount,null);
+ assert.equal(calculateAnnualRate(item({adjustment_method:'kpi',index_share:null,base_index:null}),{year:2026}).amount,null);
+});
