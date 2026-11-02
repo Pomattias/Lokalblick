@@ -13,7 +13,13 @@ const preferredLabel=(target,label)=>({
  'properties.designation':'Fastighet → Fastighetsbeteckning',
  'properties.id':'Fastighet → FastighetsID',
  'objects.id':'Objekt → Objektnummer',
- 'contracts.id':'Avtal → Avtalsnummer'
+ 'contracts.id':'Avtal → Avtalsnummer',
+ 'contracts.tenantPartyId':'Avtal → Hyresgäst (Part)',
+ 'properties.ownerPartyId':'Fastighet → Fastighetsägare (Part)',
+ 'properties.ownerOrganizationNumber':'Part → Fastighetsägarens organisationsnummer',
+ 'contracts.tenantOrganizationNumber':'Part → Hyresgästens organisationsnummer',
+ 'properties.ownerResponsiblePersonId':'Fastighet → Förvaltare (Person och ansvar)',
+ 'properties.responsiblePersonId':'Fastighet → Lokalsamordnare (Person och ansvar)'
 })[target]||label||target;
 
 export function importDashboardModel(prepared,profiles,candidate,storyRows,plan=[],choices={},options={}){
@@ -39,7 +45,14 @@ export function importDashboardModel(prepared,profiles,candidate,storyRows,plan=
 export function importDashboardHtml(prepared,profiles,candidate,storyRows,plan=[],choices={},options={}){
  const m=importDashboardModel(prepared,profiles,candidate,storyRows,plan,choices,options);
  const fields=new Map((options.schemas?schemaFields(options.schemas):[]).map(f=>[f.target,f.label]));
- const mappingText=c=>preferredLabel(c.target,fields.get(c.target));
+ const typeLabels=options.schemas?.find(schema=>schema.key==='agreementItems')?.itemTypes||{};
+ const mappingText=c=>{
+  const label=preferredLabel(c.target,fields.get(c.target));
+  if(!c.target.startsWith('agreementItems.')||!c.itemType)return label;
+  const type=Object.entries(typeLabels).find(([,id])=>id===c.itemType)?.[0]||c.itemType;
+  const field=label.split(' → ').at(-1);
+  return 'Avtalspris · '+type+' → '+field;
+ };
  const tasks=[
   {key:'columns',count:m.unresolved,title:'Kolumner att kontrollera',description:'Ett fältval gäller alla rader i samma kolumn',action:'Granska kolumner'},
   {key:'new',count:m.pendingCreation,title:'Nya poster att godkänna',description:'Granska föreslagna fastigheter, objekt och avtal',action:'Granska nya'},
