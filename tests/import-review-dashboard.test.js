@@ -33,7 +33,7 @@ test('large real-world shaped v2 import has a concise decision overview before i
 
 test('v2 review folds wide spreadsheet behind explicit technical detail, preserving all manual column fields and final approval',()=>{
  const schemas=[{key:'contracts',sheet:'Avtal',columns:[['number','Avtalsnummer']]}];
- const html=columnPreviewHtml(prepared,{profiles},candidate,schemas,{},{explanation:{rows,records:[]},plan});
+ const html=columnPreviewHtml(prepared,{profiles},candidate,schemas,{},{explanation:{rows,records:[],counts:{}},plan});
  assert.match(html,/<details class="import-detailed-table" data-import-detailed-table\s*>/);
  assert.ok(html.indexOf('data-import-dashboard')<html.indexOf('data-import-detailed-table'));
  assert.equal((html.match(/data-preview-map=/g)||[]).length,40);
