@@ -30,8 +30,10 @@ en privat plats. Befintliga filer öppnas bara om de är v3. Ingen migration kö
 - Fastigheters adress/koordinater, datamodell för samtliga tabeller,
   insyn i databasen, manuell JSON-export och **Excel-/CSV-import med kolumnmatchning**.
   Importen visar en förhandsgranskning, kräver uttryckligt godkännande och
-  sparar högst 200 rader per atomisk transaktion. För Objekt/Avtal väljs
-  en fastighet/ett objekt per import, så oklar automatmatchning undviks.
+  sparar högst 200 ändringar per atomisk transaktion. Vanliga Objekt/Avtal-importer
+  kan välja en fastighet/ett objekt för hela filen. Det separata valet
+  **Avtalslista – koppla per fastighet** matchar i stället respektive rad
+  via källans fastighetsnummer och avtalsnummer.
 
 Alla skrivningar är explicita kommandon som valideras och sparas i SQLite-
 transaktioner med versionskontroll. Ingen v2-arbetsyta kan sparas mot v3-API:t.
@@ -115,3 +117,12 @@ tom nystart. Gör aldrig detta om databasen hunnit få uppgifter som ska sparas.
 - Om ett tillägg införs senare under året avräknas bara dess giltighetsdagar; övriga dagar ingår kostnaden i bashyran. Ett tillägg vars årsbelopp ändrats under året delas upp i respektive giltighetsperiod. Överlappande avtal i samma objekt eller överlappande tillägg av samma kategori flaggas för kontroll. Värderingen utgår från fastighetens fastställda helårskostnad, fördelad proportionellt över kalenderdagar; ojämn säsongsförbrukning kräver manuell kontroll.
 - Avstämning markeras `review` vid ofullständiga årsutfall, förändrad area, överlapp eller KPI-reglerat tillägg. Ett faktiskt debiterat/erlagt belopp kan skilja sig från avtalad årsavgift och måste kontrolleras före slutavräkning.
 - V3:s kostnadspost, fastighet och avtal visar avräkningsunderlagen. Funktionen använder existerande schema och påverkar inte `main` eller skarp data.
+
+## Nyskapande: nummerserier och relationsstyrd avtalsimport
+
+- **Fastighet → Objekt:** vid nyskapande föreslås `<fastighetsnummer>-001`, därefter `-002` och så vidare, på den valda fastigheten. **Objekt → Avtal:** föreslår `<objektsnummer>-01`, `-02` osv. Nummerföljden bygger på redan använda nummer, även historiska, och fortsätter efter högsta suffix. Befintliga och uttryckligen importerade nummer skrivs aldrig om. Ett frivilligt manuellt nummer kan ersätta förslaget. UUID är alltid fortsatt intern primärnyckel.
+- Fastigheten behöver ha ett entydigt fastighetsnummer för automatiskt objektnummer; saknas eller kolliderar detta måste användaren först rätta fastigheten eller välja manuellt objektnummer. Vid senare ändring av fastighetsnummer ändras **inte** redan registrerade objekt eller avtal. Vid skapande via API kan objekt-/avtalsnummer utelämnas, så genererar servern numret i samma transaktion.
+- **Avtalslista – koppla per fastighet:** varje importfil kan innehålla flera fastighetsnummer. En rad med befintligt avtalsnummer på angiven fastighet återanvänder samma avtal och dess objekt utan att duplicera data. Ett nytt avtal kopplas till ett känt objektnummer på samma fastighet eller till en befintlig, verifierad objektdel som kan urskiljas ur ett strukturerat avtalsnummer. Saknas säker objektkoppling **spärras importen tills användaren väljer objekt eller aktivt väljer att skapa ett nytt objekt**. Det skapas aldrig automatiskt ett fysiskt objekt endast för att avtalsnumret är nytt.
+- Om användaren väljer **Skapa nytt objekt** skapas objekt och avtal i samma transaktion, med interna UUID-länkar och fastighetens nummerserie. Ingen area hittas på. Vid saknat areaunderlag blockeras kostnadsavräkning tills hela fastighetsarean är verifierad.
+- Import för en enda fastighet/ett enda objekt kan också lämna objekts-/avtalsnummer tomt och använda serversidans nummerserie. Matchningsfält från Excel bevarar inledande nollor. Okända fastighetsnummer och motstridiga eller dubbla avtalsnummer kräver åtgärd innan skrivning.
+- **Avgränsning:** en återimport av ett redan känt avtalsnummer verifierar befintlig koppling men ändrar inte automatiskt andra avtalsvillkor, hyra eller perioder. Sådana ändringar måste hanteras med daterade versioner och separat granskning.
