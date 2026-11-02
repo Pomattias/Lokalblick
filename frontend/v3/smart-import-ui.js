@@ -20,7 +20,16 @@ export function mountSmartImport(root,{snapshot,apply}){
  const fileInput=shell.querySelector('[data-smart-file]'),results=shell.querySelector('[data-smart-results]');
  let book=[],active=null,overrides={},objectChoices={},mapping=null,filter='review',plan=null,fileName='',locked=false,externalSystem='';
  const current=()=>book.find(s=>s.name===active);
- const mapped=()=>suggestImportMapping((current()?.rows?.[0]||[]),overrides).map(f=>coreImportFields.includes(f)?f:'');
+ const mapped=()=>{
+  const headers=current()?.rows?.[0]||[],tenantSheet=norm(current()?.name).includes('hyresgast');
+  return suggestImportMapping(headers,overrides).map((field,i)=>{
+   if(tenantSheet&&!Object.hasOwn(overrides,i)&&!field){
+    if(norm(headers[i])==='namn')field='tenant_name';
+    if(['orgnr','organisationsnummer'].includes(norm(headers[i])))field='tenant_org';
+   }
+   return coreImportFields.includes(field)?field:'';
+  });
+ };
  function analyze(){
   const chosen=current();if(!chosen)return;
   const raw=chosen.rows||[],headers=raw[0]||[],rows=raw.slice(1).filter(r=>r.some(c=>String(c??'').trim()));
@@ -80,7 +89,7 @@ export function mountSmartImport(root,{snapshot,apply}){
    }).join(''):'<p class="muted smart-import-empty">Inga rader behöver granskas. Du kan visa alla för att se matchningarna.</p>')+
    '</div>'+advanced+
    '<div class="smart-import-step"><span>3. Bekräfta</span><strong>'+plan.commands.length+' åtgärder i fyra register</strong></div>'+
-   '<p class="muted">'+esc(Object.entries({Fastigheter:plan.commands.filter(x=>x.action==='createProperty').length,Objekt:plan.commands.filter(x=>x.action==='createObject').length,Avtal:plan.commands.filter(x=>x.action==='createAgreement').length,Hyresgäster:plan.commands.filter(x=>x.action==='createParty'||x.action==='updateParty'||x.action==='setRole').length}).map(([k,n])=>k+': '+n).join(' · '))+'</p>'+
+   '<p class="muted">'+esc(Object.entries({Fastigheter:plan.commands.filter(x=>x.action==='createProperty').length,Objekt:plan.commands.filter(x=>x.action==='createObject').length,Avtal:plan.commands.filter(x=>x.action==='createAgreement').length,Hyresgäster:plan.commands.filter(x=>x.action==='createParty'||x.action==='updateParty').length,Avtalskopplingar:plan.commands.filter(x=>x.action==='setRole').length}).map(([k,n])=>k+': '+n).join(' · '))+'</p>'+
    '<p class="muted">Alla åtgärder sparas i en transaktion. Vid fel sparas ingenting. Befintliga avtalsvillkor behålls.</p>'+
    '<button type="button" class="primary" data-smart-save '+(plan.errors.length||!plan.commands.length?'disabled':'')+'>Bekräfta '+plan.commands.length+' ändringar</button>';
   if(results.dataset.showAdvanced==='1')results.querySelector('[data-smart-advanced]').open=true;
