@@ -107,3 +107,16 @@ test('out-of-order agreements use earliest evidenced object date',async()=>{
   assert.equal(saved.objects.length,1);
  }finally{db.close();}
 });
+
+test('standalone tenant sheet imports only a tenant party and never creates an unverified link',()=>{
+ const data={headers:['Namn','Organisationsnummer'],rows:[['Kafé AB','556889-1111']]};
+ const one=plan(data,blank(),{mapping:['tenant_name','tenant_org']});
+ assert.deepEqual(one.errors,[]);
+ assert.deepEqual(one.commands.map(x=>x.action),['createParty']);
+ assert.equal(one.commands[0].fields.kind,'tenant');
+ const saved=blank();
+ saved.parties=[{id:'tenant',name:'Kafé AB',organization_number:'556889-1111',kind:'tenant'}];
+ const repeated=plan(data,saved,{mapping:['tenant_name','tenant_org']});
+ assert.deepEqual(repeated.errors,[]);
+ assert.equal(repeated.commands.length,0);
+});
