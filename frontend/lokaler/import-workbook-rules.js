@@ -23,6 +23,8 @@ export function workbookFieldRule(sheet,header,index=0){
  if(name==='fastighetslista'&&h==='fastighetsagare'&&index===5)return '@ignore';
  if(name==='fastighetslista'&&h==='objektnr')
   return 'properties.managementObjectNumber';
+ if(['lokalbestand','lokaldata'].includes(name)&&h==='verksamhet')
+  return 'contracts.businessName';
  if(name==='lokaldata'&&['objektiekot','hyra2026','hyrakrkvm'].includes(h))
   return '@ignore';
  if(['fastighetslista','lokalbestand','lokaldata'].includes(name)&&
