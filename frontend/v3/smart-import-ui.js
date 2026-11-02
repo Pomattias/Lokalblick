@@ -54,7 +54,7 @@ export function mountSmartImport(root,{snapshot,apply}){
     '<button type="button" class="secondary" data-smart-filter="all" aria-pressed="'+(filter==='all')+'">Alla ('+total+')</button></div></div>'+
    '<div class="smart-import-list">'+(visible.length?visible.map(r=>{
     const candidates=r.candidates||[],picked=objectChoices[r.index]||r.objectId||'';
-    const actionControl=r.status==='review'&&r.propertyId&&r.agreementNumber?
+    const actionControl=r.status==='review'&&r.propertyId&&r.agreementNumber&&/Objekt kan inte avgöras säkert/.test(r.reason)?
      '<label>Objektkoppling<select data-smart-object="'+r.index+'">'+
       opts([{id:'',label:'Välj objekt…'},...candidates.map(o=>({id:o.id,label:o.number})),{id:'@new',label:'+ Skapa nytt objekt'}],picked)+'</select></label>':'';
     const warnings=r.warnings?.length?'<small class="muted">'+esc(r.warnings.join(' · '))+'</small>':'';
