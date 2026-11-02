@@ -4,6 +4,7 @@ import {mountImport} from './import.js';
 import {relatedRecords,assignmentHistory,isVisibleAt} from './relations.js';
 import {mountPropertyMap} from './map.js';
 import {mountBudgetIndex} from './budget-index.js';
+import {nextObjectNumber,nextAgreementNumber} from './numbering.js';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const viewNames={properties:'Fastigheter',objects:'Objekt',agreements:'Avtal',parties:'Parter',people:'Personer',...moreViews};
@@ -224,14 +225,16 @@ function formSchema(mode,row,view=state.view,parentId=null){
  }
  if(mode==='end')return {title:'Avsluta objekt',action:'endObject',fields:label('Slutdatum','ended_on',state.asOf,'date','required')};
  if(v==='properties')return {title:mode==='create'?'Ny fastighet':'Redigera fastighet',action:mode==='create'?'createProperty':'updateProperty',
-  fields:label('Fastighetsnamn','name',r.name,'text','required')+label('Förvaltningsobjekt','management_object_number',r.management_object_number)+label('Populärnamn','popular_name',r.popular_name)+label('Adress','address',r.address)+label('Ort','city',r.city)+label('Latitud','latitude',r.latitude,'number','step="any" min="-90" max="90"')+label('Longitud','longitude',r.longitude,'number','step="any" min="-180" max="180"')};
+  fields:label('Fastighetsnamn','name',r.name,'text','required')+label('Fastighetsnummer / förvaltningsobjekt','management_object_number',r.management_object_number)+label('Populärnamn','popular_name',r.popular_name)+label('Adress','address',r.address)+label('Ort','city',r.city)+label('Latitud','latitude',r.latitude,'number','step="any" min="-90" max="90"')+label('Longitud','longitude',r.longitude,'number','step="any" min="-180" max="180"')};
  if(v==='parties')return {title:mode==='create'?'Ny part':'Redigera part',action:mode==='create'?'createParty':'updateParty',
   fields:label('Partens namn','name',r.name,'text','required')+label('Organisationsnummer','organization_number',r.organization_number)+label('Typ','kind',r.kind)};
  if(v==='people')return {title:mode==='create'?'Ny person':'Redigera person',action:mode==='create'?'createPerson':'updatePerson',
   fields:label('Namn','name',r.name,'text','required')+label('E-post','email',r.email,'email')+label('Telefon','phone',r.phone)};
  if(v==='objects'){
   if(mode==='create')return {title:'Nytt objekt',action:'createObject',...(parentId?{fixed:{property_id:parentId}}:{}),fields:(parentId?'<p class="hint">Fastighet: '+esc(a.properties.find(p=>p.id===parentId)?.name||'Okänd')+'</p>':select('Fastighet','property_id',asOptions('properties'),'',true))+
-   label('Objektsnummer','object_number','','text','required')+label('Startdatum','valid_from',state.asOf,'date','required')+
+   label('Objektsnummer','object_number',nextObjectNumber(a.properties.find(p=>p.id===parentId),a.objects,a.properties)||'','text','required autocomplete="off"')+
+   '<p class="hint">Föreslås från fastighetsnumret, exempelvis SF1213-001. Fritt att ändra vid behov. Fastighetens nummer krävs för automatiskt förslag.</p>'+
+   label('Startdatum','valid_from',state.asOf,'date','required')+
    label('Yta m²','area','','number','min="0" step="any"')+label('Kategori','category')};
   const last=r.versions[0],suggest=state.asOf>last.valid_from?state.asOf:'';
   return {title:'Ny version av objekt '+r.object_number,action:'reviseObject',fields:label('Nytt startdatum','valid_from',suggest,'date','required')+
@@ -240,7 +243,9 @@ function formSchema(mode,row,view=state.view,parentId=null){
  }
  if(v==='agreements'){
   if(mode==='create')return {title:'Nytt avtal',action:'createAgreement',...(parentId?{fixed:{object_id:parentId}}:{}),fields:(parentId?'<p class="hint">Objekt: '+esc(a.objects.find(o=>o.id===parentId)?.object_number||'Okänt')+'</p>':select('Objekt','object_id',asOptions('objects'),'',true))+
-   label('Avtalsnummer','agreement_number','','text','required')+label('Startdatum','valid_from',state.asOf,'date','required')+
+   label('Avtalsnummer','agreement_number',nextAgreementNumber(a.objects.find(o=>o.id===parentId),a.agreements)||'','text','required autocomplete="off"')+
+   '<p class="hint">Föreslås från objektsnumret, exempelvis SF1213-001-01. Tidigare avtalsnummer återanvänds inte. Fritt att ändra vid behov.</p>'+
+   label('Startdatum','valid_from',state.asOf,'date','required')+
    label('Avtalsslut','legal_end_on','','date')+label('Användning','usage')};
   const last=r.versions[0],suggest=state.asOf>last.valid_from?state.asOf:'';
   return {title:'Ny avtalsversion',action:'reviseAgreement',fields:label('Ny versionsstart','valid_from',suggest,'date','required')+
@@ -249,12 +254,27 @@ function formSchema(mode,row,view=state.view,parentId=null){
  }
  throw Error('Det valda formuläret saknas.');
 }
+function refreshParentNumberSuggestion(){
+ const spec=state.mode;
+ if(!spec||!['createObject','createAgreement'].includes(spec.action))return;
+ const field=spec.action==='createObject'?'object_number':'agreement_number';
+ const selectField=spec.action==='createObject'?'property_id':'object_id';
+ const input=$('#edit-form').elements.namedItem(field);
+ if(!input)return;
+ const parent=spec.fixed?.[selectField]||$('#edit-form').elements.namedItem(selectField)?.value;
+ const next=spec.action==='createObject'
+  ?nextObjectNumber(state.snapshot.properties.find(p=>p.id===parent),state.snapshot.objects,state.snapshot.properties)
+  :nextAgreementNumber(state.snapshot.objects.find(o=>o.id===parent),state.snapshot.agreements);
+ if(!input.value||input.value===input.dataset.suggested)input.value=next||'';
+ input.dataset.suggested=next||'';
+}
 function openForm(mode,{view=state.view,parentId=null}={}){
  try{
   const row=mode==='create'?null:selected();
   const spec=formSchema(mode,row,view,parentId);
   state.mode={...spec,id:spec.id||row?.id||null,navigateTo:mode==='create'&&view!==state.view?view:null};
   $('#form-title').textContent=spec.title;$('#form-fields').innerHTML=spec.fields;
+  refreshParentNumberSuggestion();
   $('#editor').showModal();$('#edit-form').querySelector('input,select')?.focus();
  }catch(error){notify(error.message,true)}
 }
@@ -322,6 +342,9 @@ $('#new-record').addEventListener('click',()=>openForm('create'));
 $('#filter').addEventListener('input',e=>{state.search=e.target.value;renderList()});
 $('#as-of').addEventListener('change',async e=>{if(!e.target.value)return;state.asOf=e.target.value;await refresh()});
 $('#edit-form').addEventListener('submit',saveForm);
+$('#edit-form').addEventListener('change',event=>{
+ if(event.target.matches('[name="property_id"],[name="object_id"]'))refreshParentNumberSuggestion();
+});
 $('#close-editor').addEventListener('click',()=>$('#editor').close());
 $('#cancel-editor').addEventListener('click',()=>$('#editor').close());
 refresh();
