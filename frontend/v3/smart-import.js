@@ -118,11 +118,16 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
  const id=()=>makeId(),seenAgreements=new Set(),initialAgreements=new Set(agreements.map(a=>a.id));
  // Property-scoped roles should not depend on the order of agreements in
  // the file. Only evidence rows that actually name that role count.
- const earliestRoleDate=new Map();
+ const earliestRoleDate=new Map(),earliestObjectDate=new Map();
  for(const record of rows){
   const number=norm(value(record,cols,'property_number'));
   const from=cleanDate(value(record,cols,'valid_from'));
   if(!number||!validDate(from))continue;
+  const objectNumber=norm(value(record,cols,'object_number'));
+  if(objectNumber){
+   const objectToken=number+'|'+objectNumber,old=earliestObjectDate.get(objectToken);
+   if(!old||from<old)earliestObjectDate.set(objectToken,from);
+  }
   for(const [field,role] of [['owner_name','owner'],['manager_name','manager']]){
    if(!value(record,cols,field))continue;
    const token=number+'|'+role,previous=earliestRoleDate.get(token);
@@ -333,14 +338,15 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
    const proposed=objNum||nextObjectNumber(property,objects,properties);
    if(!proposed||localObjects.some(o=>eq(o.object_number,proposed)))fail('Nytt objektnummer är inte entydigt.');
    else{
+    const objectStart=earliestObjectDate.get(norm(propertyNum)+'|'+norm(proposed))||start||snapshot.asOf||'2026-01-01';
     object={id:id(),object_number:proposed,property_id:property.id,
-     versions:[{valid_from:start||snapshot.asOf||'2026-01-01',area:null}]};
+     versions:[{valid_from:objectStart,area:null}]};
     objects.push(object);
     const areaRaw=get(row,'area');
     const areaValue=areaRaw?money(areaRaw):null;
     if(areaRaw&&areaValue===null)fail('Ogiltig objektarea.');
     cmd('createObject',{property_id:property.id,object_number:proposed,
-     valid_from:start||snapshot.asOf||'2026-01-01',...(areaValue!==null?{area:areaValue}:{})},
+     valid_from:objectStart,...(areaValue!==null?{area:areaValue}:{})},
      sourceRow,{id:object.id});info.created.push('objekt');
    }
   }
