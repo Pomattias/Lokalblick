@@ -5186,3 +5186,41 @@ body:not([data-view="budget"]) .import-decision-overview .import-review-footnote
  .import-decision-overview .import-review-steps strong{font-size:10px}
  .import-mapping-dialog .import-detailed-table>summary{padding:12px}
 }
+
+
+/* Group repeated import failures by source-column or error cause. */
+.import-mapping-dialog .import-decision-overview .import-review-group{
+ margin:11px 0 0;padding:0;border:1px solid #dae6e0;border-radius:9px;overflow:hidden;background:var(--paper)
+}
+.import-mapping-dialog .import-decision-overview .import-review-group>summary{
+ cursor:pointer;padding:10px 12px;font-size:12px;font-weight:700;color:#205948;
+ background:#f8faf9;line-height:1.4
+}
+.import-mapping-dialog .import-decision-overview .import-review-group>summary small{
+ display:inline;color:var(--muted);font-size:11px;font-weight:400;margin-left:5px
+}
+.import-mapping-dialog .import-decision-overview .import-review-group>ul{
+ margin:0;padding:0;list-style:none;max-height:310px;overflow:auto
+}
+.import-mapping-dialog .import-decision-overview .import-review-group li{
+ display:flex;justify-content:space-between;align-items:center;gap:10px;
+ padding:9px 12px;border-top:1px solid #e9eeeb;min-width:0
+}
+.import-mapping-dialog .import-decision-overview .import-review-group li>div{flex:1;min-width:0}
+.import-mapping-dialog .import-decision-overview .import-review-group li strong{font-size:12px;font-weight:650;overflow-wrap:anywhere}
+.import-mapping-dialog .import-decision-overview .import-review-group li small{display:block;font-size:11px;color:var(--muted);line-height:1.5;overflow-wrap:anywhere;margin-top:2px}
+.import-mapping-dialog .import-decision-overview .import-review-group li button{flex:none;min-height:29px;font-size:11px;padding:5px 9px}
+.import-mapping-dialog .import-decision-overview .import-review-map-list li>span{
+ color:var(--muted);font-size:11px;flex:1;min-width:0;overflow-wrap:anywhere
+}
+.import-mapping-dialog .import-decision-overview .import-review-map-list li>strong{
+ color:#2b5e4f;text-align:right;font-size:11px;max-width:60%;overflow-wrap:anywhere
+}
+.import-field-picker .import-field-advanced{margin:7px 0;padding:6px 9px;border:1px solid var(--line);border-radius:7px}
+.import-field-picker .import-field-advanced>summary{cursor:pointer;font-size:11px;color:var(--muted)}
+.import-field-picker .import-field-advanced label{display:grid;margin:7px 0;gap:5px}
+@media(max-width:650px){
+ .import-mapping-dialog .import-decision-overview .import-review-group li{align-items:flex-start}
+ .import-mapping-dialog .import-decision-overview .import-review-map-list li{display:grid;gap:4px}
+ .import-mapping-dialog .import-decision-overview .import-review-map-list li>strong{text-align:left;max-width:100%}
+}
