@@ -18,7 +18,7 @@ const validDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&!Number.isNaN(Date.parse(d+'T0
 function money(v){
  const raw=txt(v).replace(/[\s\u00a0]/g,'').replace(/kr|sek/gi,'');
  if(!raw)return null;
- const s=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw;
+ const s=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):/^\d{1,3}(?:\.\d{3})+$/.test(raw)?raw.replace(/\./g,''):raw;
  const n=Number(s);
  return Number.isFinite(n)&&n>=0?n:null;
 }
@@ -108,7 +108,7 @@ export function rankImportSheets(sheets){
  return sheets.map(s=>({...s,score:(s.rows?.[0]||[]).reduce((n,h)=>n+(inferImportColumn(h)?1:0),0)}))
   .sort((a,b)=>b.score-a.score);
 }
-export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,objectChoices={},makeId=()=>crypto.randomUUID()}={}){
+export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,objectChoices={},ignoredColumns=[],makeId=()=>crypto.randomUUID()}={}){
  const cols=mapping||suggestImportMapping(headers);
  const used=cols.filter(Boolean),warnings=[],errors=[],commands=[],records=[];
  const properties=[...(snapshot.properties||[])],objects=[...(snapshot.objects||[])],
@@ -119,6 +119,10 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
  if(used.length!==new Set(used).size)errors.push('Två kolumner är kopplade till samma fält.');
  if(rows.length>200)errors.push('Högst 200 datarader per omgång. Dela filen eller välj färre rader.');
  if(!used.length)errors.push('Inga kolumner kunde identifieras. Ange fält under Ändra kolumner.');
+ const criticalUnmapped=headers.filter((header,i)=>!cols[i]&&!ignoredColumns.includes(i)
+  &&/(hyra|tillagg|basar|index|kpi|pris|belopp)/.test(norm(header)));
+ if(criticalUnmapped.length)errors.push('Ekonomikolumner saknar säker koppling: '+
+  criticalUnmapped.join(', ')+'. Koppla dem manuellt eller markera Ignorera kolumn.');
  const get=(row,field)=>value(row,cols,field);
  const cmd=(action,fields,sourceRow,extra={})=>commands.push({action,fields,sourceRow,...extra});
  const chooseUnique=(list,predicate)=>{const a=list.filter(predicate);return a.length===1?a[0]:null};
@@ -136,6 +140,10 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
    p=named[0];
   }
   if(!p&&!name){fail('Organisationsnummer '+org+' saknar organisationsnamn.');return null;}
+  if(p&&org&&!p.organization_number){
+   p.organization_number=org;
+   cmd('updateParty',{organization_number:org},sourceRow,{id:p.id});
+  }
   if(!p){p={id:id(),name,organization_number:org||null,kind};parties.push(p);
    cmd('createParty',{name,...(org?{organization_number:org}:{}),kind},sourceRow,{id:p.id});}
   return p;
@@ -154,6 +162,10 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
    if(byName.length>1){fail('Flera personer heter '+name+'; komplettera med e-post.');return null;}
    candidate=byName[0];
    if(candidate&&email&&candidate.email&&!eq(candidate.email,email)){fail('Förvaltaren har en annan e-post i registret.');return null;}
+   if(candidate&&!email&&party&&!partyPeople.some(link=>link.person_id===candidate.id&&link.party_id===party.id)){
+    fail('Förvaltaren '+name+' finns registrerad, men är inte verifierad hos '+party.name+'. Ange e-post eller koppla personen manuellt.');
+    return null;
+   }
   }
   if(!candidate){candidate={id:id(),name,email:email||null};people.push(candidate);
    cmd('createPerson',{name,...(email?{email}:{})},sourceRow,{id:candidate.id});}
@@ -261,7 +273,7 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
     ...(property.address?{address:property.address}:{}),...(property.city?{city:property.city}:{})},
     sourceRow,{id:property.id});info.created.push('fastighet');
   }else if(propertyName&&!eq(propertyName,property.name)){
-   info.warnings.push('Fastighetens namn skiljer sig i filen; befintligt namn behålls.');
+   fail('Fastighetens namn avviker från registret ('+property.name+'). Kontrollera identiteten.');
   }
   info.propertyId=property.id;
   if(startText&&!validDate(start))fail('Ogiltigt avtalsdatum.');
@@ -317,7 +329,9 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
    if(areaValue===null)fail('Ogiltig objektarea.');
    else if(!info.created.includes('objekt')){
     const version=object.currentVersion||object.versions?.[0];
-    if(version?.area!=null&&Number(version.area)!==areaValue)
+    if(version?.area==null)
+     fail('Objektet saknar registrerad area. Skapa eller granska en daterad objektversion.');
+    else if(Number(version.area)!==areaValue)
      fail('Objektets area skiljer sig från registret. Granska en ny objektversion.');
    }
   }
