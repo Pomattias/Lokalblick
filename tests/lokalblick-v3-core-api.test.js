@@ -83,3 +83,45 @@ test('v3 local-only API rejects requests with a foreign host or cross-site origi
   assert.match(await page.text(),/data-view="overview"/);
  }finally{await s.close();}
 });
+
+test('v3 creates sequential hierarchical business numbers while respecting imports and retired agreements',async()=>{
+ const s=await setup();try{
+  let x=await s.read();
+  const apply=async command=>{const r=await s.save(command,x.version);assert.equal(r.status,200,JSON.stringify(r.data));x=r.data;return x};
+  await apply({action:'createProperty',fields:{name:'Kvarteret',management_object_number:'SF1213'}});
+  const property_id=x.properties[0].id;
+  const create=async fields=>apply({action:'createObject',fields:{property_id,valid_from:'2020-01-01',...fields}});
+  await create({area:100});
+  assert.equal(x.objects[0].object_number,'SF1213-001');
+  await create({object_number:'SF1213-004',area:120});
+  await create({area:80});
+  assert.deepEqual(x.objects.map(o=>o.object_number),['SF1213-001','SF1213-004','SF1213-005']);
+  const first=x.objects[0];
+  const addAgreement=async fields=>apply({action:'createAgreement',fields:{object_id:first.id,valid_from:'2020-01-01',...fields}});
+  await addAgreement({});
+  assert.equal(x.agreements[0].agreement_number,'SF1213-001-01');
+  await addAgreement({agreement_number:'SF1213-001-03',legal_end_on:'2020-12-31'});
+  await addAgreement({});
+  assert.deepEqual(x.agreements.map(a=>a.agreement_number),['SF1213-001-01','SF1213-001-03','SF1213-001-04']);
+  const before=x.version;
+  const duplicate=await s.save({action:'createObject',fields:{property_id,object_number:'sf1213-001',valid_from:'2024-01-01'}},before);
+  assert.equal(duplicate.status,400);
+  assert.equal((await s.read()).version,before);
+  const repeated=await s.save({action:'createAgreement',fields:{object_id:first.id,agreement_number:'sf1213-001-04',valid_from:'2024-01-01'}},before);
+  assert.equal(repeated.status,400);
+  assert.equal((await s.read()).version,before);
+ }finally{await s.close();}
+});
+test('v3 cannot fabricate an object number from an internal property id',async()=>{
+ const s=await setup();try{
+  let x=await s.read();
+  const apply=async command=>{const r=await s.save(command,x.version);assert.equal(r.status,200,JSON.stringify(r.data));x=r.data};
+  await apply({action:'createProperty',fields:{name:'Utan fastighetsnummer'}});
+  const property_id=x.properties[0].id;
+  const noNumber=await s.save({action:'createObject',fields:{property_id,valid_from:'2020-01-01'}},x.version);
+  assert.equal(noNumber.status,400);assert.match(noNumber.data.error,/fastighetsnummer/i);
+  await apply({action:'createObject',fields:{property_id,object_number:'Lok A',valid_from:'2020-01-01'}});
+  await apply({action:'createAgreement',fields:{object_id:x.objects[0].id,valid_from:'2020-01-01'}});
+  assert.equal(x.agreements[0].agreement_number,'Lok A-01');
+ }finally{await s.close();}
+});
