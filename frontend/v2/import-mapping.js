@@ -49,8 +49,13 @@ function dialog(html,className='') {
   const d=document.createElement('dialog');d.className='followup-dialog import-dialog '+className;
   d.innerHTML=html;document.body.append(d);d.showModal();return d;
 }
-function chooseField(fields,current,profile,schemas,column) {
+function chooseField(fields,current,profile,schemas,column,simple=false) {
   const d=dialog('<h2>Välj fält för '+esc(column.header)+'</h2><p>Välj var just denna kolumn hör hemma. Övriga kolumner påverkas inte.</p><label>Tabell<select data-field-table></select></label><label>Sök bland alla fält<input type="search" data-field-search placeholder="Adress, kontaktperson, hyra…" autocomplete="off"></label><div class="import-field-results" data-field-results></div><div class="actions"><button type="button" data-picker-options>Inställningar för kolumnen</button><button type="button" data-picker-close>Avbryt</button></div>','import-field-picker');
+  if(simple){
+    const label=d.querySelector('[data-field-table]')?.closest('label');
+    if(label){const detail=document.createElement('details');detail.className='import-field-advanced';
+     detail.innerHTML='<summary>Avancerat: välj register</summary>';label.before(detail);detail.append(label);}
+  }
   return new Promise(resolve=>{
     let settled=false;
     const finish=value=>{if(settled)return;settled=true;d.close();d.remove();resolve(value);};
@@ -119,7 +124,7 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
   const impact=options.enrichment?summary.filter(row=>row.created||row.updated).map(row=>`${registerLabel(row)}: ${[row.created?row.created+' nya':'',(row.completed??row.updated)?(row.completed??row.updated)+' kompletteras':'',row.changed?row.changed+' ändras':''].filter(Boolean).join(', ')}`).join(' · '):summary.filter(row=>row.created||row.updated).map(row=>`${row.label}: ${row.created} nya, ${row.completed??row.updated??0} kompletteras, ${row.changed||0} ändras`).join(' · ');
   return `<h2>${options.enrichment?'Berika befintliga uppgifter':'Granska importen'}</h2><p>${esc(prepared.fileName)}</p>
     ${options.enrichment?`<section class="import-policy" data-enrichment-policy><p>Tomma fält kompletteras. Sparade värden, nummer och kopplingar behålls. Beskrivande uppgifter kan ändras direkt i tabellen.</p><label>Nya poster<select data-import-new-mode aria-label="Nya poster"><option value="exclude"${!options.allowNew?' selected':''}>Importera ej nya</option><option value="include"${options.allowNew?' selected':''}>Importera nya – välj i listan</option></select></label></section>`:''}
-    ${importDashboardHtml(prepared,mapping.profiles,result,options.explanation?.rows||[],options.plan||[],options.creationChoices||{},{stale:options.stale,enrichment:options.enrichment})}
+    ${importDashboardHtml(prepared,mapping.profiles,result,options.explanation?.rows||[],options.plan||[],options.creationChoices||{},{stale:options.stale,enrichment:options.enrichment,schemas,reviews})}
     <div class="import-impact" data-import-impact role="status"><strong>Sammanfattning av sparförslaget</strong><p>${esc(options.stale?'Kontrollerar ändrade kolumnval…':impact||'Inga nya eller ändrade poster har valts.')}</p><small>${included} kolumner valda · ${all.length-included-unmapped} väljs bort${unmapped?' · '+unmapped+' behöver väljas':''}${options.pendingCreations&&!options.enrichment?' · '+options.pendingCreations+' nya poster att välja':''}</small></div>
     ${options.enrichment&&reviewGroups.some(g=>g.category!=='values')?'<button type="button" data-show-import-problems>Visa uppgifter som lämnas utanför</button>':''}
     ${options.approvalHtml||''}
@@ -180,7 +185,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       return {scroll:d.scrollTop,horizontal:[...d.querySelectorAll('.import-source-scroll')].map(node=>node.scrollLeft),open:new Map(disclosures),focusAttr,focusValue:focusAttr?focused.getAttribute(focusAttr):null,focusRow:sourceRowOf(focused),focusField:focused?.dataset.personKey,selection:focused?.selectionStart};
     };
     const disclosureKey=node=>{
-     for(const attr of ['data-new-records','data-import-review-samples','data-import-detailed-table','data-sheet-settings','data-final-impact','data-import-enrichment','data-import-errors','data-import-value-choices'])if(node.hasAttribute(attr))return attr;
+     for(const attr of ['data-new-records','data-import-review-samples','data-import-column-decisions','data-import-problem-groups','data-import-mapped-columns','data-import-detailed-table','data-sheet-settings','data-final-impact','data-import-enrichment','data-import-errors','data-import-value-choices'])if(node.hasAttribute(attr))return attr;
      for(const attr of ['data-link-options','data-property-comparison','data-new-property-choice'])if(node.hasAttribute(attr))return attr+':'+(node.closest('[data-source-key]')?.dataset.sourceKey||node.closest('tr')?.previousElementSibling?.dataset.importSourceRow);
      for(const attr of ['data-review-problem'])if(node.hasAttribute(attr))return attr+':'+node.getAttribute(attr);
      return null;
@@ -264,7 +269,16 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
 
       try{
         if(cellsDirty&&!button.hasAttribute('data-cancel'))await refresh();
-        if(button.hasAttribute('data-import-review-action')){
+        if(button.hasAttribute('data-import-choose-column')){
+          const key=button.dataset.importChooseColumn,{profile,column}=locate(key);
+          const next=await chooseField([...fields,...contactFields(profile)],column.target,profile,schemas,
+           {...column,selectionTable:column.selectionTable||profile.primaryTable},true);
+          if(closed)return;
+          if(next==='@settings'){openSettings(key);}
+          else if(next){delete column.selectionTable;update(profile,column,next);}
+          return;
+         }
+         if(button.hasAttribute('data-import-review-action')){
           const action=button.dataset.importReviewAction;
           if(action==='new'){const section=d.querySelector('[data-new-records]');if(section){section.open=true;section.scrollIntoView({block:'start'});}return;}
           const detail=d.querySelector('[data-import-detailed-table]');if(detail)detail.open=true;
