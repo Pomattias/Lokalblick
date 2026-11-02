@@ -5120,3 +5120,69 @@ body[data-view="plan"] .plan-filter-toolbar .issue-type-filters button.active,bo
   .geo-missing-row > .actions { justify-content:stretch; }
   .geo-missing-row > .actions button { flex:1; }
 }
+
+
+/* V2 reviewed imports: actual user-facing dialog, not the isolated v3 screen.
+   Task-first overview with optional full spreadsheet/cell editors. */
+body:not([data-view="budget"]) .followup-dialog.import-dialog.import-mapping-dialog:not(:has([data-import-detailed-table][open])){
+ width:min(1120px,calc(100vw - 24px));
+}
+.import-mapping-dialog .import-decision-overview{border:1px solid #dce5e1;background:#fff;border-radius:12px;padding:16px;margin:12px 0 14px;min-width:0}
+.import-decision-overview .import-review-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:17px}
+.import-decision-overview .import-review-steps>span{display:flex;align-items:center;gap:8px;border-bottom:3px solid #e7edea;color:#74857e;padding:8px 2px;font-size:11px;min-width:0}
+.import-decision-overview .import-review-steps>span:first-child{border-color:#9abfb0;color:#375d51}
+.import-decision-overview .import-review-steps>[aria-current="step"]{border-color:#206e5b;color:#185b49}
+.import-decision-overview .import-review-steps strong{font-size:12px;overflow-wrap:anywhere}
+.import-decision-overview .import-decision-heading{display:flex;align-items:start;justify-content:space-between;gap:18px;margin-bottom:15px}
+.import-decision-overview .import-decision-heading>div{flex:1;min-width:0}
+body:not([data-view="budget"]) .import-decision-overview .import-eyebrow{font-size:10px;letter-spacing:1.25px;text-transform:uppercase;color:#618678;font-weight:750;margin:0 0 4px}
+body:not([data-view="budget"]) .import-decision-overview h3{font-size:20px;letter-spacing:-.45px;line-height:1.2;margin:0 0 7px;font-weight:700}
+body:not([data-view="budget"]) .import-decision-overview .import-decision-heading p:last-child{font-size:12px;color:var(--muted);line-height:1.55;max-width:72ch;margin:0}
+.import-decision-overview button{border:1px solid #a8c5b8;border-radius:7px;padding:7px 11px;min-height:34px;background:#fff;color:#225a49;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer}
+.import-decision-overview button:hover{background:#edf6f1;border-color:#47846c}
+.import-decision-overview .import-review-numbers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:15px 0}
+.import-decision-overview .import-review-numbers>div{background:#f4f7f5;border:1px solid #e4ebe7;border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.import-decision-overview .import-review-numbers strong{font-size:24px;line-height:1;font-weight:730;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.import-decision-overview .import-review-numbers span{font-size:11px;color:var(--muted);line-height:1.3}
+.import-decision-overview .import-review-queue{border:1px solid #dde8e2;border-radius:9px;overflow:hidden;margin-top:14px}
+.import-decision-overview .import-review-queue-head{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f8faf9;padding:9px 13px}
+body:not([data-view="budget"]) .import-decision-overview .import-review-queue-head h4{margin:0;font-size:12px}
+.import-decision-overview .import-review-queue-head small{color:var(--muted);font-size:11px}
+.import-decision-overview .import-review-task{display:grid;grid-template-columns:26px minmax(0,1fr) minmax(40px,auto) auto;gap:10px;align-items:center;padding:11px 13px;border-top:1px solid #e8eeea}
+.import-decision-overview .import-review-task>div{min-width:0}
+.import-decision-overview .import-review-task-number{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#eaf3ed;color:#235d4b;font-size:11px;font-weight:700}
+.import-decision-overview .import-review-task strong{display:block;font-size:12px;font-weight:700;line-height:1.3}
+.import-decision-overview .import-review-task small{display:block;font-size:11px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
+.import-decision-overview .import-review-task b{font-size:17px;font-variant-numeric:tabular-nums;text-align:right;letter-spacing:-.2px}
+.import-decision-overview .import-review-empty{padding:14px;font-size:12px;color:#366452}
+.import-decision-overview .import-review-samples{border-top:1px solid #e4ebe7;margin:15px 0 0;padding:10px 2px 0}
+.import-decision-overview .import-review-samples>summary{font-size:12px;color:#2a6655;cursor:pointer;font-weight:650}
+.import-decision-overview .import-review-samples>ul{padding:0;margin:9px 0;list-style:none}
+.import-decision-overview .import-review-samples li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 4px;border-bottom:1px solid #eef2ef}
+.import-decision-overview .import-review-samples li>div{display:grid;gap:4px;min-width:0}
+.import-decision-overview .import-review-samples li strong{font-size:12px;overflow-wrap:anywhere}
+.import-decision-overview .import-review-samples li small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+body:not([data-view="budget"]) .import-decision-overview .import-review-footnote{font-size:11px;color:var(--muted);line-height:1.5;margin:13px 0 0}
+.import-mapping-dialog .import-impact{background:#f5f8f6;border:1px solid #e2eae5;border-radius:9px;margin:8px 0 14px;padding:11px 13px}
+.import-mapping-dialog .import-impact strong{font-size:12px}
+.import-mapping-dialog .import-impact p{font-size:12px;color:#39584d;line-height:1.5}
+.import-mapping-dialog .import-impact small{font-size:11px;color:var(--muted)}
+.import-mapping-dialog .import-detailed-table{padding:0;margin:12px 0 16px;border:1px solid #d8e5de;border-radius:10px;min-width:0}
+.import-mapping-dialog .import-detailed-table>summary{padding:14px 16px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;color:#235b49}
+.import-mapping-dialog .import-detailed-table>summary:hover{background:#f6faf7}
+.import-mapping-dialog .import-detailed-table>summary small{font-weight:400;color:var(--muted);font-size:11px;display:block;margin:5px 0 0 18px}
+.import-mapping-dialog .import-detailed-table[open]>summary{border-bottom:1px solid #e5ede9}
+.import-mapping-dialog .import-detailed-table>.import-source-tables{padding:9px 12px 12px;min-width:0}
+.import-mapping-dialog>.import-review-actions{background:#fff;box-shadow:0 -5px 18px #20473810;z-index:8;border-top-color:#d5e4db;padding:12px 6px}
+@media(max-width:700px){
+ .import-decision-overview .import-review-numbers{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .import-decision-overview .import-decision-heading{display:block}
+ .import-decision-overview .import-decision-heading>button{margin-top:9px}
+ .import-decision-overview .import-review-task{grid-template-columns:23px minmax(0,1fr) auto;gap:6px;padding:9px}
+ .import-decision-overview .import-review-task button{grid-column:2/-1;justify-self:start;min-height:30px}
+ .import-decision-overview .import-review-task b{grid-column:3;grid-row:1}
+ .import-decision-overview .import-review-task-number{grid-row:1}
+ .import-mapping-dialog .import-decision-overview{padding:12px}
+ .import-decision-overview .import-review-steps strong{font-size:10px}
+ .import-mapping-dialog .import-detailed-table>summary{padding:12px}
+}
