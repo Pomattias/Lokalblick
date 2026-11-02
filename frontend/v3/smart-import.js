@@ -64,7 +64,7 @@ const priceWords={
  tax:['fastighetsskatt','skattetillagg']
 };
 const detailWords={year:['basar','basaret','grundar'],method:['upprakning','indexmetod','metod'],
- index:['bastal','basindex','kpiindex','kpiindextal'],share:['indexandel','kpiandel'],
+ index:['bastal','basindex','kpibastal','kpiindex','kpiindextal'],share:['indexandel','kpiandel'],
  min:['minprocent','minhojning','garanteradmin'],max:['maxprocent','maxhojning','hogstahojning']};
 function priceHeader(header){
  const n=norm(header);
