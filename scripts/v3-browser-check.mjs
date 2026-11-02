@@ -140,7 +140,7 @@ try{
  // external source has a new contract number without a physical object number.
  await go('sources');
  await page.locator('[data-import-register]').selectOption('agreementLinks');
- const rows=Buffer.from('Fastighetsnummer;Avtalsnummer;Startdatum;Objektsnummer\\nSF1213;EXTERNAL-11;2026-01-01;SF1213-001\\nSF1213;EXTERNAL-12;2026-03-01;\\n','utf8');
+ const rows=Buffer.from('Fastighetsnummer;Avtalsnummer;Startdatum;Objektsnummer\nSF1213;EXTERNAL-11;2026-01-01;SF1213-001\nSF1213;EXTERNAL-12;2026-03-01;\n','utf8');
  await page.locator('[data-import-file]').setInputFiles({name:'avtalslista.csv',mimeType:'text/csv',buffer:rows});
  assert.equal(await page.locator('[data-import-apply]').isDisabled(),true,'Unclear object link cannot be silently imported');
  await page.locator('[data-link-object="1"]').selectOption('@new');
