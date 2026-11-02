@@ -87,7 +87,7 @@ test('v3 batch import is atomic and rejects a duplicate object without partial i
   await assert.rejects(direct.mutate({version:base,commands:[
    {action:'createObject',fields:{property_id:id,object_number:'S1',valid_from:'2020-01-01',area:50}},
    {action:'createObject',fields:{property_id:id,object_number:'S1',valid_from:'2021-01-01',area:60}}
-  ]}),/UNIQUE/);
+  ]}),/Objektsnumret används redan|UNIQUE/);
   assert.equal(s.db.prepare('SELECT count(*) AS n FROM objects').get().n,0);
   assert.equal(s.db.prepare('SELECT version FROM store_meta').get().version,base);
  }finally{await s.close();}
