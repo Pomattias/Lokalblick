@@ -93,3 +93,26 @@ test('one property across two leases has one owner Part, one manager Person, two
  assert.equal(again.clean.people.length,1);
  assert.equal(again.clean.agreement_items.length,4);
 });
+
+test('the same manager name at different owner organizations is not merged without identity evidence',()=>{
+ const one=record('1600-001','A1','Butiken AB','556001-1111',2025);
+ const other=record('1601-001','B1','Caféet AB','556001-5555',2026);
+ other[0]='1601';other[1]='BLÅKULLA 2';other[2]='Framgatan 6';
+ other[8]='Andra Ägaren AB';other[9]='556001-4444';
+ const result=importRows(build([one,other])).result;
+ assert.equal(result.report.blocking,0);
+ assert.equal(result.report.review,0);
+ assert.equal(result.clean.parties.length,4);
+ assert.equal(result.clean.people.length,2);
+ assert(result.clean.people.every(p=>p.name==='Anna Testsson'));
+ assert.equal(new Set(result.clean.people.map(p=>p.party_id)).size,2);
+ assert.equal(result.clean.contacts.filter(c=>c.role==='owner').length,2);
+});
+test('an existing organization number with a different source name requires review, not a silent join',()=>{
+ const first=importRows(build([record('1600-001','A1','Butiken AB','556001-1111',2025)])).result;
+ const conflict=record('1600-002','A2','Ett Annat Företag AB','556001-1111',2026);
+ const second=importRows(build([conflict]),first.clean).result;
+ assert.equal(second.clean.parties.filter(p=>p.organization_number==='556001-1111').length,1);
+ assert(second.report.blocking+second.report.review>0,'Business identity conflict must require review');
+ assert(!second.clean.agreements.some(a=>a.id==='A2'&&a.tenant_party_id===first.clean.agreements[0].tenant_party_id));
+});
