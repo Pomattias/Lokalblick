@@ -252,7 +252,16 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
    startText=get(row,'valid_from'),start=cleanDate(startText),end=cleanDate(get(row,'legal_end_on'));
   const info={index:i,sourceRow,propertyNumber:propertyNum,propertyName,agreementNumber:contractNum,
    objectNumber:objNum,objectId:null,propertyId:null,candidates:[],status:'matched',
-   description:'',reason:'',created:[],warnings:[]};
+   description:'',reason:'',created:[],warnings:[],
+   relationships:[
+    ...(get(row,'tenant_name')?[{label:'Hyresgäst',name:get(row,'tenant_name'),target:'Avtal '+(contractNum||'–')}]:[]),
+    ...(get(row,'owner_name')?[{label:'Fastighetsägare',name:get(row,'owner_name'),target:'Fastighet '+propertyNum}]:[]),
+    ...(get(row,'manager_name')?[{label:'Förvaltare',name:get(row,'manager_name'),
+     target:(get(row,'manager_party')||get(row,'owner_name')||'Part saknas')+' · fastighet '+propertyNum}]:[])
+   ],
+   pricePreview:priceTypes.filter(p=>get(row,'price.'+p.id+'.amount'))
+    .map(p=>({label:p.label,amount:get(row,'price.'+p.id+'.amount'),
+     baseYear:get(row,'price.'+p.id+'.year')||'ej angivet'}))};
   const finalize=()=>{
    if(rowErrors.length){info.status='review';info.reason=rowErrors.join(' · ');
     errors.push('Rad '+sourceRow+': '+info.reason);}

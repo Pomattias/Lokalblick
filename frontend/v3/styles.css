@@ -177,3 +177,9 @@ main{padding:21px 24px 32px}
 .smart-import-mapping select{width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;padding:7px;font-size:11px;background:white}
 .smart-import-legacy{margin-top:24px !important}
 @media(max-width:700px){.smart-import-mapping{grid-template-columns:1fr}.smart-import-row-end{flex-basis:115px}.smart-import-step label{margin-left:0}}
+
+.smart-import .smart-import-relations{margin:4px 0 0;padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);font-size:11px}
+.smart-import-relations summary{font-size:10px;font-weight:650;color:var(--green)}
+.smart-import-relations>div{padding:4px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.smart-import-relations>div:last-child{border-bottom:0}
+.smart-import-relations strong{font-size:10px}

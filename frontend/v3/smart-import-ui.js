@@ -58,10 +58,18 @@ export function mountSmartImport(root,{snapshot,apply}){
      '<label>Objektkoppling<select data-smart-object="'+r.index+'">'+
       opts([{id:'',label:'Välj objekt…'},...candidates.map(o=>({id:o.id,label:o.number})),{id:'@new',label:'+ Skapa nytt objekt'}],picked)+'</select></label>':'';
     const warnings=r.warnings?.length?'<small class="muted">'+esc(r.warnings.join(' · '))+'</small>':'';
+    const relationItems=[
+     ...(r.objectId?[['Objekt',r.objectNumber||candidates.find(o=>o.id===r.objectId)?.number||'–','Fastighet '+r.propertyNumber]]:[]),
+     ...(r.agreementNumber&&r.objectId?[['Avtal',r.agreementNumber,'Objekt '+(r.objectNumber||candidates.find(o=>o.id===r.objectId)?.number||'–')]]:[]),
+     ...(r.relationships||[]).map(x=>[x.label,x.name,x.target])
+    ];
+    const facts=relationItems.map(x=>'<div><strong>'+esc(x[0])+'</strong> '+esc(x[1])+' → '+esc(x[2])+'</div>').join('')+
+     (r.pricePreview||[]).map(p=>'<div><strong>'+esc(p.label)+'</strong> '+esc(p.amount)+' kr/år · basår '+esc(p.baseYear)+'</div>').join('');
+    const details=facts?'<details class="smart-import-relations"><summary>Visa kopplingar och priser</summary>'+facts+'</details>':'';
     return '<article class="smart-import-row smart-import-'+r.status+'"><div><span class="smart-import-num">Rad '+r.sourceRow+'</span>'+
      '<strong>'+esc(r.agreementNumber||r.propertyName||r.propertyNumber||'Post')+'</strong>'+
      '<span class="smart-import-meta">Fastighet '+esc(r.propertyNumber||'–')+' · Objekt '+esc(r.objectNumber||r.objectId&&candidates.find(o=>o.id===r.objectId)?.number||'–')+'</span>'+
-     '<span class="smart-import-meta">'+esc(r.reason||r.description)+'</span>'+warnings+'</div>'+
+     '<span class="smart-import-meta">'+esc(r.reason||r.description)+'</span>'+warnings+details+'</div>'+
      '<div class="smart-import-row-end"><span class="smart-import-status">'+labels[r.status]+'</span>'+actionControl+'</div></article>';
    }).join(''):'<p class="muted smart-import-empty">Inga rader behöver granskas. Du kan visa alla för att se matchningarna.</p>')+
    '</div>'+advanced+
