@@ -26,6 +26,8 @@ export function mountSmartImport(root,{snapshot,apply}){
   plan=prepareSmartImport({headers,rows},snapshot,{mapping,objectChoices,ignoredColumns:Object.keys(overrides).filter(k=>overrides[k]==='').map(Number)});
   if(rows.length>200)plan.errors.push('Filen innehåller fler än 200 rader. Dela upp den.');
   if(plan.commands.length>200)plan.errors.push('Fler än 200 åtgärder i transaktionen. Dela upp filen.');
+  // With nothing to resolve, show the approved/new rows instead of an empty review list.
+  if(plan.stats.review===0&&filter==='review')filter='all';
   draw();
  }
  function draw(){
