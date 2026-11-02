@@ -6,6 +6,8 @@ import {prepareCleanImport,importSchemas} from '../frontend/lokaler/import-model
 import {profileWorkbook} from '../frontend/services/import-engine.js';
 import {importAddressKey} from '../frontend/lokaler/issue-import.js';
 import {readFileSync} from 'node:fs';
+import {approveImportPlan,importCreationPlan} from '../frontend/lokaler/import-plan.js';
+import {readWorkbook,writeWorkbook} from '../backend/lokaler/workbook.js';
 
 const source=(headings,rows)=>{
  const workbook=XLSX.utils.book_new();
@@ -95,4 +97,22 @@ test('import does not call the bulk geocoder; manually initiated lookup and retr
  assert.doesNotMatch(sourceAction,/startGeoEnrichment\s*\(/);
  assert.match(app,/if\s*\(\s*b\.hasAttribute\("data-geo-retry"\)\s*\)\s*startGeoEnrichment\s*\(/);
  assert.match(app,/globalThis\.LokalblickGeocodingService\.lookupProperty\(property\)/);
+});
+
+test('verified enrichment persists through normal approval, Excel serialization and later repeat import',async()=>{
+ const base=baseline(),src=source(['Postadress','Fastighetsbeteckning','Benämning'],[
+  ['Andersgatan 14','GRÖNDAL 1','Päronskogen, säbo']
+ ]);
+ const preview=importOne(src,base),plan=importCreationPlan(preview,base);
+ assert.equal(plan.length,0,'an enriched existing property requires no new entity approval');
+ const approved=approveImportPlan(preview,base,{});
+ assert.equal(approved.clean.properties.find(p=>p.id==='SF1600').name,'GRÖNDAL 1');
+ assert.equal(approved.clean.objects[0].property_id,'SF1600');
+ const restored=await readWorkbook(await writeWorkbook(approved.clean));
+ assert.equal(restored.properties.find(p=>p.id==='SF1600').name,'GRÖNDAL 1');
+ assert.equal(restored.properties.find(p=>p.id==='SF1600').popular_name,'Päronskogen, säbo');
+ assert.equal(restored.agreements[0].object_id,'SF1600-001');
+ const again=approveImportPlan(importOne(src,restored),restored,{});
+ assert.equal(again.report.review,0);
+ assert.equal(again.report.changes.length,0);
 });
