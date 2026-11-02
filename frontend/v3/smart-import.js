@@ -2,6 +2,7 @@
 // Every generated foreign key points to its canonical v3 entity, never a label.
 import {agreementNumberParts} from '../lokaler/business-identities.js';
 import {nextObjectNumber} from './numbering.js';
+import {coreImportFields,prepareCoreImport} from './core-import.js';
 const txt=x=>String(x??'').trim();
 const norm=x=>txt(x).toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 const eq=(a,b)=>norm(a)===norm(b);
@@ -113,7 +114,11 @@ export function rankImportSheets(sheets){
  return sheets.map(s=>({...s,score:(s.rows?.[0]||[]).reduce((n,h)=>n+(inferImportColumn(h)?1:0),0)}))
   .sort((a,b)=>b.score-a.score);
 }
-export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,objectChoices={},ignoredColumns=[],defaultExternalSystem='',makeId=()=>crypto.randomUUID()}={}){
+export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,objectChoices={},ignoredColumns=[],defaultExternalSystem='',makeId=()=>crypto.randomUUID(),scope='legacy'}={}){
+ if(scope==='core'){
+  const requested=mapping||suggestImportMapping(headers);
+  return prepareCoreImport({headers,rows},snapshot,{mapping:requested.map(f=>coreImportFields.includes(f)?f:''),objectChoices,makeId});
+ }
  const cols=mapping||suggestImportMapping(headers);
  const used=cols.filter(Boolean),warnings=[],errors=[],commands=[],records=[];
  const properties=[...(snapshot.properties||[])],objects=[...(snapshot.objects||[])],
