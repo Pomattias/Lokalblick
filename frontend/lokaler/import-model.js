@@ -67,7 +67,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   const labels=new Map([...importSchemas.flatMap(schema=>schema.columns.map(([field,label])=>({target:schema.key+'.'+field,label:schema.sheet+' → '+label}))),...contactFields(profile)].map(field=>[field.target,field.label]));
   return [profile,new Map(profile.columns.map(column=>[column.index,{source:profile.fileName||context.fileName||'Excel',sheet:profile.name,index:column.index,header:column.header,target:column.target,label:labels.get(column.target)||column.target,...(column.itemType?{itemType:column.itemType,itemLabel:tables.agreement_items.fields.find(field=>field.key==='type').values[column.itemType]}:{}),read:0,skipped:0,review:0}]))];
  }));
- data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const masterPropertyIds=new Set();const prior=clone(data),priorAgreementIds=new Set(prior.agreements.map(row=>row.id)),priorPropertyIds=new Set(prior.properties.map(row=>row.id)),priorObjects=new Map(prior.objects.map(row=>[row.id,row]));const aliases=propertyAliases(data.workspace.auditLog);
+ data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const masterPropertyIds=new Set(),masterIds=Object.fromEntries(Object.keys(tables).map(table=>[table,new Set()]));const prior=clone(data),priorAgreementIds=new Set(prior.agreements.map(row=>row.id)),priorPropertyIds=new Set(prior.properties.map(row=>row.id)),priorObjects=new Map(prior.objects.map(row=>[row.id,row]));const aliases=propertyAliases(data.workspace.auditLog);
  // Automatic text matches use the saved snapshot, never earlier rows in this file.
  const savedTextProperties=new Map();for(const row of prior.properties){const identity=propertyTextKey(row);if(identity){if(!savedTextProperties.has(identity))savedTextProperties.set(identity,[]);savedTextProperties.get(identity).push(row);}}
  const priorIds=Object.fromEntries(Object.keys(tables).map(table=>[table,new Set(prior[table].map(row=>row.id))]));
@@ -147,7 +147,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     // Enrichment retains saved facts before validation, including references.
     // Explicit identifier checks still run before merge; a manual descriptive
     // cell edit is the only way to replace a populated field in this mode.
-    if(enrichmentMode&&existing&&priorIds[table].has(existing.id))for(const field of tables[table].fields){
+    if(enrichmentMode&&existing&&(priorIds[table].has(existing.id)||masterIds[table].has(existing.id)))for(const field of tables[table].fields){
      // A source-backed designation replaces only an address used as a
      // placeholder name, after unambiguous saved-address identity validation.
      const verifiedName=table==='properties'&&field.key==='name'&&
@@ -212,6 +212,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     }
     for(const [field] of Object.entries(record))if(field!=='id'&&JSON.stringify(previous?.[field])!==JSON.stringify(existing[field]))changes.push({collection:viewCollections[table]||table,recordId:existing.id,field:viewFields[table]?.[field]||field,from:previous?.[field]??null,to:existing[field],provenance:itemInProgress||manualField(table,field)?{...origin,...originFor(table,field)}:origin});
     touch(table,existing.id);
+    if(profile.workbookRole==='base')masterIds[table].add(existing.id);
     return existing;
    };
    const party=(value,kind)=>{
