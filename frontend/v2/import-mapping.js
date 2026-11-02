@@ -11,6 +11,7 @@ import {emptyData} from '../lokaler/model.js';
 import {chooseImportContact} from './import-contact.js';
 import {collectWorkspace} from '../lokaler/view-adapter.js';
 import {importTableHtml} from './import-table.js';
+import {importDashboardHtml} from './import-review-dashboard.js';
 import {matchingImportRows,importColumnWarning} from './import-row-review.js';
 import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate,issueNumberColumn,suggestIssueNumberColumns,resolveFieldName,skippedFinancialSuggestions,assignAgreementItemKeys} from '../services/import-matching.js';
 import {importConflictGroups,resolveImportChoices,importReviewGroups,importTableRows} from '../lokaler/import-conflicts.js';
@@ -118,12 +119,15 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
   const impact=options.enrichment?summary.filter(row=>row.created||row.updated).map(row=>`${registerLabel(row)}: ${[row.created?row.created+' nya':'',(row.completed??row.updated)?(row.completed??row.updated)+' kompletteras':'',row.changed?row.changed+' ändras':''].filter(Boolean).join(', ')}`).join(' · '):summary.filter(row=>row.created||row.updated).map(row=>`${row.label}: ${row.created} nya, ${row.completed??row.updated??0} kompletteras, ${row.changed||0} ändras`).join(' · ');
   return `<h2>${options.enrichment?'Berika befintliga uppgifter':'Granska importen'}</h2><p>${esc(prepared.fileName)}</p>
     ${options.enrichment?`<section class="import-policy" data-enrichment-policy><p>Tomma fält kompletteras. Sparade värden, nummer och kopplingar behålls. Beskrivande uppgifter kan ändras direkt i tabellen.</p><label>Nya poster<select data-import-new-mode aria-label="Nya poster"><option value="exclude"${!options.allowNew?' selected':''}>Importera ej nya</option><option value="include"${options.allowNew?' selected':''}>Importera nya – välj i listan</option></select></label></section>`:''}
-    <div class="import-impact" data-import-impact role="status"><strong>Det här kommer att sparas</strong><p>${esc(options.stale?'Kontrollerar ändrade kolumnval…':impact||'Inga nya eller ändrade poster har valts.')}</p><small>${included} kolumner valda · ${all.length-included-unmapped} väljs bort${unmapped?' · '+unmapped+' behöver väljas':''}${options.pendingCreations&&!options.enrichment?' · '+options.pendingCreations+' nya poster att välja':''}</small></div>
+    ${importDashboardHtml(prepared,mapping.profiles,result,options.explanation?.rows||[],options.plan||[],options.creationChoices||{},{stale:options.stale,enrichment:options.enrichment})}
+    <div class="import-impact" data-import-impact role="status"><strong>Sammanfattning av sparförslaget</strong><p>${esc(options.stale?'Kontrollerar ändrade kolumnval…':impact||'Inga nya eller ändrade poster har valts.')}</p><small>${included} kolumner valda · ${all.length-included-unmapped} väljs bort${unmapped?' · '+unmapped+' behöver väljas':''}${options.pendingCreations&&!options.enrichment?' · '+options.pendingCreations+' nya poster att välja':''}</small></div>
     ${options.enrichment&&reviewGroups.some(g=>g.category!=='values')?'<button type="button" data-show-import-problems>Visa uppgifter som lämnas utanför</button>':''}
-    ${options.enrichment?options.approvalHtml||'':''}
+    ${options.approvalHtml||''}
+    <details class="import-detailed-table" data-import-detailed-table ${all.length<=16&&(options.explanation?.rows?.length||0)<=200?'open':''}>
+    <summary>Källtabell och kolumninställningar <small>${all.length} kolumner · ${options.explanation?.rows?.length||0} källrader · Öppna för att granska eller rätta</small></summary>
     ${importTableHtml(prepared,mapping.profiles,result,baseline,{enrichment:options.enrichment,allowNew:options.allowNew,approved:options.projected,choices:options.creationChoices,explanation:options.explanation,...options.story,columnHtml:rowHtml,stale:options.stale,edits:options.edits,cellEdits:options.cellEdits})}
+    </details>
     ${importPeopleHtml(result,baseline,{enrichment:options.enrichment,allowNew:options.allowNew,approved:options.projected,edits:options.edits,editing:options.story?.peopleEditing,query:options.story?.peopleQuery,limit:options.story?.peopleLimit})}
-    ${options.enrichment?'':options.approvalHtml||''}
     ${skippedFinancialHtml(options.financialSuggestions||[],schemas)}
     ${unmapped?'<button type="button" data-ignore-unmapped>Läs inte in kolumner som saknar fältval</button>':''}
     ${duplicates.length?`<div data-mapping-conflicts role="alert"><strong>Rätta dubbelkopplingarna före import</strong>${duplicates.map(group=>`<p>${esc(mapping.profiles[group.profileIndex].name)}: ${esc(group.columns.map(column=>column.header).join(' och '))} är kopplade till ${esc(fieldLabel(fields.find(field=>field.target===group.target)||{label:group.target}))}.</p>`).join('')}</div>`:''}
@@ -176,7 +180,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       return {scroll:d.scrollTop,horizontal:[...d.querySelectorAll('.import-source-scroll')].map(node=>node.scrollLeft),open:new Map(disclosures),focusAttr,focusValue:focusAttr?focused.getAttribute(focusAttr):null,focusRow:sourceRowOf(focused),focusField:focused?.dataset.personKey,selection:focused?.selectionStart};
     };
     const disclosureKey=node=>{
-     for(const attr of ['data-new-records','data-sheet-settings','data-final-impact','data-import-enrichment','data-import-errors','data-import-value-choices'])if(node.hasAttribute(attr))return attr;
+     for(const attr of ['data-new-records','data-import-detailed-table','data-sheet-settings','data-final-impact','data-import-enrichment','data-import-errors','data-import-value-choices'])if(node.hasAttribute(attr))return attr;
      for(const attr of ['data-link-options','data-property-comparison','data-new-property-choice'])if(node.hasAttribute(attr))return attr+':'+(node.closest('[data-source-key]')?.dataset.sourceKey||node.closest('tr')?.previousElementSibling?.dataset.importSourceRow);
      for(const attr of ['data-review-problem'])if(node.hasAttribute(attr))return attr+':'+node.getAttribute(attr);
      return null;
@@ -194,7 +198,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
         explanation=explainImport(result,baseline,{approved:projected,choices:creationChoices,profiles:mapping.profiles});
        }
       }catch(failure){error=failure;result=null;}
-      d.innerHTML=columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial:enrichment||allowPartial,enrichment,allowNew,stale,conflicts:importConflictGroups(rawResult).filter(g=>!(g.table==='properties'&&g.field==='designation'&&Object.hasOwn(edits.properties,g.recordId))&&!(g.table==='people'&&Object.hasOwn(edits.people[g.recordId]||{},g.storedField))),conflictMode,conflictChoices,financialSuggestions:pendingFinancialSuggestions(),story,explanationBase:baseline,projected,explanation,creationChoices,deferred:projected?.report.creationReview?.deferred.length,approvalHtml:result?.clean?importApprovalHtml(plan,creationChoices,baseline,{...approval,enrichment,allowNew}):'',edits,cellEdits:draft.importCellEdits,pendingCreations:plan.filter(entry=>!creationChoice(entry,creationChoices)).length});d.setAttribute('aria-busy',stale?'true':'false');
+      d.innerHTML=columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial:enrichment||allowPartial,enrichment,allowNew,stale,conflicts:importConflictGroups(rawResult).filter(g=>!(g.table==='properties'&&g.field==='designation'&&Object.hasOwn(edits.properties,g.recordId))&&!(g.table==='people'&&Object.hasOwn(edits.people[g.recordId]||{},g.storedField))),conflictMode,conflictChoices,financialSuggestions:pendingFinancialSuggestions(),story,explanationBase:baseline,projected,explanation,creationChoices,deferred:projected?.report.creationReview?.deferred.length,approvalHtml:result?.clean?importApprovalHtml(plan,creationChoices,baseline,{...approval,enrichment,allowNew}):'',plan,edits,cellEdits:draft.importCellEdits,pendingCreations:plan.filter(entry=>!creationChoice(entry,creationChoices)).length});d.setAttribute('aria-busy',stale?'true':'false');
       for(const group of d.querySelectorAll('details'))if(state.open.has(disclosureKey(group)))group.open=state.open.get(disclosureKey(group));
       const focus=state.focusAttr?[...d.querySelectorAll(`[${state.focusAttr}]`)].find(node=>node.getAttribute(state.focusAttr)===state.focusValue&&(!state.focusRow||sourceRowOf(node)===state.focusRow)&&(!state.focusField||node.dataset.personKey===state.focusField)):null;
       focus?.focus({preventScroll:true});
@@ -236,7 +240,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     };
     const fail=error=>{d.setAttribute('aria-busy','false');result=null;const output=d.querySelector('[data-import-error]');if(output)output.textContent=createBusinessLabels(rawResult?.clean).text(error.message);else d.insertAdjacentHTML('beforeend','<p data-import-error role="alert">'+esc(error.message)+'</p><button type="button" data-cancel>Avbryt</button>');const apply=d.querySelector('[data-apply]');if(apply)apply.disabled=true;};
     d.addEventListener('cancel',event=>{event.preventDefault();abort();});
-    const locateColumn=key=>{const row=d.querySelector(`[data-import-column="${key}"]`);if(row){row.scrollIntoView({block:'center'});row.querySelector('[data-preview-map]')?.focus();}};
+    const locateColumn=key=>{const detail=d.querySelector('[data-import-detailed-table]');if(detail)detail.open=true;const row=d.querySelector(`[data-import-column="${key}"]`);if(row){row.scrollIntoView({block:'center'});row.querySelector('[data-preview-map]')?.focus();}};
     d.addEventListener('input',event=>{
      const node=event.target;
      if(node.hasAttribute('data-people-search')){story.peopleQuery=node.value;story.peopleLimit=100;render(viewState(),false);return;}
@@ -260,7 +264,33 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
 
       try{
         if(cellsDirty&&!button.hasAttribute('data-cancel'))await refresh();
-        if(button.hasAttribute('data-people-more')){story.peopleLimit+=100;render(viewState(),false);return;}
+        if(button.hasAttribute('data-import-review-action')){
+          const action=button.dataset.importReviewAction;
+          if(action==='new'){const section=d.querySelector('[data-new-records]');if(section){section.open=true;section.scrollIntoView({block:'start'});}return;}
+          const detail=d.querySelector('[data-import-detailed-table]');if(detail)detail.open=true;
+          if(action==='issues'){
+           const rows=matchingImportRows(prepared,mapping.profiles,result,explanation?.rows||[],{});
+           const kind=['link','blocked','columns','complete'].find(key=>rows.some(row=>row.attention[key]));
+           story.filter=kind?'attention:'+kind:'';
+          }else if(action==='columns')story.filter='attention:columns';
+          else story.filter='';
+          story.query='';story.limit=30;render(viewState(),false);
+          if(action==='columns'){
+           const target=d.querySelector('.import-column-row[data-column-state="pending"]');
+           if(target){target.scrollIntoView({block:'center',inline:'nearest'});target.querySelector('[data-preview-map]')?.focus({preventScroll:true});}
+           else d.querySelector('[data-import-detailed-table]')?.scrollIntoView({block:'start'});
+          }else d.querySelector('[data-import-detailed-table]')?.scrollIntoView({block:'start'});
+          return;
+         }
+         if(button.hasAttribute('data-import-open-source-row')){
+          const key=button.dataset.importOpenSourceRow;
+          story.filter='';story.query='';story.openRows.add(key);
+          const detail=d.querySelector('[data-import-detailed-table]');if(detail)detail.open=true;
+          render(viewState(),false);
+          const source=[...d.querySelectorAll('[data-import-source-row]')].find(node=>node.dataset.importSourceRow===key);
+          source?.scrollIntoView({block:'center'});return;
+         }
+         if(button.hasAttribute('data-people-more')){story.peopleLimit+=100;render(viewState(),false);return;}
         if(button.hasAttribute('data-edit-import-person')||button.hasAttribute('data-show-person')){const id=button.dataset.editImportPerson||button.dataset.showPerson;if(button.hasAttribute('data-show-person')){story.peopleEditing.add(id);story.peopleQuery=result.clean.people.find(p=>p.id===id)?.name||'';story.peopleLimit=100;}else if(story.peopleEditing.has(id))story.peopleEditing.delete(id);else story.peopleEditing.add(id);render(viewState());if(button.hasAttribute('data-show-person'))d.querySelector('[data-import-people]')?.scrollIntoView({block:'start'});return;}
         if(button.hasAttribute('data-clear-import-value')){delete conflictChoices[button.dataset.clearImportValue];render(viewState());return;}
         if(button.hasAttribute('data-link-use')||button.hasAttribute('data-link-new')||button.hasAttribute('data-link-reset')){
