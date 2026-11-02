@@ -83,7 +83,7 @@ function perform(db,command) {
    const row=fields(p,editable.property,['name']);
    if(row.latitude!=null)row.latitude=Number(row.latitude);
    if(row.longitude!=null)row.longitude=Number(row.longitude);
-   insert(db,'properties',{id:id(),...row});break;
+   insert(db,'properties',{id:command.id?text(command.id,'FastighetsID',64):id(),...row});break;
   }
   case 'updateProperty':{
    const row=fields(p,editable.property);
@@ -132,7 +132,7 @@ function perform(db,command) {
    update(db,'objects',o.id,{ended_on});break;
   }
   case 'createAgreement':{
-   const agreementId=id(),object_id=text(p.object_id,'objekt'),valid_from=date(p.valid_from);
+   const agreementId=command.id?text(command.id,'AvtalsID',64):id(),object_id=text(p.object_id,'objekt'),valid_from=date(p.valid_from);
    const object=lookup(db,'objects',object_id);
    if(!object)throw Error('Objektet saknas.');
    const existing=all(db,'agreements');
