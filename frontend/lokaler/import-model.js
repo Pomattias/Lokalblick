@@ -439,6 +439,21 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      origin.matchingDecision.addressMatch=property.address&&p.address?importAddressKey(property.address)===importAddressKey(p.address):null;
     }
     checkpoint();recordStage='objects';
+    if(profile.enrichment&&raw.agreements?.id&&!indexes.agreements.has(text(raw.agreements.id))){
+     decisions.push({...origin,collection:'agreements',classification:'D',reason:'Avtalsnumret saknar entydig träff i Lokallista; inga nya avtal skapas från berikning.'});
+     for(const column of selected)if(['agreements','agreement_items'].includes(fieldMap[column.target]?.table)){
+      heldColumns.add(column.index);readColumns.delete(column.index);
+     }
+     delete raw.agreements;delete raw.agreement_items;itemRows.clear();
+     for(const key of Object.keys(finance))delete finance[key];
+    }
+    if(profile.enrichment&&raw.objects?.id&&!indexes.objects.has(text(raw.objects.id))){
+     decisions.push({...origin,collection:'objects',classification:'D',reason:'Objektet finns inte i Lokallista; berikningen skapar inget nytt objekt.'});
+     for(const column of selected)if(fieldMap[column.target]?.table==='objects'){
+      heldColumns.add(column.index);readColumns.delete(column.index);
+     }
+     delete raw.objects;
+    }
     const obj=raw.objects||{};
     const explicitObjectId=obj.id||raw.agreements?.object_id||raw.issues?.object_id;
     if(!issueContext)object=explicitObjectId?indexes.objects.get(text(explicitObjectId)):null;
