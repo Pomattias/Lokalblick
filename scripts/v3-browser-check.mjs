@@ -167,6 +167,13 @@ try{
  await page.locator('[data-smart-save]').waitFor();
  assert.equal(await page.locator('[data-smart-save]').isEnabled(),true);
  assert.match(await page.locator('[data-smart-results]').innerText(),/Ny eller kompletterad|Nya\/kopplade/);
+ await page.locator('.smart-import-relations summary').first().click();
+ const mappingDetails=await page.locator('.smart-import-relations').first().innerText();
+ assert.match(mappingDetails,/Hyresgäst/);
+ assert.match(mappingDetails,/Fastighetsägare/);
+ assert.match(mappingDetails,/Förvaltare/);
+ assert.match(mappingDetails,/Bashyra/);
+ assert.match(mappingDetails,/basår 2025/);
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('[data-smart-save]').click();
  await page.locator('#feedback').getByText(/åtgärder importerade/).waitFor();
