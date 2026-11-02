@@ -34,9 +34,10 @@ export function prepareCoreImport({headers=[],rows=[]},snapshot={},{
  const cols=mapping.map(k=>allowed.has(k)?k:'');
  const ignored=headers.flatMap((_,i)=>cols[i]?[]:[i]);
  const errors=[],commands=[],records=[];
- const properties=[...(snapshot.properties||[])],objects=[...(snapshot.objects||[])],
-  agreements=[...(snapshot.agreements||[])],parties=[...(snapshot.parties||[])],
-  assignments=[...(snapshot.stakeholderAssignments||[])];
+ // Clone records: preview must never mutate live application state.
+ const properties=(snapshot.properties||[]).map(p=>({...p})),objects=(snapshot.objects||[]).map(o=>({...o})),
+  agreements=(snapshot.agreements||[]).map(a=>({...a})),parties=(snapshot.parties||[]).map(p=>({...p})),
+  assignments=(snapshot.stakeholderAssignments||[]).map(a=>({...a}));
  const initiallyKnown=new Set(agreements.map(a=>a.id));
  const seenAgreements=new Set(),earliestObjectDate=new Map();
  const id=()=>makeId();
