@@ -19,6 +19,15 @@ try{
  await page.locator('#heading').getByText('Översikt').waitFor();
  await add('properties',async()=>{await page.locator('#edit-form [name=name]').fill('Mobilfastigheten');await page.locator('#edit-form [name=address]').fill('Testgatan 1')});
  await page.getByRole('button',{name:/Mobilfastigheten/}).first().waitFor();
+ // A property shows another system's number without altering the internal ID.
+ await page.locator('.record-row').filter({hasText:'Mobilfastigheten'}).click();
+ await page.locator('#detail [data-mode=externalNumber]').click();
+ await page.locator('#edit-form [name=source_system]').fill('Fastighetssystemet');
+ await page.locator('#edit-form [name=external_number]').fill('SF1600');
+ await save();
+ assert.match(await page.locator('#detail').innerText(),/SF1600/);
+ assert.match(await page.locator('#detail').innerText(),/Fastighetssystemet/);
+ assert.match(await page.locator('.record-row').filter({hasText:'Mobilfastigheten'}).innerText(),/SF1600/);
  // A child created from its parent's detail inherits that parent without manual selection.
  await page.locator('.record-row').filter({hasText:'Mobilfastigheten'}).click();
  await page.locator('#detail [data-create-child="objects"]').click();
@@ -191,6 +200,21 @@ try{
  assert.equal(automatic.people.find(p=>p.name==='Eva Förvaltare')?.id,managerRole?.person_id);
  assert.deepEqual(automatic.agreementItems.filter(x=>x.agreement_id===autoAgreement.id)
   .map(i=>[i.type,i.base_amount,i.base_year]),[['base',120000,2025],['addition',3000,2024]]);
+ // Import with both numbers requests a källsystem and creates only an alias.
+ await go('sources');
+ const externalCsv=Buffer.from('FörvaltningsNr;FastighetsNr;Fastighetsnamn\nSF3300;SF3300-EX;Importkvarteret\n','utf8');
+ await page.locator('[data-smart-file]').setInputFiles({name:'externa-fastighetsnummer.csv',mimeType:'text/csv',buffer:externalCsv});
+ await page.locator('[data-smart-source-system]').waitFor();
+ assert.equal(await page.locator('[data-smart-save]').isDisabled(),true);
+ await page.locator('[data-smart-source-system]').fill('Stadsfastigheter');
+ await page.locator('[data-smart-source-system]').press('Tab');
+ assert.equal(await page.locator('[data-smart-save]').isEnabled(),true);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-smart-save]').click();
+ await page.locator('#feedback').getByText(/åtgärder importerade/).waitFor();
+ const afterExternal=await (await fetch(origin+'/api/v3/core')).json();
+ assert.equal(afterExternal.propertyExternalNumbers.find(n=>n.external_number==='SF3300-EX')?.property_id,autoProperty.id);
+ assert.equal(afterExternal.agreements.find(a=>a.agreement_number==='TEST-3300-01')?.object_id,autoObject.id);
  // Reimport must match existing records without creating duplicates.
  await go('sources');
  await page.locator('[data-smart-file]').setInputFiles({name:'blandad-lista.csv',mimeType:'text/csv',buffer:autoCsv});
