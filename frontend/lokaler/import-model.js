@@ -110,6 +110,14 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   const range=XLSX.utils.decode_range(sheet['!ref']);
   for(let r=profile.dataStartRow??profile.headerRow;r<=range.e.r;r++){
    const selected=profile.columns.filter(column=>!column.target.startsWith('@'));
+   if(profile.enrichment){
+    const identityColumns=selected.filter(column=>['properties.managementObjectNumber','properties.address','properties.designation','objects.id','contracts.id'].includes(column.target));
+    const identified=identityColumns.some(column=>present(sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.v));
+    if(!identified){
+     traceRow({source:profile.fileName||context.fileName||'Excel',sheet:profile.name,row:r+1,records:{},read:[],held:[],ignored:true,reason:'Sammanställning eller berikningsrad utan identifierare'});
+     continue;
+    }
+   }
    if(!selected.some(column=>present(sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.v))){
     if(profile.columns.some(column=>present(sheet[XLSX.utils.encode_cell({r,c:(profile.startColumn||0)+column.index})]?.v)))traceRow({source:profile.fileName||context.fileName||'Excel',sheet:profile.name,row:r+1,records:{},read:[],held:[],ignored:true});
     continue;
@@ -346,6 +354,10 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     }
     if(raw.properties&&!issueContext){
      const p=raw.properties;
+     if(profile.enrichment&&p.name&&!/\\d/.test(String(p.name))){
+      decisions.push({...origin,collection:'properties',classification:'D',reason:'Fastighetsbeteckning utan nummer har lämnats utanför.'});
+      delete p.name;
+     }
      const previousGeneratedId=generatedPropertyId(source,profile.name,p);
      if(!p.id&&!raw.objects?.property_id&&!anchorProperty&&aliases.has(previousGeneratedId))p.id=resolvePropertyId(aliases,previousGeneratedId);
      const propertyIds=[p.id,raw.objects?.property_id,raw.issues?.property_id].filter(present).map(text);
