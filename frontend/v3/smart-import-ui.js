@@ -1,29 +1,31 @@
 // One primary action: import a file. Matching and column inference are automatic.
 // Technical register and field selection remain accessible, never mandatory.
-import {mountImport,readCsv} from './import.js';
-import {prepareSmartImport,rankImportSheets,suggestImportMapping,importFieldOptions} from './smart-import.js';
+import {readCsv} from './import.js';
+import {prepareSmartImport,suggestImportMapping,importFieldOptions} from './smart-import.js';
+import {coreImportFields} from './core-import.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm=s=>String(s??'').toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+const coreOptions=importFieldOptions.filter(f=>coreImportFields.includes(f.id));
 const opts=(items,value)=>items.map(x=>'<option value="'+esc(x.id)+'"'+(value===x.id?' selected':'')+'>'+esc(x.label)+'</option>').join('');
 export function mountSmartImport(root,{snapshot,apply}){
  const shell=document.createElement('section');shell.className='smart-import';
  shell.innerHTML='<div class="smart-import-header"><h3>Importera från Excel eller CSV</h3>'+
-  '<p class="muted">Välj fil. Lokalblick känner igen kolumner och föreslår relationer mellan fastighet, objekt, avtal, hyresgäst, fastighetsägare, förvaltare och avtalspriser.</p></div>'+
+  '<p class="muted">Endast fastigheter, objekt, avtal och hyresgäster importeras. Kontaktpersoner, gamla ärenden, kostnader, priser och årssummeringar sparas inte. Du får granska alla kopplingar innan något ändras.</p></div>'+
   '<label class="smart-import-drop"><span class="smart-import-icon">⇧</span><strong>Välj fil att importera</strong>'+
   '<span>Excel (.xlsx, .xls) eller CSV · Max 15 MB</span><input data-smart-file type="file" accept=".xlsx,.xls,.csv,text/csv"></label>'+
-  '<section data-smart-results aria-live="polite"></section>'+
-  '<details class="smart-import-legacy"><summary>Övriga register och äldre manuell import</summary><div data-legacy-import></div></details>';
+  '<section data-smart-results aria-live="polite"></section>';
+
+
  root.append(shell);
- mountImport(shell.querySelector('[data-legacy-import]'),{snapshot,apply});
  const fileInput=shell.querySelector('[data-smart-file]'),results=shell.querySelector('[data-smart-results]');
  let book=[],active=null,overrides={},objectChoices={},mapping=null,filter='review',plan=null,fileName='',locked=false,externalSystem='';
  const current=()=>book.find(s=>s.name===active);
- const mapped=()=>suggestImportMapping((current()?.rows?.[0]||[]),overrides);
+ const mapped=()=>suggestImportMapping((current()?.rows?.[0]||[]),overrides).map(f=>coreImportFields.includes(f)?f:'');
  function analyze(){
   const chosen=current();if(!chosen)return;
   const raw=chosen.rows||[],headers=raw[0]||[],rows=raw.slice(1).filter(r=>r.some(c=>String(c??'').trim()));
   mapping=mapped();
-  plan=prepareSmartImport({headers,rows},snapshot,{mapping,objectChoices,ignoredColumns:Object.keys(overrides).filter(k=>overrides[k]==='').map(Number),defaultExternalSystem:externalSystem});
+  plan=prepareSmartImport({headers,rows},snapshot,{mapping,objectChoices,ignoredColumns:Object.keys(overrides).filter(k=>overrides[k]==='').map(Number),defaultExternalSystem:externalSystem,scope:'core'});
   if(rows.length>200)plan.errors.push('Filen innehåller fler än 200 rader. Dela upp den.');
   if(plan.commands.length>200)plan.errors.push('Fler än 200 åtgärder i transaktionen. Dela upp filen.');
   // With nothing to resolve, show the approved/new rows instead of an empty review list.
@@ -34,7 +36,7 @@ export function mountSmartImport(root,{snapshot,apply}){
   if(!plan)return;
   const selected=current(),total=plan.records.length;
   const header=selected.rows[0]||[],matched=plan.mapping.filter(Boolean).length;
-  const needsSystem=plan.mapping.includes('external_property_number')&&!plan.mapping.includes('external_system');
+  const needsSystem=false; // No additional data sources in the restricted import.
   const choices=book.map(s=>({id:s.name,label:s.name}));
   const labels={matched:'Oförändrad',new:'Ny eller kompletterad',review:'Behöver kontrolleras'};
   const visible=plan.records.filter(r=>filter==='all'||r.status==='review');
@@ -42,12 +44,12 @@ export function mountSmartImport(root,{snapshot,apply}){
    '<p class="muted">Varje källkolumn mappas till exakt ett registerfält. Ändring räknar om hela importen omedelbart.</p>'+
    '<div class="smart-import-mapping">'+header.map((h,i)=>
     '<label><span>'+esc(h||'Kolumn '+(i+1))+'</span><select data-smart-map="'+i+'">'+
-     opts([{id:'',label:'Ignorera kolumn'},...importFieldOptions],plan.mapping[i])+'</select></label>').join('')+
+     opts([{id:'',label:'Importera ej'},...coreOptions],plan.mapping[i])+'</select></label>').join('')+
    '</div></details>';
   results.innerHTML='<div class="smart-import-step"><span>1. Fil</span><strong>'+esc(fileName)+'</strong>'+
    '<label>Flik<select data-smart-sheet>'+opts(choices,active)+'</select></label></div>'+
    '<div class="smart-import-step"><span>2. Granska</span><strong>Så tolkar Lokalblick filen</strong></div>'+
-   (needsSystem?'<label class="smart-import-system-label">Källsystem för externt FastighetsNr <input data-smart-source-system maxlength="80" required placeholder="Exempelvis Stadsfastigheter" value="'+esc(externalSystem)+'"></label>':'')+
+   (plan.excludedColumns?.length?'<p class="muted">Importeras inte: '+plan.excludedColumns.length+' kolumner ('+esc(plan.excludedColumns.map(i=>header[Number(i)]||'Kolumn '+(Number(i)+1)).join(', '))+').</p>':'')+
    '<div class="smart-import-stats">'+
     [['matched',plan.stats.matched,'Oförändrade'],['new',plan.stats.created,'Nya/kopplade'],['review',plan.stats.review,'Att kontrollera']].map(([k,n,label])=>
      '<div><strong>'+n+'</strong><span>'+label+'</span></div>').join('')+'</div>'+
@@ -77,7 +79,8 @@ export function mountSmartImport(root,{snapshot,apply}){
      '<div class="smart-import-row-end"><span class="smart-import-status">'+labels[r.status]+'</span>'+actionControl+'</div></article>';
    }).join(''):'<p class="muted smart-import-empty">Inga rader behöver granskas. Du kan visa alla för att se matchningarna.</p>')+
    '</div>'+advanced+
-   '<div class="smart-import-step"><span>3. Bekräfta</span><strong>'+plan.commands.length+' åtgärder fördelade på rätt register</strong></div>'+
+   '<div class="smart-import-step"><span>3. Bekräfta</span><strong>'+plan.commands.length+' åtgärder i fyra register</strong></div>'+
+   '<p class="muted">'+esc(Object.entries({Fastigheter:plan.commands.filter(x=>x.action==='createProperty').length,Objekt:plan.commands.filter(x=>x.action==='createObject').length,Avtal:plan.commands.filter(x=>x.action==='createAgreement').length,Hyresgäster:plan.commands.filter(x=>x.action==='createParty'||x.action==='updateParty'||x.action==='setRole').length}).map(([k,n])=>k+': '+n).join(' · '))+'</p>'+
    '<p class="muted">Alla åtgärder sparas i en transaktion. Vid fel sparas ingenting. Befintliga avtalsvillkor behålls.</p>'+
    '<button type="button" class="primary" data-smart-save '+(plan.errors.length||!plan.commands.length?'disabled':'')+'>Bekräfta '+plan.commands.length+' ändringar</button>';
   if(results.dataset.showAdvanced==='1')results.querySelector('[data-smart-advanced]').open=true;
@@ -95,7 +98,7 @@ export function mountSmartImport(root,{snapshot,apply}){
     book=wb.SheetNames.filter(n=>!(hasMaster&&['sf','ext'].includes(norm(n))))
      .map(name=>({name,rows:globalThis.XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false,defval:''})}));
    }
-   const ranked=rankImportSheets(book);
+   const ranked=book.map(s=>({...s,score:(s.rows?.[0]||[]).filter(h=>coreImportFields.includes(suggestImportMapping([h])[0])).length})).sort((a,b)=>b.score-a.score);
    active=ranked[0]?.name||null;
    if(!active)throw Error('Inga läsbara flikar i filen.');
    overrides={};objectChoices={};externalSystem='';filter='review';results.dataset.showAdvanced='0';
