@@ -265,7 +265,7 @@ function refreshParentNumberSuggestion(){
  const next=spec.action==='createObject'
   ?nextObjectNumber(state.snapshot.properties.find(p=>p.id===parent),state.snapshot.objects,state.snapshot.properties)
   :nextAgreementNumber(state.snapshot.objects.find(o=>o.id===parent),state.snapshot.agreements);
- if(!input.value||input.value===input.dataset.suggested)input.value=next||'';
+ if(!input.value||input.value===input.dataset.suggested||input.value===next)input.value=next||'';
  input.dataset.suggested=next||'';
 }
 function openForm(mode,{view=state.view,parentId=null}={}){
