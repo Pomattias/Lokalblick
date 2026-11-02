@@ -3,6 +3,7 @@ import { createFreshDatabase, openExistingDatabase, objectVersionAt, resolvedSta
 import { existsSync } from 'node:fs';
 import {runModuleCommand,operationalSnapshot} from './modules.js';
 import {reconcileAnnualCosts} from '../../../frontend/v3/cost-reconciliation.js';
+import {nextObjectNumber,nextAgreementNumber} from '../../../frontend/v3/numbering.js';
 
 // V3 operations are explicit and transactional; there is no V2 workspace replacement.
 const date=v=>{const raw=String(v||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(raw)||!Number.isFinite(Date.parse(raw+'T00:00:00Z'))||new Date(raw+'T00:00:00Z').toISOString().slice(0,10)!==raw)throw Error('Ogiltigt datum, ange ÅÅÅÅ-MM-DD.');return raw;};
@@ -91,7 +92,17 @@ function perform(db,command) {
    update(db,'properties',text(command.id,'FastighetsID'),row);break;
   }
   case 'createObject':{
-   const objectId=id(),property_id=text(p.property_id,'fastighet'),object_number=text(p.object_number,'objektsnummer');
+   const objectId=id(),property_id=text(p.property_id,'fastighet');
+   const property=lookup(db,'properties',property_id);
+   if(!property)throw Error('Välj en befintlig fastighet.');
+   const existing=all(db,'objects'),properties=all(db,'properties');
+   const suggestion=nextObjectNumber(property,existing,properties);
+   const rawNumber=optional(p.object_number);
+   if(!rawNumber&&!suggestion)
+    throw Error('Ange ett fastighetsnummer för unik automatisk numrering, eller fyll i objektsnummer manuellt. Kontrollera även dubbla fastighetsnummer.');
+   const object_number=text(rawNumber||suggestion,'objektsnummer');
+   if(existing.some(x=>x.property_id===property_id&&x.object_number.toLocaleLowerCase('sv')===object_number.toLocaleLowerCase('sv')))
+    throw Error('Objektsnumret används redan på denna fastighet.');
    const valid_from=date(p.valid_from);
    insert(db,'objects',{id:objectId,property_id,object_number});
    insert(db,'object_versions',{id:id(),object_id:objectId,valid_from,area:nonneg(p.area,'yta'),category:optional(p.category),
@@ -121,9 +132,13 @@ function perform(db,command) {
    update(db,'objects',o.id,{ended_on});break;
   }
   case 'createAgreement':{
-   const agreementId=id(),agreement_number=text(p.agreement_number,'avtalsnummer'),object_id=text(p.object_id,'objekt'),valid_from=date(p.valid_from);
+   const agreementId=id(),object_id=text(p.object_id,'objekt'),valid_from=date(p.valid_from);
    const object=lookup(db,'objects',object_id);
    if(!object)throw Error('Objektet saknas.');
+   const existing=all(db,'agreements');
+   const agreement_number=text(optional(p.agreement_number)||nextAgreementNumber(object,existing),'avtalsnummer');
+   if(existing.some(x=>x.agreement_number.toLocaleLowerCase('sv')===agreement_number.toLocaleLowerCase('sv')))
+    throw Error('Avtalsnumret används redan. Välj ett annat nummer.');
    const earliest=db.prepare('SELECT MIN(valid_from) AS first FROM object_versions WHERE object_id=?').get(object_id).first;
    if(!earliest||valid_from<earliest||object.ended_on&&valid_from>object.ended_on)
     throw Error('Avtalets start måste ligga inom objektets giltighetstid.');
