@@ -1102,7 +1102,8 @@ async function sourceAction(action) {
       progressDialog?.remove();
       busy = false;
     }
-    startGeoEnrichment();
+    // Import only loads supplied coordinates. A geocoding request must be
+    // explicitly started from the map or property controls, never by import.
   } else if (["enrich", "operational", "index", "supplement"].includes(action)) {
     result = await transport[action](
       data,

@@ -139,7 +139,13 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     // Explicit identifier checks still run before merge; a manual descriptive
     // cell edit is the only way to replace a populated field in this mode.
     if(context.enrichment&&existing&&priorIds[table].has(existing.id))for(const field of tables[table].fields){
-     if(present(existing[field.key])&&(field.type==='ref'||!manualField(table,field.key))){
+     // A source-backed designation replaces only an address used as a
+     // placeholder name, after unambiguous saved-address identity validation.
+     const verifiedName=table==='properties'&&field.key==='name'&&
+      origin.matchingDecision?.method==='verified-address-name-enrichment'&&
+      present(record.name)&&present(existing.address)&&
+      importAddressKey(existing.name)===importAddressKey(existing.address);
+     if(present(existing[field.key])&&(field.type==='ref'||!manualField(table,field.key))&&!verifiedName){
       const column=columnFor(table,field.key);if(column&&present(record[field.key])&&JSON.stringify(record[field.key])!==JSON.stringify(existing[field.key]))retainedColumns.add(column.index);
       record[field.key]=existing[field.key];
      }
@@ -170,6 +176,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(typeof value==='string'&&typeof existing[field]==='string'&&['properties','parties','people'].includes(table)&&['name','address','city','popular_name'].includes(field)&&key(value.normalize('NFKC'))===key(existing[field].normalize('NFKC'))){normalized[field]=existing[field];continue;}
      if(rule==='reject'){normalized[field]=existing[field];continue;}
      if(field==='name'&&existing.name===existing.id)continue;
+     if(table==='properties'&&field==='name'&&origin.matchingDecision?.method==='verified-address-name-enrichment'&&existing.address&&importAddressKey(existing.name)===importAddressKey(existing.address))continue;
      if(table==='properties'&&field==='name'&&existing.address&&importAddressKey(existing.name)===importAddressKey(existing.address)&&importAddressKey(value)!==importAddressKey(existing.address)&&(!priorPropertyIds.has(existing.id)||(raw.properties?.id===existing.id||present(raw.properties?.management_object_number)&&(text(raw.properties.management_object_number)===existing.id||key(raw.properties.management_object_number)===key(existing.management_object_number)))&&raw.properties?.address&&importAddressKey(raw.properties.address)===importAddressKey(existing.address)))continue;
      if(rule!=='accept'){
       const reason='Olika värden för '+tables[table].fields.find(f=>f.key===field).label,currentOrigin=changes.findLast(change=>change.collection===collection&&change.recordId===existing.id&&change.field===legacy)?.provenance;
@@ -379,11 +386,24 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
       }
      }
      const exact=allowTextMatch?(savedTextProperties.get(propertyTextKey(p))||[]).filter(cityFits):[];
+     // Later files often provide the true property designation where the first
+     // import had to use its street address as the provisional property name.
+     // Only an exact, globally unique existing address (with house number) may
+     // resolve this automatically; no supplied IDs or disagreeing identities
+     // may be overridden by a text match.
+     const allAtAddress=p.address?propertyAddresses.get(importAddressKey(p.address))||[]:[];
+     const verifiedAddressName=context.enrichment&&allowTextMatch&&!p.id&&!anchorProperty&&!byManagement&&
+      present(p.address)&&/\d/.test(p.address)&&present(p.name)&&
+      importAddressKey(p.name)!==importAddressKey(p.address)&&
+      allAtAddress.length===1&&priorPropertyIds.has(allAtAddress[0].id)&&
+      candidates.length===1&&candidates[0].id===allAtAddress[0].id&&
+      importAddressKey(allAtAddress[0].name)===importAddressKey(allAtAddress[0].address)
+       ?allAtAddress[0]:null;
      const automatic=!p.id&&!anchorProperty&&!byManagement&&exact.length===1?indexes.properties.get(exact[0].id):null;
-     const chosen=automatic||(!p.id&&!anchorProperty&&!byManagement&&candidates.length?approveProperty(candidates,p.address?'Adress':'Fastighetsnamn'):null);
+     const chosen=automatic||verifiedAddressName||(!p.id&&!anchorProperty&&!byManagement&&candidates.length?approveProperty(candidates,p.address?'Adress':'Fastighetsnamn'):null);
      if(chosen?.createNew)p.id=chosen.id;
      const existing=byId||anchorProperty||byManagement||(chosen?.createNew?null:chosen);
-     origin.matchingDecision={propertyId:existing?.id||text(p.id),method:automatic?'property-designation-address':chosen?.createNew?'explicit-new-property':numberChoice?'agreement-number-approved':anchorAgreement?'existing-agreement-link':anchorObject?'existing-object-link':byManagement?'management-object-number':chosen?'explicit-row-choice':p.id?'property-id':p.address?'property-address':'property-name',...(numberChoice?{agreementId:numberParts.agreementId,objectId:raw.objects?.id||raw.agreements?.object_id}:{}),addressChecked:Boolean(p.address)};
+     origin.matchingDecision={propertyId:existing?.id||text(p.id),method:verifiedAddressName?'verified-address-name-enrichment':automatic?'property-designation-address':chosen?.createNew?'explicit-new-property':numberChoice?'agreement-number-approved':anchorAgreement?'existing-agreement-link':anchorObject?'existing-object-link':byManagement?'management-object-number':chosen?'explicit-row-choice':p.id?'property-id':p.address?'property-address':'property-name',...(numberChoice?{agreementId:numberParts.agreementId,objectId:raw.objects?.id||raw.agreements?.object_id}:{}),addressChecked:Boolean(p.address)};
      if(p.owner_party_id||linkedNumbers.has('owner')){
       if((automatic||context.enrichment)&&existing?.owner_party_id){
        const savedOwner=indexes.parties.get(existing.owner_party_id),sameOwner=!p.owner_party_id||p.owner_party_id===savedOwner.id||key(p.owner_party_id)===key(savedOwner.name);
