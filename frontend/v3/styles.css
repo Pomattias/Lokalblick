@@ -133,3 +133,47 @@ main{padding:21px 24px 32px}
  .workspace>.register,.workspace>.detail{width:100%;min-width:0}
  .sidebar nav{min-width:0;max-width:100%}
 }
+
+/* Automatic v3 import — same calm, compact interface as the rest of Lokalblick. */
+.smart-import{border-top:1px solid var(--line);margin-top:18px;padding-top:16px}
+.smart-import-header h3{font-size:16px;margin:0 0 5px}
+.smart-import-header p{font-size:12px;line-height:1.5}
+.smart-import-drop{position:relative;border:1.5px dashed #9bbdb0;border-radius:11px;padding:18px;display:flex;align-items:center;flex-direction:column;gap:5px;background:var(--bg);text-align:center;cursor:pointer;font-size:12px}
+.smart-import-drop .smart-import-icon{display:grid;place-items:center;background:#deefe6;color:var(--green);width:32px;height:32px;border-radius:9px;font-size:22px}
+.smart-import-drop span:last-of-type{color:var(--sub);font-size:11px}
+.smart-import-drop input{max-width:100%;margin-top:7px;font-size:11px}
+.smart-import-step{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:15px 0 9px;font-size:12px}
+.smart-import-step>span{background:#e6f3eb;color:var(--green);padding:5px 8px;border-radius:6px;font-size:11px;font-weight:750}
+.smart-import-step>strong{font-size:12px;overflow-wrap:anywhere}
+.smart-import-step label{display:flex;align-items:center;gap:6px;font-size:11px;margin-left:auto}
+.smart-import-step select{max-width:175px;padding:6px;border:1px solid var(--line);border-radius:6px;background:white}
+.smart-import-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.smart-import-stats>div{border:1px solid var(--line);padding:9px;border-radius:9px;display:flex;flex-direction:column;gap:2px}
+.smart-import-stats strong{font-size:19px}.smart-import-stats span{font-size:10px;color:var(--sub)}
+.smart-import-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:space-between;margin:13px 0 6px}
+.smart-import-toolbar>strong{font-size:12px}
+.smart-import-toolbar>div{display:flex;gap:4px}
+.smart-import-toolbar button{padding:5px 7px;font-size:10px}
+.smart-import-toolbar button[aria-pressed=true]{background:var(--mint);border-color:#82b7a4}
+.smart-import-list{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:9px}
+.smart-import-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:12px}
+.smart-import-row:last-child{border-bottom:0}
+.smart-import-row>div:first-child{min-width:0;display:flex;flex-direction:column;gap:3px}
+.smart-import-row strong{font-size:12px;overflow-wrap:anywhere}
+.smart-import-num{color:var(--sub);font-size:10px}
+.smart-import-meta{color:var(--sub);font-size:11px;overflow-wrap:anywhere}
+.smart-import-row-end{text-align:right;flex:0 0 135px;min-width:0}
+.smart-import-status{display:block;font-size:10px;font-weight:700;color:var(--green)}
+.smart-import-review .smart-import-status{color:#95601c}
+.smart-import-row-end label{display:grid;gap:4px;text-align:left;font-size:10px;margin-top:7px}
+.smart-import-row-end select{width:100%;min-width:0;padding:6px;border:1px solid #a4bdb4;border-radius:6px;background:white;font-size:11px}
+.smart-import-empty{padding:12px;margin:0;font-size:12px}
+.smart-import-warning{margin:10px 0;padding:10px;border:1px solid #e0c38d;border-radius:7px;background:#fff7e8;color:#7e531d;font-size:11px;line-height:1.5}
+.smart-import-success{padding:12px;background:var(--mint);border-radius:8px;font-size:12px}
+.smart-import details{margin:12px 0;border:1px solid var(--line);padding:10px;border-radius:9px;font-size:12px}
+.smart-import summary{cursor:pointer;font-weight:700}
+.smart-import-mapping{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:350px;overflow:auto;margin-top:9px}
+.smart-import-mapping label{display:flex;flex-direction:column;gap:3px;min-width:0;font-size:11px}
+.smart-import-mapping select{width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;padding:7px;font-size:11px;background:white}
+.smart-import-legacy{margin-top:24px !important}
+@media(max-width:700px){.smart-import-mapping{grid-template-columns:1fr}.smart-import-row-end{flex-basis:115px}.smart-import-step label{margin-left:0}}

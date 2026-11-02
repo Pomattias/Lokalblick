@@ -35,7 +35,7 @@ const amount=v=>{
  const n=Number(String(v).replace(/\s/g,'').replace(',','.'));
  return Number.isFinite(n)?n:NaN;
 };
-function readCsv(value) {
+export function readCsv(value) {
  const sample=value.split(/\r?\n/).slice(0,4).join('\n'),separator=(sample.match(/;/g)||[]).length>(sample.match(/,/g)||[]).length?';':',';
  const output=[];let row=[],cell='',quoted=false;
  for(let i=0;i<value.length;i++) {

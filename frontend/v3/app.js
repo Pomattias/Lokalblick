@@ -1,6 +1,6 @@
 // Native Lokalblick v3. All persisted facts use the private SQLite API.
 import {moreViews,moreItems,moreRecords,moreItemName,moreSecondary,moreDetail,moreFormSchema} from './modules.js';
-import {mountImport} from './import.js';
+import {mountSmartImport} from './smart-import-ui.js';
 import {relatedRecords,assignmentHistory,isVisibleAt} from './relations.js';
 import {mountPropertyMap} from './map.js';
 import {mountBudgetIndex} from './budget-index.js';
@@ -82,9 +82,9 @@ function renderDetail(){
  if(Object.hasOwn(moreViews,state.view)){
   panel.innerHTML=moreDetail(state.view,row,state.snapshot)+relatedRecords(state.view,row,state.snapshot);
   if(state.view==='budgets')mountBudgetIndex(panel,row,state.snapshot);
-  if(state.view==='sources')mountImport(panel,{snapshot:state.snapshot,apply:async commands=>{
+  if(state.view==='sources')mountSmartImport(panel,{snapshot:state.snapshot,apply:async commands=>{
    const updated=await api({version:state.snapshot.version,asOf:state.asOf,commands});
-   state.snapshot=updated;render();notify(commands.length+' nya rader importerade till v3.');
+   state.snapshot=updated;render();notify(commands.length+' åtgärder importerade till v3.');
   }});
   return;
  }
