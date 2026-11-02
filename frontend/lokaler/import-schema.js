@@ -13,13 +13,11 @@ const fieldAliases = {
   },
   organizations: { organizationNumber: ["Orgnr", "Org.nr", "Organisationsnr"] },
   properties: {
-    managementObjectNumber: ["Förvaltningsnummer", "Objektsnummer / Förvaltningsobjekt"],
+    managementObjectNumber: ["Förvaltningsnummer", "Objektsnummer / Förvaltningsobjekt", "FastighetsNr", "Fastighetsnummer", "Fast.nr", "FastNr", "Fastighetsnr"],
     designation: [
       "Fastighet",
       "Fastighetsbeteckning",
       "Fast.bet",
-      "Fast.nr",
-      "Fastighetsnr",
     ],
     popularName: ["Benämning"],
     id: [
