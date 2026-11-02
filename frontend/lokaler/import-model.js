@@ -302,6 +302,25 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     };
     for(const [table,row]of Object.entries(raw))for(const field of tables[table]?.fields||[])if(field.type==='ref'&&field.table==='properties'&&row[field.key])row[field.key]=resolvePropertyId(aliases,text(row[field.key]));
     if(raw.properties?.id)raw.properties.id=resolvePropertyId(aliases,text(raw.properties.id));
+    // A supplemental row may carry a local inventory number or a lease reference
+    // absent from Lokallista. Neither is an authority to create a new record.
+    // Remove the unverified clue so property/address enrichment can still match.
+    if(profile.enrichment&&raw.agreements?.id&&!indexes.agreements.has(text(raw.agreements.id))){
+     decisions.push({...origin,collection:'agreements',classification:'D',reason:'Avtalsnumret saknar träff i Lokallista; avtalsdelen lämnas utanför.'});
+     for(const column of selected)if(['agreements','agreement_items'].includes(fieldMap[column.target]?.table)){
+      heldColumns.add(column.index);readColumns.delete(column.index);
+     }
+     delete raw.agreements;delete raw.agreement_items;itemRows.clear();
+     for(const key of Object.keys(finance))delete finance[key];
+    }
+    if(profile.enrichment&&raw.properties?.management_object_number&&
+     !propertyManagementNumbers.has(key(raw.properties.management_object_number))){
+     const number=raw.properties.management_object_number;
+     decisions.push({...origin,collection:'properties',classification:'D',reason:'Objektreferensen '+number+' är inte ett känt FörvaltningsNr; matchning prövas i stället mot fastighetsbeteckning och adress.'});
+     const column=columnFor('properties','management_object_number');
+     if(column){heldColumns.add(column.index);readColumns.delete(column.index);}
+     delete raw.properties.management_object_number;
+    }
     const hasSourceNumber=[raw.properties?.id,raw.properties?.management_object_number,raw.objects?.id,raw.objects?.property_id,raw.agreements?.id,raw.agreements?.object_id,raw.issues?.property_id,raw.issues?.object_id].some(present);
     // Text lookup enriches the saved portfolio only. It never substitutes for
     // a supplied number or links two properties created in this import.
