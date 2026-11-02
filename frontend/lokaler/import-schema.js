@@ -30,6 +30,10 @@ const fieldAliases = {
       "Fastighetsägare namn",
       "Hyresvärd",
       "Lev.namn",
+      "Fastighetsägarens namn",
+      "Ägarbolag",
+      "Fastighetsägarbolag",
+      "Fastighetsägare organisation",
     ],
   },
   objects: {
@@ -74,7 +78,11 @@ const fieldAliases = {
       "Giltigt t.o.m.",
       "Aktuellt giltigt t.o.m.",
     ],
-    tenantPartyId: ["Verksamhet", "Verksamhetsnamn", "Namn på verksamheten"],
+    tenantPartyId: [
+      "Verksamhet", "Verksamhetsnamn", "Namn på verksamheten",
+      "Hyresgästnamn", "Hyresgästens namn", "Hyresgäst organisation",
+      "Kundnamn", "Kundorganisation",
+    ],
     businessName: ["Tidigare verksamhetsnamn"],
     businessDescription: ["Kommentar verksamhet"],
     category: ["Lokalkategori", "Lokalkategori (LEB)", "Lokalkategori (EB)"],
@@ -165,6 +173,8 @@ export const importSchemas = Object.entries(viewCollections).map(
           "Orgnr (" +
             (linked.role === "owner" ? "fastighetsägare" : "hyresgäst") +
             ")",
+          linked.role === "owner" ? "Fastighetsägare orgnr" : "Hyresgäst orgnr",
+          linked.role === "owner" ? "Fastighetsägare organisationsnummer" : "Hyresgäst organisationsnummer",
         ],
       };
     }
@@ -196,10 +206,17 @@ export const importSchemas = Object.entries(viewCollections).map(
         ],
       };
       if (collection === "properties")
+        schema.labelAliases.responsiblePersonId = [
+          "Lokalsamordnare", "Lokalansvarig", "Intern lokalsamordnare",
+        ];
+      if (collection === "properties")
         schema.labelAliases.ownerResponsiblePersonId = [
           "Fastighetsförvaltare",
           "Förvaltare",
           "Fastighetsägarens förvaltare",
+          "Förvaltarnamn",
+          "Förvaltare namn",
+          "Fastighetsägarens kontakt",
         ];
     }
     if (table === "agreements") {
