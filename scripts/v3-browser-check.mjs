@@ -81,6 +81,7 @@ try{
  await add('spaces',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=name]').fill('Entré')});
  await add('inspections',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=inspected_on]').fill('2026-10-27')});
  await go('sources');
+ await page.locator('.smart-import-legacy > summary').click();
  await page.locator('[data-import-register]').selectOption('properties');
  const csv=Buffer.from('Fastighetsnamn;Adress\nImportfastigheten;Importgatan 4\n','utf8');
  await page.locator('[data-import-file]').setInputFiles({name:'syntetiskt.csv',mimeType:'text/csv',buffer:csv});
@@ -88,7 +89,7 @@ try{
  assert.equal(await page.locator('[data-import-apply]').isEnabled(),true);
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('[data-import-apply]').click();
- await page.locator('#feedback').getByText(/nya rader importerade/).waitFor();
+ await page.locator('#feedback').getByText(/åtgärder importerade/).waitFor();
  await go('properties');
  assert.match(await page.locator('.record-list').innerText(),/Importfastigheten/);
 
@@ -139,6 +140,7 @@ try{
  // A multi-property import must not invent a second object merely because an
  // external source has a new contract number without a physical object number.
  await go('sources');
+ await page.locator('.smart-import-legacy > summary').click();
  await page.locator('[data-import-register]').selectOption('agreementLinks');
  const rows=Buffer.from('Fastighetsnummer;Avtalsnummer;Startdatum;Objektsnummer\nSF1213;EXTERNAL-11;2026-01-01;SF1213-001\nSF1213;EXTERNAL-12;2026-03-01;\n','utf8');
  await page.locator('[data-import-file]').setInputFiles({name:'avtalslista.csv',mimeType:'text/csv',buffer:rows});
@@ -147,7 +149,7 @@ try{
  assert.equal(await page.locator('[data-import-apply]').isEnabled(),true);
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('[data-import-apply]').click();
- await page.locator('#feedback').getByText(/nya rader importerade/).waitFor();
+ await page.locator('#feedback').getByText(/åtgärder importerade/).waitFor();
  const linked=await (await fetch(origin+'/api/v3/core')).json();
  assert.equal(linked.objects.filter(o=>o.property_id===numberedProperty.id).length,2);
  const existingLease=linked.agreements.find(a=>a.agreement_number==='EXTERNAL-11');
