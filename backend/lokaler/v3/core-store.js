@@ -92,7 +92,7 @@ function perform(db,command) {
    update(db,'properties',text(command.id,'FastighetsID'),row);break;
   }
   case 'createObject':{
-   const objectId=id(),property_id=text(p.property_id,'fastighet');
+   const objectId=command.id?text(command.id,'ObjektID',64):id(),property_id=text(p.property_id,'fastighet');
    const property=lookup(db,'properties',property_id);
    if(!property)throw Error('Välj en befintlig fastighet.');
    const existing=all(db,'objects'),properties=all(db,'properties');
