@@ -32,15 +32,22 @@ export function prepareCoreImport({headers=[],rows=[]},snapshot={},{
  mapping=[],objectChoices={},makeId=()=>crypto.randomUUID()
 }={}){
  const cols=mapping.map(k=>allowed.has(k)?k:'');
- const ignored=headers.filter((_,i)=>!cols[i]).map(String);
+ const ignored=headers.flatMap((_,i)=>cols[i]?[]:[i]);
  const errors=[],commands=[],records=[];
  const properties=[...(snapshot.properties||[])],objects=[...(snapshot.objects||[])],
   agreements=[...(snapshot.agreements||[])],parties=[...(snapshot.parties||[])],
   assignments=[...(snapshot.stakeholderAssignments||[])];
  const initiallyKnown=new Set(agreements.map(a=>a.id));
- const seenAgreements=new Set();
+ const seenAgreements=new Set(),earliestObjectDate=new Map();
  const id=()=>makeId();
  const get=(row,k)=>{const i=cols.indexOf(k);return i<0?'':txt(row[i]);};
+ for(const row of rows){
+  const propertyNumber=get(row,'property_number'),objectNumber=get(row,'object_number');
+  const from=date(get(row,'valid_from'));
+  if(!propertyNumber||!objectNumber||!validDate(from))continue;
+  const token=norm(propertyNumber)+'|'+norm(objectNumber),previous=earliestObjectDate.get(token);
+  if(!previous||from<previous)earliestObjectDate.set(token,from);
+ }
  const write=(action,fields,sourceRow,extra={})=>commands.push({action,fields,sourceRow,...extra});
  if(rows.length>200)errors.push('Högst 200 datarader får ingå. Dela upp filen.');
  if(!cols.some(Boolean))errors.push('Ingen tillåten kolumn har identifierats.');
@@ -119,16 +126,17 @@ export function prepareCoreImport({headers=[],rows=[]},snapshot={},{
   }
   if(!object&&!failures.length&&(objectNumber||objectChoices[i]==='@new')){
    const proposed=objectNumber||inferred||nextObjectNumber(property,objects,properties);
+   const objectFrom=earliestObjectDate.get(norm(propertyNumber)+'|'+norm(proposed))||from;
    if(!proposed||local.some(o=>eq(o.object_number,proposed)))fail('Nytt objektnummer är inte entydigt.');
-   if(!from||!validDate(from))fail('Nytt objekt kräver ett giltigt startdatum.');
+   if(!objectFrom||!validDate(objectFrom))fail('Nytt objekt kräver ett giltigt startdatum.');
    if(!failures.length){
     const raw=get(row,'area'),parsed=area(raw);
     if(raw&&parsed===null)fail('Ogiltig area.');
     else{
      object={id:id(),property_id:property.id,object_number:proposed,
-      currentVersion:{valid_from:from,area:parsed}};
+      currentVersion:{valid_from:objectFrom,area:parsed}};
      objects.push(object);
-     write('createObject',{property_id:property.id,object_number:proposed,valid_from:from,
+     write('createObject',{property_id:property.id,object_number:proposed,valid_from:objectFrom,
       ...(parsed!==null?{area:parsed}:{})},sourceRow,{id:object.id});
      created.push('objekt');
     }
