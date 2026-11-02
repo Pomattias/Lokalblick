@@ -180,7 +180,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       return {scroll:d.scrollTop,horizontal:[...d.querySelectorAll('.import-source-scroll')].map(node=>node.scrollLeft),open:new Map(disclosures),focusAttr,focusValue:focusAttr?focused.getAttribute(focusAttr):null,focusRow:sourceRowOf(focused),focusField:focused?.dataset.personKey,selection:focused?.selectionStart};
     };
     const disclosureKey=node=>{
-     for(const attr of ['data-new-records','data-import-detailed-table','data-sheet-settings','data-final-impact','data-import-enrichment','data-import-errors','data-import-value-choices'])if(node.hasAttribute(attr))return attr;
+     for(const attr of ['data-new-records','data-import-review-samples','data-import-detailed-table','data-sheet-settings','data-final-impact','data-import-enrichment','data-import-errors','data-import-value-choices'])if(node.hasAttribute(attr))return attr;
      for(const attr of ['data-link-options','data-property-comparison','data-new-property-choice'])if(node.hasAttribute(attr))return attr+':'+(node.closest('[data-source-key]')?.dataset.sourceKey||node.closest('tr')?.previousElementSibling?.dataset.importSourceRow);
      for(const attr of ['data-review-problem'])if(node.hasAttribute(attr))return attr+':'+node.getAttribute(attr);
      return null;
@@ -301,7 +301,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
          refresh();return;
         }
         if(button.hasAttribute('data-open-row')){const key=button.dataset.openRow;if(story.openRows.has(key))story.openRows.delete(key);else story.openRows.add(key);render(viewState(),false);return;}
-        if(button.hasAttribute('data-filter-import-rows')){story.filter=button.dataset.filterImportRows;story.limit=30;render(viewState(),false);d.querySelector('[data-import-table-review]').scrollIntoView({block:'start'});return;}
+        if(button.hasAttribute('data-filter-import-rows')){story.filter=button.dataset.filterImportRows;story.limit=30;const detail=d.querySelector('[data-import-detailed-table]');if(detail)detail.open=true;render(viewState(),false);d.querySelector('[data-import-table-review]')?.scrollIntoView({block:'start'});return;}
         if(button.hasAttribute('data-story-more')){story.limit+=30;render(viewState(),false);return;}
         if(button.hasAttribute('data-show-import-problems')){d.querySelector('[data-import-errors]')?.scrollIntoView({block:'start'});return;}
         if(button.hasAttribute('data-show-creations')){const section=d.querySelector('[data-new-records]');if(section){section.open=true;section.scrollIntoView({block:'start'});}return;}

@@ -42,6 +42,6 @@ export function importDashboardHtml(prepared,profiles,candidate,storyRows,plan=[
   '<div><strong>'+num(m.pendingCreation)+'</strong><span>Nya poster att välja</span></div><div><strong>'+num(m.attention)+'</strong><span>Rader att kontrollera</span></div></div>'+
   '<div class="import-review-queue"><div class="import-review-queue-head"><h4>Nästa steg</h4><small>'+(options.stale?'Uppdaterar förslaget…':m.ready?'Inga öppna granskningsfrågor':'Börja med översta punkten')+'</small></div>'+
   (tasks.length?taskHtml:'<div class="import-review-empty">Inga granskningsfrågor återstår. Kontrollera resultatet och välj Spara import när allt stämmer.</div>')+'</div>'+
-  (examples?'<details class="import-review-samples"><summary>Exempel på rader att kontrollera ('+m.queue.length+')</summary><ul>'+examples+'</ul></details>':'')+
+  (examples?'<details class="import-review-samples" data-import-review-samples><summary>Exempel på rader att kontrollera ('+m.queue.length+')</summary><ul>'+examples+'</ul></details>':'')+
   '<p class="import-review-footnote">Avtal, hyresgäst, fastighetsägare och förvaltare kopplas till sina respektive register. Bashyra och varje tillägg behåller egna prisvillkor och basår. Inga osäkra relationer godkänns automatiskt.</p></section>';
 }
