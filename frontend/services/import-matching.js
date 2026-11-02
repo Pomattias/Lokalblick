@@ -1,6 +1,7 @@
 import {personRole,contactPart,contactFields} from './import-person-links.js';
 // Column choices are derived from the supplied current schemas, never a second model.
 import {profileFormat} from './import-formats.js';
+import {workbookRole,workbookFieldRule,enrichmentFields} from '../lokaler/import-workbook-rules.js';
 export const matchName=value=>String(value??'').trim().toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 const present=value=>value!=null&&String(value).trim()!=='';
 export function schemaFields(schemas){return schemas.flatMap(schema=>schema.columns.map(([field,label])=>({target:schema.key+'.'+field,collection:schema.key,field,label:schema.sheet+' → '+label,caption:label,type:schema.fieldSpecs?.[field]?.type,aliases:schema.labelAliases?.[field]||[],storage:schema.fieldSpecs?.[field]?.storageTarget||schema.storage+'.'+(schema.fieldSpecs?.[field]?.storageKey||field)})));}
@@ -249,7 +250,20 @@ export function profileTables(workbook,schemas,XLSX,saved=[],options={}){
    if(rule?.contactHeader&&contactPart(target)){const contacts=headers.map((h,i)=>({h,i})).filter(c=>matchName(c.h)===matchName(rule.contactHeader));target=contacts.length===1?'contact.'+contacts[0].i+'.'+contactPart(target).field:'@unmapped';}
    return {header:String(header),index,target,excludedTarget:rule?.excludedTarget,selectionTable:rule?.selectionTable,collection:target.split('.')[0],itemType:rule?rule.itemType:suggestion?.itemType,itemKey:rule?.itemKey||suggestion?.itemKey,transform:rule?.transform||(/månadshyra/i.test(header)?'monthly':'auto'),date1904:Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904),dateMode:rule?.dateMode||'auto',invalidPolicy:rule?.invalidPolicy||'reject-row',emptyMarkers:true,approved:Boolean(rule),personFormat:rule?.personFormat,shared:rule?.shared===true,matchSource:rule?'saved':suggestion?'alias':'unmatched',warning:rule&&target==='@unmapped'?'Det tidigare fältet finns inte längre. Välj ett aktuellt fält.':''};
   }).filter(Boolean);
-  refreshSuggestions(workbook,profile,schemas,XLSX);if(options.referenceData)suggestIssueNumberColumns([profile],options.referenceData);return profile;
+  refreshSuggestions(workbook,profile,schemas,XLSX);
+  const role=workbookRole(name,workbook.SheetNames.map(k=>workbook.__importSources?.find(s=>s.sheetKey===k)?.sheetName||k));
+  profile.workbookRole=role;profile.enrichment=role==='enrichment';
+  if(role==='base'||role==='enrichment')for(const column of profile.columns){
+   const explicit=workbookFieldRule(name,column.header,column.index);
+   const next=explicit||(role==='enrichment'&&!enrichmentFields.has(column.target)?'@ignore':null);
+   if(next&&next!==column.target){
+    column.target=next;column.collection=next.split('.')[0];
+    column.matchSource='workbook-rule';column.approved=true;
+    delete column.itemType;delete column.itemKey;
+    refreshColumnFormat(workbook,profile,column,XLSX);
+   }
+  }
+  if(options.referenceData)suggestIssueNumberColumns([profile],options.referenceData);return profile;
  });
 }
 // Sheet names are hints too. Inspect only a bounded sample of an unknown
