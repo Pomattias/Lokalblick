@@ -47,7 +47,10 @@ function asOfSnapshot(db,asOf) {
   currentVersion:latest.get(a.id)||null,
   stakeholders:resolvedStakeholders(db,{agreementId:a.id},at)
  }));
- const propertiesWithRoles=properties.map(p=>({...p,stakeholders:resolvedStakeholders(db,{propertyId:p.id},at)}));
+ const propertyExternalNumbers=all(db,'property_external_numbers');
+ const propertiesWithRoles=properties.map(p=>({...p,
+  externalNumbers:propertyExternalNumbers.filter(n=>n.property_id===p.id),
+  stakeholders:resolvedStakeholders(db,{propertyId:p.id},at)}));
  const operational=operationalSnapshot(db,at,{all});
  const agreementItems=all(db,'agreement_items');
  const costReconciliations=reconcileAnnualCosts({
@@ -61,7 +64,7 @@ function asOfSnapshot(db,asOf) {
   ...order,stakeholders:resolvedStakeholders(db,{orderId:order.id},at)
  }));
  return {schemaVersion:3,version:db.prepare('SELECT version FROM store_meta WHERE id=1').get().version,asOf:at,
-  parties,people,partyPeople,properties:propertiesWithRoles,objects,agreements,stakeholderAssignments:all(db,'stakeholder_assignments'),
+  parties,people,partyPeople,properties:propertiesWithRoles,propertyExternalNumbers,objects,agreements,stakeholderAssignments:all(db,'stakeholder_assignments'),
   agreementItems,
   ...operational,costReconciliations,
   schema:db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name<>'store_meta' ORDER BY name").all().map(t=>({name:t.name,columns:db.prepare('PRAGMA table_info('+t.name+')').all().map(c=>({name:c.name,type:c.type,required:Boolean(c.notnull),primary:Boolean(c.pk)})),references:db.prepare('PRAGMA foreign_key_list('+t.name+')').all().map(f=>({column:f.from,table:f.table,target:f.to}))}))};
@@ -90,6 +93,24 @@ function perform(db,command) {
    if(row.latitude!=null)row.latitude=Number(row.latitude);
    if(row.longitude!=null)row.longitude=Number(row.longitude);
    update(db,'properties',text(command.id,'FastighetsID'),row);break;
+  }
+  case 'addPropertyExternalNumber':{
+   const property_id=text(p.property_id,'fastighet',64),source_system=text(p.source_system,'källsystem',80),
+    external_number=text(p.external_number,'externt fastighetsnummer',120);
+   if(!lookup(db,'properties',property_id))throw Error('Fastigheten saknas.');
+   const existing=db.prepare('SELECT * FROM property_external_numbers WHERE lower(trim(source_system))=lower(trim(?)) AND lower(trim(external_number))=lower(trim(?))').get(source_system,external_number);
+   if(existing){
+    if(existing.property_id!==property_id)throw Error('Det externa numret '+external_number+' är redan kopplat till en annan fastighet i '+source_system+'.');
+    break;
+   }
+   insert(db,'property_external_numbers',{id:id(),property_id,source_system,external_number});
+   break;
+  }
+  case 'removePropertyExternalNumber':{
+   const externalId=text(command.id,'extern nyckel',64);
+   if(!lookup(db,'property_external_numbers',externalId))throw Error('Det externa numret saknas.');
+   db.prepare('DELETE FROM property_external_numbers WHERE id=?').run(externalId);
+   break;
   }
   case 'createObject':{
    const objectId=command.id?text(command.id,'ObjektID',64):id(),property_id=text(p.property_id,'fastighet');

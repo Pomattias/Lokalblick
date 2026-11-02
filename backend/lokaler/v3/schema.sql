@@ -26,6 +26,15 @@ CREATE TABLE properties (
  CHECK(latitude IS NULL OR (latitude BETWEEN -90 AND 90)),
  CHECK(longitude IS NULL OR (longitude BETWEEN -180 AND 180))
 ) STRICT;
+CREATE TABLE property_external_numbers (
+ id TEXT PRIMARY KEY,
+ property_id TEXT NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
+ source_system TEXT NOT NULL CHECK(length(trim(source_system)) BETWEEN 1 AND 80),
+ external_number TEXT NOT NULL CHECK(length(trim(external_number)) BETWEEN 1 AND 120),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+) STRICT;
+CREATE UNIQUE INDEX property_external_number_unique ON property_external_numbers(lower(trim(source_system)),lower(trim(external_number)));
+CREATE INDEX property_external_number_by_property ON property_external_numbers(property_id);
 CREATE TABLE objects (
  id TEXT PRIMARY KEY, property_id TEXT NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
  object_number TEXT NOT NULL CHECK(trim(object_number)<>''), ended_on TEXT, notes TEXT,

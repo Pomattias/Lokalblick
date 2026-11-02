@@ -4,6 +4,18 @@ import { dirname } from 'node:path';
 
 const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 export const MODEL_VERSION = 3;
+
+const externalNumberExtension=`CREATE TABLE IF NOT EXISTS property_external_numbers (
+ id TEXT PRIMARY KEY,
+ property_id TEXT NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
+ source_system TEXT NOT NULL CHECK(length(trim(source_system)) BETWEEN 1 AND 80),
+ external_number TEXT NOT NULL CHECK(length(trim(external_number)) BETWEEN 1 AND 120),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+) STRICT;
+CREATE UNIQUE INDEX IF NOT EXISTS property_external_number_unique
+ ON property_external_numbers(lower(trim(source_system)),lower(trim(external_number)));
+CREATE INDEX IF NOT EXISTS property_external_number_by_property ON property_external_numbers(property_id);`;
+
 export const APPLICATION_ID = 0x4c425633;
 
 export function openMemoryDatabase() {
@@ -49,6 +61,10 @@ export function openExistingDatabase(file) {
   const rolesSql=db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='stakeholder_assignments'").get()?.sql||'';
   if(!orderFields.has('property_id')||!orderFields.has('object_id')||!rolesSql.includes("'supplier'"))
    throw Error('Den här Lokalblick v3-versionen kräver ny databasstruktur för partroller och beställningar. Den befintliga databasen har inte ändrats.');
+  // Additive only: retain existing records and IDs.
+  db.exec('BEGIN IMMEDIATE');
+  try{db.exec(externalNumberExtension);db.exec('COMMIT');}
+  catch(error){db.exec('ROLLBACK');throw error;}
   return db;
  } catch (error) { db.close(); throw error; }
 }
