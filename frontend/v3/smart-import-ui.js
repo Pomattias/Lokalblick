@@ -16,14 +16,14 @@ export function mountSmartImport(root,{snapshot,apply}){
  root.append(shell);
  mountImport(shell.querySelector('[data-legacy-import]'),{snapshot,apply});
  const fileInput=shell.querySelector('[data-smart-file]'),results=shell.querySelector('[data-smart-results]');
- let book=[],active=null,overrides={},objectChoices={},mapping=null,filter='review',plan=null,fileName='',locked=false;
+ let book=[],active=null,overrides={},objectChoices={},mapping=null,filter='review',plan=null,fileName='',locked=false,externalSystem='';
  const current=()=>book.find(s=>s.name===active);
  const mapped=()=>suggestImportMapping((current()?.rows?.[0]||[]),overrides);
  function analyze(){
   const chosen=current();if(!chosen)return;
   const raw=chosen.rows||[],headers=raw[0]||[],rows=raw.slice(1).filter(r=>r.some(c=>String(c??'').trim()));
   mapping=mapped();
-  plan=prepareSmartImport({headers,rows},snapshot,{mapping,objectChoices,ignoredColumns:Object.keys(overrides).filter(k=>overrides[k]==='').map(Number)});
+  plan=prepareSmartImport({headers,rows},snapshot,{mapping,objectChoices,ignoredColumns:Object.keys(overrides).filter(k=>overrides[k]==='').map(Number),defaultExternalSystem:externalSystem});
   if(rows.length>200)plan.errors.push('Filen innehåller fler än 200 rader. Dela upp den.');
   if(plan.commands.length>200)plan.errors.push('Fler än 200 åtgärder i transaktionen. Dela upp filen.');
   // With nothing to resolve, show the approved/new rows instead of an empty review list.
@@ -34,6 +34,7 @@ export function mountSmartImport(root,{snapshot,apply}){
   if(!plan)return;
   const selected=current(),total=plan.records.length;
   const header=selected.rows[0]||[],matched=plan.mapping.filter(Boolean).length;
+  const needsSystem=plan.mapping.includes('external_property_number')&&!plan.mapping.includes('external_system');
   const choices=book.map(s=>({id:s.name,label:s.name}));
   const labels={matched:'Oförändrad',new:'Ny eller kompletterad',review:'Behöver kontrolleras'};
   const visible=plan.records.filter(r=>filter==='all'||r.status==='review');
@@ -46,6 +47,7 @@ export function mountSmartImport(root,{snapshot,apply}){
   results.innerHTML='<div class="smart-import-step"><span>1. Fil</span><strong>'+esc(fileName)+'</strong>'+
    '<label>Flik<select data-smart-sheet>'+opts(choices,active)+'</select></label></div>'+
    '<div class="smart-import-step"><span>2. Granska</span><strong>Så tolkar Lokalblick filen</strong></div>'+
+   (needsSystem?'<label class="smart-import-system-label">Källsystem för externt FastighetsNr <input data-smart-source-system maxlength="80" required placeholder="Exempelvis Stadsfastigheter" value="'+esc(externalSystem)+'"></label>':'')+
    '<div class="smart-import-stats">'+
     [['matched',plan.stats.matched,'Oförändrade'],['new',plan.stats.created,'Nya/kopplade'],['review',plan.stats.review,'Att kontrollera']].map(([k,n,label])=>
      '<div><strong>'+n+'</strong><span>'+label+'</span></div>').join('')+'</div>'+
@@ -96,14 +98,15 @@ export function mountSmartImport(root,{snapshot,apply}){
    const ranked=rankImportSheets(book);
    active=ranked[0]?.name||null;
    if(!active)throw Error('Inga läsbara flikar i filen.');
-   overrides={};objectChoices={};filter='review';results.dataset.showAdvanced='0';
+   overrides={};objectChoices={};externalSystem='';filter='review';results.dataset.showAdvanced='0';
    analyze();
   }catch(error){results.innerHTML='<p class="smart-import-warning" role="alert">'+esc(error.message)+'</p>'}
  }
  fileInput.addEventListener('change',readFile);
  results.addEventListener('change',event=>{
+  if(event.target.matches('[data-smart-source-system]')){externalSystem=event.target.value.trim();analyze();return;}
   if(event.target.matches('[data-smart-sheet]')){
-   active=event.target.value;overrides={};objectChoices={};filter='review';results.dataset.showAdvanced='0';analyze();
+   active=event.target.value;overrides={};objectChoices={};externalSystem='';filter='review';results.dataset.showAdvanced='0';analyze();
   }else if(event.target.matches('[data-smart-map]')){
    const column=Number(event.target.dataset.smartMap);overrides[column]=event.target.value;
    results.dataset.showAdvanced='1';analyze();

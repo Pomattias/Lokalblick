@@ -108,12 +108,12 @@ test('v3 dated rent items can close a previous period and introduce the next ren
   assert.equal(s.state().agreementItems.length,2);
  }finally{await s.close();}
 });
-test('v3 introspection and all 21 business tables are present in API',async()=>{
+test('v3 introspection includes 21 core business tables and the external property number link',async()=>{
  const s=await setup();try{
   const snapshot=s.state();
-  assert.equal(snapshot.schema.length,21);
+  assert.equal(snapshot.schema.length,22);
   const named=new Set(snapshot.schema.map(t=>t.name));
-  for(const table of ['stakeholder_assignments','object_versions','agreement_versions','budget_lines','inspection_points'])assert(named.has(table));
+  for(const table of ['stakeholder_assignments','object_versions','agreement_versions','budget_lines','inspection_points','property_external_numbers'])assert(named.has(table));
   assert(snapshot.schema.find(x=>x.name==='inspection_points').references.some(r=>r.table==='inspections'));
   for(const list of ['issues','orders','recurringCosts','costEvidence','budgets','budgetLines','spaces','buildingParts','inspections','inspectionPoints'])assert(Array.isArray(snapshot[list]),list);
  }finally{await s.close();}

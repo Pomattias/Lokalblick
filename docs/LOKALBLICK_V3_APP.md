@@ -1,6 +1,6 @@
 # Lokalblick v3 – samlad lokal applikation
 
-V3 är det nya databasformatet. Alla 21 verksamhetstabeller finns i samma privata
+V3 är det nya databasformatet. De 21 verksamhetstabellerna och en liten kopplingstabell för externa nummer finns i samma privata
 SQLite-databas. **Inga befintliga poster överförs**; V3 får en egen tom fil.
 
 ## Starta
@@ -135,3 +135,10 @@ tom nystart. Gör aldrig detta om databasen hunnit få uppgifter som ska sparas.
 - **Konflikthantering:** kända kopplingar återanvänds. Nya avtal skapar inte automatiskt fysiska objekt utan objektnummer eller uttryckligt val. Motstridiga fastighetsnamn, saknade/ändrade areor, dubbla avtal, olika parter/personer och förändrade avtalspriser markeras för kontroll. Befintliga avtalshyror eller ansvar skrivs aldrig över automatiskt.
 - Granskningsvyn visar *Oförändrade, Nya eller kompletterade, Att kontrollera* och lyfter fram bara avvikelserna. Man kan filtrera alla rader, byta flik, ändra kolumner och välja objekt per rad. Max 200 källrader och max 200 kommandon sparas i en atomisk databastransaktion. Vid fel görs rollback. Exakt återimport skapar inga nya poster.
 - Prisändringar och avtalshistorik kräver separat daterad versionshantering: denna import tolkar källan och flaggar ändringar, men gör inte tysta revisioner av befintliga avtalsvillkor.
+
+## FörvaltningsNr och externa fastighetsnummer
+
+- **FörvaltningsNr** (`properties.management_object_number`) är huvudnumret. FastighetsID (`properties.id`) är en dold permanent nyckel för interna relationer. Ett externt FastighetsNr skapar inte en ny fastighet.
+- Externa nummer sparas i `property_external_numbers`: `property_id`, `source_system` och `external_number`. Exempel: FörvaltningsNr `1600`, externt nummer `SF1600`, källsystem `Stadsfastigheter`. Flera externa nummer kan visas och sökas. Kombinationen av källsystem och externt nummer får inte peka på flera fastigheter.
+- Vid automatisk import där både FörvaltningsNr och FastighetsNr finns tolkas det förra som huvudnummer och det senare som externt. Ange namngivet källsystem i filen eller importvyn före import. Ett känt externt nummer kan identifiera fastigheten vid återimport även om FörvaltningsNr saknas. Motsägande kopplingar blockeras.
+- Öppning av en giltig tidigare v3-fil skapar **endast denna nya kopplingstabell** additivt och behåller alla befintliga poster, interna ID:n, objekt och avtal. Ingen v2-migration görs.

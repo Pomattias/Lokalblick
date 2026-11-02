@@ -29,11 +29,11 @@ function fixture(db){
  exec(db,'INSERT INTO stakeholder_assignments(id,object_id,role_code,party_id,person_id,valid_from) VALUES (?,?,?,?,?,?)','contact-object','o','owner_contact','owner','b','2025-01-01');
  exec(db,'INSERT INTO stakeholder_assignments(id,object_id,role_code,party_id,person_id,valid_from) VALUES (?,?,?,?,?,?)','tenant-object','o','tenant_contact','tenant','c','2020-01-01');
 }
-test('fresh v3 schema has exactly 21 domain tables, enforced foreign keys and no historical compatibility schema',()=>{
+test('fresh v3 schema contains 21 domain tables, external number mapping and metadata with foreign keys',()=>{
  const db=openMemoryDatabase();
  try{
   const tables=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(x=>x.name);
-  assert.equal(tables.length,22);assert(tables.includes('stakeholder_assignments'));assert(tables.includes('object_versions'));
+  assert.equal(tables.length,23);assert(tables.includes('property_external_numbers'));assert(tables.includes('stakeholder_assignments'));assert(tables.includes('object_versions'));
   assert(tables.includes('agreement_versions'));assert(!tables.includes('contacts'));
   assert.equal(db.prepare('PRAGMA foreign_keys').get().foreign_keys,1);
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
