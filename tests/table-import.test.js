@@ -10,7 +10,7 @@ import {overview} from '../frontend/v2/views.js';
 import '../frontend/domain/calculations.js';
 const book=(rows,name='Hyresavtal 2027')=>{const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(rows),name);return workbook;};
 const profile=(workbook,saved=[])=>profileWorkbook(workbook,importSchemas,XLSX,saved,{reviewed:true});
-const rows=[['FastighetsID','Fast.nr','ObjektID','Avtalsnummer','Kontraktsstart','Årshyra','Tillägg','Hyra justeringsregel'],['F1','Test 1','0001','A1','2027-01-01',850000,25000,'none']];
+const rows=[['FastighetsID','Fastighetsbeteckning','ObjektID','Avtalsnummer','Kontraktsstart','Årshyra','Tillägg','Hyra justeringsregel'],['F1','Test 1','0001','A1','2027-01-01',850000,25000,'none']];
 const run=(workbook,profiles=profile(workbook),base=emptyData(),context={})=>prepareCleanImport(workbook,profiles,base,{fileName:'syntetiskt.xlsx',...context},XLSX);
 
 test('Fastighet and Fastighetsnamn import the property name separately from address and preserve ID links',()=>{
@@ -79,7 +79,7 @@ test('explicit property numbers keep the parent while a new address is reviewed 
  const data=emptyData();data.properties.push(normalize('properties',{id:'F1',name:'Test 1',address:'Tidigare gata'}));const workbook=book([['FastighetsID','Gatuadress','ObjektID','Avtalsnummer'],['F1','Ny gata','O1','A1']]),result=run(workbook,profile(workbook),data);assert.equal(result.report.linkProposals.length,0);assert.equal(result.report.blocking,0);assert.equal(result.clean.properties.length,1);assert.equal(result.clean.objects[0].property_id,'F1');assert.equal(result.report.review,1);assert.equal(result.clean.properties[0].address,'Tidigare gata');
 });
 test('keyless ambiguous name enrichment requires one valid choice and preserves relations',()=>{
- const data=emptyData();for(const id of ['F1','F2'])data.properties.push(normalize('properties',{id,name:'Test 1',address:id+' gata'}));const workbook=book([['Fast.nr','Populärnamn'],['Test 1','Valt namn']]),ps=profile(workbook),ambiguous=run(workbook,ps,data);assert.equal(ambiguous.report.blocking,1);const review=ambiguous.clean.workspace.importReview[0];assert.equal(review.matches.length,2);
+ const data=emptyData();for(const id of ['F1','F2'])data.properties.push(normalize('properties',{id,name:'Test 1',address:id+' gata'}));const workbook=book([['Fastighetsbeteckning','Populärnamn'],['Test 1','Valt namn']]),ps=profile(workbook),ambiguous=run(workbook,ps,data);assert.equal(ambiguous.report.blocking,1);const review=ambiguous.clean.workspace.importReview[0];assert.equal(review.matches.length,2);
  const chosen=run(workbook,ps,data,{rowMatches:{[review.matchingKey]:{propertyId:'F2',signature:ambiguous.report.linkProposals[0].signature}}});assert.equal(chosen.report.blocking,0);assert.equal(chosen.clean.properties[1].popular_name,'Valt namn');assert.equal(chosen.clean.objects.length,0);validateData(chosen.clean);
  const bad=run(workbook,ps,data,{rowMatches:{[review.matchingKey]:{propertyId:'F9',signature:ambiguous.report.linkProposals[0].signature}}});assert.equal(bad.report.blocking,1);assert.equal(bad.clean.properties[1].popular_name,null);
 });

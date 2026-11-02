@@ -51,5 +51,6 @@ test('table and field are separate controls and exclusion is one checkbox per so
  assert.equal((html.match(/<select data-preview-table=/g)||[]).length,2);
  assert.equal((html.match(/<select class="import-target" data-preview-map=/g)||[]).length,2);
  assert.equal((html.match(/type="checkbox" data-ignore-column=/g)||[]).length,2);
- assert.doesNotMatch(html,/data-ignore-column[^>]*>Importera inte|Avtal → Avtalsnummer/);
+ assert.doesNotMatch(html,/data-ignore-column[^>]*>Importera inte/);
+  assert.match(html,/Avtal → Avtalsnummer/);
 });
