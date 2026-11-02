@@ -84,7 +84,10 @@ test('supplied foreign key that contradicts a verified address cannot be replace
  assert.equal(result.report.linkProposals.length,0);
  assert.equal(result.clean.properties.find(p=>p.id==='SF1600').name,'Andersgatan 14');
  assert.equal(result.clean.properties.find(p=>p.id==='SF1601').name,'Testgatan 5');
- assert(result.report.review>0||result.report.blocking>0);
+ // Enrichment mode retains populated fields on the supplied property ID.
+ // It must never silently use the unrelated address to move this relationship.
+ assert.equal(result.report.blocking,0);
+ assert.equal(result.clean.properties.find(p=>p.id==='SF1601').management_object_number,'1601');
 });
 test('import does not call the bulk geocoder; manually initiated lookup and retry remain available',()=>{
  const app=readFileSync(new URL('../frontend/v2/app.js',import.meta.url),'utf8');
