@@ -70,7 +70,7 @@ function priceHeader(header){
  const n=norm(header);
  for(const [id,words] of Object.entries(priceWords)){
   for(const word of words){
-   if(n===word||n===word+'kr'||n===word+'perar'||n===word+'belopp'||n===word+'arsbelopp'||n===word+'grundbelopp')return 'price.'+id+'.amount';
+   if(n===word||n===word+'kr'||n===word+'krar'||n===word+'krperar'||n===word+'krm2'||n===word+'perar'||n===word+'belopp'||n===word+'arsbelopp'||n===word+'grundbelopp')return 'price.'+id+'.amount';
    if(n.startsWith(word)){
     const tail=n.slice(word.length);
     for(const [part,labels]of Object.entries(detailWords))if(labels.includes(tail))return 'price.'+id+'.'+part;

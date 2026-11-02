@@ -155,3 +155,30 @@ test('incomplete indexed rent evidence requires review rather than inventing KPI
  const r=prepareSmartImport({headers:h,rows:[row]},snapshot());
  assert.match(r.errors.join(' '),/saknar KPI-bastal eller indexandel/);
 });
+
+test('ambiguous source financial column must be mapped or explicitly ignored',()=>{
+ const src={headers:[...headers,'Årshyra totalt'],rows:[[...values(),'145000']]};
+ const blocked=prepareSmartImport(src,snapshot());
+ assert.match(blocked.errors.join(' '),/Ekonomikolumner saknar säker koppling/);
+ const intentional=prepareSmartImport(src,snapshot(),{ignoredColumns:[headers.length]});
+ assert.equal(intentional.errors.length,0,intentional.errors.join(' '));
+ assert.equal(inferImportColumn('Bashyra kr/år'),'price.base.amount');
+});
+test('manager homonyms at other organizations require email or manual identity selection',()=>{
+ const p=snapshot({
+  people:[{id:'person',name:'Anna Andersson'}],
+  parties:[{id:'old-owner',name:'Annan ägare'}],
+  partyPeople:[{person_id:'person',party_id:'old-owner',valid_from:'2020-01-01',valid_to:null}]
+ });
+ const r=prepareSmartImport(source(),p);
+ assert.match(r.errors.join(' '),/är inte verifierad hos/);
+});
+test('existing Party safely gains a supplied organization number without duplicate records',()=>{
+ const p=snapshot({parties:[{id:'owner',name:'Ägaren AB',organization_number:null}]});
+ const r=prepareSmartImport(source(),p);
+ assert.equal(r.errors.length,0,r.errors.join(' '));
+ const updated=r.commands.find(c=>c.action==='updateParty');
+ assert.equal(updated.id,'owner');
+ assert.deepEqual(updated.fields,{organization_number:'556001-2222'});
+ assert.equal(r.commands.filter(c=>c.action==='createParty'&&c.fields.name==='Ägaren AB').length,0);
+});
