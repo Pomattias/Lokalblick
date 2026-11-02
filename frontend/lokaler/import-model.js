@@ -203,8 +203,6 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     let number;try{number=normalizeOrganizationNumber(linked?.value);}catch(error){if(!holdField('parties','organization_number',error))throw Object.assign(error,originFor('parties','organization_number'),{value:linked?.value});}
     const byName=indexes.parties.get(text(value))||partyNames.get(key(value)),byNumber=number&&partyNumbers.get(number);
     if(byName&&byNumber&&byName.id!==byNumber.id)throw Error('Namn och organisationsnummer pekar på olika parter. Kontrollera kopplingen.');
-    if(byNumber&&present(value)&&key(byNumber.name)!==key(value)&&!byName)
-     throw Error('Organisationsnummer är redan kopplat till '+byNumber.name+'. Kontrollera partens namn innan uppgifterna kopplas ihop.');
     const existing=byName||byNumber;
     if(!present(value)&&!linked)return null;
     if(!existing&&!present(value)){

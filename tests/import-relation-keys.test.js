@@ -108,11 +108,12 @@ test('the same manager name at different owner organizations is not merged witho
  assert.equal(new Set(result.clean.people.map(p=>p.party_id)).size,2);
  assert.equal(result.clean.contacts.filter(c=>c.role==='owner').length,2);
 });
-test('an existing organization number with a different source name requires review, not a silent join',()=>{
+test('a known organization number reuses one canonical party while preserving its registered name',()=>{
  const first=importRows(build([record('1600-001','A1','Butiken AB','556001-1111',2025)])).result;
  const conflict=record('1600-002','A2','Ett Annat Företag AB','556001-1111',2026);
  const second=importRows(build([conflict]),first.clean).result;
  assert.equal(second.clean.parties.filter(p=>p.organization_number==='556001-1111').length,1);
- assert(second.report.blocking+second.report.review>0,'Business identity conflict must require review');
- assert(!second.clean.agreements.some(a=>a.id==='A2'&&a.tenant_party_id===first.clean.agreements[0].tenant_party_id));
+ assert.equal(second.report.blocking,0);
+ assert.equal(second.clean.parties.find(p=>p.organization_number==='556001-1111').name,'Butiken AB');
+ assert.equal(second.clean.agreements.find(a=>a.id==='A2').tenant_party_id,first.clean.agreements[0].tenant_party_id);
 });
