@@ -68,7 +68,38 @@ export function prepareCoreImport({headers=[],rows=[]},snapshot={},{
    else info.description='Oförändrad – befintliga poster återanvänds';
    records.push(info);
   };
-  if(!propertyNumber){fail('FörvaltningsNr krävs för säker fastighetsmatchning.');finish();continue;}
+  if(!propertyNumber){
+   // A tenant-only register has no physical property/lease link yet. Never guess one.
+   if((tenantName||tenantOrg)&&!objectNumber&&!agreementNumber&&!from&&!until){
+    const byOrg=tenantOrg?parties.filter(p=>eq(p.organization_number,tenantOrg)):[];
+    const byName=tenantName?parties.filter(p=>eq(p.name,tenantName)):[];
+    if(byOrg.length>1||byName.length>1)fail('Hyresgästen har tvetydig identitet.');
+    if(byOrg.length&&tenantName&&!eq(byOrg[0].name,tenantName))
+     fail('Organisationsnummer tillhör en annan hyresgäst.');
+    if(byOrg.length&&byName.length&&byOrg[0].id!==byName[0].id)
+     fail('Hyresgästnamn och organisationsnummer pekar på olika parter.');
+    if(byName.length&&tenantOrg&&byName[0].organization_number&&!eq(byName[0].organization_number,tenantOrg))
+     fail('Hyresgästen har ett annat organisationsnummer.');
+    let tenant=byOrg[0]||byName[0];
+    if(tenant&&tenant.kind&&!['tenant','hyresgäst'].includes(tenant.kind)&&
+     !assignments.some(a=>a.party_id===tenant.id&&a.role_code==='tenant'))
+     fail('Parten är inte verifierad som hyresgäst.');
+    if(!tenant&&!tenantName)fail('Ny hyresgäst måste ha namn.');
+    if(!tenant&&tenantName&&!failures.length){
+     tenant={id:id(),name:tenantName,organization_number:tenantOrg||null,kind:'tenant'};
+     parties.push(tenant);
+     write('createParty',{name:tenantName,kind:'tenant',
+      ...(tenantOrg?{organization_number:tenantOrg}:{})},sourceRow,{id:tenant.id});
+     created.push('hyresgäst');
+    }
+    if(tenant&&tenantOrg&&!tenant.organization_number&&!failures.length){
+     tenant.organization_number=tenantOrg;
+     write('updateParty',{organization_number:tenantOrg},sourceRow,{id:tenant.id});
+     created.push('organisationsnummer');
+    }
+   }else fail('FörvaltningsNr krävs för säker fastighetsmatchning.');
+   finish();continue;
+  }
   const matches=properties.filter(p=>eq(p.management_object_number,propertyNumber));
   if(matches.length>1){fail('FörvaltningsNr är inte unikt.');finish();continue;}
   let property=matches[0];
