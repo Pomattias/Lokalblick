@@ -25,6 +25,9 @@ test('computed and person columns are ignored by default during enrichment',()=>
  assert.equal(workbookFieldRule('Lokaldata','Hyra 2026',20),'@ignore');
  assert.equal(workbookFieldRule('Lokaldata','Hyra (kr/kvm)',23),'@ignore');
  assert.equal(workbookFieldRule('Fastighetslista','Email (förvaltare)',8),'@ignore');
+ assert.equal(workbookFieldRule('Fastighetslista','Fastighetsägare',5),'@ignore');
+ assert.equal(workbookFieldRule('Lokaldata','VERKSAMHET',4),'contracts.businessName');
+ assert.equal(workbookFieldRule('Lokalbestånd ','Verksamhet',1),'contracts.businessName');
  assert(!enrichmentFields.has('agreementItems.baseAmount'));
  assert(!enrichmentFields.has('activities.title'));
  assert(enrichmentFields.has('objects.area'));
