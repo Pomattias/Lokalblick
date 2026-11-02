@@ -22,7 +22,7 @@ async function api(body=null){
 const notify=(message,error=false)=>{const el=$('#feedback');el.textContent=message;el.classList.toggle('error',error)};
 const matches=(row,query)=>JSON.stringify(row).toLocaleLowerCase('sv').includes(query);
 const itemName=(view,row)=>view==='properties'?row.name:view==='objects'?row.object_number:view==='agreements'?row.agreement_number:view==='parties'||view==='people'?row.name:moreItemName(view,row);
-const secondary=(view,row)=>view==='properties'?row.address||row.management_object_number||'Ingen adress':view==='objects'?(row.currentVersion?.area??'–')+' m² · '+(state.snapshot.properties.find(p=>p.id===row.property_id)?.name||''):view==='agreements'?'Start '+(row.currentVersion?.valid_from||row.original_start_on||'–'):view==='people'?row.email||'Ingen e-post':view==='parties'?row.organization_number||'Ingen organisationsnummer':moreSecondary(view,row,state.snapshot);
+const secondary=(view,row)=>view==='properties'?[row.management_object_number?'FörvaltningsNr '+row.management_object_number:'FörvaltningsNr saknas',...(row.externalNumbers||[]).map(n=>n.source_system+': '+n.external_number)].join(' · '):view==='objects'?(row.currentVersion?.area??'–')+' m² · '+(state.snapshot.properties.find(p=>p.id===row.property_id)?.name||''):view==='agreements'?'Start '+(row.currentVersion?.valid_from||row.original_start_on||'–'):view==='people'?row.email||'Ingen e-post':view==='parties'?row.organization_number||'Ingen organisationsnummer':moreSecondary(view,row,state.snapshot);
 const selected=()=>registerItems().find(x=>x.id===state.id);
 const label=(caption,field,value='',type='text',extra='')=>'<label>'+esc(caption)+'<input name="'+esc(field)+'" type="'+esc(type)+'" value="'+esc(value??'')+'" '+extra+'></label>';
 const select=(caption,field,items,value='',required=false)=>'<label>'+esc(caption)+'<select name="'+esc(field)+'" '+(required?'required':'')+'><option value="">Välj…</option>'+items.map(x=>'<option value="'+esc(x.id)+'" '+(String(x.id)===String(value)?'selected':'')+'>'+esc(x.label)+'</option>').join('')+'</select></label>';
@@ -91,11 +91,16 @@ function renderDetail(){
  let actions='<button type="button" class="secondary" data-mode="edit">Redigera</button>';
  let facts='',history='';
  if(state.view==='properties'){
-  facts=[fact('Förvaltningsobjekt',row.management_object_number),fact('Adress',[row.address,row.city].filter(Boolean).join(', ')),fact('Ägare',row.stakeholders.owner.map(r=>state.snapshot.parties.find(p=>p.id===r.partyId)?.name).join(', ')||'–')].join('');
+  facts=[fact('FörvaltningsNr',row.management_object_number),fact('Adress',[row.address,row.city].filter(Boolean).join(', ')),fact('Ägare',row.stakeholders.owner.map(r=>state.snapshot.parties.find(p=>p.id===r.partyId)?.name).join(', ')||'–')].join('');
   actions+='<button class="primary" type="button" data-create-child="objects" data-parent-id="'+esc(row.id)+'">+ Nytt objekt</button>';
+  actions+='<button class="secondary" type="button" data-mode="externalNumber">+ Externt nummer</button>';
   actions+='<button class="secondary" type="button" data-mode="role">Koppla part/person</button>';
+  history='<h3>Externa fastighetsnummer</h3><div class="timeline">'+((row.externalNumbers||[]).map(n=>
+   '<article><div><strong>'+esc(n.external_number)+'</strong><span> · '+esc(n.source_system)+'</span></div>'+
+   '<button class="secondary" type="button" data-remove-external-number="'+esc(n.id)+'">Ta bort</button></article>').join('')||
+   '<span class="muted">Inga externa nummer kopplade ännu.</span>')+'</div>';
   if(row.address&&row.city)actions+='<button class="secondary" type="button" data-geocode>Hitta position</button>';
-  history=annualSettlementHtml((state.snapshot.costReconciliations||[]).filter(x=>x.propertyId===row.id),state.asOf);
+  history+=annualSettlementHtml((state.snapshot.costReconciliations||[]).filter(x=>x.propertyId===row.id),state.asOf);
  } else if(state.view==='objects'){
   const v=row.currentVersion;
   facts=[fact('Objektsnummer',row.object_number),fact('Fastighet',state.snapshot.properties.find(p=>p.id===row.property_id)?.name),fact('Gällande area',v?.area==null?'Ingen gällande version':v.area+' m²'),fact('Startdatum version',v?.valid_from),fact('Avslutad',row.ended_on||'Nej')].join('');
@@ -224,8 +229,15 @@ function formSchema(mode,row,view=state.view,parentId=null){
      '<p class="hint">Min är en garanterad årlig höjning även om KPI är lägre eller negativt. Max är årets tak. Båda beräknas på föregående års hyra och anges separat för bashyra och tillägg.</p>'};
  }
  if(mode==='end')return {title:'Avsluta objekt',action:'endObject',fields:label('Slutdatum','ended_on',state.asOf,'date','required')};
+ if(v==='properties'&&mode==='externalNumber')return {
+  title:'Koppla externt fastighetsnummer',action:'addPropertyExternalNumber',
+  fixed:{property_id:r.id},
+  fields:label('Källsystem','source_system','','text','required maxlength="80" placeholder="Exempelvis Stadsfastigheter"')+
+   label('Nummer i källsystemet','external_number','','text','required maxlength="120" placeholder="SF1600"')+
+   '<p class="hint">FörvaltningsNr är huvudnumret. Externa nummer används för sökning och import och ändrar inte objekt eller avtal.</p>'
+ };
  if(v==='properties')return {title:mode==='create'?'Ny fastighet':'Redigera fastighet',action:mode==='create'?'createProperty':'updateProperty',
-  fields:label('Fastighetsnamn','name',r.name,'text','required')+label('Fastighetsnummer / förvaltningsobjekt','management_object_number',r.management_object_number)+label('Populärnamn','popular_name',r.popular_name)+label('Adress','address',r.address)+label('Ort','city',r.city)+label('Latitud','latitude',r.latitude,'number','step="any" min="-90" max="90"')+label('Longitud','longitude',r.longitude,'number','step="any" min="-180" max="180"')};
+  fields:label('Fastighetsnamn','name',r.name,'text','required')+label('FörvaltningsNr','management_object_number',r.management_object_number)+label('Populärnamn','popular_name',r.popular_name)+label('Adress','address',r.address)+label('Ort','city',r.city)+label('Latitud','latitude',r.latitude,'number','step="any" min="-90" max="90"')+label('Longitud','longitude',r.longitude,'number','step="any" min="-180" max="180"')};
  if(v==='parties')return {title:mode==='create'?'Ny part':'Redigera part',action:mode==='create'?'createParty':'updateParty',
   fields:label('Partens namn','name',r.name,'text','required')+label('Organisationsnummer','organization_number',r.organization_number)+label('Typ','kind',r.kind)};
  if(v==='people')return {title:mode==='create'?'Ny person':'Redigera person',action:mode==='create'?'createPerson':'updatePerson',
@@ -314,6 +326,15 @@ document.addEventListener('click',e=>{
  if(jump){navigate(jump.dataset.jumpView,jump.dataset.jumpId);return;}
  const child=e.target.closest('[data-create-child]');
  if(child){openForm('create',{view:child.dataset.createChild,parentId:child.dataset.parentId});return;}
+ const removeExternal=e.target.closest('[data-remove-external-number]');
+ if(removeExternal){
+  const alias=state.snapshot.propertyExternalNumbers?.find(n=>n.id===removeExternal.dataset.removeExternalNumber);
+  if(!alias||alias.property_id!==selected()?.id)return;
+  if(!window.confirm('Ta bort kopplingen '+alias.source_system+': '+alias.external_number+'? Fastigheten och avtalen behålls.'))return;
+  api({version:state.snapshot.version,asOf:state.asOf,command:{action:'removePropertyExternalNumber',id:alias.id}})
+   .then(data=>{state.snapshot=data;render();notify('Extern nummerkoppling borttagen.');}).catch(error=>notify(error.message,true));
+  return;
+ }
  const geo=e.target.closest('[data-geocode]');
  if(geo){geocodeSelectedProperty().catch(error=>notify(error.message,true));return;}
  const nav=e.target.closest('[data-view]');
