@@ -115,6 +115,46 @@ try{
  assert.equal(tight,true,'Registerraden visar namn och adress på samma rad');
  await go('datamodel');await page.locator('.record-row').first().click();
  assert.match(await page.locator('#detail').innerText(),/Kolumner/);
+
+ // Parent actions propose a business number but never replace immutable IDs.
+ await add('properties',async()=>{
+  await page.locator('#edit-form [name=name]').fill('Seriefastigheten');
+  await page.locator('#edit-form [name=management_object_number]').fill('SF1213');
+ });
+ await go('properties');
+ await page.locator('.record-row').filter({hasText:'Seriefastigheten'}).click();
+ await page.locator('#detail [data-create-child="objects"]').click();
+ assert.equal(await page.locator('#edit-form [name=object_number]').inputValue(),'SF1213-001');
+ await page.locator('#edit-form [name=valid_from]').fill('2020-01-01');
+ await save();
+ await page.locator('#detail [data-create-child="agreements"]').click();
+ assert.equal(await page.locator('#edit-form [name=agreement_number]').inputValue(),'SF1213-001-01');
+ await page.locator('#edit-form [name=valid_from]').fill('2020-01-01');
+ await save();
+ const numbered=await (await fetch(origin+'/api/v3/core')).json();
+ const numberedProperty=numbered.properties.find(x=>x.management_object_number==='SF1213');
+ const numberedObject=numbered.objects.find(x=>x.property_id===numberedProperty.id);
+ assert.equal(numberedObject.object_number,'SF1213-001');
+ assert.equal(numbered.agreements.find(a=>a.object_id===numberedObject.id).agreement_number,'SF1213-001-01');
+ // A multi-property import must not invent a second object merely because an
+ // external source has a new contract number without a physical object number.
+ await go('sources');
+ await page.locator('[data-import-register]').selectOption('agreementLinks');
+ const rows=Buffer.from('Fastighetsnummer;Avtalsnummer;Startdatum;Objektsnummer\\nSF1213;EXTERNAL-11;2026-01-01;SF1213-001\\nSF1213;EXTERNAL-12;2026-03-01;\\n','utf8');
+ await page.locator('[data-import-file]').setInputFiles({name:'avtalslista.csv',mimeType:'text/csv',buffer:rows});
+ assert.equal(await page.locator('[data-import-apply]').isDisabled(),true,'Unclear object link cannot be silently imported');
+ await page.locator('[data-link-object="1"]').selectOption('@new');
+ assert.equal(await page.locator('[data-import-apply]').isEnabled(),true);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-import-apply]').click();
+ await page.locator('#feedback').getByText(/nya rader importerade/).waitFor();
+ const linked=await (await fetch(origin+'/api/v3/core')).json();
+ assert.equal(linked.objects.filter(o=>o.property_id===numberedProperty.id).length,2);
+ const existingLease=linked.agreements.find(a=>a.agreement_number==='EXTERNAL-11');
+ const newLease=linked.agreements.find(a=>a.agreement_number==='EXTERNAL-12');
+ assert.equal(existingLease.object_id,numberedObject.id);
+ assert.equal(linked.objects.find(o=>o.id===newLease.object_id).object_number,'SF1213-002');
+ assert.equal(linked.objects.find(o=>o.id===newLease.object_id).currentVersion.area,null);
  await go('overview');
  const geometry=await page.evaluate(()=>{
   const sw=document.documentElement.scrollWidth;
