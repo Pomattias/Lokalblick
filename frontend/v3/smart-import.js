@@ -332,7 +332,7 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
    }
   }
   if(!object&&contractNum&&!rowErrors.length)fail('Objekt kan inte avgöras säkert. Välj befintligt objekt eller skapa nytt.');
-  if(object)info.objectId=object.id;
+  if(object){info.objectId=object.id;info.objectNumber=object.object_number;}
   if(object&&get(row,'area')){
    const areaValue=money(get(row,'area'));
    if(areaValue===null)fail('Ogiltig objektarea.');
