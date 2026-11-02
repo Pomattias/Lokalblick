@@ -1,5 +1,6 @@
 // Import selection, missing-city questions and progress display. No persistence.
 import {esc} from "./view-format.js";
+import {defaultWorkbookSheets,workbookRole} from "../lokaler/import-workbook-rules.js";
 export function createImportDialogs({sourceService,actor}){
 function importCountLabel(counts = {}) {
   const parts = [];
@@ -15,13 +16,16 @@ function chooseImportSheets(prepared) {
   return new Promise((resolve, reject) => {
     const d = document.createElement("dialog");
     d.className = "followup-dialog import-dialog";
+    const sheetNames=(prepared.sheets||[]).map(sheet=>sheet.sheetName||sheet.name);
+    const selectedByDefault=new Set(defaultWorkbookSheets(sheetNames,(prepared.sheets||[]).map(s=>Boolean(s.recommended))));
+    const hasLokallista=sheetNames.some(n=>workbookRole(n,sheetNames)==='base');
     const rows = (prepared.sheets || [])
       .map(
         (sheet, index) =>
-          `<label class="import-sheet"><input type="checkbox" data-import-sheet value="${esc(sheet.name)}" ${sheet.recommended ? "checked" : ""}><span><strong>${esc(sheet.sheetName||sheet.name)}</strong><small>${esc(sheet.fileName||"")} · ${esc(sheet.kind || "Övrig flik")} · ${sheet.rows??0} datarader</small>${sheet.financialColumns?.length?`<small>Hyreskolumner: ${esc(sheet.financialColumns.join(", "))}</small>`:""}</span></label>`,
+          `<label class="import-sheet"><input type="checkbox" data-import-sheet value="${esc(sheet.name)}" ${selectedByDefault.has(sheet.sheetName||sheet.name) ? "checked" : ""}><span><strong>${esc(sheet.sheetName||sheet.name)}</strong><small>${esc(sheet.fileName||"")} · ${esc(sheet.kind || "Övrig flik")} · ${sheet.rows??0} datarader</small>${sheet.financialColumns?.length?`<small>Hyreskolumner: ${esc(sheet.financialColumns.join(", "))}</small>`:""}</span></label>`,
       )
       .join("");
-    d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Välj flikar att läsa</h2><p><strong>${esc(prepared.fileName)}</strong></p></div></div><p>Lokalblick har hittat ${(prepared.sheets || []).length} flikar. Flikar som känns igen på namn eller avtals- och hyreskolumner är förvalda. Välj de flikar som hör ihop. Vi tolkar kolumnerna och sammanför fastigheter, objekt och avtal innan något sparas.</p><div class="import-sheet-tools"><button type="button" data-import-select="recommended">Föreslagna</button><button type="button" data-import-select="all">Markera alla</button><button type="button" data-import-select="none">Avmarkera alla</button></div><div class="import-sheet-list">${rows}</div><div class="actions import-dialog-actions"><button type="button" data-import-cancel>Avbryt</button><button type="button" class="primary-action" data-import-start>Tolka och koppla underlagen</button></div>`;
+    d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Välj flikar att läsa</h2><p><strong>${esc(prepared.fileName)}</strong></p></div></div><p>Lokalblick har hittat ${(prepared.sheets || []).length} flikar. ${hasLokallista?"Lokallista är grundregister. Lokalbestånd, Fastighetslista och Lokaldata används endast för matchad komplettering. Referensflikarna SF/EXT och planeringslistor väljs inte automatiskt.":"Flikar som känns igen är förvalda. Granska vilka som hör ihop."} Vi ändrar inte originalfilen.</p><div class="import-sheet-tools"><button type="button" data-import-select="recommended">Föreslagna</button><button type="button" data-import-select="all">Markera alla</button><button type="button" data-import-select="none">Avmarkera alla</button></div><div class="import-sheet-list">${rows}</div><div class="actions import-dialog-actions"><button type="button" data-import-cancel>Avbryt</button><button type="button" class="primary-action" data-import-start>Tolka och koppla underlagen</button></div>`;
     document.body.append(d);
     const closeWithAbort = () => {
       if (d.open) d.close();
@@ -39,7 +43,7 @@ function chooseImportSheets(prepared) {
               ? true
               : mode === "none"
                 ? false
-                : Boolean(prepared.sheets[index]?.recommended);
+                : selectedByDefault.has(prepared.sheets[index]?.sheetName||prepared.sheets[index]?.name);
         });
       };
     });
