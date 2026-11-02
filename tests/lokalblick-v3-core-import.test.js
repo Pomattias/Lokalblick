@@ -120,3 +120,14 @@ test('standalone tenant sheet imports only a tenant party and never creates an u
  assert.deepEqual(repeated.errors,[]);
  assert.equal(repeated.commands.length,0);
 });
+
+test('preview does not mutate existing party when proposing missing organization number',()=>{
+ const before=blank();
+ before.parties=[{id:'tenant',name:'Butik AB',organization_number:null,kind:'tenant'}];
+ const sourceData=source();
+ const untouched=JSON.stringify(before);
+ const prepared=plan(sourceData,before);
+ assert.equal(prepared.errors.length,0,prepared.errors.join('; '));
+ assert(prepared.commands.some(c=>c.action==='updateParty'&&c.id==='tenant'));
+ assert.equal(JSON.stringify(before),untouched);
+});
