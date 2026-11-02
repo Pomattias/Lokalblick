@@ -22,7 +22,7 @@ function chooseImportSheets(prepared) {
     const rows = (prepared.sheets || [])
       .map(
         (sheet, index) =>
-          `<label class="import-sheet"><input type="checkbox" data-import-sheet value="${esc(sheet.name)}" ${selectedByDefault.has(sheet.sheetName||sheet.name) ? "checked" : ""}><span><strong>${esc(sheet.sheetName||sheet.name)}</strong><small>${esc(sheet.fileName||"")} · ${esc(sheet.kind || "Övrig flik")} · ${sheet.rows??0} datarader</small>${sheet.financialColumns?.length?`<small>Hyreskolumner: ${esc(sheet.financialColumns.join(", "))}</small>`:""}</span></label>`,
+          `<label class="import-sheet"><input type="checkbox" data-import-sheet value="${esc(sheet.name)}" ${selectedByDefault.has(sheet.sheetName||sheet.name) ? "checked" : ""} ${hasLokallista&&!["base","enrichment"].includes(workbookRole(sheet.sheetName||sheet.name,sheetNames))?"disabled":""}><span><strong>${esc(sheet.sheetName||sheet.name)}</strong><small>${esc(sheet.fileName||"")} · ${esc(({base:"Grundregister",enrichment:"Berikning",reference:"Referens – används inte separat",optional:"Separat underlag"}[workbookRole(sheet.sheetName||sheet.name,sheetNames)])||sheet.kind||"Övrig flik")} · ${sheet.rows??0} datarader</small>${sheet.financialColumns?.length?`<small>Hyreskolumner: ${esc(sheet.financialColumns.join(", "))}</small>`:""}</span></label>`,
       )
       .join("");
     d.innerHTML = `<div class="import-dialog-head"><div><span class="eyebrow">EXCELIMPORT</span><h2>Välj flikar att läsa</h2><p><strong>${esc(prepared.fileName)}</strong></p></div></div><p>Lokalblick har hittat ${(prepared.sheets || []).length} flikar. ${hasLokallista?"Lokallista är grundregister. Lokalbestånd, Fastighetslista och Lokaldata används endast för matchad komplettering. Referensflikarna SF/EXT och planeringslistor väljs inte automatiskt.":"Flikar som känns igen är förvalda. Granska vilka som hör ihop."} Vi ändrar inte originalfilen.</p><div class="import-sheet-tools"><button type="button" data-import-select="recommended">Föreslagna</button><button type="button" data-import-select="all">Markera alla</button><button type="button" data-import-select="none">Avmarkera alla</button></div><div class="import-sheet-list">${rows}</div><div class="actions import-dialog-actions"><button type="button" data-import-cancel>Avbryt</button><button type="button" class="primary-action" data-import-start>Tolka och koppla underlagen</button></div>`;
@@ -38,6 +38,7 @@ function chooseImportSheets(prepared) {
       button.onclick = () => {
         const mode = button.dataset.importSelect;
         d.querySelectorAll("[data-import-sheet]").forEach((input, index) => {
+          if(input.disabled){input.checked=false;return;}
           input.checked =
             mode === "all"
               ? true
@@ -48,7 +49,7 @@ function chooseImportSheets(prepared) {
       };
     });
     d.querySelector("[data-import-start]").onclick = () => {
-      const selected = [...d.querySelectorAll("[data-import-sheet]:checked")].map(
+      const selected = [...d.querySelectorAll("[data-import-sheet]:checked:not(:disabled)")].map(
         (input) => input.value,
       );
       if (!selected.length) {
