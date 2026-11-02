@@ -1,4 +1,5 @@
 // Private, opt-in Excel/CSV import. The workbook is parsed locally in the browser.
+import {prepareAgreementLinks} from './relational-import.js';
 // No automated migration, guessing across properties or hidden data changes.
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=s=>String(s||'').toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
@@ -8,6 +9,14 @@ const kind={
  properties:{title:'Fastigheter',action:'createProperty',fields:{name:['Fastighetsnamn','Fastighet','Namn','Fastighetsbeteckning'],management_object_number:['Förvaltningsobjekt','Fastighetsnummer'],address:['Adress','Gatuadress'],city:['Ort','Stad','Kommun'],popular_name:['Populärnamn']},required:['name']},
  objects:{title:'Objekt',action:'createObject',parent:'property_id',fields:{object_number:['Objektsnummer','Objekt','Objektnummer','Nummer'],valid_from:['Startdatum','Från och med','Giltig från','Fr.o.m.'],area:['Yta','Area','Yta m2','Kvm'],category:['Kategori','Objektkategori']},required:['object_number','valid_from']},
  agreements:{title:'Avtal',action:'createAgreement',parent:'object_id',fields:{agreement_number:['Avtalsnummer','Avtal','AvtalsID','Kontraktsnummer'],valid_from:['Startdatum','Avtal från','Hyrestid från'],legal_end_on:['Slutdatum','Avtal till','Hyrestid till'],usage:['Användning','Verksamhetstyp']},required:['agreement_number','valid_from']},
+ agreementLinks:{title:'Avtalslista – koppla per fastighet',action:'relationImport',fields:{
+  management_object_number:['Fastighetsnummer','FastighetsID','Fastighetsnr','Förvaltningsobjekt'],
+  agreement_number:['Avtalsnummer','Avtal','AvtalsID','Kontraktsnummer'],
+  object_number:['Objektsnummer','Objektnummer','ObjektID','Objektnr'],
+  valid_from:['Startdatum','Avtal från','Hyrestid från','From','Fr.o.m.'],
+  legal_end_on:['Slutdatum','Avtal till','Hyrestid till','Tom','T.o.m.'],
+  usage:['Användning','Verksamhetstyp'],area:['Yta','Area','Kvm','Yta m2']
+ },required:['management_object_number','agreement_number']},
  issues:{title:'Ärenden',action:'createIssue',parent:'property_id',fields:{title:['Namn','Ärende','Rubrik'],description:['Beskrivning','Notering'],estimated_cost:['Kostnad','Beräknad kostnad','Budget']},required:['title']},
  recurringCosts:{title:'Fastighetskostnader',action:'createCost',parent:'property_id',fields:{name:['Namn','Benämning','Kostnad'],category:['Kategori','Kostnadstyp'],annual_amount:['Årskostnad','Årsbelopp','Budget','Belopp']},required:['name','annual_amount']}
 };
@@ -58,7 +67,7 @@ export function mountImport(root,{snapshot,apply}) {
   '<button type="button" class="primary" data-import-apply disabled>Bekräfta import</button>';
  root.append(shell);
  let book=[],columns=[],rows=[],plan=[],errors=[],fileName='';
- const affiliations=new Map(),newParties=new Map();
+ const affiliations=new Map(),newParties=new Map(),relationChoices=new Map();
  const affiliationOptions=()=>[...snapshot.parties,...newParties.values()].sort((a,b)=>a.name.localeCompare(b.name,'sv'));
  const organizationKey=s=>normalize(s);
  const uniquePart=(name,number='')=>affiliationOptions().find(p=>number&&p.organization_number===number)||affiliationOptions().find(p=>organizationKey(p.name)===organizationKey(name));
@@ -75,7 +84,7 @@ export function mountImport(root,{snapshot,apply}) {
   parent.innerHTML='<option value="">Välj…</option>'+option(items);
  }
  function columnsFor(sheetRows){
-  affiliations.clear();newParties.clear();
+  affiliations.clear();newParties.clear();relationChoices.clear();
   columns=(sheetRows[0]||[]).map((v,i)=>({id:String(i),label:String(v||'Kolumn '+(i+1))}));
   rows=sheetRows.slice(1).filter(r=>Array.isArray(r)&&r.some(v=>String(v??'').trim())).slice(0,201);
   const k=chosen(),entries=Object.entries(k.fields);
@@ -117,6 +126,28 @@ export function mountImport(root,{snapshot,apply}) {
    plan.push({action:k.action,fields:data,sourceRow:i+2});
   });
   if(rows.length>200)errors.push('Filen har fler än 200 datarader. Dela upp importen i mindre filer.');
+  if(register.value==='agreementLinks'){
+   const prepared=prepareAgreementLinks(plan,snapshot,Object.fromEntries(relationChoices));
+   plan=prepared.commands;errors.push(...prepared.errors);
+   const optionFor=(r,i)=>{
+    if(r.action==='existing')return '<span class="muted">Befintligt avtal · '+esc(r.objectNumber)+'</span>';
+    if(!r.propertyId)return '<span class="muted">Fastighet behöver kontrolleras</span>';
+    const current=relationChoices.get(i)||r.objectId||'';
+    return '<select data-link-object="'+i+'" aria-label="Välj objekt för Excelrad '+r.sourceRow+'">'+
+     '<option value="" '+(!current?'selected':'')+'>Välj objekt…</option>'+
+     r.candidates.map(o=>'<option value="'+esc(o.id)+'" '+(o.id===current?'selected':'')+'>'+esc(o.number)+'</option>').join('')+
+     '<option value="@new" '+(current==='@new'?'selected':'')+'>+ Skapa nytt objekt i fastigheten</option></select>';
+   };
+   preview.innerHTML='<h3>Avtalskopplingar · '+prepared.records.length+' rader · '+plan.length+' ändringar</h3>'+
+    '<p class="muted">Fastighetsnummer och avtalsnummer identifierar avtalen. Befintliga avtalskopplingar behålls. Om objekt saknas måste du välja ett befintligt objekt eller aktivt välja att skapa ett nytt.</p>'+
+    (errors.length?'<p class="error-text" role="alert">'+errors.map(esc).join(' · ')+'</p>':
+     '<p class="muted">Objektkopplingarna är granskade. Nya avtal och eventuella objekt sparas atomiskt.</p>')+
+    '<div class="import-preview-table"><table><thead><tr><th>Excelrad</th><th>Fastighet / avtal</th><th>Objektkoppling</th><th>Bedömning</th></tr></thead><tbody>'+
+    prepared.records.map((r,i)=>'<tr><td>'+r.sourceRow+'</td><td>'+esc(r.propertyNumber)+' · '+esc(r.agreementNumber)+'</td><td>'+
+     optionFor(r,i)+'</td><td>'+esc(r.reason||r.action)+'</td></tr>').join('')+
+    '</tbody></table></div>';
+   confirm.disabled=errors.length>0||!plan.length;return;
+  }
   if(register.value==='people'){
    const partyCommands=[...newParties.values()].map(p=>({action:'createParty',id:p.id,fields:{name:p.name,...(p.organization_number?{organization_number:p.organization_number}:{})}}));
    const links=plan.filter((_,i)=>affiliations.get(i)).length;
@@ -147,15 +178,21 @@ export function mountImport(root,{snapshot,apply}) {
       .map(name=>({name,rows:globalThis.XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false,defval:''})}));
    }
    sheet.disabled=false;sheet.innerHTML=option(book.map(x=>({id:x.name,label:x.name})));
-   sheet.value=book.find(b=>register.value==='agreements'&&normalize(b.name)==='lokallista')?.name||book.find(b=>normalize(b.name)===normalize(chosen().title))?.name||book[0]?.name||'';
+   sheet.value=book.find(b=>['agreements','agreementLinks'].includes(register.value)&&normalize(b.name)==='lokallista')?.name||book.find(b=>normalize(b.name)===normalize(chosen().title))?.name||book[0]?.name||'';
    selectSheet();
   }catch(error){preview.innerHTML='<p class="error-text">'+esc(error.message)+'</p>';confirm.disabled=true}
  });
- register.addEventListener('change',()=>{parentFields();if(book.length){sheet.value=book.find(b=>register.value==='agreements'&&normalize(b.name)==='lokallista')?.name||book.find(b=>normalize(b.name)===normalize(chosen().title))?.name||book[0].name;selectSheet();}});
+ register.addEventListener('change',()=>{parentFields();if(book.length){sheet.value=book.find(b=>['agreements','agreementLinks'].includes(register.value)&&normalize(b.name)==='lokallista')?.name||book.find(b=>normalize(b.name)===normalize(chosen().title))?.name||book[0].name;selectSheet();}});
  sheet.addEventListener('change',selectSheet);
  parent.addEventListener('change',buildPreview);
  map.addEventListener('change',buildPreview);
  preview.addEventListener('change',event=>{
+  const link=event.target.closest('[data-link-object]');
+  if(link){
+   const idx=Number(link.dataset.linkObject);
+   if(link.value)relationChoices.set(idx,link.value);else relationChoices.delete(idx);
+   buildPreview();return;
+  }
   const select=event.target.closest('[data-person-party]');if(!select)return;
   const index=Number(select.dataset.personParty);
   if(select.value==='@new'){
