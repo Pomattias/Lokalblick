@@ -345,6 +345,7 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
     const areaRaw=get(row,'area');
     const areaValue=areaRaw?money(areaRaw):null;
     if(areaRaw&&areaValue===null)fail('Ogiltig objektarea.');
+    object.versions[0].area=areaValue;
     cmd('createObject',{property_id:property.id,object_number:proposed,
      valid_from:objectStart,...(areaValue!==null?{area:areaValue}:{})},
      sourceRow,{id:object.id});info.created.push('objekt');
