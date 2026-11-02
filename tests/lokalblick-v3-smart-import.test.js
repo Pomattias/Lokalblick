@@ -182,3 +182,23 @@ test('existing Party safely gains a supplied organization number without duplica
  assert.deepEqual(updated.fields,{organization_number:'556001-2222'});
  assert.equal(r.commands.filter(c=>c.action==='createParty'&&c.fields.name==='Ägaren AB').length,0);
 });
+
+test('property owner and manager links use earliest evidenced date even if lease rows are unsorted',async()=>{
+ const db=openMemoryDatabase(),store=new CoreV3Store(db);try{
+  const state=await store.readSnapshot('2026-11-02');
+  const newer=values('SF1213','A-NEW');newer[5]='2026-01-01';
+  const older=values('SF1213','A-OLD');older[5]='2020-01-01';
+  const rows=source([newer,older]);
+  const planned=prepareSmartImport(rows,state);
+  assert.equal(planned.errors.length,0,planned.errors.join(' '));
+  const result=await store.mutate({version:state.version,asOf:'2026-11-02',commands:planned.commands});
+  const property=result.properties[0];
+  const owner=result.stakeholderAssignments.filter(x=>x.property_id===property.id&&x.role_code==='owner');
+  const manager=result.stakeholderAssignments.filter(x=>x.property_id===property.id&&x.role_code==='asset_manager');
+  assert.equal(owner.length,1);assert.equal(manager.length,1);
+  assert.equal(owner[0].valid_from,'2020-01-01');
+  assert.equal(manager[0].valid_from,'2020-01-01');
+  assert.equal(result.partyPeople[0].valid_from,'2020-01-01');
+  assert.equal(result.agreements.length,2);
+ }finally{db.close()}
+});
