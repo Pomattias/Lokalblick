@@ -157,6 +157,53 @@ try{
  assert.equal(existingLease.object_id,numberedObject.id);
  assert.equal(linked.objects.find(o=>o.id===newLease.object_id).object_number,'SF1213-002');
  assert.equal(linked.objects.find(o=>o.id===newLease.object_id).currentVersion.area,null);
+
+ // Default, no-configuration import creates the entire relationship chain.
+ await go('sources');
+ const autoCsv=Buffer.from(
+  'Fastighetsnummer;Fastighetsnamn;Objektnummer;Yta;Avtalsnummer;Startdatum;Hyresgäst;Fastighetsägare;Förvaltare;Bashyra;Bashyra basår;Tillägg;Tillägg basår\n'+
+  'SF3300;Importkvarteret;SF3300-001;125;TEST-3300-01;2025-01-01;Butik Syd AB;Ägaren Syd AB;Eva Förvaltare;120000;2025;3000;2024\n','utf8');
+ await page.locator('[data-smart-file]').setInputFiles({name:'blandad-lista.csv',mimeType:'text/csv',buffer:autoCsv});
+ await page.locator('[data-smart-save]').waitFor();
+ assert.equal(await page.locator('[data-smart-save]').isEnabled(),true);
+ assert.match(await page.locator('[data-smart-results]').innerText(),/Ny eller kompletterad|Nya\/kopplade/);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-smart-save]').click();
+ await page.locator('#feedback').getByText(/åtgärder importerade/).waitFor();
+ const automatic=await (await fetch(origin+'/api/v3/core')).json();
+ const autoProperty=automatic.properties.find(p=>p.management_object_number==='SF3300');
+ const autoObject=automatic.objects.find(o=>o.property_id===autoProperty?.id);
+ const autoAgreement=automatic.agreements.find(a=>a.agreement_number==='TEST-3300-01');
+ assert.equal(autoObject.object_number,'SF3300-001');
+ assert.equal(autoAgreement.object_id,autoObject.id);
+ assert.equal(automatic.parties.find(p=>p.name==='Butik Syd AB')?.id,
+  automatic.stakeholderAssignments.find(a=>a.agreement_id===autoAgreement.id&&a.role_code==='tenant')?.party_id);
+ assert.equal(automatic.parties.find(p=>p.name==='Ägaren Syd AB')?.id,
+  automatic.stakeholderAssignments.find(a=>a.property_id===autoProperty.id&&a.role_code==='owner')?.party_id);
+ const managerRole=automatic.stakeholderAssignments.find(a=>a.property_id===autoProperty.id&&a.role_code==='asset_manager');
+ assert.equal(automatic.people.find(p=>p.name==='Eva Förvaltare')?.id,managerRole?.person_id);
+ assert.deepEqual(automatic.agreementItems.filter(x=>x.agreement_id===autoAgreement.id)
+  .map(i=>[i.type,i.base_amount,i.base_year]),[['base',120000,2025],['addition',3000,2024]]);
+ // Reimport must match existing records without creating duplicates.
+ await go('sources');
+ await page.locator('[data-smart-file]').setInputFiles({name:'blandad-lista.csv',mimeType:'text/csv',buffer:autoCsv});
+ await page.locator('[data-smart-save]').waitFor();
+ assert.equal(await page.locator('[data-smart-save]').isDisabled(),true);
+ // New lease on the same property without an object number requires review.
+ const ambiguousCsv=Buffer.from(
+  'Fastighetsnummer;Fastighetsnamn;Avtalsnummer;Startdatum;Hyresgäst\n'+
+  'SF3300;Importkvarteret;TEST-3300-02;2026-01-01;Butik Syd AB\n','utf8');
+ await page.locator('[data-smart-file]').setInputFiles({name:'nya-avtal.csv',mimeType:'text/csv',buffer:ambiguousCsv});
+ await page.locator('[data-smart-object="0"]').waitFor();
+ assert.equal(await page.locator('[data-smart-save]').isDisabled(),true);
+ await page.locator('[data-smart-object="0"]').selectOption(autoObject.id);
+ assert.equal(await page.locator('[data-smart-save]').isEnabled(),true);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-smart-save]').click();
+ await page.locator('#feedback').getByText(/åtgärder importerade/).waitFor();
+ const linkedSnapshot=await (await fetch(origin+'/api/v3/core')).json();
+ assert.equal(linkedSnapshot.objects.filter(o=>o.property_id===autoProperty.id).length,1);
+ assert.equal(linkedSnapshot.agreements.find(a=>a.agreement_number==='TEST-3300-02')?.object_id,autoObject.id);
  await go('overview');
  const geometry=await page.evaluate(()=>{
   const sw=document.documentElement.scrollWidth;
