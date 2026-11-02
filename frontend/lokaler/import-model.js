@@ -67,7 +67,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
   const labels=new Map([...importSchemas.flatMap(schema=>schema.columns.map(([field,label])=>({target:schema.key+'.'+field,label:schema.sheet+' → '+label}))),...contactFields(profile)].map(field=>[field.target,field.label]));
   return [profile,new Map(profile.columns.map(column=>[column.index,{source:profile.fileName||context.fileName||'Excel',sheet:profile.name,index:column.index,header:column.header,target:column.target,label:labels.get(column.target)||column.target,...(column.itemType?{itemType:column.itemType,itemLabel:tables.agreement_items.fields.find(field=>field.key==='type').values[column.itemType]}:{}),read:0,skipped:0,review:0}]))];
  }));
- data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const prior=clone(data),priorAgreementIds=new Set(prior.agreements.map(row=>row.id)),priorPropertyIds=new Set(prior.properties.map(row=>row.id)),priorObjects=new Map(prior.objects.map(row=>[row.id,row]));const aliases=propertyAliases(data.workspace.auditLog);
+ data.workspace ||= {};if(context.preferences)data.workspace.importFieldPreferences=clone(context.preferences);const masterPropertyIds=new Set();const prior=clone(data),priorAgreementIds=new Set(prior.agreements.map(row=>row.id)),priorPropertyIds=new Set(prior.properties.map(row=>row.id)),priorObjects=new Map(prior.objects.map(row=>[row.id,row]));const aliases=propertyAliases(data.workspace.auditLog);
  // Automatic text matches use the saved snapshot, never earlier rows in this file.
  const savedTextProperties=new Map();for(const row of prior.properties){const identity=propertyTextKey(row);if(identity){if(!savedTextProperties.has(identity))savedTextProperties.set(identity,[]);savedTextProperties.get(identity).push(row);}}
  const priorIds=Object.fromEntries(Object.keys(tables).map(table=>[table,new Set(prior[table].map(row=>row.id))]));
@@ -104,8 +104,9 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
  };
  const propertyProvider=profile=>profile.columns.some(c=>fieldMap[c.target]?.table==='properties'&&['id','management_object_number'].includes(fieldMap[c.target]?.field))?0:1;
  const priority=profile=>profile.columns.filter(column=>importPreference(data.workspace.importFieldPreferences,...column.target.split('.'),profile.fileName||context.fileName,profile,column)==='accept').length;
- for(const profile of [...profiles].sort((a,b)=>rank(a)-rank(b)||propertyProvider(a)-propertyProvider(b)||priority(b)-priority(a)||JSON.stringify([a.fileName||context.fileName,a.name]).localeCompare(JSON.stringify([b.fileName||context.fileName,b.name]),'sv'))){
+ for(const profile of [...profiles].sort((a,b)=>(a.workbookRole==='base'?-1:0)-(b.workbookRole==='base'?-1:0)||rank(a)-rank(b)||propertyProvider(a)-propertyProvider(b)||priority(b)-priority(a)||JSON.stringify([a.fileName||context.fileName,a.name]).localeCompare(JSON.stringify([b.fileName||context.fileName,b.name]),'sv'))){
   const sheet=workbook.Sheets[profile.sheetKey||profile.name];if(!sheet?.['!ref'])continue;
+  const enrichmentMode=Boolean(context.enrichment||profile.enrichment);
   const range=XLSX.utils.decode_range(sheet['!ref']);
   for(let r=profile.dataStartRow??profile.headerRow;r<=range.e.r;r++){
    const selected=profile.columns.filter(column=>!column.target.startsWith('@'));
@@ -138,7 +139,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     // Enrichment retains saved facts before validation, including references.
     // Explicit identifier checks still run before merge; a manual descriptive
     // cell edit is the only way to replace a populated field in this mode.
-    if(context.enrichment&&existing&&priorIds[table].has(existing.id))for(const field of tables[table].fields){
+    if(enrichmentMode&&existing&&priorIds[table].has(existing.id))for(const field of tables[table].fields){
      // A source-backed designation replaces only an address used as a
      // placeholder name, after unambiguous saved-address identity validation.
      const verifiedName=table==='properties'&&field.key==='name'&&
@@ -295,7 +296,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     const hasSourceNumber=[raw.properties?.id,raw.properties?.management_object_number,raw.objects?.id,raw.objects?.property_id,raw.agreements?.id,raw.agreements?.object_id,raw.issues?.property_id,raw.issues?.object_id].some(present);
     // Text lookup enriches the saved portfolio only. It never substitutes for
     // a supplied number or links two properties created in this import.
-    const allowTextMatch=!hasSourceNumber&&priorPropertyIds.size>0;
+    const allowTextMatch=!hasSourceNumber&&(priorPropertyIds.size>0||profile.enrichment);
     const anchorAgreement=raw.agreements?.id&&indexes.agreements.get(text(raw.agreements.id));
     const agreementParts=agreementNumberParts(raw.agreements?.id);
     // An earlier internal object key can still represent this source number.
@@ -339,8 +340,8 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     }
     if(linkedNumbers.has('owner'))raw.properties ||= {};
     if(issueContext&&property&&(raw.properties?.owner_party_id||linkedNumbers.has('owner'))){
-     const owner=context.enrichment&&property.owner_party_id?property.owner_party_id:party(raw.properties?.owner_party_id||property.owner_party_id,'owner');
-     if(context.enrichment&&property.owner_party_id)linkedNumbers.delete('owner');
+     const owner=enrichmentMode&&property.owner_party_id?property.owner_party_id:party(raw.properties?.owner_party_id||property.owner_party_id,'owner');
+     if(enrichmentMode&&property.owner_party_id)linkedNumbers.delete('owner');
      property=merge('properties',{id:property.id,owner_party_id:owner},property);
     }
     if(raw.properties&&!issueContext){
@@ -351,7 +352,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      if(new Set(propertyIds).size>1)throw Error('FastighetsID och radens fastighetskoppling pekar på olika fastigheter.');
      p.id ||= propertyIds[0];
      const matchingKey=JSON.stringify([source,profile.name,r+1]),cityFits=row=>!p.city||!row.city||key(p.city)===key(row.city);
-     const eligible=row=>allowTextMatch&&priorPropertyIds.has(row.id)&&cityFits(row);
+     const eligible=row=>allowTextMatch&&(priorPropertyIds.has(row.id)||profile.enrichment&&masterPropertyIds.has(row.id))&&cityFits(row);
      const named=(p.name?propertyIdentities.get(key(p.name))||[]:[]).filter(eligible),atAddress=(p.address?propertyAddresses.get(importAddressKey(p.address))||[]:[]).filter(eligible);
      const namedAtAddress=atAddress.filter(row=>named.some(other=>other.id===row.id)),candidates=namedAtAddress.length?namedAtAddress:atAddress.length?atAddress:p.address?[]:named;
      let byId=p.id?indexes.properties.get(text(p.id)):null,numberChoice=null;
@@ -385,29 +386,30 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
        if(missingObject){raw.objects ||= {};raw.objects.id=numberParts.objectId;}
       }
      }
-     const exact=allowTextMatch?(savedTextProperties.get(propertyTextKey(p))||[]).filter(cityFits):[];
+     const exact=allowTextMatch?[...(savedTextProperties.get(propertyTextKey(p))||[]),...(profile.enrichment?namedAtAddress.filter(row=>masterPropertyIds.has(row.id)):[])].filter(cityFits):[];
      // Later files often provide the true property designation where the first
      // import had to use its street address as the provisional property name.
      // Only an exact, globally unique existing address (with house number) may
      // resolve this automatically; no supplied IDs or disagreeing identities
      // may be overridden by a text match.
      const allAtAddress=p.address?propertyAddresses.get(importAddressKey(p.address))||[]:[];
-     const verifiedAddressName=context.enrichment&&allowTextMatch&&!p.id&&!anchorProperty&&!byManagement&&
+     const verifiedAddressName=enrichmentMode&&allowTextMatch&&!p.id&&!anchorProperty&&!byManagement&&
       present(p.address)&&/\d/.test(p.address)&&present(p.name)&&
       importAddressKey(p.name)!==importAddressKey(p.address)&&
-      allAtAddress.length===1&&priorPropertyIds.has(allAtAddress[0].id)&&
+      allAtAddress.length===1&&(priorPropertyIds.has(allAtAddress[0].id)||profile.enrichment&&masterPropertyIds.has(allAtAddress[0].id))&&
       candidates.length===1&&candidates[0].id===allAtAddress[0].id&&
       importAddressKey(allAtAddress[0].name)===importAddressKey(allAtAddress[0].address)
        ?allAtAddress[0]:null;
      const automatic=!p.id&&!anchorProperty&&!byManagement&&exact.length===1?indexes.properties.get(exact[0].id):null;
-     const chosen=automatic||verifiedAddressName||(!p.id&&!anchorProperty&&!byManagement&&candidates.length?approveProperty(candidates,p.address?'Adress':'Fastighetsnamn'):null);
+     const chosen=automatic||verifiedAddressName||(!profile.enrichment&&!p.id&&!anchorProperty&&!byManagement&&candidates.length?approveProperty(candidates,p.address?'Adress':'Fastighetsnamn'):null);
      if(chosen?.createNew)p.id=chosen.id;
      const existing=byId||anchorProperty||byManagement||(chosen?.createNew?null:chosen);
+     if(profile.enrichment&&!existing)throw Object.assign(Error('Ingen säker match mot Lokallista; raden lämnas utanför.'),{skipEnrichment:true});
      origin.matchingDecision={propertyId:existing?.id||text(p.id),method:verifiedAddressName?'verified-address-name-enrichment':automatic?'property-designation-address':chosen?.createNew?'explicit-new-property':numberChoice?'agreement-number-approved':anchorAgreement?'existing-agreement-link':anchorObject?'existing-object-link':byManagement?'management-object-number':chosen?'explicit-row-choice':p.id?'property-id':p.address?'property-address':'property-name',...(numberChoice?{agreementId:numberParts.agreementId,objectId:raw.objects?.id||raw.agreements?.object_id}:{}),addressChecked:Boolean(p.address)};
      if(p.owner_party_id||linkedNumbers.has('owner')){
-      if((automatic||context.enrichment)&&existing?.owner_party_id){
+      if((automatic||enrichmentMode)&&existing?.owner_party_id){
        const savedOwner=indexes.parties.get(existing.owner_party_id),sameOwner=!p.owner_party_id||p.owner_party_id===savedOwner.id||key(p.owner_party_id)===key(savedOwner.name);
-       if(context.enrichment&&sameOwner)p.owner_party_id=party(savedOwner.id,'owner');
+       if(enrichmentMode&&sameOwner)p.owner_party_id=party(savedOwner.id,'owner');
        else{if(!sameOwner){const column=columnFor('properties','owner_party_id');if(column)retainedColumns.add(column.index);}p.owner_party_id=existing.owner_party_id;linkedNumbers.delete('owner');}
       }
       else p.owner_party_id=party(p.owner_party_id||existing?.owner_party_id,'owner');
@@ -417,6 +419,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      const generatedId=preferredNumber||generatedPropertyId(source,profile.name,p);
      if(!existing&&!p.id&&indexes.properties.has(generatedId))throw reviewIdentity('Den skapade fastighetsidentifieraren finns redan. Ange FastighetsID.');
      property=merge('properties',{...p,id:existing?.id||text(p.id)||generatedId,name:incomingName||existing?.name||p.address||p.id||preferredNumber},existing);
+     if(profile.workbookRole==='base')masterPropertyIds.add(property.id);
      origin.matchingDecision.propertyId=property.id;
      if(!existing&&!p.id&&preferredNumber)origin.matchingDecision.method='management-object-number-new';
      if(present(property.management_object_number)){const number=key(property.management_object_number);if(!propertyManagementNumbers.has(number))propertyManagementNumbers.set(number,[]);if(!propertyManagementNumbers.get(number).some(row=>row.id===property.id))propertyManagementNumbers.get(number).push(property);}
@@ -431,10 +434,9 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
     const knownObject=Boolean(object);
     // Missing object identity does not discard independent property/person
     // enrichment. Never guess which of a property's objects the row describes.
-    if(context.enrichment&&property&&!issueContext&&!object&&!explicitObjectId&&!raw.agreements?.id&&(raw.objects||raw.agreements)){
+    if(enrichmentMode&&property&&!issueContext&&!object&&!explicitObjectId&&!raw.agreements?.id&&(raw.objects||raw.agreements)){
      const reason='Välj ObjektID eller AvtalsID för att identifiera objektet.';
-     reviews.push({id:'CLEAN-OBJECT-'+hash(JSON.stringify([source,profile.name,r+1])),kind:'canonical-conflict',status:'pending',...origin,collection:'objects',reason,recordRejected:true,blocking:false,rowRejected:false,sourceValues});
-     decisions.push({...origin,collection:'objects',classification:'B',reason});
+     decisions.push({...origin,collection:'objects',classification:'D',reason:'Objektarea utan säker ObjektID/AvtalsID utelämnas; fastighetsuppgifter behålls.'});
      for(const column of selected)if(['objects','agreements','agreement_items'].includes(fieldMap[column.target]?.table)){heldColumns.add(column.index);readColumns.delete(column.index);}
      delete raw.objects;delete raw.agreements;delete raw.agreement_items;itemRows.clear();for(const key of Object.keys(finance))delete finance[key];linkedNumbers.delete('tenant');deferredError=null;
     }
@@ -460,7 +462,7 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      const a=raw.agreements;if(!a.id)throw Error('Avtalet behöver AvtalsID (avtalsnumret) för säker återimport.');const existing=indexes.agreements.get(text(a.id));
      if(!object)throw Error('Avtalet saknar ObjektID.');
      if(a.tenant_party_id||linkedNumbers.has('tenant')){
-      if(context.enrichment&&existing?.tenant_party_id){a.tenant_party_id=existing.tenant_party_id;linkedNumbers.delete('tenant');}
+      if(enrichmentMode&&existing?.tenant_party_id){a.tenant_party_id=existing.tenant_party_id;linkedNumbers.delete('tenant');}
       else a.tenant_party_id=party(a.tenant_party_id||existing?.tenant_party_id,'tenant');
      }
      const candidate={...existing,...a,id:existing?.id||text(a.id),object_id:object.id};
@@ -563,11 +565,14 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      validateFinance({agreement_items:agreementId?data.agreement_items.filter(x=>x.agreement_id===agreementId):[],recurring_costs:costId?data.recurring_costs.filter(x=>x.id===costId):[],cost_evidence:costId?data.cost_evidence.filter(x=>x.cost_id===costId):[]});
     }
    }catch(error){
+    if(error.skipEnrichment){transaction.rollback();rejected=true;rebuild();decisions.push({...origin,collection:'properties',classification:'D',reason:error.message});}
+    else {
     const partial=transaction.rollback();rejected=!partial;if(rejected)rejectedRows++;rebuild();
     const [collection,field]=fieldInProgress.split('.');
     const review={id:'CLEAN-'+hash(JSON.stringify([source,profile.name,r+1,error.message,error.proposed])),kind:'canonical-conflict',status:'pending',...origin,collection:error.collection||collection||recordStage,field:error.field||field,recordId:error.recordId,current:error.current,proposed:error.proposed,reason:error.message,matches:error.matches,matchingKey:error.matchingKey,...(error.linkProposal?{linkProposal:true}:{}),column:error.column||columnInProgress?.header,columnIndex:error.columnIndex??columnInProgress?.index,value:error.value??sourceValues.find(v=>v.index===(error.columnIndex??columnInProgress?.index))?.raw,blocking:rejected,rowRejected:rejected,...(partial?{recordRejected:true}:{}),sourceValues};
     if(!review.recordId&&!review.linkProposal)review.reason+=' Rätta kolumnval eller identifierare före import.';
     reviews.push(review);decisions.push({...origin,collection:review.collection,classification:'D',reason:error.message});
+    }
    }
    if(!rejected)for(const review of reviews.slice(startReviews))if(!review.recordId&&!review.blocking&&!review.recordRejected){
     const table=Object.keys(viewCollections).find(table=>viewCollections[table]===review.collection);review.recordId=rowTouched.get(table)?.values().next().value;
