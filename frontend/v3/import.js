@@ -4,8 +4,7 @@ import {prepareAgreementLinks} from './relational-import.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=s=>String(s||'').toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 const kind={
- parties:{title:'Parter',action:'createParty',fields:{name:['Namn','Part','Organisation','Företag'],organization_number:['Organisationsnummer','Orgnr'],kind:['Typ']},required:['name']},
- people:{title:'Personer',action:'createPerson',fields:{name:['Namn','Person'],email:['E-post','Email','Epost'],phone:['Telefon','Mobil']},required:['name']},
+ parties:{title:'Hyresgäster',action:'createParty',fields:{name:['Namn','Hyresgäst','Organisation','Företag'],organization_number:['Organisationsnummer','Orgnr']},required:['name']},
  properties:{title:'Fastigheter',action:'createProperty',fields:{name:['Fastighetsnamn','Fastighet','Namn','Fastighetsbeteckning'],management_object_number:['Förvaltningsobjekt','Fastighetsnummer'],address:['Adress','Gatuadress'],city:['Ort','Stad','Kommun'],popular_name:['Populärnamn']},required:['name']},
  objects:{title:'Objekt',action:'createObject',parent:'property_id',fields:{object_number:['Objektsnummer','Objekt','Objektnummer','Nummer'],valid_from:['Startdatum','Från och med','Giltig från','Fr.o.m.'],area:['Yta','Area','Yta m2','Kvm'],category:['Kategori','Objektkategori']},required:['valid_from']},
  agreements:{title:'Avtal',action:'createAgreement',parent:'object_id',fields:{agreement_number:['Avtalsnummer','Avtal','AvtalsID','Kontraktsnummer'],valid_from:['Startdatum','Avtal från','Hyrestid från'],legal_end_on:['Slutdatum','Avtal till','Hyrestid till'],usage:['Användning','Verksamhetstyp']},required:['valid_from']},
@@ -16,9 +15,7 @@ const kind={
   valid_from:['Startdatum','Avtal från','Hyrestid från','From','Fr.o.m.'],
   legal_end_on:['Slutdatum','Avtal till','Hyrestid till','Tom','T.o.m.'],
   usage:['Användning','Verksamhetstyp'],area:['Yta','Area','Kvm','Yta m2']
- },required:['management_object_number','agreement_number']},
- issues:{title:'Ärenden',action:'createIssue',parent:'property_id',fields:{title:['Namn','Ärende','Rubrik'],description:['Beskrivning','Notering'],estimated_cost:['Kostnad','Beräknad kostnad','Budget']},required:['title']},
- recurringCosts:{title:'Fastighetskostnader',action:'createCost',parent:'property_id',fields:{name:['Namn','Benämning','Kostnad'],category:['Kategori','Kostnadstyp'],annual_amount:['Årskostnad','Årsbelopp','Budget','Belopp']},required:['name','annual_amount']}
+ },required:['management_object_number','agreement_number']}
 };
 const toDate=v=>{
  const s=String(v??'').trim();
@@ -49,6 +46,38 @@ export function readCsv(value) {
  row.push(cell);if(row.some(x=>String(x).trim()))output.push(row);
  return output;
 }
+// Stable identifiers are mandatory for safe create-only imports.
+// Existing matches must be resolved in the normal editor; import never overwrites them.
+export function importIdentityConflicts(register,rows,snapshot){
+ const norm=v=>String(v??'').trim().toLocaleLowerCase('sv');
+ const old={
+  parties:(snapshot.parties||[]).filter(x=>x.kind==='tenant'||x.kind==='hyresgäst'),
+  properties:snapshot.properties||[],objects:snapshot.objects||[],agreements:snapshot.agreements||[]
+ };
+ const idFor=(fields)=>{
+  if(register==='parties')return norm(fields.organization_number)?'org:'+norm(fields.organization_number):'name:'+norm(fields.name);
+  if(register==='properties')return norm(fields.management_object_number)?'number:'+norm(fields.management_object_number):'name:'+norm(fields.name);
+  if(register==='objects')return norm(fields.property_id)+'|'+norm(fields.object_number);
+  if(register==='agreements')return norm(fields.agreement_number);
+  return '';
+ };
+ const existing=(old[register]||[]).map(item=>{
+  if(register==='objects')return idFor({property_id:item.property_id,object_number:item.object_number});
+  if(register==='agreements')return idFor(item);
+  if(register==='properties')return idFor(item);
+  return idFor(item);
+ });
+ const seen=new Set(),found=new Set(existing),problems=[];
+ rows.forEach(({fields,sourceRow})=>{
+  const key=idFor(fields);
+  if(!key||['name:','number:','org:'].includes(key)||key.endsWith('|')){
+   problems.push('Rad '+sourceRow+': säker identifierare saknas.');return;
+  }
+  if(found.has(key))problems.push('Rad '+sourceRow+': posten finns redan i registret eller importfilen. Ingen överskrivning görs.');
+  seen.add(key);found.add(key);
+ });
+ return problems;
+}
 const option=(items)=>items.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.label)+'</option>').join('');
 // Keep reference sheets available to Excel formulas, but never offer them as import sources.
 export function importableSheetNames(names){
@@ -58,7 +87,7 @@ export function importableSheetNames(names){
 export function mountImport(root,{snapshot,apply}) {
  const shell=document.createElement('section');shell.className='v3-import';
  shell.innerHTML='<h3>Importera nya Excel- eller CSV-uppgifter</h3>'+
-  '<p class="muted">Välj ett register och en flik. Kontrollera kolumnmatchningen och förhandsgranska innan du sparar. En import omfattar högst 200 rader åt gången och är helt atomisk. Inga gamla Lokalblick-databaser importeras.</p>'+
+  '<p class="muted">Endast fastigheter, objekt, avtal och hyresgäster. Kontaktpersoner, ärenden och summeringar följer aldrig med. Välj ett register och en flik. Kontrollera kolumnmatchningen och förhandsgranska innan du sparar. En import omfattar högst 200 rader åt gången och är helt atomisk. Inga gamla Lokalblick-databaser importeras.</p>'+
   '<div class="import-grid"><label>Register<select data-import-register>'+option(Object.entries(kind).map(([id,k])=>({id,label:k.title})))+'</select></label>'+
   '<label>Excel/CSV-fil<input data-import-file type="file" accept=".xlsx,.xls,.csv,text/csv"></label>'+
   '<label>Flik<select data-import-sheet disabled><option>Välj fil</option></select></label>'+
@@ -111,6 +140,7 @@ export function mountImport(root,{snapshot,apply}) {
     const val=row[Number(index)]??'';if(String(val).trim())data[field]=String(val).trim();
    }
    if(k.parent)data[k.parent]=parent.value;
+   if(register.value==='parties')data.kind='tenant';
    for(const field of Object.keys(data)) {
     if(['valid_from','valid_to','legal_end_on'].includes(field))data[field]=toDate(data[field]);
     if(['area','annual_amount','estimated_cost'].includes(field))data[field]=amount(data[field]);
@@ -125,6 +155,7 @@ export function mountImport(root,{snapshot,apply}) {
    if(data.annual_amount!=null&&!Number.isFinite(data.annual_amount))errors.push('Rad '+(i+2)+': ogiltigt årsbelopp.');
    plan.push({action:k.action,fields:data,sourceRow:i+2});
   });
+  if(register.value!=='agreementLinks')errors.push(...importIdentityConflicts(register.value,plan,snapshot));
   if(rows.length>200)errors.push('Filen har fler än 200 datarader. Dela upp importen i mindre filer.');
   if(register.value==='agreementLinks'){
    const prepared=prepareAgreementLinks(plan,snapshot,Object.fromEntries(relationChoices));
