@@ -23,7 +23,7 @@ export function mountSmartImport(root,{snapshot,apply}){
   const chosen=current();if(!chosen)return;
   const raw=chosen.rows||[],headers=raw[0]||[],rows=raw.slice(1).filter(r=>r.some(c=>String(c??'').trim()));
   mapping=mapped();
-  plan=prepareSmartImport({headers,rows},snapshot,{mapping,objectChoices});
+  plan=prepareSmartImport({headers,rows},snapshot,{mapping,objectChoices,ignoredColumns:Object.keys(overrides).filter(k=>overrides[k]==='').map(Number)});
   if(rows.length>200)plan.errors.push('Filen innehåller fler än 200 rader. Dela upp den.');
   if(plan.commands.length>200)plan.errors.push('Fler än 200 åtgärder i transaktionen. Dela upp filen.');
   draw();
