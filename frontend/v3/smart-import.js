@@ -23,7 +23,9 @@ function money(v){
  return Number.isFinite(n)&&n>=0?n:null;
 }
 const fixed={
- property_number:['fastighetsnummer','fastighetsnr','fastighetsid','fastnr','fastid','forvaltningsobjekt','forvaltningsobjektnummer'],
+ property_number:['forvaltningsnr','forvaltningsnummer','fastighetsnummer','fastighetsnr','fastighetsid','fastnr','fastid','forvaltningsobjekt','forvaltningsobjektnummer'],
+ external_property_number:['externtfastighetsnummer','externtfastighetsnr','fastighetsnummerexternt','fastighetsnrexternt'],
+ external_system:['kallsystem','systemkalla','kallafoerfastighetsnr','kallsystemfastighet'],
  property_name:['fastighetsnamn','fastighetsbeteckning','fastighet'],
  property_address:['fastighetsadress','gatuadress','adress'],
  property_city:['ort','stad','kommun'],
@@ -82,7 +84,7 @@ function priceHeader(header){
 }
 export const importFieldOptions=[
  ...Object.entries(fixed).map(([id,aliases])=>({id,label:({
-  property_number:'Fastighet · nummer',property_name:'Fastighet · namn',property_address:'Fastighet · adress',
+  property_number:'Fastighet · FörvaltningsNr',external_property_number:'Fastighet · externt FastighetsNr',external_system:'Källsystem för externt nr',property_name:'Fastighet · namn',property_address:'Fastighet · adress',
   property_city:'Fastighet · ort',object_number:'Objekt · nummer',area:'Objekt · area',
   agreement_number:'Avtal · nummer',valid_from:'Avtal · fr.o.m.',legal_end_on:'Avtal · t.o.m.',
   tenant_name:'Part · hyresgäst',tenant_org:'Hyresgäst · organisationsnummer',
@@ -102,17 +104,20 @@ export function inferImportColumn(header){
  return priceHeader(header);
 }
 export function suggestImportMapping(headers,overrides={}){
- return headers.map((header,i)=>Object.hasOwn(overrides,i)?(fieldSet.has(overrides[i])?overrides[i]:''):inferImportColumn(header));
+ const hasManagement=headers.some(h=>['forvaltningsnr','forvaltningsnummer'].includes(norm(h)));
+ return headers.map((header,i)=>Object.hasOwn(overrides,i)?(fieldSet.has(overrides[i])?overrides[i]:''):
+  hasManagement&&['fastighetsnr','fastighetsnummer','fastnr'].includes(norm(header))
+   ?'external_property_number':inferImportColumn(header));
 }
 export function rankImportSheets(sheets){
  return sheets.map(s=>({...s,score:(s.rows?.[0]||[]).reduce((n,h)=>n+(inferImportColumn(h)?1:0),0)}))
   .sort((a,b)=>b.score-a.score);
 }
-export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,objectChoices={},ignoredColumns=[],makeId=()=>crypto.randomUUID()}={}){
+export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,objectChoices={},ignoredColumns=[],defaultExternalSystem='',makeId=()=>crypto.randomUUID()}={}){
  const cols=mapping||suggestImportMapping(headers);
  const used=cols.filter(Boolean),warnings=[],errors=[],commands=[],records=[];
  const properties=[...(snapshot.properties||[])],objects=[...(snapshot.objects||[])],
-  agreements=[...(snapshot.agreements||[])],parties=[...(snapshot.parties||[])],
+  agreements=[...(snapshot.agreements||[])],externalNumbers=[...(snapshot.propertyExternalNumbers||[])],parties=[...(snapshot.parties||[])],
   people=[...(snapshot.people||[])],partyPeople=[...(snapshot.partyPeople||[])],
   assignments=[...(snapshot.stakeholderAssignments||[])],items=[...(snapshot.agreementItems||[])];
  const id=()=>makeId(),seenAgreements=new Set(),initialAgreements=new Set(agreements.map(a=>a.id));
@@ -287,10 +292,19 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
    else{info.description='Oförändrat – befintliga kopplingar känns igen';}
    records.push(info);
   };
-  if(!propertyNum){fail('Fastighetsnummer saknas.');finalize();continue;}
-  let match=properties.filter(p=>eq(p.management_object_number,propertyNum));
-  if(match.length>1){fail('Fastighetsnumret finns på flera fastigheter.');finalize();continue;}
-  let property=match[0];
+  const externalNo=get(row,'external_property_number'),sourceSystem=get(row,'external_system')||defaultExternalSystem;
+  if(externalNo&&!sourceSystem)fail('Ange källsystem för det externa numret '+externalNo+'.');
+  const keyMatches=propertyNum?properties.filter(p=>eq(p.management_object_number,propertyNum)):[];
+  const matchedAliases=externalNo&&sourceSystem?externalNumbers.filter(n=>eq(n.source_system,sourceSystem)&&eq(n.external_number,externalNo)):[];
+  if(keyMatches.length>1){fail('Förvaltningsnumret finns på flera fastigheter.');finalize();continue;}
+  if(matchedAliases.length>1){fail('Externt fastighetsnummer är tvetydigt.');finalize();continue;}
+  const propertyFromAlias=matchedAliases.length?properties.find(p=>p.id===matchedAliases[0].property_id):null;
+  if(matchedAliases.length&&!propertyFromAlias)fail('Externt nummer pekar på en fastighet som saknas.');
+  if(keyMatches[0]&&propertyFromAlias&&keyMatches[0].id!==propertyFromAlias.id)
+   fail('FörvaltningsNr och det externa numret pekar på olika fastigheter.');
+  if(!propertyNum&&!propertyFromAlias)fail('FörvaltningsNr saknas. Ett okänt externt nummer får inte ensamt skapa en ny fastighet.');
+  if(rowErrors.length){finalize();continue;}
+  let property=keyMatches[0]||propertyFromAlias;
   if(!property){
    if(!propertyName){fail('Fastigheten är ny men saknar namn. Ange fastighetsnamn.');finalize();continue;}
    property={id:id(),name:propertyName,management_object_number:propertyNum,
@@ -303,6 +317,12 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
    fail('Fastighetens namn avviker från registret ('+property.name+'). Kontrollera identiteten.');
   }
   info.propertyId=property.id;
+  info.propertyNumber=property.management_object_number||propertyNum;
+  if(externalNo&&sourceSystem&&!matchedAliases.length){
+   const link={property_id:property.id,source_system:sourceSystem,external_number:externalNo};
+   externalNumbers.push(link);
+   cmd('addPropertyExternalNumber',link,sourceRow);info.created.push('externt nummer');
+  }
   if(startText&&!validDate(start))fail('Ogiltigt avtalsdatum.');
   if(end&&!validDate(end))fail('Ogiltigt slutdatum.');
   if(start&&end&&end<start)fail('Avtalet slutar före startdatum.');
@@ -385,8 +405,8 @@ export function prepareSmartImport({headers=[],rows=[]},snapshot,{mapping=null,o
   if(managerPartyName)managerParty=party(managerPartyName,'','förvaltare',sourceRow,fail);
   if(managerName&&!managerParty)fail('Förvaltaren '+managerName+' saknar tillhörande organisation eller fastighetsägare.');
   const effective=start&&validDate(start)?start:(snapshot.asOf||'2026-11-02');
-  const ownerStart=earliestRoleDate.get(norm(propertyNum)+'|owner')||effective;
-  const managerStart=earliestRoleDate.get(norm(propertyNum)+'|manager')||effective;
+  const ownerStart=earliestRoleDate.get(norm(property.management_object_number||propertyNum)+'|owner')||effective;
+  const managerStart=earliestRoleDate.get(norm(property.management_object_number||propertyNum)+'|manager')||effective;
   const manager=managerParty?person(managerName,managerEmail,managerParty,sourceRow,fail,managerStart):null;
   if(owner)role('property_id',property.id,'owner',owner,null,ownerStart,sourceRow,fail);
   if(manager)role('property_id',property.id,'asset_manager',managerParty,manager,managerStart,sourceRow,fail);
