@@ -62,6 +62,7 @@ try{
  assert.match(await wizard.innerText(),/A-1/);
  assert.match(await wizard.innerText(),/flera avtalsnummer i samma cell/);
  assert.doesNotMatch(await page.locator('.import-guided-list').innerText(),/A-2; A-3/);
+ console.log('GUIDED RENT DEBUG STAGE2',JSON.stringify({stage2:(await wizard.innerText()).slice(0,1400),hasRentButton:await page.locator('[data-guided-include-rent]').count()}));
  await next(3);
  assert.equal(await wizard.getAttribute('data-guided-stage'),'3');
  const saved=page.waitForResponse(r=>r.url().endsWith('/api/lokaler/workspace')&&r.request().method()==='POST',{timeout:60000});
@@ -72,6 +73,7 @@ try{
  assert.equal(data.properties.length,320);
  assert(data.agreements.some(a=>a.id==='A-1'));
  assert(!data.agreements.some(a=>a.id==='A-2; A-3'));
+ console.log('GUIDED RENT DEBUG STORAGE',JSON.stringify({items:data.agreement_items,contracts:data.agreements?.slice(0,2),messages:data.workspace?.importReview?.slice(0,8)}).slice(0,5000));
  const reported=(data.agreement_items||[]).find(item=>item.agreement_id==='A-1'&&item.type==='base');
  assert.equal(reported?.reported_amount,120000,
   '2026 rent is read as source annual amount, not silently dropped');
