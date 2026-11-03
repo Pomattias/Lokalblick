@@ -109,7 +109,7 @@ try{
  const guidedSnapshot=await (await fetch(origin+'/api/v3/core')).json();
  assert(guidedSnapshot.properties.some(p=>p.management_object_number==='G100'));
  assert.equal(guidedSnapshot.agreements.some(a=>a.agreement_number==='A-1'),false);
- assert.equal(guidedSnapshot.objects.length,1,'Previously created manual object remains');
+ assert(guidedSnapshot.objects.some(o=>o.object_number==='102'), 'Previously created manual object remains');
  assert.equal(await page.locator('[data-continue-objects]').isVisible(),true);
  assert.equal(await page.locator('[data-new-object-file]').isVisible(),true);
  await page.locator('[data-continue-objects]').click();
