@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readGuidedRows} from '../frontend/v3/guided-source.js';
+import {readGuidedRows,groupedAgreementEvidence} from '../frontend/v3/guided-source.js';
 import {preparePropertyStage} from '../frontend/v3/property-stage.js';
 import {preparePeopleStage} from '../frontend/v3/people-stage.js';
 import {openMemoryDatabase} from '../backend/lokaler/v3/database.js';
@@ -15,6 +15,12 @@ test('FörvaltningsNr takes precedence over FastighetsNr in mixed source sheets'
  assert.equal(rows[0].fields.property_number,'101');
  const p=preparePropertyStage([mixed],{properties:[]},{makeId:ids()});
  assert.equal(p.commands[0].fields.management_object_number,'101');
+});
+test('tenant-only enrichment tab is deferred to relationship step without false property errors',()=>{
+ const sheet=tab('Hyresgäster',['Avtalsnummer','Namn','OrgNr'],['AV1','Hyresgäst AB','556001-0101']);
+ const planned=groupedAgreementEvidence([sheet],{properties:[],objects:[],agreements:[]});
+ assert.deepEqual(planned.groups,[]);
+ assert.deepEqual(planned.issues,[]);
 });
 test('separate company, person and tenant sheets use their explicit columns',()=>{
  const sheets=[

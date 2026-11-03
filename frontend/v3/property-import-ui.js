@@ -9,7 +9,11 @@ import {preparePeopleStage} from './people-stage.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=v=>String(v??'').toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 const defaultSheets=book=>{
- const preferred=new Set(['lokallista','lokalbestand','fastighetslista','lokaldata']);
+ // Include business registers present in the same workbook. Historical
+ // issues and annual summaries are never selected as source tabs by default.
+ const preferred=new Set(['lokallista','lokalbestand','fastighetslista','lokaldata',
+  'hyresgaster','hyresgast','verksamheter','parter','personer','fastighetsagare',
+  'forvaltare','lokalsamordnare']);
  const selected=book.filter(s=>preferred.has(key(s.name))).map(s=>s.name);
  return selected.length?selected:book.slice(0,1).map(s=>s.name);
 };

@@ -129,6 +129,11 @@ export function groupedAgreementEvidence(sheets,snapshot){
    issues.push(issue(row.sheet,row.row,'Avtalsnummer',
     'Raden innehåller flera avtalsnummer i samma cell. Dela upp dem i flera rader i Excel-filen så kan vi importera dem.',agreement));continue;
   }
+  // A tenant/person sheet that only names a lease is meant for the final
+  // relation stage, not for guessing a new agreement or a property here.
+  if(!row.master&&!Object.entries(f).some(([field,value])=>present(value)&&
+   (['object_number','valid_from','legal_end_on','usage'].includes(field)||
+    field.startsWith('price.'))))continue;
   const resolved=propertyFor(f,snapshot);
   if(resolved.error){issues.push(issue(row.sheet,row.row,'Fastighet',resolved.error,f.property_number));continue;}
   const property=resolved.property,token=key(agreement);
