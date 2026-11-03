@@ -150,20 +150,8 @@ export function suggestTableColumns(profile,schemas){
    else review(column,'Välj först namnkolumnen för fastighetsägarens kontaktperson.');
   }
   if(header==='ursprungligtgiltigttom'||header==='ursprungligaavtalstid')review(column,'Ursprunglig avtalstid är inte samma uppgift som aktuell hyrestid. Välj ett befintligt fält eller Importera inte.');
-  // Year-labelled rent is a reported source amount, not contractual base rent.
-  // Keep only the latest year in a wide workbook; historical years remain
-  // visible as review information instead of creating overlapping base items.
-  const reportedYear=/^(?:hyra|arshyra)(20\d{2})(?:kr)?$/.exec(header);
-  if(reportedYear&&agreementContext){
-   const year=Number(reportedYear[1]),years=profile.columns
-    .map(c=>/^(?:hyra|arshyra)(20\d{2})(?:kr)?$/.exec(matchName(c.header)))
-    .filter(Boolean).map(m=>Number(m[1]));
-   if(year===Math.max(...years)&&values(column).some(v=>typeof v==='number'&&v>=0||
-    typeof v==='string'&&/^\s*\d[\d\s.,]*\s*$/.test(v))){
-    choose(column,'agreementItems.reportedAmount','base',
-     'Rapporterad årshyra '+year+' (källbelopp, inte avtalad bashyra).');
-    column.reportedRentYear=year;
-   }else review(column,'Årshyra för äldre år eller utan tolkningsbart belopp. Beloppet används inte som bashyra.');
+  if(/^hyra\d{4}$/.test(header)){
+   review(column,'Årsbeloppet kan redan vara uppräknat. Använd Grundhyra för bashyran; välj Källans rapporterade årsbelopp endast efter kontroll av år och indexvillkor.');
   }
   if(header==='indexprocent'&&agreementContext&&profile.columns.some(c=>c.target==='agreementItems.baseAmount'&&c.itemType==='base'))choose(column,'agreementItems.indexPercent','base','Kontrollera att procenten avser indexandel för bashyran.');
   if(column.target==='agreementItems.baseAmount'&&column.format?.checked&&column.format.invalid===column.format.checked)review(column,'Kolumnen innehåller inte belopp. Text om vad som ingår får inte bli ett hyrestillägg.');

@@ -14,6 +14,7 @@ import {importTableHtml} from './import-table.js';
 import {importDashboardHtml} from './import-review-dashboard.js';
 import {guidedReviewHtml,guidedApproveStage,guidedWorkbookRowCount} from './import-guided-steps.js';
 import {guardMultipleAgreementNumbers} from './import-guided-guard.js';
+import {prepareGuidedRentColumns} from '../services/import-rent-columns.js';
 import {matchingImportRows,importColumnWarning} from './import-row-review.js';
 import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate,issueNumberColumn,suggestIssueNumberColumns,resolveFieldName,skippedFinancialSuggestions,assignAgreementItemKeys} from '../services/import-matching.js';
 import {importConflictGroups,resolveImportChoices,importReviewGroups,importTableRows} from '../lokaler/import-conflicts.js';
@@ -161,6 +162,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     retargetColumn(prepared.workbook,profile,column,'@ignore',window.XLSX);
     column.matchSource='guided-excluded';
    }
+  if(guided)prepareGuidedRentColumns(prepared.workbook,mapping.profiles,window.XLSX);
   const draft=structuredClone(base);draft.importFieldPreferences ||= {};
   const guarded=guided?guardMultipleAgreementNumbers(prepared,mapping.profiles,window.XLSX):{issues:[],edits:{}};
   if(guided&&Object.keys(guarded.edits).length)

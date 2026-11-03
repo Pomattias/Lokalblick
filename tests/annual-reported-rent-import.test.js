@@ -7,6 +7,7 @@ import {emptyData,validateData} from '../frontend/lokaler/model.js';
 import {profileWorkbook} from '../frontend/services/import-engine.js';
 import {projectWorkspace} from '../frontend/lokaler/view-adapter.js';
 import {resolveFieldName} from '../frontend/services/import-matching.js';
+import {prepareGuidedRentColumns} from '../frontend/services/import-rent-columns.js';
 import {overview} from '../frontend/v2/views.js';
 import {COLUMN_CATALOG} from '../frontend/v2/column-catalog.js';
 
@@ -31,7 +32,7 @@ test('Avtal shows contract number separately from the tenant in Verksamhet, plus
  assert.match(html,/>Verksamhet</);
  assert.match(html,/>Verksamhetsbeskrivning</);
  const idx=html.indexOf('data-open-contract="contract1"');
- const nearby=html.slice(idx,idx+430);
+ const nearby=html.slice(idx,html.indexOf('</td>',idx)+5);
  assert.match(nearby,/contract1/);
  assert.doesNotMatch(nearby,/Verksamheten AB/);
  assert.match(html,/Verksamheten AB/);
@@ -53,6 +54,7 @@ test('Hyra 2026 produces a year-bound reported rent item without invented index/
  const w=book([['FastighetsID','ObjektID','Avtalsnummer','Hyra 2026'],
   ['F116','O116','AV116',125000]]);
  const p=profile(w);
+ prepareGuidedRentColumns(w,p,XLSX);
  const rent=p[0].columns.find(c=>c.header==='Hyra 2026');
  assert.equal(rent.target,'agreementItems.reportedAmount');
  assert.equal(rent.itemType,'base');
@@ -81,16 +83,21 @@ test('year rent enriches an already imported agreement without creating duplicat
  const firstProfile=profile(w);firstProfile[0].columns.find(c=>c.header==='Hyra 2026').target='@ignore';
  const first=run(w,emptyData(),firstProfile);
  assert.equal(first.clean.agreement_items.length,0);
- const next=run(w,first.clean,profileWorkbook(w,importSchemas,XLSX,[],{reviewed:true}));
+ const p=profileWorkbook(w,importSchemas,XLSX,[],{reviewed:true});
+ prepareGuidedRentColumns(w,p,XLSX);
+ const next=run(w,first.clean,p);
  assert.equal(next.clean.agreements.length,1);
  assert.equal(next.clean.agreement_items.length,1);
- const repeat=run(w,next.clean,profileWorkbook(w,importSchemas,XLSX,[],{reviewed:true}));
+ const p2=profileWorkbook(w,importSchemas,XLSX,[],{reviewed:true});
+ prepareGuidedRentColumns(w,p2,XLSX);
+ const repeat=run(w,next.clean,p2);
  assert.equal(repeat.clean.agreement_items.length,1);
 });
 test('reported annual rent never silently overwrites legitimate contractual base rent',()=>{
  const w=book([['FastighetsID','ObjektID','Avtalsnummer','Grundhyra','Hyra 2026'],
   ['F116','O116','AV116',95000,125000]]);
- const result=run(w);
+ const p=profile(w);prepareGuidedRentColumns(w,p,XLSX);
+ const result=run(w,emptyData(),p);
  assert.equal(result.report.blocking,0);
  assert.equal(result.clean.agreement_items.length,1);
  const item=result.clean.agreement_items[0];
