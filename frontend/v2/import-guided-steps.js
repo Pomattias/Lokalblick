@@ -85,6 +85,7 @@ export function guidedApproveStage(plan,choices,candidate,base,step){
 export function guidedReviewHtml(prepared,candidate,base,plan,choices,step,options={}){
  const model=guidedReviewModel(prepared,candidate,base,plan,choices,step,options);
  const {stage,rows,reviews,stats}=model,done=step===guidedStages.length-1;
+ const identifierIssues=step===2?(options.identifierIssues||[]):[];
  const rowText=r=>r.status==='review'?'Behöver åtgärdas':r.status==='approved'?'Godkänd':
   r.status==='new'?'Ny – klar för import':r.status==='existing'?'Finns redan':'Kompletteras';
  const steps='<ol class="import-guided-steps" aria-label="Importens steg">'+guidedStages.map((s,i)=>
@@ -101,13 +102,15 @@ export function guidedReviewHtml(prepared,candidate,base,plan,choices,step,optio
    r.cells.map(v=>esc(v||'–')).join('</td><td>')+'</td><td>'+esc(rowText(r))+'</td></tr>').join(''):
    '<tr><td colspan="5">Inga nya uppgifter i detta steg. Du kan fortsätta.</td></tr>')+'</tbody></table></div>'+
   '';
- const issueSummary='<details class="import-guided-issues"><summary>Behöver åtgärdas · '+formatCount(reviews.length+stats.review)+
+ const allIssues=[...identifierIssues,...reviews],issueCount=allIssues.length+stats.review;
+ const issueSummary='<details class="import-guided-issues"'+(identifierIssues.length?' open':'')+
+  '><summary>Behöver åtgärdas · '+formatCount(issueCount)+
   '</summary><p>Osäkra uppgifter stoppar inte säker import. Rätta i Excel och importera senare.</p>'+
-  (reviews.length?'<ul>'+reviews.slice(0,50).map(r=>'<li><strong>'+
+  (allIssues.length?'<ul>'+allIssues.slice(0,50).map(r=>'<li><strong>'+
    esc([r.sheet,r.row?'rad '+r.row:'',r.field].filter(Boolean).join(' · '))+
    '</strong> '+esc(r.reason||r.message||'Uppgiften behöver kontrolleras')+'</li>').join('')+'</ul>':
    '<p>Inga nya avvikelser för detta register.</p>')+
-  (reviews.length>50?'<p>Visar 50 av '+formatCount(reviews.length)+' avvikelser. Alla finns i avancerad granskning.</p>':'')+'</details>';
+  (allIssues.length>50?'<p>Visar 50 av '+formatCount(allIssues.length)+' avvikelser. Alla finns i avancerad granskning.</p>':'')+'</details>';
  const nextDisabled=options.stale||!candidate?.clean||options.mappingRowPending||options.duplicates;
  return '<section class="import-guided-review" data-guided-review data-guided-stage="'+step+'">'+
   '<p class="import-guided-lead">En sak i taget. Granska '+esc(stage.title.toLocaleLowerCase('sv'))+
@@ -117,7 +120,7 @@ export function guidedReviewHtml(prepared,candidate,base,plan,choices,step,optio
   '<small>'+esc(prepared.fileName||'')+'</small></div>'+
   '<div class="import-guided-stats"><span><strong>'+formatCount(stats.new)+'</strong>Nya</span>'+
    '<span><strong>'+formatCount(stats.updated)+'</strong>Kompletteras</span>'+
-   '<span><strong>'+formatCount(stats.review+reviews.length)+'</strong>Behöver åtgärdas</span></div>'+
+   '<span><strong>'+formatCount(issueCount)+'</strong>Behöver åtgärdas</span></div>'+
   (options.skippedColumns?.length?'<p class="import-guided-note">'+formatCount(options.skippedColumns.length)+
    ' kolumner saknar säker koppling och lämnas utanför importen. Du kan se eller ändra dem under Avancerad granskning.</p>':'')+
   table+issueSummary+

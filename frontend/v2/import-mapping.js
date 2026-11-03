@@ -13,6 +13,7 @@ import {collectWorkspace} from '../lokaler/view-adapter.js';
 import {importTableHtml} from './import-table.js';
 import {importDashboardHtml} from './import-review-dashboard.js';
 import {guidedReviewHtml,guidedApproveStage} from './import-guided-steps.js';
+import {guardMultipleAgreementNumbers} from './import-guided-guard.js';
 import {matchingImportRows,importColumnWarning} from './import-row-review.js';
 import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate,issueNumberColumn,suggestIssueNumberColumns,resolveFieldName,skippedFinancialSuggestions,assignAgreementItemKeys} from '../services/import-matching.js';
 import {importConflictGroups,resolveImportChoices,importReviewGroups,importTableRows} from '../lokaler/import-conflicts.js';
@@ -151,14 +152,19 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
   // mapping decisions. All omitted columns remain available in Advanced.
   const guided=mapping.profiles.reduce((sum,p)=>sum+(p.rowCount||0),0)>=300;
   const skippedColumns=[];
+  const allowedRegister=target=>['properties.','objects.','contracts.',
+   'agreementItems.','organizations.','people.','contact.'].some(prefix=>target.startsWith(prefix));
   if(guided)for(const profile of mapping.profiles)for(const column of profile.columns)
-   if(pending(column)){
+   if(pending(column)||selected(column)&&!allowedRegister(column.target)){
     skippedColumns.push(profile.name+' · '+column.header);
     column.excludedTarget=column.target;
     retargetColumn(prepared.workbook,profile,column,'@ignore',window.XLSX);
     column.matchSource='guided-excluded';
    }
   const draft=structuredClone(base);draft.importFieldPreferences ||= {};
+  const guarded=guided?guardMultipleAgreementNumbers(prepared,mapping.profiles,window.XLSX):{issues:[],edits:{}};
+  if(guided&&Object.keys(guarded.edits).length)
+   Object.assign(draft.importCellEdits ||= {},guarded.edits);
   const story={filter:'',query:'',limit:30,openRows:new Set(),peopleEditing:new Set(),peopleQuery:'',peopleLimit:100,newPropertyNumbers:Object.create(null)},approval={query:'',filter:'',limit:100},edits={properties:Object.create(null),contacts:Object.create(null),people:Object.create(null)};
   const baseline=evaluator?.baseline||collectWorkspace(base);
   const enrichment=Boolean(evaluator?.baseline)&&['properties','objects','agreements','people','parties'].some(table=>baseline[table]?.length);draft.importEnrichment=enrichment;
@@ -221,7 +227,8 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       d.innerHTML=guided&&!guidedAdvanced?
        '<h2>Granska importen</h2>'+
        guidedReviewHtml(prepared,result||rawResult,baseline,plan,creationChoices,guidedStep,
-        {stale,skippedColumns,mappingRowPending:mapping.profiles.some(p=>p.mappingRowSuggested&&!p.mappingRowDecision),
+        {stale,skippedColumns,identifierIssues:guarded.issues,
+         mappingRowPending:mapping.profiles.some(p=>p.mappingRowSuggested&&!p.mappingRowDecision),
          duplicates:mappingConflicts(mapping.profiles).length})+
        '<p data-import-error role="alert"></p>':
        (guided?'<button type="button" data-guided-simple>Återgå till stegvis import</button>':'')+legacyHtml();

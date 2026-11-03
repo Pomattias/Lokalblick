@@ -12,6 +12,7 @@
     "setup:company": "node scripts/setup-company.mjs",
     "test:browser": "node scripts/browser-check.mjs",
     "test:import-browser": "node scripts/import-approval-browser-check.mjs",
+    "test:guided-import-browser": "node scripts/guided-import-browser-check.mjs",
     "test:property-browser": "node scripts/property-list-browser-check.mjs",
     "test:details-browser": "node scripts/compact-details-browser-check.mjs",
     "test:lists-browser": "node scripts/unified-lists-browser-check.mjs",

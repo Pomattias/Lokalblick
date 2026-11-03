@@ -5262,3 +5262,7 @@ body:not([data-view="budget"]) .import-decision-overview .import-review-footnote
  .import-mapping-dialog .import-guided-footer button{white-space:normal;width:100%}
  .import-mapping-dialog .import-guided-footer [data-guided-next]{grid-column:1/-1}
 }
+
+body:not([data-view="budget"]) .followup-dialog.import-dialog.import-mapping-dialog:has([data-guided-review]){
+ width:min(1020px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:min(92vh,920px);
+}

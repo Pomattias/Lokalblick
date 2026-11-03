@@ -26,6 +26,7 @@ jobs:
       - run: npm run test:editor-browser
       - run: npm run test:mobile-record-browser
       - run: npm run test:portfolio-mobile-table-browser
+      - run: npm run test:guided-import-browser
 
   v3-native:
     name: V3 database and browser smoke
