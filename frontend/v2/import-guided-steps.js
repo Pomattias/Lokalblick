@@ -4,6 +4,20 @@ import {viewCollections} from '../lokaler/view-fields.js';
 import {creationChoice,creationAvailable} from '../lokaler/import-plan.js';
 import {esc} from './view-format.js';
 
+// Canonical sheets do not expose profile.rowCount; count source rows from
+// the workbook range so the visible import is guided in either data mode.
+export function guidedWorkbookRowCount(profiles,workbook,XLSX){
+ return (profiles||[]).reduce((total,p)=>{
+  const sheet=workbook?.Sheets?.[p.sheetKey||p.name];
+  let fromSheet=0;
+  if(sheet?.['!ref']&&XLSX?.utils?.decode_range){
+   const range=XLSX.utils.decode_range(sheet['!ref']);
+   const header=p.headerRow??range.s.r+1;
+   fromSheet=Math.max(0,range.e.r-header+1);
+  }
+  return total+Math.max(p.rowCount||0,fromSheet);
+ },0);
+}
 export const guidedStages=[
  {title:'Fastigheter',tables:['properties'],button:'Godkänn fastigheter och fortsätt'},
  {title:'Objekt',tables:['objects'],button:'Godkänn objekt och fortsätt'},

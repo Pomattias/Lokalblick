@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyData} from '../frontend/lokaler/model.js';
 import {importCreationPlan} from '../frontend/lokaler/import-plan.js';
-import {guidedReviewHtml,guidedReviewModel,guidedApproveStage,guidedStages} from '../frontend/v2/import-guided-steps.js';
+import {guidedReviewHtml,guidedReviewModel,guidedApproveStage,guidedStages,guidedWorkbookRowCount} from '../frontend/v2/import-guided-steps.js';
+import XLSX from 'xlsx';
 
 const before=()=>emptyData();
 const fixture=()=>{
@@ -18,6 +19,14 @@ const fixture=()=>{
   data:{importReview:[]}};
  return {result,plan:importCreationPlan(result,before())};
 };
+test('guidance works for both generic and canonical profiles without rowCount',()=>{
+ const sheet=XLSX.utils.aoa_to_sheet([['Fastighetsnummer'],...Array.from({length:949},(_,i)=>['F'+i])]);
+ const wb={Sheets:{Lokallista:sheet},SheetNames:['Lokallista']};
+ const canonical=[{name:'Lokallista',headerRow:1,headerIndex:0,canonical:true}];
+ assert.equal(guidedWorkbookRowCount(canonical,wb,XLSX),949);
+ assert.equal(guidedWorkbookRowCount([{...canonical[0],rowCount:949}],wb,XLSX),949);
+ assert.equal(guidedWorkbookRowCount([{...canonical[0],rowCount:0}],wb,XLSX),949);
+});
 test('guided review has exactly four sequential register steps, not a 70-column dashboard',()=>{
  const {result,plan}=fixture();
  assert.deepEqual(guidedStages.map(x=>x.title),[

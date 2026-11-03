@@ -12,7 +12,7 @@ import {chooseImportContact} from './import-contact.js';
 import {collectWorkspace} from '../lokaler/view-adapter.js';
 import {importTableHtml} from './import-table.js';
 import {importDashboardHtml} from './import-review-dashboard.js';
-import {guidedReviewHtml,guidedApproveStage} from './import-guided-steps.js';
+import {guidedReviewHtml,guidedApproveStage,guidedWorkbookRowCount} from './import-guided-steps.js';
 import {guardMultipleAgreementNumbers} from './import-guided-guard.js';
 import {matchingImportRows,importColumnWarning} from './import-row-review.js';
 import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate,issueNumberColumn,suggestIssueNumberColumns,resolveFieldName,skippedFinancialSuggestions,assignAgreementItemKeys} from '../services/import-matching.js';
@@ -150,7 +150,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
   const mapping={profiles:reviewProfiles(prepared.profiles,schemas)},fields=fieldCatalog(schemas,true);
   // Large workbooks open with a register-by-register review, not dozens of
   // mapping decisions. All omitted columns remain available in Advanced.
-  const guided=mapping.profiles.reduce((sum,p)=>sum+(p.rowCount||0),0)>=300;
+  const guided=guidedWorkbookRowCount(mapping.profiles,prepared.workbook,window.XLSX)>=300;
   const skippedColumns=[];
   const allowedRegister=target=>['properties.','objects.','contracts.',
    'agreementItems.','organizations.','people.','contact.'].some(prefix=>target.startsWith(prefix));
