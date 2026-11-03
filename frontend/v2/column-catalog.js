@@ -3,7 +3,7 @@
 export const COLUMN_CATALOG={
  properties:['propertyNumber','property','address','owner','responsible','issues','contracts','area','annualRent','propertyId','action'],
  objects:['objectNumber','propertyNumber','property','address','localType','validity','contracts','propertyId','action'],
- contracts:['property','propertyNumber','address','owner','responsible','activity','activityDescription','issues','contract','annualRent','rentSqm','addition','additionSqm','area','start','end','noticeMonths','noticeDate','propertyId','action'],
+ contracts:['property','propertyNumber','address','owner','responsible','activity','activityDescription','issues','contract','tenant','annualRent','rentSqm','addition','additionSqm','area','start','end','noticeMonths','noticeDate','propertyId','action'],
  activities:['issue','type','property','address','responsible','status','cost','notes','propertyNumber','propertyId','action'],
 };
 export const COLUMN_GROUP_ORDER=['Fastighet','Objekt','Avtal','Verksamhet / Hyresgäst','Personer','Parter','Budget','Ärenden'];

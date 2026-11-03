@@ -18,7 +18,9 @@ export function projectWorkspace(clean) {
   return row;
  });
  const objects=new Map(out.objects.map(row=>[row.id,row])),labels=createBusinessLabels(clean);
- for(const property of out.properties){property.sourceId=property.id;property.apartmentCount=clean.objects.filter(o=>o.property_id===property.id&&active(o)).reduce((sum,o)=>sum+(o.apartment_count||0),0);}
+ for(const property of out.properties){property.sourceId=property.id;
+   property.number=labels.number('properties',property.id);
+   property.apartmentCount=clean.objects.filter(o=>o.property_id===property.id&&active(o)).reduce((sum,o)=>sum+(o.apartment_count||0),0);}
  for(const object of out.objects){object.number=labels.number('objects',object.id);object.sourceId=object.id;object.predecessorIds=clean.object_links.filter(link=>link.successor_id===object.id).map(link=>link.predecessor_id);}
  // The tenant party is the single displayed identity for both hyresgäst and verksamhet.
  for(const contract of out.contracts){const object=objects.get(contract.objectId);contract.propertyId=object?.propertyId||'';contract.area=object?.area;contract.objectAreaManaged=true;contract.apartmentArea=object?.apartmentArea;contract.tenantName=out.organizations.find(row=>row.id===contract.tenantPartyId)?.name||'';contract.businessName=contract.tenantName;}

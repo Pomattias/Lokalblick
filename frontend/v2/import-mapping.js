@@ -173,6 +173,22 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
   let plan=[],creationChoices={},projected,explanation;
   const financialSuggestions=mapping.profiles.flatMap((profile,pi)=>skippedFinancialSuggestions(prepared.workbook,profile,schemas,window.XLSX).map(column=>({key:pi+':'+profile.columns.findIndex(c=>c.index===column.index),column})));
   const pendingFinancialSuggestions=()=>financialSuggestions.filter(({key})=>{const [pi,ci]=key.split(':').map(Number),profile=mapping.profiles[pi],column=profile.columns[ci];return !profile.mappingRow&&!['recurringCosts','costEvidence'].includes(profile.primaryTable)&&column.matchSource==='saved'&&['@ignore','@unmapped'].includes(column.target);});
+  const rentCandidates=()=>mapping.profiles.flatMap((profile,pi)=>{
+   if(profile.mappingRow||['recurringCosts','costEvidence'].includes(profile.primaryTable))return [];
+   const strip=value=>String(value||'').toLocaleLowerCase('sv').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+   const years=profile.columns.map(c=>/^(?:hyra|arshyra)(20\d{2})(?:kr)?$/.exec(strip(c.header)))
+    .filter(Boolean).map(x=>Number(x[1]));
+   const latest=years.length?Math.max(...years):null;
+   return profile.columns.flatMap((column,ci)=>{
+    if(!['@ignore','@unmapped'].includes(column.target)||!column.filled||!column.header)return [];
+    if(column.format?.checked&&column.format.checked===column.format.invalid)return [];
+    const name=strip(column.header),annual=/^(?:hyra|arshyra)(20\d{2})(?:kr)?$/.exec(name);
+    const kind=['grundhyra','bashyra'].includes(name)?'base':
+     annual&&Number(annual[1])===latest?'reported':null;
+    return kind?[{key:pi+':'+ci,kind,year:annual?Number(annual[1]):null,label:column.header}]:[];
+   });
+  });
   suggestIssueNumberColumns(mapping.profiles,base);
   const context={fingerprint:prepared.fingerprint,fileName:prepared.fileName,schemas,actor,strictColumns:true,personLinks:true,objectAreas:true,allowMappingConflicts:true,identityCache:{}};
   let conflictMode=enrichment?'keep':'review';
@@ -227,7 +243,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       d.innerHTML=guided&&!guidedAdvanced?
        '<h2>Granska importen</h2>'+
        guidedReviewHtml(prepared,result||rawResult,baseline,plan,creationChoices,guidedStep,
-        {stale,skippedColumns,identifierIssues:guarded.issues,
+        {stale,skippedColumns,rentCandidates:rentCandidates(),identifierIssues:guarded.issues,
          mappingRowPending:mapping.profiles.some(p=>p.mappingRowSuggested&&!p.mappingRowDecision),
          duplicates:mappingConflicts(mapping.profiles).length})+
        '<p data-import-error role="alert"></p>':
@@ -241,7 +257,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
       for(const node of d.querySelectorAll('[data-column-rule]')){const {profile,column}=locate(node.dataset.columnRule);node.value=importPreference(draft.importFieldPreferences,...column.target.split('.'),profile.fileName||prepared.fileName,profile,column)||'';}
       d.scrollTop=state.scroll;
       renderSettings();
-      if(error){d.querySelector('[data-import-error]').textContent=createBusinessLabels(rawResult?.clean).text(error.message);d.querySelector('[data-apply]').disabled=true;}
+      if(error){const errorOutput=d.querySelector('[data-import-error]');if(errorOutput)errorOutput.textContent=createBusinessLabels(rawResult?.clean).text(error.message);const apply=d.querySelector('[data-apply]');if(apply)apply.disabled=true;}
     };
     const refresh=async()=>{
       if(closed)return;
@@ -256,7 +272,7 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
         // this preview only. Retain those rules for later imports.
         if(next.clean)next.clean.workspace.importFieldPreferences=structuredClone(draft.importFieldPreferences);
         if(next.data)next.data.importFieldPreferences=structuredClone(draft.importFieldPreferences);
-        if(blockedKey(next)!==previousBlocked)allowPartial=false;
+        if(blockedKey(next)!==previousBlocked&&!guided)allowPartial=false;
         rawResult=next;stale=false;resultGeneration=revision;render(state);
       }catch(error){if(closed||revision!==generation||error.name==='AbortError')return;fail(error);}
     };
@@ -307,6 +323,20 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
         if(guided&&button.hasAttribute('data-guided-back')){
          guidedStep=Math.max(0,guidedStep-1);
          const state=viewState();state.scroll=0;render(state,false);return;
+        }
+        if(guided&&button.hasAttribute('data-guided-include-rent')){
+         const candidates=rentCandidates();
+         for(const candidate of candidates){
+          const {profile,column}=locate(candidate.key);
+          const target=candidate.kind==='reported'?'agreementItems.reportedAmount':'agreementItems.baseAmount';
+          retargetColumn(prepared.workbook,profile,column,target,window.XLSX);
+          column.itemType='base';
+          column.matchSource='manual';column.approved=true;column.collection='agreementItems';
+          if(candidate.year)column.reportedRentYear=candidate.year;
+          delete column.itemKey;delete column.itemAmbiguous;
+         }
+         for(const profile of mapping.profiles)assignAgreementItemKeys(profile);
+         await refresh();return;
         }
         if(guided&&button.hasAttribute('data-guided-next')){
          if(stale||!result?.clean||resultGeneration!==generation)

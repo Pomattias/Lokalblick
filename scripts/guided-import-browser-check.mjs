@@ -15,7 +15,7 @@ const dir=await mkdtemp(join(tmpdir(),'guided-import-')),file=join(dir,'data.sql
 let store=await LocalStore.open({file}),server,browser;
 try{
  const headers=['FastighetsID','Fastighetsnamn','Gatuadress','ObjektID',
-  'Avtalsnummer','Area','Grundhyra','Ort','Okänt systemfält'];
+  'Avtalsnummer','Area','Hyra 2026','Ort','Okänt systemfält'];
  const rows=Array.from({length:320},(_,i)=>[
   'P'+String(i+1).padStart(3,'0'),'Huset '+(i+1),'Gatan '+(i+1),
   i<2?'O'+(i+1):'',i===0?'A-1':i===1?'A-2; A-3':'',
@@ -72,6 +72,20 @@ try{
  assert.equal(data.properties.length,320);
  assert(data.agreements.some(a=>a.id==='A-1'));
  assert(!data.agreements.some(a=>a.id==='A-2; A-3'));
+ const reported=data.agreementItems.find(item=>item.contractId==='A-1'&&item.type==='base');
+ assert.equal(reported?.reportedAmount,120000,
+  '2026 rent is read as source annual amount, not silently dropped');
+ assert.equal(reported?.baseAmount,0,
+  'A reported 2026 amount must not be invented as a contractual base rent');
+ assert.equal(reported?.start,'2026-01-01');
+ assert.equal(reported?.end,'2026-12-31');
+ await page.locator('.sidebar [data-view=contracts]').evaluate(node=>node.click());
+ const contractsTable=page.locator('table[data-list-key="contracts"]');
+ await contractsTable.waitFor();
+ const headings=await contractsTable.locator('thead tr:first-child th').allInnerTexts();
+ assert(headings.some(h=>/Verksamhet$/.test(h.trim())));
+ assert(headings.some(h=>/Verksamhetsbeskrivning/.test(h)));
+ assert(headings.some(h=>/Fastighetsnr/.test(h)));
  assert.equal(data.issues.length,0);
  assert.deepEqual(errors,[]);
  console.log('PASS: large v2 workbook uses 4 guided steps; safe records save; multi-agreement cells and unknown columns excluded.');

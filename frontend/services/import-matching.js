@@ -150,8 +150,20 @@ export function suggestTableColumns(profile,schemas){
    else review(column,'Välj först namnkolumnen för fastighetsägarens kontaktperson.');
   }
   if(header==='ursprungligtgiltigttom'||header==='ursprungligaavtalstid')review(column,'Ursprunglig avtalstid är inte samma uppgift som aktuell hyrestid. Välj ett befintligt fält eller Importera inte.');
-  if(/^hyra\d{4}$/.test(header)){
-   review(column,'Årsbeloppet kan redan vara uppräknat. Använd Grundhyra för bashyran; välj Källans rapporterade årsbelopp endast efter kontroll av år och indexvillkor.');
+  // Year-labelled rent is a reported source amount, not contractual base rent.
+  // Keep only the latest year in a wide workbook; historical years remain
+  // visible as review information instead of creating overlapping base items.
+  const reportedYear=/^(?:hyra|arshyra)(20\d{2})(?:kr)?$/.exec(header);
+  if(reportedYear&&agreementContext){
+   const year=Number(reportedYear[1]),years=profile.columns
+    .map(c=>/^(?:hyra|arshyra)(20\d{2})(?:kr)?$/.exec(matchName(c.header)))
+    .filter(Boolean).map(m=>Number(m[1]));
+   if(year===Math.max(...years)&&values(column).some(v=>typeof v==='number'&&v>=0||
+    typeof v==='string'&&/^\s*\d[\d\s.,]*\s*$/.test(v))){
+    choose(column,'agreementItems.reportedAmount','base',
+     'Rapporterad årshyra '+year+' (källbelopp, inte avtalad bashyra).');
+    column.reportedRentYear=year;
+   }else review(column,'Årshyra för äldre år eller utan tolkningsbart belopp. Beloppet används inte som bashyra.');
   }
   if(header==='indexprocent'&&agreementContext&&profile.columns.some(c=>c.target==='agreementItems.baseAmount'&&c.itemType==='base'))choose(column,'agreementItems.indexPercent','base','Kontrollera att procenten avser indexandel för bashyran.');
   if(column.target==='agreementItems.baseAmount'&&column.format?.checked&&column.format.invalid===column.format.checked)review(column,'Kolumnen innehåller inte belopp. Text om vad som ingår får inte bli ett hyrestillägg.');
@@ -244,8 +256,18 @@ export function profileTables(workbook,schemas,XLSX,saved=[],options={}){
    const savedRule=duplicate?(previous?.layoutSignature===layoutSignature?matches.find(c=>c.index===index):null):matches.length===1?matches[0]:null;
    // Correct obsolete object suggestions for captions the current model declares
    // to be property identifiers. Explicit rows and saved exclusions still win.
-   const rule=savedRule&&['objects.id','contracts.objectId','activities.objectId'].includes(savedRule.target)&&['properties.id','properties.managementObjectNumber'].includes(match(header,'properties')?.target)?null:savedRule;
-   const suggestion=match(header,primary);let target=rule?(valid.has(rule.target)||rule.target==='@ignore'||rule.target.startsWith('contact.')?rule.target:'@unmapped'):suggestion?.target||'@unmapped';
+   const normalizedHeader=matchName(header);
+   const propertyNumberColumn=['fastighetsnr','fastighetsnummer','fastnr','forvaltningsnr','forvaltningsnummer'].includes(normalizedHeader)||
+    ['fastighetslista','fastighetslistaii'].includes(matchName(name))&&['objektnr','objektnummer'].includes(normalizedHeader);
+   // A property number is not a physical object identifier. Old workbook
+   // mappings occasionally stored the external "Objekt. nr" in Fastighetslista
+   // as objects.id; drop only that stale mapping, never an explicit mapping row.
+   const canonicalPropertyTarget='properties.managementObjectNumber';
+   const obsoleteObject=savedRule&&['objects.id','objects.number','contracts.objectId','activities.objectId'].includes(savedRule.target);
+   const rule=obsoleteObject&&(propertyNumberColumn||
+    ['properties.id',canonicalPropertyTarget].includes(match(header,'properties')?.target))?null:savedRule;
+   const suggestion=propertyNumberColumn?{target:canonicalPropertyTarget}:match(header,primary);
+   let target=rule?(valid.has(rule.target)||rule.target==='@ignore'||rule.target.startsWith('contact.')?rule.target:'@unmapped'):suggestion?.target||'@unmapped';
    if(rule?.contactHeader&&contactPart(target)){const contacts=headers.map((h,i)=>({h,i})).filter(c=>matchName(c.h)===matchName(rule.contactHeader));target=contacts.length===1?'contact.'+contacts[0].i+'.'+contactPart(target).field:'@unmapped';}
    return {header:String(header),index,target,excludedTarget:rule?.excludedTarget,selectionTable:rule?.selectionTable,collection:target.split('.')[0],itemType:rule?rule.itemType:suggestion?.itemType,itemKey:rule?.itemKey||suggestion?.itemKey,transform:rule?.transform||(/månadshyra/i.test(header)?'monthly':'auto'),date1904:Boolean(workbook.Workbook?.WBProps?.date1904||source?.date1904),dateMode:rule?.dateMode||'auto',invalidPolicy:rule?.invalidPolicy||'reject-row',emptyMarkers:true,approved:Boolean(rule),personFormat:rule?.personFormat,shared:rule?.shared===true,matchSource:rule?'saved':suggestion?'alias':'unmatched',warning:rule&&target==='@unmapped'?'Det tidigare fältet finns inte längre. Välj ett aktuellt fält.':''};
   }).filter(Boolean);

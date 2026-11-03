@@ -77,7 +77,12 @@
     const limitBasis=String(c[p+"LimitBasis"]||"rent");
     const valid=n=>n!==""&&n!=null&&Number.isFinite(Number(n))&&Number(n)>-100&&Number(n)<=1000;
     let calculated=false,preliminary=false,usedIndex=0,amount=base,reason="",source="";
-    if(method==="none"){calculated=base>0;source="Avtalat utan uppräkning";if(!calculated)reason="Basbelopp saknas";}
+    const reportedOnly=method==="none"&&base<=0&&sourceAmount>0;
+    if(method==="none"){
+      calculated=base>0;source=reportedOnly?"Rapporterat årsbelopp":"Avtalat utan uppräkning";
+      if(reportedOnly)reason="Avtalad bashyra saknas; visar källans rapporterade årsbelopp";
+      else if(!calculated)reason="Basbelopp saknas";
+    }
     else if(method==="fixed"){
       calculated=base>0&&baseYear>0&&target>=baseYear+1&&target-baseYear<=150&&valid(pct);
       source="Avtalad fast årlig procent";
@@ -125,7 +130,7 @@
        limitBasis==="index"?"Gräns för KPI-förändring":"Gräns för hyresökning"];
     return {amount,calculated,preliminary,knownIndex:preliminary?0:usedIndex,
       usedIndex,indexYear:target-1,sourceAmount,base,baseYear,bastal,share,seriesBase:basis,
-      status:!calculated?"Behöver kontroll":preliminary?"Preliminär":"Beräknad",
+      status:reportedOnly?"Källvärde":!calculated?"Behöver kontroll":preliminary?"Preliminär":"Beräknad",
       reason,source,basedOn,method,annualPercent:method==="fixed"?Number(pct):null,
       minPercent:min,maxPercent:max,limitBasis};
   }

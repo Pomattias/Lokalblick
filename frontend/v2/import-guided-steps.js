@@ -137,6 +137,10 @@ export function guidedReviewHtml(prepared,candidate,base,plan,choices,step,optio
    '<span><strong>'+formatCount(issueCount)+'</strong>Behöver åtgärdas</span></div>'+
   (options.skippedColumns?.length?'<p class="import-guided-note">'+formatCount(options.skippedColumns.length)+
    ' kolumner saknar säker koppling och lämnas utanför importen. Du kan se eller ändra dem under Avancerad granskning.</p>':'')+
+  (step===2&&options.rentCandidates?.length?'<div class="import-guided-note" role="note">'+
+   '<strong>Hyror hittade i Excel: '+formatCount(options.rentCandidates.length)+' kolumner.</strong> '+
+   'De har tidigare valts bort. Läs in säkra belopp som bashyra eller rapporterad årshyra utan att gissa indexvillkor.'+
+   '<button type="button" data-guided-include-rent>Ta med säkra hyror</button></div>':'')+
   table+issueSummary+
   (options.mappingRowPending||options.duplicates?'<p role="alert">Rubrikrad eller dubbla fältkopplingar behöver kontrolleras under Avancerad granskning innan import.</p>':'')+
   '<div class="import-guided-footer">'+(step?'<button type="button" data-guided-back>Tillbaka</button>':'')+

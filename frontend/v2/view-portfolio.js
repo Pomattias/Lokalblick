@@ -26,14 +26,16 @@ function contractRows(data, contracts, year, portfolio = false) {
     const complete=v.rent.status!=="Behöver kontroll"&&v.addition.status!=="Behöver kontroll";
     return row([
       `<span class="contract-desktop-property">${esc(propertyDesignation(p) || (p.id ? "Beteckning saknas" : "Ej kopplad"))}</span><span class="contract-mobile-property"><strong>${esc(propertyDesignation(p) || (p.id ? "Beteckning saknas" : "Ej kopplad"))}</strong><span class="contract-mobile-address"> · ${esc(propertyAddress(p) || "Adress saknas")}</span></span>`,
-      esc(p.number||p.propertyNumber||"–"),
+      esc(p.number||p.propertyNumber||p.managementObjectNumber||"–"),
       propertyAddressCell(p),
       esc(propertyOwnerLabel(data,p)),
       esc(contactNames(data,"property",p,"our",p.responsiblePersonId)),
-      esc(units[c.unitId]||c.use||"–"),
-      esc(c.useDescription||c.businessDescription||c.activityDescription||"–"),
+      esc([c.useDescription||c.businessDescription||c.activityDescription,units[c.unitId]||c.use]
+       .filter(Boolean).filter((s,i,a)=>a.indexOf(s)===i).join(' · ')||"–"),
+      esc(c.use||units[c.unitId]||"–"),
       linkedIssues.length?num(linkedIssues.length):"0",
-      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||c.id)}</strong></button><span class="contract-tenant-name">${esc(tenantName(data,c))}</span>`,
+      `<button class="text-button" data-open-contract="${esc(c.id)}"><strong>${esc(c.number||c.id)}</strong></button>`,
+      esc(tenantName(data,c)),
       `<span data-contract-rent>${money(v.rent.amount)}</span>`,
       area&&v.rent.status!=="Behöver kontroll"?money(v.rent.amount/area):"–",
       money(v.addition.amount),
@@ -151,7 +153,7 @@ export function overview(data, s, ui) {
     const selected=ui.portfolioView?all.filter(c=>contractPhase(data,c)===phase):all;
     const phaseName={current:'Gällande',past:'Tidigare',future:'Kommande'}[phase]||'Gällande';
     body=table(
-      ["Fastighet", "Fastighetsnr", "Adress", "Fastighetsägare", "Ansvarig", "Verksamhet", "Verksamhetsbeskrivning", "Ärenden", "Avtal", `Årshyra ${ui.year}`, "Hyra kr/m²", `Tillägg ${ui.year}`, "Tillägg kr/m²", "Kvm", "Fr.o.m.", "T.o.m.", "Uppsägningstid", "Säg upp senast", "FastID", ""],
+      ["Fastighet", "Fastighetsnr", "Adress", "Fastighetsägare", "Ansvarig", "Verksamhetsbeskrivning", "Användning", "Ärenden", "Avtal", "Verksamhet", `Årshyra ${ui.year}`, "Hyra kr/m²", `Tillägg ${ui.year}`, "Tillägg kr/m²", "Kvm", "Fr.o.m.", "T.o.m.", "Uppsägningstid", "Säg upp senast", "FastID", ""],
       contractRows(data,selected,ui.year,Boolean(ui.portfolioView)),
       true,ui.portfolioView?phaseName+" avtal":"Avtal",
       false,ui.portfolioView?{key:"contracts",noun:"avtal"}:{},

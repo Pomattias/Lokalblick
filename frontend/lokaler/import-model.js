@@ -507,7 +507,31 @@ export function prepareCleanImport(workbook,profiles,base=emptyData(),context={}
      const id=shared.id?(profile.columns.filter(c=>c.target==='agreementItems.baseAmount'&&c.itemType).length<=1&&itemRows.size===1?shared.id:financialId(slot,shared.id)):financialId(slot,agreementId),existing=indexes.agreement_items.get(id);
      if(amountColumn&&!present(row.base_amount)&&!existing)continue;
      const suffix=slot.includes(':')?' ('+slot.split(':')[1]+')':'';
-     const candidate={...shared,...row,id,agreement_id:agreementId,name:row.name||shared.name||existing?.name||(amountColumn?.header||labels[type])+suffix,adjustment_method:row.adjustment_method||shared.adjustment_method||existing?.adjustment_method||(profile.primaryTable==='agreementItems'?'none':['base','addition'].includes(type)?'kpi':'none'),sources:[{...financialSource(origin),...(amountColumn?{column:amountColumn.header,columnIndex:amountColumn.index,itemKey:slot}:{})}]};
+     const yearColumn=selected.find(c=>c.target==='agreementItems.reportedAmount'&&
+      (c.itemKey||c.itemType)===slot&&c.reportedRentYear);
+     const reportedYear=Number(yearColumn?.reportedRentYear)||null;
+     // A source headed "Hyra 2026" is not proof of contractual base rent.
+     // Year-bound reported-only items preserve the source amount faithfully.
+     const reportedOnly=!amountColumn&&!existing&&type==='base'&&reportedYear&&
+      Number(row.reported_amount)>0&&row.base_amount==null;
+     const candidate={...shared,...row,id,agreement_id:agreementId,
+      name:row.name||shared.name||existing?.name||
+       (reportedOnly?'Rapporterad årshyra '+reportedYear:(amountColumn?.header||labels[type])+suffix),
+      adjustment_method:reportedOnly?'none':
+       row.adjustment_method||shared.adjustment_method||existing?.adjustment_method||
+       (profile.primaryTable==='agreementItems'?'none':['base','addition'].includes(type)?'kpi':'none'),
+      sources:[{...financialSource(origin),...(amountColumn?
+       {column:amountColumn.header,columnIndex:amountColumn.index,itemKey:slot}:{}),
+       ...(reportedYear?{column:yearColumn.header,columnIndex:yearColumn.index,reportedYear}:{})}]};
+     if(reportedOnly){
+      // 0 is a storage placeholder for an unknown contractual base; the
+      // reported amount is used by the rent engine, never a guessed index.
+      candidate.base_amount=0;
+      candidate.valid_from=[reportedYear+'-01-01',agreement?.valid_from].filter(Boolean).sort().at(-1);
+      candidate.valid_to=[reportedYear+'-12-31',agreement?.valid_to].filter(Boolean).sort()[0];
+      if(candidate.valid_to<candidate.valid_from)throw Error('Rapporterad årshyra '+
+       reportedYear+' ligger utanför avtalets giltighetstid. Kontrollera hyresposten.');
+     }
      if(!existing){candidate.valid_from ||= agreement?.valid_from||null;candidate.valid_to ||= agreement?.valid_to||null;}
      merge('agreement_items',candidate,existing);
     }
