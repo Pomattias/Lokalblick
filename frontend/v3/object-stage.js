@@ -47,6 +47,8 @@ export function prepareObjectStage(sheets,snapshot,{makeId=()=>crypto.randomUUID
  for(const sheet of sheets||[]){
   const rows=sheet.rows||[],heads=(rows[0]||[]).map(header);
   const indices=Object.fromEntries(Object.entries(aliases).map(([k,words])=>[k,pick(heads,words)]));
+  const canonical=pick(heads,['forvaltningsnr','forvaltningsnummer','forvaltningsobjekt','forvaltningsobjektnummer']);
+  if(canonical>=0)indices.property=canonical;
   if(isMaster(sheet.name)&&indices.property<0&&['name','ref','value',''].includes(heads[0]))indices.property=0;
   if(header(sheet.name)==='fastighetslista'&&indices.property<0)
    indices.property=pick(heads,['objektnr','objektnummer']); // this sheet uses "Objekt. nr" for property
@@ -56,6 +58,9 @@ export function prepareObjectStage(sheets,snapshot,{makeId=()=>crypto.randomUUID
   if(header(sheet.name)==='fastighetslista'&&indices.object===indices.property)indices.object=-1;
   if(header(sheet.name)==='lokalbestand'&&indices.object===indices.property)indices.object=-1;
   if(indices.object<0&&indices.agreement<0)continue;
+  // Tenant/person-only source tabs do not contain evidence of a physical
+  // object or its property. Their agreement numbers belong to later stages.
+  if(indices.object<0&&indices.property<0&&indices.address<0)continue;
   for(let i=1;i<rows.length;i++){
    const row=rows[i];if(!Array.isArray(row)||!row.some(present))continue;
    const sourceRow=i+1,rawObject=at(row,indices.object),rawAgreement=at(row,indices.agreement);

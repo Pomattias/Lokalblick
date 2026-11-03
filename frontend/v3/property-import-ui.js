@@ -125,8 +125,8 @@ export function mountPropertyImport(root,{snapshot,session:provided,apply,onSave
    showIssues(issues)+
    '<div class="property-import-footer"><p class="muted">'+commands.length+
     ' säkra ändringar. Du godkänner alltid innan något sparas.</p>'+
-   '<button type="button" class="primary" data-property-save '+((commands.length||entries.length)&&!saving?'':'disabled')+'>'+
-    (commands.length?'Importera '+commands.length+' säkra ändringar':'Fastigheterna är klara – gå vidare')+
+   '<button type="button" class="primary" data-property-save '+(!saving?'':'disabled')+'>'+
+    (commands.length?'Importera '+commands.length+' säkra ändringar':'Inga nya fastigheter – gå vidare')+
     '</button></div>';
  }
  function drawObjects(){
@@ -151,8 +151,8 @@ export function mountPropertyImport(root,{snapshot,session:provided,apply,onSave
    showIssues(issues)+
    '<div class="property-import-footer"><p class="muted">'+commands.length+
     ' säkra nya objekt. Avtal och hyresgäster skapas inte ännu.</p>'+
-   '<button type="button" class="primary" data-object-save '+((commands.length||entries.some(x=>x.status==='existing'))&&!saving?'':'disabled')+
-    '>'+(commands.length?'Importera '+commands.length+' säkra objekt':'Objekten är klara – gå vidare')+'</button></div>';
+   '<button type="button" class="primary" data-object-save '+(!saving?'':'disabled')+
+    '>'+(commands.length?'Importera '+commands.length+' säkra objekt':'Inga nya objekt – gå vidare')+'</button></div>';
  }
  function drawAgreements(){
   const list=chosen();

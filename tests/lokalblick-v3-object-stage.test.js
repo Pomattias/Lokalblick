@@ -10,6 +10,21 @@ const prop=(no,id='p'+no)=>({id,name:'Fastighet '+no,management_object_number:no
 const snap=(props=[prop('101')],objects=[],agreements=[])=>({
  asOf:'2026-11-03',properties:props,objects,agreements});
 const idFactory=()=>{let i=0;return()=> 'new'+(++i)};
+test('tenant-only tab does not produce false missing-property errors in object step',()=>{
+ const p=prepareObjectStage([
+  mk('Hyresgäster',['Avtalsnummer','Namn','OrgNr'],['AV1','Hyresgäst AB','556001-0101'])
+ ],snap(),{makeId:idFactory()});
+ assert.equal(p.commands.length,0);
+ assert.equal(p.entries.length,0);
+ assert.equal(p.issues.length,0);
+});
+test('FörvaltningsNr takes precedence over external FastighetsNr for object links',()=>{
+ const p=prepareObjectStage([mk('Lokallista',
+  ['FastighetsNr','FörvaltningsNr','Objektsnummer','Avtalsnummer','Startdatum'],
+  ['EXT-101','101','101-099','AV99','2020-01-01'])],snap(),{makeId:idFactory()});
+ assert.equal(p.commands.length,1);
+ assert.equal(p.commands[0].fields.property_id,'p101');
+});
 test('numberless lease rows generate separate objects using the existing per-property numbering',()=>{
  const result=prepareObjectStage([master(
   ['101','Storgatan 101','Malmö','','A-1','2020-01-01','75'],
