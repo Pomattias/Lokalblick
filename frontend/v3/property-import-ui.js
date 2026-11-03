@@ -13,7 +13,7 @@ const defaultSheets=book=>{
  const selected=book.filter(s=>preferred.has(key(s.name))).map(s=>s.name);
  return selected.length?selected:book.slice(0,1).map(s=>s.name);
 };
-const stages=[['Fastigheter','properties'],['Objekt','objects'],['Avtal','agreements'],['Parter & personer','people']];
+const stages=[['Fastigheter','properties'],['Objekt','objects'],['Avtal','agreements'],['Hyresgäster & personer','people']];
 const ensureSession=session=>{
  const state=session||{};
  state.book??=[];state.selected??=[];state.fileName??='';
