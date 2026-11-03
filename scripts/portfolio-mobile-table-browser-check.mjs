@@ -137,7 +137,9 @@ try{
   }
   near(rent.top,area.top,'area and rent appear on the same row');
   assert.ok(await contract.locator('td:has(.contract-mobile-property) .contract-mobile-property').isVisible(),'property and address share a compact row');
-  assert.ok(await contract.locator('td:has([data-open-contract]) .contract-tenant-name').isVisible(),'agreement number and tenant share the top row');
+  const tenant=contract.locator('td:has([data-contract-tenant])');
+  assert.ok(await tenant.isVisible(),'tenant is displayed in its own Verksamhet column');
+  near(first.top,(await bounds(tenant)).top,'agreement number and tenant share the top row');
  }
  await page.setViewportSize({width:1280,height:850});
  await go('contracts');
