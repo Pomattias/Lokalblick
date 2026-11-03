@@ -50,6 +50,22 @@ test('FastighetsNr and Fastighetslista Objekt. nr target properties, never objec
  assert.equal(profileWorkbook(w,importSchemas,XLSX,stale,{reviewed:true})[0].columns[0].target,
   'properties.managementObjectNumber');
 });
+test('guided automatic exclusion is recovered for year rent, but explicit saved exclusion stays opt-in',()=>{
+ const w=book([['FastighetsID','ObjektID','Avtalsnummer','Hyra 2026'],
+  ['F116','O116','AV116',125000]]);
+ const a=profile(w);
+ const first=a[0].columns.find(c=>c.header==='Hyra 2026');
+ Object.assign(first,{target:'@ignore',excludedTarget:'@unmapped',matchSource:'guided-excluded',approved:true});
+ const recovered=prepareGuidedRentColumns(w,a,XLSX);
+ assert.equal(recovered.length,1);
+ assert.equal(first.target,'agreementItems.reportedAmount');
+ assert.equal(first.reportedRentYear,2026);
+ const b=profile(w);
+ const held=b[0].columns.find(c=>c.header==='Hyra 2026');
+ Object.assign(held,{target:'@ignore',excludedTarget:'@unmapped',matchSource:'saved',approved:true});
+ assert.equal(prepareGuidedRentColumns(w,b,XLSX).length,0);
+ assert.equal(held.target,'@ignore');
+});
 test('Hyra 2026 produces a year-bound reported rent item without invented index/base rent',()=>{
  const w=book([['FastighetsID','ObjektID','Avtalsnummer','Hyra 2026'],
   ['F116','O116','AV116',125000]]);

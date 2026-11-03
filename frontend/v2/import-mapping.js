@@ -162,7 +162,13 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
     retargetColumn(prepared.workbook,profile,column,'@ignore',window.XLSX);
     column.matchSource='guided-excluded';
    }
-  if(guided)prepareGuidedRentColumns(prepared.workbook,mapping.profiles,window.XLSX);
+  if(guided){
+   const rentColumns=prepareGuidedRentColumns(prepared.workbook,mapping.profiles,window.XLSX);
+   for(const entry of rentColumns){
+    const index=skippedColumns.indexOf(entry.sheet+' · '+entry.header);
+    if(index>=0)skippedColumns.splice(index,1);
+   }
+  }
   const draft=structuredClone(base);draft.importFieldPreferences ||= {};
   const guarded=guided?guardMultipleAgreementNumbers(prepared,mapping.profiles,window.XLSX):{issues:[],edits:{}};
   if(guided&&Object.keys(guarded.edits).length)

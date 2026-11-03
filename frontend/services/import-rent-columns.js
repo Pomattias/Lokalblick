@@ -24,9 +24,15 @@ export function prepareGuidedRentColumns(workbook,profiles,XLSX){
    if(column.target==='agreementItems.reportedAmount'){
     column.itemType='base';column.reportedRentYear=latest;continue;
    }
-   // Saved and explicit exclusions are opt-in using "Ta med säkra hyror".
-   if(column.target!=='@unmapped'||column.approved||
-      !['unmatched','alias'].includes(column.matchSource))continue;
+   // The guided UI temporarily excludes columns it cannot confidently map.
+   // A year-labelled monetary column is now safe as a *reported* annual
+   // amount, not base rent. Recover only those automatic exclusions.
+   // Explicit/saved exclusions remain opt-in via the review button.
+   const automaticallySkipped=column.target==='@ignore'&&
+    column.matchSource==='guided-excluded'&&column.excludedTarget==='@unmapped';
+   const unmapped=column.target==='@unmapped'&&!column.approved&&
+    ['unmatched','alias'].includes(column.matchSource);
+   if(!automaticallySkipped&&!unmapped)continue;
    retargetColumn(workbook,profile,column,'agreementItems.reportedAmount',XLSX);
    column.itemType='base';column.reportedRentYear=latest;
    column.matchSource='guided-rent';column.approved=true;column.collection='agreementItems';
