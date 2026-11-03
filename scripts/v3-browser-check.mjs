@@ -89,7 +89,28 @@ try{
  assert.match(await page.locator('#detail').innerText(),/425.42|425,42/);
  await add('spaces',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=name]').fill('Entré')});
  await add('inspections',async()=>{await page.locator('#edit-form [name=home]').selectOption({index:1});await page.locator('#edit-form [name=inspected_on]').fill('2026-10-27')});
+ // Guided, property-first import: visible progress, safe partial import,
+ // and explanation for several agreement numbers in the same Excel cell.
  await go('sources');
+ assert.match(await page.locator('.property-import-steps').innerText(),/Fastigheter/);
+ assert.match(await page.locator('.property-import-steps').innerText(),/Objekt/);
+ assert.match(await page.locator('.property-import-steps').innerText(),/Avtal/);
+ assert.match(await page.locator('.property-import-steps').innerText(),/Hyresgäster/);
+ const guidedCsv=Buffer.from(
+  'Fastighetsnummer;Fastighetsnamn;Adress;Ort;Avtalsnummer\n'+
+  'G100;Guided property;Hamngatan 100;Malmö;"A-1; A-2"\n','utf8');
+ await page.locator('[data-property-file]').setInputFiles({name:'stegvis.csv',mimeType:'text/csv',buffer:guidedCsv});
+ assert.match(await page.locator('.property-import-issues').innerText(),/flera avtalsnummer i samma cell/);
+ assert.equal(await page.locator('[data-property-save]').isEnabled(),true);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-property-save]').click();
+ await page.locator('.property-import-done').waitFor();
+ const guidedSnapshot=await (await fetch(origin+'/api/v3/core')).json();
+ assert(guidedSnapshot.properties.some(p=>p.management_object_number==='G100'));
+ assert.equal(guidedSnapshot.agreements.some(a=>a.agreement_number==='A-1'),false);
+ // Legacy features stay available under an explicit advanced disclosure.
+ await go('sources');
+ await page.locator('[data-old-import-toggle]').click();
  await page.locator('.smart-import-legacy > summary').click();
  await page.locator('[data-import-register]').selectOption('properties');
  const csv=Buffer.from('Fastighetsnamn;Adress\nImportfastigheten;Importgatan 4\n','utf8');
@@ -149,6 +170,7 @@ try{
  // A multi-property import must not invent a second object merely because an
  // external source has a new contract number without a physical object number.
  await go('sources');
+ await page.locator('[data-old-import-toggle]').click();
  await page.locator('.smart-import-legacy > summary').click();
  await page.locator('[data-import-register]').selectOption('agreementLinks');
  const rows=Buffer.from('Fastighetsnummer;Avtalsnummer;Startdatum;Objektsnummer\nSF1213;EXTERNAL-11;2026-01-01;SF1213-001\nSF1213;EXTERNAL-12;2026-03-01;\n','utf8');
@@ -169,6 +191,7 @@ try{
 
  // Default, no-configuration import creates the entire relationship chain.
  await go('sources');
+ await page.locator('[data-old-import-toggle]').click();
  const autoCsv=Buffer.from(
   'Fastighetsnummer;Fastighetsnamn;Objektnummer;Yta;Avtalsnummer;Startdatum;Hyresgäst;Fastighetsägare;Förvaltare;Bashyra;Bashyra basår;Tillägg;Tillägg basår\n'+
   'SF3300;Importkvarteret;SF3300-001;125;TEST-3300-01;2025-01-01;Butik Syd AB;Ägaren Syd AB;Eva Förvaltare;120000;2025;3000;2024\n','utf8');
@@ -202,6 +225,7 @@ try{
   .map(i=>[i.type,i.base_amount,i.base_year]),[['base',120000,2025],['addition',3000,2024]]);
  // Import with both numbers requests a källsystem and creates only an alias.
  await go('sources');
+ await page.locator('[data-old-import-toggle]').click();
  const externalCsv=Buffer.from('FörvaltningsNr;FastighetsNr;Fastighetsnamn\nSF3300;SF3300-EX;Importkvarteret\n','utf8');
  await page.locator('[data-smart-file]').setInputFiles({name:'externa-fastighetsnummer.csv',mimeType:'text/csv',buffer:externalCsv});
  await page.locator('[data-smart-source-system]').waitFor();
@@ -217,6 +241,7 @@ try{
  assert.equal(afterExternal.agreements.find(a=>a.agreement_number==='TEST-3300-01')?.object_id,autoObject.id);
  // Reimport must match existing records without creating duplicates.
  await go('sources');
+ await page.locator('[data-old-import-toggle]').click();
  await page.locator('[data-smart-file]').setInputFiles({name:'blandad-lista.csv',mimeType:'text/csv',buffer:autoCsv});
  await page.locator('[data-smart-save]').waitFor();
  assert.equal(await page.locator('[data-smart-save]').isDisabled(),true);

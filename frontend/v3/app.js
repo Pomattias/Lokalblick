@@ -1,6 +1,7 @@
 // Native Lokalblick v3. All persisted facts use the private SQLite API.
 import {moreViews,moreItems,moreRecords,moreItemName,moreSecondary,moreDetail,moreFormSchema} from './modules.js';
 import {mountPropertyImport} from './property-import-ui.js';
+import {mountSmartImport} from './smart-import-ui.js';
 import {relatedRecords,assignmentHistory,isVisibleAt} from './relations.js';
 import {mountPropertyMap} from './map.js';
 import {mountBudgetIndex} from './budget-index.js';
@@ -82,19 +83,30 @@ function renderDetail(){
  if(Object.hasOwn(moreViews,state.view)){
   panel.innerHTML=moreDetail(state.view,row,state.snapshot)+relatedRecords(state.view,row,state.snapshot);
   if(state.view==='budgets')mountBudgetIndex(panel,row,state.snapshot);
-  if(state.view==='sources')mountPropertyImport(panel,{
-   snapshot:state.snapshot,completed:state.importProgress,
-   apply:async commands=>{
-    // Keep the file and preview mounted while separate safe batches are saved.
+  if(state.view==='sources'){
+   mountPropertyImport(panel,{
+    snapshot:state.snapshot,completed:state.importProgress,
+    apply:async commands=>{
+     // Keep the file and preview mounted while separate safe batches are saved.
+     state.snapshot=await api({version:state.snapshot.version,asOf:state.asOf,commands});
+    },
+    onSaved:outcome=>{
+     state.importProgress=outcome;
+     render();
+     notify(outcome.saved+' säkra fastighetsändringar importerade.'+
+      (outcome.failed.length?' '+outcome.failed.length+' behöver kontrolleras.':''));
+    }
+   });
+   // The previous import remains accessible while the guided remaining steps
+   // are built and their existing test contracts remain intact.
+   const legacy=document.createElement('details');legacy.className='import-compat';
+   legacy.innerHTML='<summary data-old-import-toggle>Tidigare importflöde (avancerat)</summary><div data-old-import-container></div>';
+   panel.append(legacy);
+   mountSmartImport(legacy.querySelector('[data-old-import-container]'),{snapshot:state.snapshot,apply:async commands=>{
     state.snapshot=await api({version:state.snapshot.version,asOf:state.asOf,commands});
-   },
-   onSaved:outcome=>{
-    state.importProgress=outcome;
-    render();
-    notify(outcome.saved+' säkra fastighetsändringar importerade.'+
-     (outcome.failed.length?' '+outcome.failed.length+' behöver kontrolleras.':''));
-   }
-  });
+    render();notify(commands.length+' åtgärder importerade till v3.');
+   }});
+  }
   return;
  }
  let actions='<button type="button" class="secondary" data-mode="edit">Redigera</button>';
