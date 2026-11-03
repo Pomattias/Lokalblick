@@ -1,7 +1,7 @@
 // Guided stage 4: companies, tenant/owner roles and named people.
 // Never infer a person's employer, overwrite an existing assignment, or
 // create historical issues/contacts from unrelated source fields.
-import {readGuidedRows,propertyFor,pickEvidence,issue,key,same,multiValue,isoDate,validDate} from './guided-source.js';
+import {readGuidedRows,propertyFor,issue,key,heading,same,multiValue,validDate} from './guided-source.js';
 
 const safe=v=>String(v??'').trim();
 const has=v=>safe(v)!=='';
@@ -57,12 +57,14 @@ export function preparePeopleStage(sheets,snapshot,{makeId=()=>crypto.randomUUID
   mentioned.add(p.id);
   return p;
  };
- const person=(name,email,partyRef,row,date,jobTitle='')=>{
-  name=safe(name);email=safe(email);
+ const person=(name,email,partyRef,row,date,jobTitle='',phone='')=>{
+  name=safe(name);email=safe(email);phone=safe(phone);
   if(!name)return null;
   if(!partyRef){warn(row,'Person','Personens organisation kan inte identifieras. Ingen person eller koppling skapas.',name);return null;}
   if(multiValue(name)||multiValue(email)){warn(row,'Person','Flera namn eller e-postadresser i samma cell. Dela upp i Excel.',name);return null;}
-  if(name.length>200||email.length>200){warn(row,'Person','Namn eller e-postadress är för lång.',name);return null;}
+  if(name.length>200||email.length>200||phone.length>100){
+   warn(row,'Person','Namn, e-postadress eller telefonnummer är för långt.',name);return null;
+  }
   const emailMatches=email?allPeople.filter(p=>same(p.email,email)):[];
   const nameMatches=allPeople.filter(p=>same(p.name,name));
   if(emailMatches.length>1||nameMatches.length>1&&!email){
@@ -92,10 +94,20 @@ export function preparePeopleStage(sheets,snapshot,{makeId=()=>crypto.randomUUID
    if(!email&&sameNewName&&sameNewName!==partyRef.id){
     warn(row,'Person','En person med samma namn finns redan i annan importerad organisation. Ange e-post.',name);return null;
    }
-   p={id:makeId(),name,email:email||null};allPeople.push(p);createdPeople.add(p.id);
+   p={id:makeId(),name,email:email||null,phone:phone||null};
+   allPeople.push(p);createdPeople.add(p.id);
    newByName.set(key(name),partyRef.id);
    unit('person:'+p.id,[{action:'createPerson',id:p.id,sourceRow:row.row,
-    fields:{name,...(email?{email}:{})}}],[],row);
+    fields:{name,...(email?{email}:{}),...(phone?{phone}:{})}}],[],row);
+  }
+  // Verified identity: fill a missing phone number, never overwrite.
+  if(phone&&!createdPeople.has(p.id)){
+   if(p.phone&&!same(p.phone,phone))
+    warn(row,'Telefon','Telefonnumret skiljer sig från befintligt. Uppgiften ändras inte.',phone);
+   else if(!p.phone&&!units.some(u=>u.key==='person-update:'+p.id)){
+    unit('person-update:'+p.id,[{action:'updatePerson',id:p.id,sourceRow:row.row,
+     fields:{phone}}],[],row);p.phone=phone;
+   }
   }
   const links=allLinks.filter(l=>l.party_id===partyRef.id&&l.person_id===p.id);
   const valid=links.some(l=>l.valid_from<=date&&(!l.valid_to||l.valid_to>=date));
@@ -126,6 +138,11 @@ export function preparePeopleStage(sheets,snapshot,{makeId=()=>crypto.randomUUID
    date,row,conflict:false});
  };
  const evidence=readGuidedRows(sheets);
+ // Process older contractual evidence first, so person-party membership
+ // covers the earliest role date even if source rows are unsorted.
+ const effective=row=>fromAgreement(agreements.find(a=>same(a.agreement_number,
+  row.fields.agreement_number)))||asOf;
+ evidence.sort((a,b)=>effective(a).localeCompare(effective(b)));
  const sourceMaster=(sheets||[]).some(s=>s.name&&/lokallista/i.test(s.name));
  const validProps=new Set();
  // Only properties genuinely represented in the master file may be
@@ -135,11 +152,50 @@ export function preparePeopleStage(sheets,snapshot,{makeId=()=>crypto.randomUUID
   if(result.property)validProps.add(result.property.id);
  }
  const resultRows=[];
+ // An explicitly selected Part register creates only identifiable organizations.
+ // It does not guess any relation to a property or agreement.
  for(const row of evidence){
   const f=row.fields;
+  if(!has(f.party_name))continue;
+  const kind=heading(f.party_kind||'');
+  const type=({hyresgast:'hyresgäst',fastighetsagare:'fastighetsägare',
+   lokalsamordnare:'lokalsamordnare',forvaltare:'förvaltare'})[kind]||'övrig';
+  const p=party(f.party_name,f.party_org,type,row);
+  if(p)resultRows.push({sheet:row.sheet,sourceRow:row.row,
+   propertyNumber:'',agreementNumber:'',owner:'',tenant:'',parties:[p.name],status:'existing'});
+ }
+ for(const row of evidence){
+  const f=row.fields;
+  if(has(f.party_name))continue;
+  // Standalone person sheets require a verified, unique affiliation.
+  if(has(f.person_name)){
+   const affiliation=safe(f.person_party);
+   const candidates=affiliation?allParties.filter(p=>same(p.name,affiliation)||
+    same(p.organization_number,affiliation)):[];
+   if(candidates.length!==1){
+    warn(row,'Person','Personens tillhörighet saknas eller matchar inte exakt en part. Personen hoppas över.',affiliation);
+    continue;
+   }
+   const candidate=person(f.person_name,f.person_email,candidates[0],row,asOf,'',f.person_phone);
+   if(candidate)resultRows.push({sheet:row.sheet,sourceRow:row.row,propertyNumber:'',
+    agreementNumber:'',owner:'',tenant:'',parties:[candidates[0].name+' · '+candidate.name],
+    status:'existing'});
+   continue;
+  }
   if(!['tenant_name','owner_name','manager_name','coordinator_name','tenant_contact','owner_contact']
     .some(field=>has(f[field])))continue;
-  const resolved=propertyFor(f,snapshot);
+  let resolved=propertyFor(f,snapshot);
+  // A unique, existing agreement can identify the property's
+  // relationship in a standalone Hyresgäster sheet.
+  if(resolved.error&&!has(f.property_number)&&!has(f.property_address)&&has(f.agreement_number)&&
+   !multiValue(f.agreement_number)){
+   const matches=agreements.filter(a=>same(a.agreement_number,f.agreement_number));
+   if(matches.length===1){
+    const obj=(snapshot.objects||[]).find(o=>o.id===matches[0].object_id);
+    const p=(snapshot.properties||[]).find(p=>p.id===obj?.property_id);
+    if(p)resolved={property:p};
+   }
+  }
   if(resolved.error){warn(row,'Fastighet',resolved.error,f.property_number);continue;}
   const property=resolved.property;
   if(sourceMaster&&!validProps.has(property.id)){
@@ -190,6 +246,7 @@ export function preparePeopleStage(sheets,snapshot,{makeId=()=>crypto.randomUUID
   resultRows.push({sheet:row.sheet,sourceRow:row.row,propertyNumber:property.management_object_number,
    agreementNumber:agreement?.agreement_number||contract||'',owner:owner?.name||'',tenant:tenant?.name||'',
    parties:[tenant,owner,managerParty,coordinatorParty].filter(Boolean).map(p=>p.name),
+   people:[f.manager_name,f.coordinator_name,f.tenant_contact,f.owner_contact].filter(has),
    status:'existing'});
  }
  for(const request of requests.values()){

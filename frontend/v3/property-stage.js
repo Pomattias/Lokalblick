@@ -17,7 +17,10 @@ const cleanName=v=>/^#(name|ref|value|n\/a|saknas)[!?]?$/i.test(trim(v))?'':trim
 function sourceColumns(name,headers){
  const names=headers.map(heading);
  const column=aliases=>names.findIndex(h=>aliases.includes(h));
- let number=column(fieldNames.number);
+ // When both internal and external numbers occur, FörvaltningsNr wins.
+ const preferred=column(['forvaltningsnr','forvaltningsnummer',
+  'forvaltningsobjekt','forvaltningsobjektnummer']);
+ let number=preferred>=0?preferred:column(fieldNames.number);
  const sheet=heading(name);
  if(number<0&&sheet==='fastighetslista')number=column(['objektnr','objektnummer']);
  if(number<0&&sheet==='lokalbestand')number=column(['objektsnummerforvaltningsobjekt','objektnummerforvaltningsobjekt']);

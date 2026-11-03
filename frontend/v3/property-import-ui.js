@@ -181,10 +181,10 @@ export function mountPropertyImport(root,{snapshot,session:provided,apply,onSave
     ['Person–part-kopplingar',stats.memberships],['Ansvarskopplingar',stats.roles],
     ['Osäkra uppgifter',stats.issues]])+
    '<p class="muted">Hyresgäster kopplas till avtal, fastighetsägare och lokalsamordnare till fastigheter, och personer till verifierade organisationer. Inga befintliga ansvar eller kontaktuppgifter skrivs över.</p>'+
-   '<div class="property-import-table"><table><thead><tr><th>Fastighet</th><th>Avtal</th><th>Hyresgäst</th><th>Fastighetsägare</th><th>Parter</th></tr></thead><tbody>'+
+   '<div class="property-import-table"><table><thead><tr><th>Fastighet</th><th>Avtal</th><th>Hyresgäst</th><th>Fastighetsägare</th><th>Parter / personer</th></tr></thead><tbody>'+
    (entries.length?entries.map(e=>'<tr><td>'+esc(e.propertyNumber||'–')+'</td><td>'+esc(e.agreementNumber||'–')+
     '</td><td>'+esc(e.tenant||'–')+'</td><td>'+esc(e.owner||'–')+'</td><td>'+
-    esc(e.parties.join(', ')||'–')+'</td></tr>').join(''):
+    esc([...(e.parties||[]),...(e.people||[])].join(', ')||'–')+'</td></tr>').join(''):
     '<tr><td colspan="5">Inga säkra parter eller personuppgifter kunde identifieras.</td></tr>')+'</tbody></table></div>'+
    showIssues(issues)+
    '<div class="property-import-footer"><p class="muted">'+commands.length+

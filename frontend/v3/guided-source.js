@@ -69,6 +69,33 @@ export function readGuidedRows(sheets){
    const normalized=heads[j],field=aliases[normalized]||inferImportColumn((table[0]||[])[j]);
    if(field&&!Object.hasOwn(columns,field))columns[field]=j;
   }
+  // FörvaltningsNr takes precedence over an external FastighetsNr on mixed
+  // sheets; never confuse external IDs with canonical property IDs.
+  const canonical=heads.findIndex(v=>['forvaltningsnr','forvaltningsnummer',
+   'forvaltningsobjekt','forvaltningsobjektnummer'].includes(v));
+  if(canonical>=0)columns.property_number=canonical;
+  const sheetType=heading(sheet.name),generic=(names)=>heads.findIndex(h=>names.includes(h)),
+   assign=(field,names)=>{const ix=generic(names);if(ix>=0&&!Object.hasOwn(columns,field))columns[field]=ix;};
+  const organization=['organisationsnummer','orgnr','orgnummer','orgno','orgnummmer'];
+  const email=['epost','email','mail','epostadress'];
+  const genericName=['namn','foretagsnamn','organisationsnamn','partnamn'];
+  const parent=['tillhorighet','part','organisation','bolag','foretag','arbetsgivare'];
+  if(['hyresgaster','hyresgast','verksamheter','verksamhet'].includes(sheetType)){
+   assign('tenant_name',genericName);assign('tenant_org',organization);
+  }else if(['fastighetsagare','agare'].includes(sheetType)){
+   assign('owner_name',genericName);assign('owner_org',organization);
+  }else if(['forvaltare','fastighetsforvaltare'].includes(sheetType)){
+   assign('manager_name',genericName);assign('manager_email',email);assign('manager_party',parent);
+  }else if(['lokalsamordnare'].includes(sheetType)){
+   assign('coordinator_name',genericName);assign('coordinator_email',email);assign('coordinator_party',parent);
+  }else if(['parter','part','organisationer'].includes(sheetType)){
+   assign('party_name',genericName);assign('party_org',organization);
+   assign('party_kind',['typ','parttyp','tillhorighettyp']);
+  }else if(['personer','person','kontaktpersoner','kontaktperson'].includes(sheetType)){
+   assign('person_name',['namn','personnamn','kontaktperson']);
+   assign('person_email',email);assign('person_party',parent);
+   assign('person_phone',['telefon','mobil','telefonnummer','mobilnummer']);
+  }
   // The reference sheet uses "Objekt. nr" for its *property* number.
   if(heading(sheet.name)==='fastighetslista'&&!Object.hasOwn(columns,'property_number')){
    const index=heads.findIndex(v=>v==='objektnr'||v==='objektnummer');
@@ -79,7 +106,8 @@ export function readGuidedRows(sheets){
   if(!Object.hasOwn(columns,'agreement_number')&&!Object.hasOwn(columns,'object_number')&&
    !Object.hasOwn(columns,'tenant_name')&&!Object.hasOwn(columns,'owner_name')&&
    !Object.hasOwn(columns,'manager_name')&&!Object.hasOwn(columns,'coordinator_name')&&
-   !Object.hasOwn(columns,'tenant_contact'))continue;
+   !Object.hasOwn(columns,'tenant_contact')&&!Object.hasOwn(columns,'party_name')&&
+   !Object.hasOwn(columns,'person_name'))continue;
   for(let i=1;i<table.length;i++){
    const row=table[i];if(!Array.isArray(row)||!row.some(present))continue;
    const fields=Object.fromEntries(Object.entries(columns).map(([field,index])=>[field,txt(row[index])]));
