@@ -5224,3 +5224,41 @@ body:not([data-view="budget"]) .import-decision-overview .import-review-footnote
  .import-mapping-dialog .import-decision-overview .import-review-map-list li{display:grid;gap:4px}
  .import-mapping-dialog .import-decision-overview .import-review-map-list li>strong{text-align:left;max-width:100%}
 }
+
+/* Simplified guided review for sizeable Excel workbooks. One table per step. */
+.import-mapping-dialog .import-guided-review{border:1px solid #dbe6df;background:#fff;border-radius:10px;padding:14px 16px;margin:12px 0 0;font-size:12px}
+.import-mapping-dialog .import-guided-lead{font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+.import-mapping-dialog .import-guided-steps{list-style:none;margin:0 0 17px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.import-mapping-dialog .import-guided-steps li{min-width:0;display:grid;grid-template-columns:24px minmax(0,1fr);grid-template-rows:auto auto;gap:2px 7px;padding:9px;background:#f7faf8;border:1px solid #e0e8e3;border-radius:7px}
+.import-mapping-dialog .import-guided-steps li>span{grid-row:1/3;display:grid;place-items:center;border:1px solid #bed2c6;border-radius:50%;font-size:11px;font-weight:700;width:24px;height:24px}
+.import-mapping-dialog .import-guided-steps strong{font-size:11px;line-height:1.3;overflow-wrap:anywhere}
+.import-mapping-dialog .import-guided-steps small{font-size:10px;color:var(--muted)}
+.import-mapping-dialog .import-guided-steps .is-current{border-color:#74b39c;background:#f0f8f3}
+.import-mapping-dialog .import-guided-steps .is-current>span,
+.import-mapping-dialog .import-guided-steps .is-done>span{background:#286c56;border-color:#286c56;color:#fff}
+.import-mapping-dialog .import-guided-heading{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.import-mapping-dialog .import-guided-heading h3{font-size:16px}
+.import-mapping-dialog .import-guided-heading small{font-size:11px;color:var(--muted)}
+.import-mapping-dialog .import-guided-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.import-mapping-dialog .import-guided-stats span{border:1px solid #e1e8e4;border-radius:7px;padding:10px;font-size:11px;color:var(--muted)}
+.import-mapping-dialog .import-guided-stats strong{display:block;font-size:21px;font-weight:700;color:var(--ink);line-height:1.15}
+.import-mapping-dialog .import-guided-note{padding:9px 11px;background:#f7f9f8;border:1px solid #e2e9e5;border-radius:7px;font-size:11px}
+.import-mapping-dialog .import-guided-list{border:1px solid #dfe8e3;border-radius:7px;max-height:405px;overflow:auto;margin:10px 0}
+.import-mapping-dialog .import-guided-list table{width:100%;border-collapse:collapse;font-size:12px;text-align:left;min-width:580px}
+.import-mapping-dialog .import-guided-list thead{position:sticky;top:0;z-index:1;background:#f3f7f5}
+.import-mapping-dialog .import-guided-list th,
+.import-mapping-dialog .import-guided-list td{padding:9px 10px;border-bottom:1px solid #e9eeea;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.import-mapping-dialog .import-guided-list th{font-size:11px}
+.import-mapping-dialog .import-guided-issues{border:1px solid #e0e9e4;border-radius:7px;padding:9px 11px;margin:10px 0}
+.import-mapping-dialog .import-guided-issues>summary{font-weight:650;cursor:pointer}
+.import-mapping-dialog .import-guided-issues li{padding:6px 0;font-size:11px;border-bottom:1px solid #e7ece9}
+.import-mapping-dialog .import-guided-footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid #e1e9e4;padding-top:12px;margin-top:12px}
+.import-mapping-dialog .import-guided-footer button{font-size:12px}
+@media(max-width:720px){
+ .import-mapping-dialog .import-guided-review{padding:10px}
+ .import-mapping-dialog .import-guided-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .import-mapping-dialog .import-guided-steps li{padding:7px}
+ .import-mapping-dialog .import-guided-footer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .import-mapping-dialog .import-guided-footer button{white-space:normal;width:100%}
+ .import-mapping-dialog .import-guided-footer [data-guided-next]{grid-column:1/-1}
+}

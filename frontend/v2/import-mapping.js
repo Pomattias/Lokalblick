@@ -12,6 +12,7 @@ import {chooseImportContact} from './import-contact.js';
 import {collectWorkspace} from '../lokaler/view-adapter.js';
 import {importTableHtml} from './import-table.js';
 import {importDashboardHtml} from './import-review-dashboard.js';
+import {guidedReviewHtml,guidedApproveStage} from './import-guided-steps.js';
 import {matchingImportRows,importColumnWarning} from './import-row-review.js';
 import {relatedTables,setPrimaryTable,importIdentityWarnings,setMappingRow,mappingTemplate,issueNumberColumn,suggestIssueNumberColumns,resolveFieldName,skippedFinancialSuggestions,assignAgreementItemKeys} from '../services/import-matching.js';
 import {importConflictGroups,resolveImportChoices,importReviewGroups,importTableRows} from '../lokaler/import-conflicts.js';
@@ -146,6 +147,17 @@ export function columnPreviewHtml(prepared,mapping,result,schemas,preferences={}
 
 export async function previewImport(prepared,base,schemas,actor,evaluator=null) {
   const mapping={profiles:reviewProfiles(prepared.profiles,schemas)},fields=fieldCatalog(schemas,true);
+  // Large workbooks open with a register-by-register review, not dozens of
+  // mapping decisions. All omitted columns remain available in Advanced.
+  const guided=mapping.profiles.reduce((sum,p)=>sum+(p.rowCount||0),0)>=300;
+  const skippedColumns=[];
+  if(guided)for(const profile of mapping.profiles)for(const column of profile.columns)
+   if(pending(column)){
+    skippedColumns.push(profile.name+' · '+column.header);
+    column.excludedTarget=column.target;
+    retargetColumn(prepared.workbook,profile,column,'@ignore',window.XLSX);
+    column.matchSource='guided-excluded';
+   }
   const draft=structuredClone(base);draft.importFieldPreferences ||= {};
   const story={filter:'',query:'',limit:30,openRows:new Set(),peopleEditing:new Set(),peopleQuery:'',peopleLimit:100,newPropertyNumbers:Object.create(null)},approval={query:'',filter:'',limit:100},edits={properties:Object.create(null),contacts:Object.create(null),people:Object.create(null)};
   const baseline=evaluator?.baseline||collectWorkspace(base);
@@ -162,7 +174,9 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
   const d=dialog('<p role="status">Kontrollerar valda kolumner…</p>','import-mapping-dialog');
   return new Promise((resolve,reject)=>{
     const disclosures=new Map();
-    let result,rawResult,closed=false,generation=0,resultGeneration=0,allowPartial=false,stale=false,conflictChoices={},cellsDirty=false;
+    let result,rawResult,closed=false,generation=0,resultGeneration=0,
+     allowPartial=guided,stale=false,conflictChoices={},cellsDirty=false;
+    let guidedStep=0,guidedAdvanced=false;
     let settingsDialog=null,settingsKey=null;
     const closeSettings=()=>{settingsDialog?.close();settingsDialog?.remove();settingsDialog=null;if(!closed)d.querySelector(`[data-preview-map="${settingsKey}"]`)?.focus();};
     const renderSettings=()=>{
@@ -203,7 +217,15 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
         explanation=explainImport(result,baseline,{approved:projected,choices:creationChoices,profiles:mapping.profiles});
        }
       }catch(failure){error=failure;result=null;}
-      d.innerHTML=columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial:enrichment||allowPartial,enrichment,allowNew,stale,conflicts:importConflictGroups(rawResult).filter(g=>!(g.table==='properties'&&g.field==='designation'&&Object.hasOwn(edits.properties,g.recordId))&&!(g.table==='people'&&Object.hasOwn(edits.people[g.recordId]||{},g.storedField))),conflictMode,conflictChoices,financialSuggestions:pendingFinancialSuggestions(),story,explanationBase:baseline,projected,explanation,creationChoices,deferred:projected?.report.creationReview?.deferred.length,approvalHtml:result?.clean?importApprovalHtml(plan,creationChoices,baseline,{...approval,enrichment,allowNew}):'',plan,edits,cellEdits:draft.importCellEdits,pendingCreations:plan.filter(entry=>!creationChoice(entry,creationChoices)).length});d.setAttribute('aria-busy',stale?'true':'false');
+      const legacyHtml=()=>columnPreviewHtml(prepared,mapping,result||rawResult,schemas,draft.importFieldPreferences,{allowPartial:enrichment||allowPartial,enrichment,allowNew,stale,conflicts:importConflictGroups(rawResult).filter(g=>!(g.table==='properties'&&g.field==='designation'&&Object.hasOwn(edits.properties,g.recordId))&&!(g.table==='people'&&Object.hasOwn(edits.people[g.recordId]||{},g.storedField))),conflictMode,conflictChoices,financialSuggestions:pendingFinancialSuggestions(),story,explanationBase:baseline,projected,explanation,creationChoices,deferred:projected?.report.creationReview?.deferred.length,approvalHtml:result?.clean?importApprovalHtml(plan,creationChoices,baseline,{...approval,enrichment,allowNew}):'',plan,edits,cellEdits:draft.importCellEdits,pendingCreations:plan.filter(entry=>!creationChoice(entry,creationChoices)).length});
+      d.innerHTML=guided&&!guidedAdvanced?
+       '<h2>Granska importen</h2>'+
+       guidedReviewHtml(prepared,result||rawResult,baseline,plan,creationChoices,guidedStep,
+        {stale,skippedColumns,mappingRowPending:mapping.profiles.some(p=>p.mappingRowSuggested&&!p.mappingRowDecision),
+         duplicates:mappingConflicts(mapping.profiles).length})+
+       '<p data-import-error role="alert"></p>':
+       (guided?'<button type="button" data-guided-simple>Återgå till stegvis import</button>':'')+legacyHtml();
+      d.setAttribute('aria-busy',stale?'true':'false');
       for(const group of d.querySelectorAll('details'))if(state.open.has(disclosureKey(group)))group.open=state.open.get(disclosureKey(group));
       const focus=state.focusAttr?[...d.querySelectorAll(`[${state.focusAttr}]`)].find(node=>node.getAttribute(state.focusAttr)===state.focusValue&&(!state.focusRow||sourceRowOf(node)===state.focusRow)&&(!state.focusField||node.dataset.personKey===state.focusField)):null;
       focus?.focus({preventScroll:true});
@@ -269,6 +291,33 @@ export async function previewImport(prepared,base,schemas,actor,evaluator=null) 
 
       try{
         if(cellsDirty&&!button.hasAttribute('data-cancel'))await refresh();
+        if(guided&&button.hasAttribute('data-guided-simple')){
+         guidedAdvanced=false;const state=viewState();state.scroll=0;render(state,false);return;
+        }
+        if(guided&&button.hasAttribute('data-guided-advanced')){
+         guidedAdvanced=true;const state=viewState();state.scroll=0;render(state,false);return;
+        }
+        if(guided&&button.hasAttribute('data-guided-back')){
+         guidedStep=Math.max(0,guidedStep-1);
+         const state=viewState();state.scroll=0;render(state,false);return;
+        }
+        if(guided&&button.hasAttribute('data-guided-next')){
+         if(stale||!result?.clean||resultGeneration!==generation)
+          throw Error('Vänta tills filen har granskats färdigt.');
+         if(mapping.profiles.some(p=>p.mappingRowSuggested&&!p.mappingRowDecision)||
+            mappingConflicts(mapping.profiles).length)
+          throw Error('Kontrollera matchningsrad eller dubbla kolumnkopplingar under Avancerad granskning.');
+         creationChoices=guidedApproveStage(plan,creationChoices,result,baseline,guidedStep);
+         if(guidedStep<3){
+          guidedStep++;const state=viewState();state.scroll=0;render(state);return;
+         }
+         if(!mapping.profiles.some(p=>p.columns.some(selected)))
+          throw Error('Inga fält kan importeras.');
+         const approved=approveImportPlan(result,baseline,creationChoices,actor);
+         if(approved.report.blocking)approved.report.partial=true;
+         approved.report.actor=actor;
+         close();resolve(approved);return;
+        }
         if(button.hasAttribute('data-import-choose-column')){
           const key=button.dataset.importChooseColumn,{profile,column}=locate(key);
           const next=await chooseField([...fields,...contactFields(profile)],column.target,profile,schemas,
