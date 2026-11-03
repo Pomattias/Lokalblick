@@ -72,13 +72,13 @@ try{
  assert.equal(data.properties.length,320);
  assert(data.agreements.some(a=>a.id==='A-1'));
  assert(!data.agreements.some(a=>a.id==='A-2; A-3'));
- const reported=data.agreementItems.find(item=>item.contractId==='A-1'&&item.type==='base');
- assert.equal(reported?.reportedAmount,120000,
+ const reported=(data.agreement_items||[]).find(item=>item.agreement_id==='A-1'&&item.type==='base');
+ assert.equal(reported?.reported_amount,120000,
   '2026 rent is read as source annual amount, not silently dropped');
- assert.equal(reported?.baseAmount,0,
+ assert.equal(reported?.base_amount,0,
   'A reported 2026 amount must not be invented as a contractual base rent');
- assert.equal(reported?.start,'2026-01-01');
- assert.equal(reported?.end,'2026-12-31');
+ assert.equal(reported?.valid_from,'2026-01-01');
+ assert.equal(reported?.valid_to,'2026-12-31');
  await page.locator('.sidebar [data-view=contracts]').evaluate(node=>node.click());
  const contractsTable=page.locator('table[data-list-key="contracts"]');
  await contractsTable.waitFor();
