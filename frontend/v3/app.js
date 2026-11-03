@@ -1,6 +1,6 @@
 // Native Lokalblick v3. All persisted facts use the private SQLite API.
 import {moreViews,moreItems,moreRecords,moreItemName,moreSecondary,moreDetail,moreFormSchema} from './modules.js';
-import {mountSmartImport} from './smart-import-ui.js';
+import {mountPropertyImport} from './property-import-ui.js';
 import {relatedRecords,assignmentHistory,isVisibleAt} from './relations.js';
 import {mountPropertyMap} from './map.js';
 import {mountBudgetIndex} from './budget-index.js';
@@ -11,7 +11,7 @@ const viewNames={properties:'Fastigheter',objects:'Objekt',agreements:'Avtal',pa
 const itemNames={properties:'fastighet',objects:'objekt',agreements:'avtal',parties:'part',people:'person',...moreItems};
 const dateToday=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
 const roles={owner:'Fastighetsägare',owner_contact:'Fastighetsägarens kontakt',coordinator:'Lokalsamordnare',tenant:'Hyresgäst',tenant_contact:'Hyresgästens kontakt',asset_manager:'Förvaltare',project_manager:'Projektledare',contractor:'Entreprenör',consultant:'Konsult',supplier:'Leverantör',invoice_recipient:'Fakturamottagare'};
-const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:'',rentEditId:null,showHistory:false};
+const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:'',rentEditId:null,showHistory:false,importProgress:null};
 const registerItems=()=>state.snapshot?moreRecords(state.view,state.snapshot).filter(r=>isVisibleAt(state.view,r,state.asOf,state.showHistory)):[];
 $('#as-of').value=state.asOf;
 async function api(body=null){
@@ -82,10 +82,19 @@ function renderDetail(){
  if(Object.hasOwn(moreViews,state.view)){
   panel.innerHTML=moreDetail(state.view,row,state.snapshot)+relatedRecords(state.view,row,state.snapshot);
   if(state.view==='budgets')mountBudgetIndex(panel,row,state.snapshot);
-  if(state.view==='sources')mountSmartImport(panel,{snapshot:state.snapshot,apply:async commands=>{
-   const updated=await api({version:state.snapshot.version,asOf:state.asOf,commands});
-   state.snapshot=updated;render();notify(commands.length+' åtgärder importerade till v3.');
-  }});
+  if(state.view==='sources')mountPropertyImport(panel,{
+   snapshot:state.snapshot,completed:state.importProgress,
+   apply:async commands=>{
+    // Keep the file and preview mounted while separate safe batches are saved.
+    state.snapshot=await api({version:state.snapshot.version,asOf:state.asOf,commands});
+   },
+   onSaved:outcome=>{
+    state.importProgress=outcome;
+    render();
+    notify(outcome.saved+' säkra fastighetsändringar importerade.'+
+     (outcome.failed.length?' '+outcome.failed.length+' behöver kontrolleras.':''));
+   }
+  });
   return;
  }
  let actions='<button type="button" class="secondary" data-mode="edit">Redigera</button>';
