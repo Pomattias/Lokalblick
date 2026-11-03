@@ -97,9 +97,9 @@ try{
  assert.match(await page.locator('.property-import-steps').innerText(),/Avtal/);
  assert.match(await page.locator('.property-import-steps').innerText(),/Hyresgäster/);
  const guidedCsv=Buffer.from(
-  'Fastighetsnummer;Fastighetsnamn;Adress;Ort;Avtalsnummer\n'+
-  'G100;Guided property;Hamngatan 100;Malmö;"A-1; A-2"\n'+
-  'G101;Guided property 2;Hamngatan 101;Malmö;A-3\n','utf8');
+  'Fastighetsnummer;Fastighetsnamn;Adress;Ort;Avtalsnummer;Startdatum;Bashyra\n'+
+  'G100;Guided property;Hamngatan 100;Malmö;"A-1; A-2";2021-01-01;\n'+
+  'G101;Guided property 2;Hamngatan 101;Malmö;A-3;2021-01-01;130000\n','utf8');
  await page.locator('[data-property-file]').setInputFiles({name:'stegvis.csv',mimeType:'text/csv',buffer:guidedCsv});
  assert.match(await page.locator('.property-import-issues').innerText(),/flera avtalsnummer i samma cell/);
  assert.equal(await page.locator('[data-property-save]').isEnabled(),true);
@@ -122,6 +122,36 @@ try{
  const afterObjects=await (await fetch(origin+'/api/v3/core')).json();
  assert.equal(afterObjects.objects.some(o=>o.object_number==='G101-001'),true);
  assert.equal(afterObjects.agreements.some(a=>a.agreement_number==='A-3'),false);
+ // Step 3 reuses the same workbook and approved agreement/object links.
+ assert.equal(await page.locator('[data-import-continue="agreements"]').isVisible(),true);
+ await page.locator('[data-import-continue="agreements"]').click();
+ assert.match(await page.locator('[data-property-preview]').innerText(),/A-3/);
+ assert.equal(await page.locator('[data-agreement-save]').isEnabled(),true);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-agreement-save]').click();
+ await page.locator('.property-import-done').getByText(/Avtal – klart/).waitFor();
+ const afterAgreements=await (await fetch(origin+'/api/v3/core')).json();
+ const guidedAgreement=afterAgreements.agreements.find(a=>a.agreement_number==='A-3');
+ assert.equal(guidedAgreement?.object_id,afterAgreements.objects.find(o=>o.object_number==='G101-001')?.id);
+ assert(afterAgreements.agreementItems.some(item=>item.agreement_id===guidedAgreement.id&&item.base_amount===130000));
+ assert(!afterAgreements.agreements.some(a=>a.agreement_number==='A-1'));
+ // Step 4 accepts another file, but still uses the imported agreement chain.
+ await page.locator('[data-import-new-file]').click();
+ const peopleFile=Buffer.from(
+  'Fastighetsnummer;Avtalsnummer;Hyresgäst;Hyresgäst orgnr;Fastighetsägare;Fastighetsägare orgnr;Hyresgästkontakt;Hyresgästkontakt epost\n'+
+  'G101;A-3;Importhyresgäst AB;556001-9011;Importägaren AB;556002-9022;Eva Kontakt;eva@guided.test\n','utf8');
+ await page.locator('[data-property-file]').setInputFiles({name:'parter.csv',mimeType:'text/csv',buffer:peopleFile});
+ assert.match(await page.locator('[data-property-preview]').innerText(),/Importhyresgäst AB/);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-people-save]').click();
+ await page.locator('.property-import-done').getByText(/Importen är genomgången/).waitFor();
+ const afterPeople=await (await fetch(origin+'/api/v3/core')).json();
+ const tenant=afterPeople.parties.find(p=>p.name==='Importhyresgäst AB');
+ const tenantRole=afterPeople.stakeholderAssignments.find(a=>a.agreement_id===guidedAgreement.id&&a.role_code==='tenant');
+ assert.equal(tenantRole?.party_id,tenant?.id);
+ const contact=afterPeople.people.find(p=>p.name==='Eva Kontakt');
+ assert(afterPeople.partyPeople.some(x=>x.person_id===contact?.id&&x.party_id===tenant.id));
+ assert(afterPeople.stakeholderAssignments.some(x=>x.role_code==='tenant_contact'&&x.person_id===contact?.id));
  // New file can be chosen for the object step without importing properties twice.
  await page.reload();
  await go('sources');

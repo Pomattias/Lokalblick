@@ -97,10 +97,16 @@ function renderDetail(){
      }else if(outcome.stage==='objects'){
       session.objectsDone=true;session.stage='objects-done';session.objectResult=outcome;
       Object.assign(session.objectLinks,outcome.objectLinks||{});
+     }else if(outcome.stage==='agreements'){
+      session.agreementsDone=true;session.stage='choose-people';session.agreementResult=outcome;
+     }else if(outcome.stage==='people'){
+      session.peopleDone=true;session.stage='complete';session.peopleResult=outcome;
      }
      render();
-     notify(outcome.saved+' säkra '+(outcome.stage==='objects'?'objekt':'fastighets')+
-      'ändringar importerade.'+(outcome.failed.length?' '+outcome.failed.length+' behöver kontrolleras.':''));
+     const label=({properties:'fastighets',objects:'objekt',agreements:'avtals',
+      people:'part- och person'})[outcome.stage]||'';
+     notify(outcome.saved+' säkra '+label+'ändringar importerade.'+
+      (outcome.failed.length?' '+outcome.failed.length+' behöver kontrolleras.':''));
     }
    });
    // The previous import remains accessible while the guided remaining steps

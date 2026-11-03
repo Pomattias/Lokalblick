@@ -3,6 +3,8 @@
 import {readCsv,importableSheetNames} from './import.js';
 import {preparePropertyStage} from './property-stage.js';
 import {prepareObjectStage,generatedObjectMessage} from './object-stage.js';
+import {prepareAgreementStage} from './agreement-stage.js';
+import {preparePeopleStage} from './people-stage.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=v=>String(v??'').toLocaleLowerCase('sv').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
@@ -11,11 +13,12 @@ const defaultSheets=book=>{
  const selected=book.filter(s=>preferred.has(key(s.name))).map(s=>s.name);
  return selected.length?selected:book.slice(0,1).map(s=>s.name);
 };
-const stages=[['Fastigheter','properties'],['Objekt','objects'],['Avtal','agreements'],['Hyresgäster','tenants']];
+const stages=[['Fastigheter','properties'],['Objekt','objects'],['Avtal','agreements'],['Parter & personer','people']];
 const ensureSession=session=>{
  const state=session||{};
  state.book??=[];state.selected??=[];state.fileName??='';
  state.stage??='properties';state.propertiesDone??=false;state.objectsDone??=false;
+ state.agreementsDone??=false;state.peopleDone??=false;
  state.objectLinks??={};
  return state;
 };
@@ -42,49 +45,58 @@ export function mountPropertyImport(root,{snapshot,session:provided,apply,onSave
  let fileInput=null,plan=null,saving=false;
 
  const chosen=()=>session.book.filter(s=>session.selected.includes(s.name));
- const currentStage=()=>session.stage==='objects'||session.stage==='objects-done'?'objects':'properties';
+ const currentStage=()=>{
+  if(['choose-objects','properties'].includes(session.stage))return 'properties';
+  if(['objects','objects-done','choose-agreements'].includes(session.stage))return 'objects';
+  if(['agreements','choose-people'].includes(session.stage))return 'agreements';
+  return 'people';
+ };
+ const done=stage=>stage==='properties'?session.propertiesDone:stage==='objects'?session.objectsDone:
+  stage==='agreements'?session.agreementsDone:session.peopleDone;
  function drawProgress(){
   const active=currentStage();
   progress.innerHTML=stages.map(([label,stage],i)=>{
-   const done=stage==='properties'?session.propertiesDone:stage==='objects'?session.objectsDone:false;
-   const isActive=stage===active&&!done;
-   const cls=done?'is-done':isActive?'is-current':
-    (session.propertiesDone&&!session.objectsDone&&stage==='objects'||
-     session.objectsDone&&stage==='agreements')?'is-next':'is-pending';
-   const status=done?'Klart':isActive?'Pågår':cls==='is-next'?'Nästa steg':'Kommer sedan';
-   return '<li class="'+cls+'" '+(isActive?'aria-current="step"':'')+'><span class="property-import-step-number">'+
-    (done?'✓':i+1)+'</span><strong>'+label+'</strong><small>'+status+'</small></li>';
+   const completed=done(stage),isActive=stage===active&&!completed;
+   const isNext=!completed&&!isActive&&i===stages.findIndex(([,s])=>!done(s));
+   const cls=completed?'is-done':isActive?'is-current':isNext?'is-next':'is-pending';
+   const status=completed?'Klart':isActive?'Pågår':isNext?'Nästa steg':'Kommer sedan';
+   return '<li class="'+cls+'" '+(isActive?'aria-current="step"':'')+
+    '><span class="property-import-step-number">'+(completed?'✓':i+1)+
+    '</span><strong>'+label+'</strong><small>'+status+'</small></li>';
   }).join('');
  }
+ const promptStep=(label,nextLabel,keyName,result)=>'<div class="property-import-done" role="status">'+
+  '<strong>'+label+' – klart.</strong> '+(result?.saved??0)+' säkra ändringar sparades.'+
+  (result?.failed?.length?' '+result.failed.length+' behöver kontrolleras.':'')+'</div>'+
+  '<div class="property-import-choice"><strong>Vill du fortsätta med '+nextLabel+'?</strong>'+
+   '<p class="muted">Filen '+esc(session.fileName)+' finns kvar. Fortsätt från de valda flikarna eller välj en annan fil för nästa steg.</p>'+
+   '<div class="property-import-choice-buttons">'+
+   '<button type="button" class="primary" data-import-continue="'+keyName+'"'+(keyName==='objects'?' data-continue-objects':'')+'>Fortsätt med '+nextLabel+' från importerad fil</button>'+
+   '<button type="button" class="secondary" data-import-new-file '+(keyName==='objects'?'data-new-object-file':'')+'>Ladda upp ny fil</button></div></div>';
  function drawSource(){
-  const withFile=session.book.length>0,asking=session.stage==='choose-objects',
-   afterObjects=session.stage==='objects-done';
-  source.innerHTML=
-   (asking?
-    '<div class="property-import-done" role="status"><strong>Fastigheter – klart.</strong> '+
-     esc(session.propertyResult?.saved??0)+' säkra ändringar sparades.'+
-     (session.propertyResult?.failed?.length?' '+session.propertyResult.failed.length+' behöver kontrolleras.':'')+
-     '</div>'+
-    '<div class="property-import-choice"><strong>Vill du fortsätta med objekt?</strong>'+
-     '<p class="muted">Den importerade filen finns kvar här. Vi använder de valda flikarna och kopplar objekten till fastigheterna.</p>'+
-     '<div class="property-import-choice-buttons"><button type="button" class="primary" data-continue-objects>'+
-      'Fortsätt med objekt från importerad fil</button>'+
-     '<button type="button" class="secondary" data-new-object-file>Ladda upp ny fil</button></div></div>':'')+
-   (afterObjects?
-    '<div class="property-import-done" role="status"><strong>Objekt – klart.</strong> '+
-     esc(session.objectResult?.saved??0)+' säkra objekt importerades. '+
-     (session.objectResult?.failed?.length?'Vissa objekt behöver kontrolleras. ':'')+
-     'Nästa steg är Avtal, där vi kontrollerar och kopplar avtalen till objekten innan import.</div>':'')+
-   (withFile&&!asking&&!afterObjects?
+  const asking=['choose-objects','objects-done','choose-agreements','choose-people'].includes(session.stage);
+  const finished=session.stage==='complete';
+  const steps={
+   'choose-objects':['Fastigheter','objekt','objects',session.propertyResult],
+   'objects-done':['Objekt','avtal','agreements',session.objectResult],
+   'choose-agreements':['Objekt','avtal','agreements',session.objectResult],
+   'choose-people':['Avtal','hyresgäster, parter och personer','people',session.agreementResult]
+  };
+  const p=steps[session.stage];
+  source.innerHTML=(p?promptStep(...p):'')+
+   (finished?'<div class="property-import-done" role="status"><strong>Importen är genomgången.</strong> Fastigheter, objekt, avtal, parter och personer har granskats i tur och ordning. Osäkra uppgifter kan åtgärdas separat.</div>'+
+    '<button type="button" class="secondary" data-import-restart>Starta ny import</button>':'')+
+   (session.book.length&&!asking&&!finished?
     '<p class="property-import-source-name"><strong>Vald fil:</strong> '+esc(session.fileName)+'</p>':'')+
-   (!asking&&!afterObjects?
-    '<label class="property-import-file">'+(currentStage()==='objects'?'Använd annan fil för objekten':'Välj Excel- eller CSV-fil')+
+   (!asking&&!finished?
+    '<label class="property-import-file">'+(currentStage()==='properties'?'Välj Excel- eller CSV-fil':
+     'Använd annan fil för '+({objects:'objekt',agreements:'avtal',people:'parter och personer'})[currentStage()])+
      '<input data-property-file type="file" accept=".xlsx,.xls,.csv,text/csv"></label>':
     '<input data-property-file class="sr-only" type="file" accept=".xlsx,.xls,.csv,text/csv" aria-label="Ladda upp ny fil">');
   fileInput=source.querySelector('[data-property-file]');
  }
  function drawTabs(){
-  if(!session.book.length||session.stage==='choose-objects'||session.stage==='objects-done'){
+  if(!session.book.length||['choose-objects','objects-done','choose-agreements','choose-people','complete'].includes(session.stage)){
    tabs.innerHTML='';return;
   }
   tabs.innerHTML='<fieldset class="property-import-sheets"><legend>Valda flikar</legend>'+
@@ -138,11 +150,58 @@ export function mountPropertyImport(root,{snapshot,session:provided,apply,onSave
    '<button type="button" class="primary" data-object-save '+((commands.length||entries.some(x=>x.status==='existing'))&&!saving?'':'disabled')+
     '>'+(commands.length?'Importera '+commands.length+' säkra objekt':'Objekten är klara – gå vidare')+'</button></div>';
  }
+ function drawAgreements(){
+  const list=chosen();
+  if(!list.length){plan=null;preview.innerHTML='<p class="muted">Välj minst en flik med avtalsuppgifter.</p>';return;}
+  plan=prepareAgreementStage(list,snapshot,{objectLinks:session.objectLinks});
+  const {entries,issues,commands,stats}=plan;
+  preview.innerHTML='<h3>3. Avtal – förhandsgranskning</h3>'+
+   summary([['Identifierade avtal',stats.found],['Nya',stats.new],['Finns redan',stats.existing],
+    ['Behöver åtgärdas',stats.review],['Säkra hyresposter',stats.prices],['Osäkra uppgifter',stats.issues]])+
+   '<p class="muted">Avtal kopplas till rätt objekt och fastighet. Hyresposter läses in separat när belopp, startdatum och eventuella indexvillkor är säkra. Befintliga avtalsvillkor ändras inte.</p>'+
+   '<div class="property-import-table"><table><thead><tr><th>Fastighet</th><th>Objekt</th><th>Avtal</th><th>Fr.o.m.</th><th>Status</th></tr></thead><tbody>'+
+   (entries.length?entries.map(e=>'<tr><td>'+esc(e.propertyNumber||'–')+'</td><td>'+esc(e.objectNumber||'–')+
+    '</td><td>'+esc(e.agreementNumber||'–')+'</td><td>'+esc(e.validFrom||'–')+'</td><td>'+
+    esc(e.status==='new'?'Nytt avtal':e.status==='existing'?'Finns redan':e.reason||'Behöver åtgärdas')+'</td></tr>').join(''):
+    '<tr><td colspan="5">Inga avtalsrader kunde identifieras.</td></tr>')+'</tbody></table></div>'+
+   showIssues(issues)+
+   '<div class="property-import-footer"><p class="muted">'+commands.length+' säkra åtgärder, varav '+
+    stats.prices+' hyresposter. Inget sparas utan godkännande.</p>'+
+   '<button type="button" class="primary" data-agreement-save '+(!saving?'':'disabled')+'>'+
+    (commands.length?'Importera '+commands.length+' säkra avtalsuppgifter':'Inga säkra nya avtal – gå vidare')+
+   '</button></div>';
+ }
+ function drawPeople(){
+  const list=chosen();
+  if(!list.length){plan=null;preview.innerHTML='<p class="muted">Välj minst en flik med uppgifter om hyresgäster, parter eller personer.</p>';return;}
+  plan=preparePeopleStage(list,snapshot);
+  const {entries,issues,commands,stats}=plan;
+  preview.innerHTML='<h3>4. Hyresgäster, parter och personer – förhandsgranskning</h3>'+
+   summary([['Källrader',stats.found],['Nya parter',stats.parties],['Nya personer',stats.people],
+    ['Person–part-kopplingar',stats.memberships],['Ansvarskopplingar',stats.roles],
+    ['Osäkra uppgifter',stats.issues]])+
+   '<p class="muted">Hyresgäster kopplas till avtal, fastighetsägare och lokalsamordnare till fastigheter, och personer till verifierade organisationer. Inga befintliga ansvar eller kontaktuppgifter skrivs över.</p>'+
+   '<div class="property-import-table"><table><thead><tr><th>Fastighet</th><th>Avtal</th><th>Hyresgäst</th><th>Fastighetsägare</th><th>Parter</th></tr></thead><tbody>'+
+   (entries.length?entries.map(e=>'<tr><td>'+esc(e.propertyNumber||'–')+'</td><td>'+esc(e.agreementNumber||'–')+
+    '</td><td>'+esc(e.tenant||'–')+'</td><td>'+esc(e.owner||'–')+'</td><td>'+
+    esc(e.parties.join(', ')||'–')+'</td></tr>').join(''):
+    '<tr><td colspan="5">Inga säkra parter eller personuppgifter kunde identifieras.</td></tr>')+'</tbody></table></div>'+
+   showIssues(issues)+
+   '<div class="property-import-footer"><p class="muted">'+commands.length+
+    ' säkra åtgärder. Osäkra relationer och personkopplingar lämnas för åtgärd.</p>'+
+   '<button type="button" class="primary" data-people-save '+(!saving?'':'disabled')+'>'+
+    (commands.length?'Importera '+commands.length+' säkra kopplingar':'Slutför granskningen utan ändringar')+'</button></div>';
+ }
  function draw(){
   drawProgress();drawSource();drawTabs();
-  if(session.stage==='choose-objects'||session.stage==='objects-done'){plan=null;preview.innerHTML='';return;}
+  if(['choose-objects','objects-done','choose-agreements','choose-people','complete'].includes(session.stage)){
+   plan=null;preview.innerHTML='';return;
+  }
   if(!session.book.length){plan=null;preview.innerHTML='<p class="muted">Välj en fil för att börja.</p>';return;}
-  if(currentStage()==='objects')drawObjects();else drawProperties();
+  if(currentStage()==='objects')drawObjects();
+  else if(currentStage()==='agreements')drawAgreements();
+  else if(currentStage()==='people')drawPeople();
+  else drawProperties();
  }
  async function readFile(file){
   if(!file)return;
@@ -159,7 +218,9 @@ export function mountPropertyImport(root,{snapshot,session:provided,apply,onSave
   // Only replace the workbook after successful parsing. All sheets remain
   // private in this browser session; no source data is sent to the server.
   session.book=book;session.fileName=file.name;session.selected=defaultSheets(book);
-  if(session.propertiesDone)session.stage='objects';
+  if(session.agreementsDone)session.stage='people';
+  else if(session.objectsDone)session.stage='agreements';
+  else if(session.propertiesDone)session.stage='objects';
   else {session.stage='properties';session.objectLinks={};session.objectsDone=false;}
   draw();
  }
@@ -169,10 +230,18 @@ export function mountPropertyImport(root,{snapshot,session:provided,apply,onSave
   catch(error){preview.insertAdjacentHTML('afterbegin','<p class="error-text" role="alert">'+esc(error.message)+'</p>');}
  });
  source.addEventListener('click',event=>{
-  if(event.target.closest('[data-new-object-file]')){fileInput?.click();return;}
-  if(event.target.closest('[data-continue-objects]')){
+  if(event.target.closest('[data-import-new-file]')){fileInput?.click();return;}
+  const next=event.target.closest('[data-import-continue]')?.dataset.importContinue;
+  if(next){
    if(!session.book.length){fileInput?.click();return;}
-   session.stage='objects';draw();
+   session.stage=next;draw();return;
+  }
+  if(event.target.closest('[data-import-restart]')){
+   session.book=[];session.selected=[];session.fileName='';session.stage='properties';
+   session.propertiesDone=false;session.objectsDone=false;session.agreementsDone=false;
+   session.peopleDone=false;session.objectLinks={};session.propertyResult=null;
+   session.objectResult=null;session.agreementResult=null;session.peopleResult=null;
+   draw();
   }
  });
  tabs.addEventListener('change',event=>{
@@ -182,59 +251,89 @@ export function mountPropertyImport(root,{snapshot,session:provided,apply,onSave
   else session.selected=session.selected.filter(name=>name!==chosenSheet.name);
   draw();
  });
- async function persist(commands){
-  let saved=0;const failed=[],savedCommands=[];
-  for(let i=0;i<commands.length;i+=100){
-   const batch=commands.slice(i,i+100);
-   try{await apply(batch);saved+=batch.length;savedCommands.push(...batch);}
-   catch(error){
-    // Do not repeat a potentially committed transaction after a transport error.
-    if(!/^Importfel\b/i.test(String(error.message||'')))throw Object.assign(error,{saved,savedCommands,failed});
-    for(const command of batch){
-     try{await apply([command]);saved++;savedCommands.push(command);}
-     catch(cause){failed.push({command,message:cause.message||'Kunde inte spara posten'});}
+ async function persist(units){
+  let saved=0;const failed=[],savedCommands=[],completed=new Set(),blocked=new Set();
+  // Group independent commands for speed. A failed database batch is
+  // rolled back, then retried per logical unit, never per dependent command.
+  const chunks=[];let pending=[],size=0;
+  for(const item of units){
+   if(size+item.commands.length>80&&pending.length){chunks.push(pending);pending=[];size=0;}
+   pending.push(item);size+=item.commands.length;
+  }
+  if(pending.length)chunks.push(pending);
+  for(const chunk of chunks){
+   const run=chunk.filter(u=>!(u.dependsOn||[]).some(d=>blocked.has(d)));
+   if(!run.length)continue;
+   try{
+    const all=run.flatMap(u=>u.commands);
+    await apply(all);saved+=all.length;savedCommands.push(...all);
+    for(const u of run)completed.add(u.key);
+   }catch(error){
+    // An unknown transport error may follow a successful commit. Never
+    // blindly retry a write if we cannot prove that it was rolled back.
+    if(!/^Importfel\b/i.test(String(error.message||'')))
+     throw Object.assign(error,{saved,savedCommands,failed});
+    for(const u of run){
+     if((u.dependsOn||[]).some(dep=>blocked.has(dep))){
+      blocked.add(u.key);
+      failed.push({unit:u,message:'Beroende uppgift kunde inte importeras.',sheet:u.sheet,row:u.row});
+      continue;
+     }
+     try{
+      await apply(u.commands);
+      saved+=u.commands.length;savedCommands.push(...u.commands);completed.add(u.key);
+     }catch(cause){
+      blocked.add(u.key);failed.push({unit:u,message:cause.message||'Kunde inte spara raden',
+       sheet:u.sheet,row:u.row});
+     }
     }
    }
   }
-  return {saved,failed,savedCommands};
+  return {saved,failed,savedCommands,completed:[...completed]};
  }
  preview.addEventListener('click',async event=>{
-  const property=Boolean(event.target.closest('[data-property-save]'));
-  const object=Boolean(event.target.closest('[data-object-save]'));
-  if(!property&&!object||saving||!plan)return;
-  const commands=plan.commands.slice(),stage=object?'objects':'properties';
-  if(!commands.length&&!property&&!plan.entries.some(e=>e.status==='existing'))return;
+  const clicked=event.target.closest('[data-property-save],[data-object-save],[data-agreement-save],[data-people-save]');
+  if(!clicked||saving||!plan)return;
+  const stage=clicked.hasAttribute('data-object-save')?'objects':
+   clicked.hasAttribute('data-agreement-save')?'agreements':
+   clicked.hasAttribute('data-people-save')?'people':'properties';
+  const approved=plan;
+  const units=plan.units||plan.commands.map((command,i)=>({
+   key:stage+':'+i,commands:[command],dependsOn:[],sheet:'',row:command.sourceRow
+  }));
+  const commands=plan.commands;
+  const label=({properties:'fastighetsuppgifter',objects:'objekt',agreements:'avtalsuppgifter',
+   people:'parter och personkopplingar'})[stage];
   const question=commands.length?
-   'Importera '+commands.length+' säkra '+(object?'objekt':'fastighetsändringar')+
-   ' från '+session.fileName+'? Osäkra uppgifter hoppas över.':
-   (object?'Objekten finns redan. Markera objektsteget som klart utan att skriva några ändringar?':
-    'Fastigheterna finns redan. Fortsätta till objekt utan att skriva några ändringar?');
+   'Importera '+commands.length+' säkra '+label+' från '+session.fileName+
+   '? Osäkra uppgifter hoppas över.':
+   'Inga nya säkra '+label+' hittades. Markera steget som genomgånget och fortsätt?';
   if(!window.confirm(question))return;
   if(!commands.length){
    onSaved({stage,saved:0,failed:[],issues:plan.issues.length,
-    objectLinks:object?plan.objectLinks:{}});
+    objectLinks:stage==='objects'?plan.objectLinks:{}});
    return;
   }
-  saving=true;
-  const approved=plan;draw();
+  saving=true;draw();
   try{
-   const result=await persist(commands);
+   const result=await persist(units);
    if(result.saved){
     const links={};
-    if(object)for(const entry of approved.entries){
+    if(stage==='objects')for(const entry of approved.entries){
      if(!entry.id||!entry.agreementNumbers?.length)continue;
      if(entry.status!=='existing'&&!result.savedCommands.some(c=>c.id===entry.id))continue;
      for(const agreement of entry.agreementNumbers)
       links[entry.propertyId+'|'+String(agreement).trim().toLocaleLowerCase('sv').replace(/\s+/g,' ')]=entry.id;
     }
-    onSaved({stage,saved:result.saved,failed:result.failed,issues:approved.issues.length,objectLinks:links});
+    onSaved({stage,saved:result.saved,failed:result.failed,issues:approved.issues.length,
+     objectLinks:links});
     return;
    }
    preview.insertAdjacentHTML('afterbegin','<p class="error-text" role="alert">Inga ändringar kunde sparas. '+
     esc(result.failed[0]?.message||'Kontrollera uppgifterna.')+'</p>');
   }catch(error){
    if(error.saved){
-    onSaved({stage,saved:error.saved,failed:[...error.failed,{message:error.message}],
+    onSaved({stage,saved:error.saved,failed:[...(error.failed||[]),{message:error.message}],
      issues:approved.issues.length,objectLinks:{}});
     return;
    }
