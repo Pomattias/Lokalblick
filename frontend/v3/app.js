@@ -12,7 +12,7 @@ const viewNames={properties:'Fastigheter',objects:'Objekt',agreements:'Avtal',pa
 const itemNames={properties:'fastighet',objects:'objekt',agreements:'avtal',parties:'part',people:'person',...moreItems};
 const dateToday=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Stockholm'});
 const roles={owner:'Fastighetsägare',owner_contact:'Fastighetsägarens kontakt',coordinator:'Lokalsamordnare',tenant:'Hyresgäst',tenant_contact:'Hyresgästens kontakt',asset_manager:'Förvaltare',project_manager:'Projektledare',contractor:'Entreprenör',consultant:'Konsult',supplier:'Leverantör',invoice_recipient:'Fakturamottagare'};
-const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:'',rentEditId:null,showHistory:false,importProgress:null};
+const state={view:'overview',id:'overview',snapshot:null,asOf:dateToday,mode:null,search:'',rentEditId:null,showHistory:false,importSession:{book:[],selected:[],fileName:'',stage:'properties',propertiesDone:false,objectsDone:false,objectLinks:{}}};
 const registerItems=()=>state.snapshot?moreRecords(state.view,state.snapshot).filter(r=>isVisibleAt(state.view,r,state.asOf,state.showHistory)):[];
 $('#as-of').value=state.asOf;
 async function api(body=null){
@@ -85,16 +85,22 @@ function renderDetail(){
   if(state.view==='budgets')mountBudgetIndex(panel,row,state.snapshot);
   if(state.view==='sources'){
    mountPropertyImport(panel,{
-    snapshot:state.snapshot,completed:state.importProgress,
+    snapshot:state.snapshot,session:state.importSession,
     apply:async commands=>{
-     // Keep the file and preview mounted while separate safe batches are saved.
+     // Reuse the current workbook; refresh the snapshot after each successful batch.
      state.snapshot=await api({version:state.snapshot.version,asOf:state.asOf,commands});
     },
     onSaved:outcome=>{
-     state.importProgress=outcome;
+     const session=state.importSession;
+     if(outcome.stage==='properties'){
+      session.propertiesDone=true;session.stage='choose-objects';session.propertyResult=outcome;
+     }else if(outcome.stage==='objects'){
+      session.objectsDone=true;session.stage='objects-done';session.objectResult=outcome;
+      Object.assign(session.objectLinks,outcome.objectLinks||{});
+     }
      render();
-     notify(outcome.saved+' säkra fastighetsändringar importerade.'+
-      (outcome.failed.length?' '+outcome.failed.length+' behöver kontrolleras.':''));
+     notify(outcome.saved+' säkra '+(outcome.stage==='objects'?'objekt':'fastighets')+
+      'ändringar importerade.'+(outcome.failed.length?' '+outcome.failed.length+' behöver kontrolleras.':''));
     }
    });
    // The previous import remains accessible while the guided remaining steps

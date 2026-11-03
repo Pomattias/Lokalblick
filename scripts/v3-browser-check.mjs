@@ -98,7 +98,8 @@ try{
  assert.match(await page.locator('.property-import-steps').innerText(),/Hyresgäster/);
  const guidedCsv=Buffer.from(
   'Fastighetsnummer;Fastighetsnamn;Adress;Ort;Avtalsnummer\n'+
-  'G100;Guided property;Hamngatan 100;Malmö;"A-1; A-2"\n','utf8');
+  'G100;Guided property;Hamngatan 100;Malmö;"A-1; A-2"\n'+
+  'G101;Guided property 2;Hamngatan 101;Malmö;A-3\n','utf8');
  await page.locator('[data-property-file]').setInputFiles({name:'stegvis.csv',mimeType:'text/csv',buffer:guidedCsv});
  assert.match(await page.locator('.property-import-issues').innerText(),/flera avtalsnummer i samma cell/);
  assert.equal(await page.locator('[data-property-save]').isEnabled(),true);
@@ -108,6 +109,36 @@ try{
  const guidedSnapshot=await (await fetch(origin+'/api/v3/core')).json();
  assert(guidedSnapshot.properties.some(p=>p.management_object_number==='G100'));
  assert.equal(guidedSnapshot.agreements.some(a=>a.agreement_number==='A-1'),false);
+ assert.equal(guidedSnapshot.objects.length,1,'Previously created manual object remains');
+ assert.equal(await page.locator('[data-continue-objects]').isVisible(),true);
+ assert.equal(await page.locator('[data-new-object-file]').isVisible(),true);
+ await page.locator('[data-continue-objects]').click();
+ assert.match(await page.locator('[data-property-preview]').innerText(),/G101-001/);
+ assert.match(await page.locator('[data-property-preview]').innerText(),/Objektsnummer går att ändra i efterhand/);
+ assert.equal(await page.locator('[data-object-save]').isEnabled(),true);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-object-save]').click();
+ await page.locator('.property-import-done').getByText(/Objekt – klart/).waitFor();
+ const afterObjects=await (await fetch(origin+'/api/v3/core')).json();
+ assert.equal(afterObjects.objects.some(o=>o.object_number==='G101-001'),true);
+ assert.equal(afterObjects.agreements.some(a=>a.agreement_number==='A-3'),false);
+ // New file can be chosen for the object step without importing properties twice.
+ await page.reload();
+ await go('sources');
+ const propertyOnlyCsv=Buffer.from('Fastighetsnummer;Fastighetsnamn;Adress;Ort\nG102;Ny fil-fastighet;Ny väg 102;Malmö\n','utf8');
+ await page.locator('[data-property-file]').setInputFiles({name:'fastigheter.csv',mimeType:'text/csv',buffer:propertyOnlyCsv});
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-property-save]').click();
+ await page.locator('.property-import-done').waitFor();
+ await page.locator('[data-new-object-file]').click();
+ const objectFile=Buffer.from('Fastighetsnummer;Avtalsnummer;Startdatum;Yta\nG102;AV-102;2022-01-01;70\n','utf8');
+ await page.locator('[data-property-file]').setInputFiles({name:'objekt.csv',mimeType:'text/csv',buffer:objectFile});
+ assert.match(await page.locator('[data-property-preview]').innerText(),/G102-001/);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-object-save]').click();
+ await page.locator('.property-import-done').getByText(/Objekt – klart/).waitFor();
+ const afterNewFile=await (await fetch(origin+'/api/v3/core')).json();
+ assert(afterNewFile.objects.some(o=>o.object_number==='G102-001'));
  // Legacy features stay available under an explicit advanced disclosure.
  await go('sources');
  await page.locator('[data-old-import-toggle]').click();

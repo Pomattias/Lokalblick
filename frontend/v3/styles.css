@@ -238,3 +238,13 @@ main{padding:21px 24px 32px}
 .import-compat{margin-top:19px;padding-top:12px;border-top:1px solid var(--line)}
 .import-compat>summary{cursor:pointer;font-size:11px;font-weight:650;color:var(--sub)}
 .import-compat[open]>summary{margin-bottom:12px}
+
+/* Import step continuation: keep the existing file and offer an obvious alternative. */
+.property-import-choice{padding:13px 14px;margin:12px 0;border:1px solid var(--line);border-radius:9px;background:#fafcfb}
+.property-import-choice>strong{font-size:13px}
+.property-import-choice p{margin:6px 0 12px}
+.property-import-choice-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.property-import-choice-buttons button{white-space:normal}
+.property-import-source-name{padding:7px 10px;border:1px solid var(--line);border-radius:7px;overflow-wrap:anywhere;background:#f8faf9}
+.property-import-notice{padding:11px 13px;border:1px solid #afcec2;background:#eef6f2;border-radius:8px;margin:11px 0;line-height:1.55}
+@media(max-width:580px){.property-import-choice-buttons{display:grid}.property-import-choice-buttons button{width:100%}}
