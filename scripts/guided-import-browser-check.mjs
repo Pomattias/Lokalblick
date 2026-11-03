@@ -84,7 +84,7 @@ try{
  const contractsTable=page.locator('table[data-list-key="contracts"]');
  await contractsTable.waitFor();
  const headings=await contractsTable.locator('thead tr:first-child th').allInnerTexts();
- assert(headings.some(h=>/Verksamhet$/.test(h.trim())));
+ assert(headings.some(h=>/^Verksamhet(?:\s|$)/.test(h.trim())));
  assert(headings.some(h=>/Verksamhetsbeskrivning/.test(h)));
  assert(headings.some(h=>/Fastighetsnr/.test(h)));
  assert.equal(data.issues.length,0);
