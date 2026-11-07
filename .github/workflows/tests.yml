@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [utveckling]
 
+# Avbryt äldre körningar för samma gren/PR vid täta uppdateringar.
+# Den senaste commiten testas fortfarande med båda jobben nedan.
+concurrency:
+  group: lokalblick-checks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
